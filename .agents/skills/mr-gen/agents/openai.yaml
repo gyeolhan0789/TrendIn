@@ -1,0 +1,4 @@
+interface:
+  display_name: "MR 작성"
+  short_description: "브랜치 변경사항을 분석해 GitLab MR 제목과 본문을 작성하고 반영합니다"
+  default_prompt: "Use $mr-gen to generate or update the GitLab merge request for the current branch."
