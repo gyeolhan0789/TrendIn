@@ -4,12 +4,16 @@ services:
   postgres:
     image: postgres:17-bookworm
     restart: unless-stopped
+    environment:
+      POSTGRES_DB: forever102
+      POSTGRES_USER: ssafy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - shared
-    # S15P21A102-73: credentials and loopback-only port publishing.
-    # Deployment requires the credentials configuration from issue 73.
 
 volumes:
   postgres_data:
