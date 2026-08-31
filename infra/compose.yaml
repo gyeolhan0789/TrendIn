@@ -1,0 +1,16 @@
+name: s15p21a102-infra
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    networks:
+      - shared
+    # S15P21A102-71: named volume and database initialization.
+    # S15P21A102-73: credentials and loopback-only port publishing.
+    # This skeleton is not ready for deployment until those issues are complete.
+
+networks:
+  shared:
+    name: s15p21a102-shared
+    driver: bridge
