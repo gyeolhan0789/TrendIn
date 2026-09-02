@@ -7,6 +7,7 @@ import { Skeleton } from '../../components/common/Skeleton';
 import { useTrendAnalysis } from '../../features/trend/hooks/useTrendAnalysis';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useRelatedKeywords } from '../../features/trend/hooks/useRelatedKeywords';
+import { useRelatedContents } from '../../features/trend/hooks/useRelatedContents';
 
 const exampleBars = [18, 23, 19, 30, 28, 36, 32, 42, 45, 41, 57, 63, 69, 86];
 const periodLabels: Record<string, string> = { '24h': '24시간', '7d': '7일', '30d': '30일' };
@@ -26,6 +27,7 @@ export function TrendDetailPage() {
   const detailQuery = useTrendDetail(trendId);
   const analysisQuery = useTrendAnalysis(trendId);
   const keywordsQuery = useRelatedKeywords(trendId);
+  const contentsQuery = useRelatedContents(trendId);
 
   const closeDrawer = useCallback(() => {
     if (isClosingRef.current) return;
@@ -95,6 +97,13 @@ export function TrendDetailPage() {
           {keywordsQuery.isError && <ErrorState onRetry={() => keywordsQuery.refetch()} />}
           {keywordsQuery.data?.length === 0 && <EmptyState />}
           {keywordsQuery.data && keywordsQuery.data.length > 0 && <div className="keyword-list">{keywordsQuery.data.map((keyword) => <span className="keyword-chip" key={keyword.keywordId ?? keyword.keyword}>{keyword.keyword}</span>)}</div>}
+        </section>
+        <section className="evidence-section">
+          <div className="detail-section-heading"><h3>트렌드의 근거</h3><span>관련 콘텐츠</span></div>
+          {contentsQuery.isLoading && <Skeleton count={2} />}
+          {contentsQuery.isError && <ErrorState onRetry={() => contentsQuery.refetch()} />}
+          {contentsQuery.data?.length === 0 && <EmptyState />}
+          {contentsQuery.data && contentsQuery.data.length > 0 && <ul>{contentsQuery.data.map((content) => <li key={content.contentId}><a href={content.url}><strong>{content.title}</strong><span>{content.source ?? '출처 미정'} · {content.publishedAt ?? '게시일 미정'}</span></a></li>)}</ul>}
         </section>
       </>
     );
