@@ -66,6 +66,10 @@ export function TrendDetailPage() {
         <div className="detail-title-row"><h2 className="detail-title">{trend.keyword}</h2></div>
         <p className="detail-sub">{trend.description ?? '트렌드 설명이 준비 중입니다.'}</p>
         <p className="detail-period">최근 {periodLabels[period] ?? period} 기준</p>
+        <div className="detail-stats">
+          <div><span>언급량 · 최근 {periodLabels[period] ?? period}</span><strong>{trend.mentionCount.toLocaleString()}<small>건</small></strong></div>
+          <div><span>이전 기간 대비</span><strong className="accent">+{trend.growthRate}%</strong></div>
+        </div>
       </>
     );
   }
