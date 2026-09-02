@@ -4,6 +4,7 @@ import { HomePage } from '../HomePage/HomePage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
+import { useTrendAnalysis } from '../../features/trend/hooks/useTrendAnalysis';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 
 const exampleBars = [18, 23, 19, 30, 28, 36, 32, 42, 45, 41, 57, 63, 69, 86];
@@ -22,6 +23,7 @@ export function TrendDetailPage() {
   const isClosingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const detailQuery = useTrendDetail(trendId);
+  const analysisQuery = useTrendAnalysis(trendId);
 
   const closeDrawer = useCallback(() => {
     if (isClosingRef.current) return;
@@ -77,6 +79,13 @@ export function TrendDetailPage() {
             {exampleBars.map((value, index) => <div className="detail-bar-track" key={index}><span style={{ height: `${value}%` }}><b>{value}</b></span></div>)}
           </div>
           <div className="chart-axis"><span>구간 시작</span><span>구간 종료</span></div>
+        </section>
+        <section className="detail-summary">
+          <p className="eyebrow">↗ CONTEXT, NOT JUST NUMBERS</p>
+          <h3>왜 눈여겨볼까요?</h3>
+          {analysisQuery.isLoading && <Skeleton count={2} />}
+          {analysisQuery.isError && <ErrorState onRetry={() => analysisQuery.refetch()} />}
+          {analysisQuery.data && <p><strong>{trend.keyword}</strong> — {analysisQuery.data.description}</p>}
         </section>
       </>
     );
