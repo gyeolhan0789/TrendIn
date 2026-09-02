@@ -6,6 +6,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 
+const exampleBars = [18, 23, 19, 30, 28, 36, 32, 42, 45, 41, 57, 63, 69, 86];
 const periodLabels: Record<string, string> = { '24h': '24시간', '7d': '7일', '30d': '30일' };
 
 export function TrendDetailPage() {
@@ -70,6 +71,13 @@ export function TrendDetailPage() {
           <div><span>언급량 · 최근 {periodLabels[period] ?? period}</span><strong>{trend.mentionCount.toLocaleString()}<small>건</small></strong></div>
           <div><span>이전 기간 대비</span><strong className="accent">+{trend.growthRate}%</strong></div>
         </div>
+        <section className="detail-chart-section">
+          <div className="detail-section-heading"><h3>관심의 움직임</h3><span>최근 {periodLabels[period] ?? period} · 상대 언급 지수</span></div>
+          <div className="detail-chart" role="img" aria-label={`${trend.keyword} 언급 지수`}>
+            {exampleBars.map((value, index) => <div className="detail-bar-track" key={index}><span style={{ height: `${value}%` }}><b>{value}</b></span></div>)}
+          </div>
+          <div className="chart-axis"><span>구간 시작</span><span>구간 종료</span></div>
+        </section>
       </>
     );
   }
