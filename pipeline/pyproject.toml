@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trendin-pipeline"
+version = "0.1.0"
+description = "TrendIn Airflow 파이프라인 — 패션·개발 트렌드 수집·분석"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# 버전은 Airflow constraints 가 고정한다 (Dockerfile · scripts/dev-setup.sh). 여기엔 이름만 적는다.
+dependencies = [
+  "apache-airflow==3.3.1",
+  "apache-airflow-providers-standard",
+  "apache-airflow-providers-postgres",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["logs"]
+
+[tool.ruff.lint]
+# AIR: Airflow 3 마이그레이션 규칙(깨진 import 탐지). E/F/I: 기본 오류·미사용·import 정렬.
+select = ["E", "F", "I", "AIR"]
