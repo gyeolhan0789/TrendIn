@@ -2,7 +2,7 @@ package com.forever102.backend.global.exception;
 
 import java.util.Optional;
 
-import com.forever102.backend.global.dto.ErrorResponse;
+import com.forever102.backend.global.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.ResponseEntity;

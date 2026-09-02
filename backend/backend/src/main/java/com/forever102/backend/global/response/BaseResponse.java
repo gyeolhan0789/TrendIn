@@ -1,4 +1,4 @@
-package com.forever102.backend.global.dto;
+package com.forever102.backend.global.response;
 
 import lombok.Builder;
 
