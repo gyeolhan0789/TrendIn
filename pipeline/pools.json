@@ -1,0 +1,6 @@
+{
+  "crawler_pool": {
+    "slots": 10,
+    "description": "외부 사이트 수집 태스크. 사이트별 속도 제한은 pool 이 아니라 수집기 안에서 한다."
+  }
+}
