@@ -6,6 +6,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
 import { useTrendAnalysis } from '../../features/trend/hooks/useTrendAnalysis';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
+import { useRelatedKeywords } from '../../features/trend/hooks/useRelatedKeywords';
 
 const exampleBars = [18, 23, 19, 30, 28, 36, 32, 42, 45, 41, 57, 63, 69, 86];
 const periodLabels: Record<string, string> = { '24h': '24시간', '7d': '7일', '30d': '30일' };
@@ -24,6 +25,7 @@ export function TrendDetailPage() {
   const [isClosing, setIsClosing] = useState(false);
   const detailQuery = useTrendDetail(trendId);
   const analysisQuery = useTrendAnalysis(trendId);
+  const keywordsQuery = useRelatedKeywords(trendId);
 
   const closeDrawer = useCallback(() => {
     if (isClosingRef.current) return;
@@ -86,6 +88,13 @@ export function TrendDetailPage() {
           {analysisQuery.isLoading && <Skeleton count={2} />}
           {analysisQuery.isError && <ErrorState onRetry={() => analysisQuery.refetch()} />}
           {analysisQuery.data && <p><strong>{trend.keyword}</strong> — {analysisQuery.data.description}</p>}
+        </section>
+        <section className="detail-related">
+          <h3>함께 살펴볼 키워드</h3>
+          {keywordsQuery.isLoading && <Skeleton count={2} />}
+          {keywordsQuery.isError && <ErrorState onRetry={() => keywordsQuery.refetch()} />}
+          {keywordsQuery.data?.length === 0 && <EmptyState />}
+          {keywordsQuery.data && keywordsQuery.data.length > 0 && <div className="keyword-list">{keywordsQuery.data.map((keyword) => <span className="keyword-chip" key={keyword.keywordId ?? keyword.keyword}>{keyword.keyword}</span>)}</div>}
         </section>
       </>
     );
