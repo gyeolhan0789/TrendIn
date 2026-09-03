@@ -39,6 +39,7 @@ class ErrorCodeTest {
     static Stream<Arguments> errorCodeAndStatus() {
         return Stream.of(
                 Arguments.of(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST),
+                Arguments.of(ErrorCode.EMAIL_ALREADY_EXISTS, HttpStatus.CONFLICT),
                 Arguments.of(ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR)
         );
     }
@@ -46,6 +47,7 @@ class ErrorCodeTest {
     static Stream<Arguments> errorCodeAndMessage() {
         return Stream.of(
                 Arguments.of(ErrorCode.VALIDATION_ERROR, "입력값이 올바르지 않습니다."),
+                Arguments.of(ErrorCode.EMAIL_ALREADY_EXISTS, "이미 가입된 이메일입니다."),
                 Arguments.of(ErrorCode.INTERNAL_SERVER_ERROR, "서버에 오류가 발생했습니다.")
         );
     }

@@ -1,0 +1,39 @@
+= Selah API 문서
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 2
+:sectlinks:
+:sectnums:
+
+[[auth]]
+== Auth
+
+[[auth-signup]]
+=== 회원가입
+
+이메일·비밀번호로 계정을 생성한다.
+가입 직후에는 온보딩이 완료되지 않은 상태이며, 관심 분야를 최소 1개 선택해야 온보딩이 완료된다.
+
+==== 요청
+
+operation::auth-signup[snippets='http-request,request-fields']
+
+==== 응답
+
+operation::auth-signup[snippets='http-response,response-fields']
+
+==== 에러
+
+===== 400 Bad Request
+
+요청 값이 형식·필수값·범위 검증을 통과하지 못한 경우.
+
+operation::auth-signup-invalid-request[snippets='http-response,response-fields']
+
+===== 409 Conflict
+
+이미 가입된 이메일인 경우.
+
+operation::auth-signup-email-already-exists[snippets='http-response,response-fields']
