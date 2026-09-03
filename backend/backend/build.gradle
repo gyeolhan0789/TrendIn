@@ -57,20 +57,16 @@ dependencies {
 	runtimeOnly 'com.h2database:h2'
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
-	outputs.dir snippetsDir
+tasks.register('copyDocs', Copy) {
+	dependsOn tasks.named('asciidoctor')
+	from(tasks.named('asciidoctor').map { it.outputDir })
+	into layout.projectDirectory.dir('src/main/resources/static/docs')
 }
 
-tasks.named('asciidoctor') {
-	inputs.dir snippetsDir
-	configurations 'asciidoctorExt'
-	dependsOn tasks.named('test')
+tasks.named('processResources') {
+	dependsOn tasks.named('copyDocs')
 }
 
 tasks.named('bootJar') {
-	dependsOn tasks.named('asciidoctor')
-	from(tasks.named('asciidoctor').map { it.outputDir }) {
-		into 'static/docs'
-	}
+	dependsOn tasks.named('copyDocs')
 }
