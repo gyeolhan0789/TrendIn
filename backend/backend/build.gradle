@@ -63,10 +63,26 @@ tasks.register('copyDocs', Copy) {
 	into layout.projectDirectory.dir('src/main/resources/static/docs')
 }
 
+tasks.named('test') {
+	useJUnitPlatform()
+	outputs.dir snippetsDir
+}
+
+tasks.named('asciidoctor') {
+	dependsOn tasks.named('test')
+	configurations 'asciidoctorExt'
+	inputs.dir snippetsDir
+	attributes 'snippets': snippetsDir.get().asFile
+}
+
 tasks.named('processResources') {
-	dependsOn tasks.named('copyDocs')
+	// bootJar에 테스트로 생성한 최신 문서를 직접 포함한다.
+	exclude 'static/docs/**'
 }
 
 tasks.named('bootJar') {
-	dependsOn tasks.named('copyDocs')
+	dependsOn tasks.named('asciidoctor')
+	from(tasks.named('asciidoctor').map { it.outputDir }) {
+		into 'BOOT-INF/classes/static/docs'
+	}
 }

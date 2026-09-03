@@ -37,3 +37,55 @@ operation::auth-signup-invalid-request[snippets='http-response,response-fields']
 이미 가입된 이메일인 경우.
 
 operation::auth-signup-email-already-exists[snippets='http-response,response-fields']
+
+[[trends]]
+== Trends
+
+[[trends-detail]]
+=== 트렌드 상세 조회
+
+`GET /trends/{trendId}`
+
+기간 파라미터는 사용하지 않는다. 상세 지표는 저장된 최신 24H 분석 결과를 사용한다.
+분석 시각(`analyzedAt`)이 같으면 더 큰 분석 ID를 선택한다.
+`description`은 트렌드의 짧은 설명이고, `aiAnalysis.summary`는 관련 콘텐츠에서 생성한 별도의 AI 요약이다.
+분야는 기존 회원 도메인의 `DEVELOP`, `FASHION` 코드를 사용하며 중분류는 없다.
+
+==== 요청
+
+operation::trends-detail[snippets='http-request,request-headers,path-parameters']
+
+==== 200 OK
+
+operation::trends-detail[snippets='http-response,response-fields']
+
+증가량은 최근 24H 언급량에서 직전 24H 언급량을 뺀 값이다.
+증가율은 `(증가량 / 직전 언급량) × 100`을 소수 둘째 자리에서 반올림하여 소수 첫째 자리까지 표시한다.
+직전 언급량이 0이면 `growthRate`는 `null`이다.
+시각은 오프셋을 포함하는 ISO 8601이며 분석 구간은 시작 포함, 종료 제외이다.
+
+==== 200 OK — 24H 분석 없음
+
+트렌드가 존재하면 기본 정보를 반환한다.
+`trendType`, 언급량·증가량·증가율, `analysisWindow`, `analyzedAt`, `evidence`, `aiAnalysis`는 모두 명시적인 `null`이다.
+이는 실제 언급량이 0인 분석과 구분된다. 성공 응답의 `message`도 기존 계약대로 `null`이다.
+분석이 있더라도 판정 근거나 AI 결과를 아직 저장하지 않았다면 각각 `null`이며, 예시 데이터를 생성하지 않는다.
+
+operation::trends-detail-no-analysis[snippets='http-response,response-fields']
+
+==== 400 Bad Request — 잘못된 ID
+
+트렌드 ID가 양의 정수가 아니거나 Long 범위를 벗어나면 반환한다.
+
+operation::trends-detail-invalid-id[snippets='http-response,response-fields']
+
+==== 404 Not Found — 트렌드 없음
+
+operation::trends-detail-not-found[snippets='http-response,response-fields']
+
+==== 인증 연동
+
+인증이 필요한 API이며, 서비스는 로그인 사용자 정보를 사용하지 않는다.
+문서 테스트는 Spring Security의 테스트용 인증 컨텍스트를 사용한다. 예시 Bearer 헤더로 실제 JWT 검증이 구현되는 것은 아니다.
+현재 공통 보안 설정은 비인증 요청에 403을 반환한다. 명세의 401 응답과 실제 토큰 검증은 인증팀의 공통 인증 구현에 의존한다.
+이 API 작업에서는 회원·인증·Security·JWT 코드를 변경하지 않는다.
