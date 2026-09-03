@@ -8,9 +8,10 @@ export function useDeleteSavedTrend() {
 
   return useMutation({
     mutationFn: deleteSavedTrend,
-    onSuccess: () => {
+    onSuccess: (_data, trendId) => {
       showToast({ message: '저장한 트렌드를 삭제했습니다.', type: 'success' });
-      queryClient.invalidateQueries({ queryKey: queryKeys.savedTrends.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedTrends.all, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: queryKeys.trends.detail(trendId) });
     },
     onError: () => showToast({ message: '저장한 트렌드 삭제에 실패했습니다.', type: 'error' }),
   });

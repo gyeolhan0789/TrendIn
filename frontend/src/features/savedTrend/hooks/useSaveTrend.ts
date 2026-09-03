@@ -10,7 +10,7 @@ export function useSaveTrend() {
     mutationFn: saveTrend,
     onSuccess: (_savedTrend, trendId) => {
       showToast({ message: '트렌드를 저장했습니다.', type: 'success' });
-      queryClient.invalidateQueries({ queryKey: queryKeys.savedTrends.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedTrends.all, refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: queryKeys.trends.detail(trendId) });
     },
     onError: () => showToast({ message: '트렌드 저장에 실패했습니다.', type: 'error' }),
