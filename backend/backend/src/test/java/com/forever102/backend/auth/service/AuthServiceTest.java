@@ -47,7 +47,7 @@ class AuthServiceTest {
     @DisplayName("가입에 성공하면 저장된 회원 정보를 응답으로 반환한다")
     void signUpReturnsSavedMember() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(false);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
         given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
         given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> {
             Member member = invocation.getArgument(0);
@@ -66,7 +66,7 @@ class AuthServiceTest {
     @DisplayName("비밀번호는 원문이 아닌 해시로 저장된다")
     void signUpStoresHashedPassword() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(false);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
         given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
         given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -83,7 +83,7 @@ class AuthServiceTest {
     @DisplayName("가입 직후 회원의 온보딩은 미완료 상태다")
     void signUpLeavesOnboardingIncomplete() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(false);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
         given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
         given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -98,7 +98,7 @@ class AuthServiceTest {
     @DisplayName("이미 가입된 이메일이면 EMAIL_ALREADY_EXISTS 예외가 발생한다")
     void signUpRejectsDuplicatedEmail() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(true);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(true);
 
         // when & then
         assertThatThrownBy(() -> authService.signUp(signUpRequest()))
@@ -110,7 +110,7 @@ class AuthServiceTest {
     @DisplayName("이미 가입된 이메일이면 회원을 저장하지 않는다")
     void signUpDoesNotSaveDuplicatedEmail() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(true);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(true);
 
         // when
         catchThrowable(() -> authService.signUp(signUpRequest()));
@@ -123,7 +123,7 @@ class AuthServiceTest {
     @DisplayName("동시 가입으로 이메일 유니크 제약을 위반하면 EMAIL_ALREADY_EXISTS 예외가 발생한다")
     void signUpTranslatesUniqueViolation() {
         // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(false);
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
         given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
         willThrow(new DataIntegrityViolationException("duplicate key"))
                 .given(memberRepository).saveAndFlush(any(Member.class));
@@ -132,21 +132,6 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.signUp(signUpRequest()))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_ALREADY_EXISTS);
-    }
-
-    @Test
-    @DisplayName("중복 검사는 탈퇴하지 않은 회원만을 대상으로 한다")
-    void signUpChecksOnlyActiveMembers() {
-        // given
-        given(memberRepository.existsByEmailAndDeletedAtIsNull(EMAIL)).willReturn(false);
-        given(passwordEncoder.encode(PASSWORD)).willReturn(ENCODED_PASSWORD);
-        given(memberRepository.saveAndFlush(any(Member.class))).willAnswer(invocation -> invocation.getArgument(0));
-
-        // when
-        authService.signUp(signUpRequest());
-
-        // then
-        then(memberRepository).should().existsByEmailAndDeletedAtIsNull(EMAIL);
     }
 
     private SignUpRequest signUpRequest() {

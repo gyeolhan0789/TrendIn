@@ -21,7 +21,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     public SignUpResponse signUp(SignUpRequest request) {
-        if (memberRepository.existsByEmailAndDeletedAtIsNull(request.email())) {
+        if (memberRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
 

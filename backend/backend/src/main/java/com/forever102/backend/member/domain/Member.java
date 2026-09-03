@@ -7,7 +7,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.OffsetDateTime;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -26,7 +25,7 @@ public class Member extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     private String passwordHash;
@@ -37,8 +36,6 @@ public class Member extends BaseEntity {
     @Column(nullable = false)
     @ColumnDefault("false")
     private boolean onboardingCompleted;
-
-    private OffsetDateTime deletedAt;
 
     private Member(String email, String passwordHash, String nickname) {
         this.email = email;
@@ -57,13 +54,5 @@ public class Member extends BaseEntity {
 
     public void completeOnboarding() {
         this.onboardingCompleted = true;
-    }
-
-    public void delete(OffsetDateTime deletedAt) {
-        this.deletedAt = deletedAt;
-    }
-
-    public boolean isDeleted() {
-        return deletedAt != null;
     }
 }
