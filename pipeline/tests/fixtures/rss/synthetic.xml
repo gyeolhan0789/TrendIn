@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  손으로 만든 경계 케이스. 실측 5소스가 모두 같은 값이라 검증되지 않는 열과, 실측으로는
+  안 나오는 실패를 여기서 만든다.
+
+  - item 1: guid 가 `?post=`, 저자가 <author>, description 이 HTML  → 갈리는 열 3종
+  - item 2: guid 에 쿼리가 없다                                     → 발견 단계 실패
+  - item 3: guid 의 값이 숫자가 아니다                              → 발견 단계 실패
+  - item 4: pubDate 가 없다                                        → 정규화 단계 실패
+  - item 5: 선언 없는 prefix(media:) + 추적 파라미터가 붙은 link
+-->
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel>
+	<title>합성 피드</title>
+	<link>https://example.test/</link>
+	<item>
+		<title><![CDATA[다른 열을 쓰는 소스]]></title>
+		<link>https://example.test/2026/09/other-shape/</link>
+		<pubDate>Thu, 03 Sep 2026 02:30:22 +0000</pubDate>
+		<guid isPermaLink="false">https://example.test/?post=705465</guid>
+		<author>편집부</author>
+		<description><![CDATA[<p>요약 자리에 본문이 들어왔다</p>]]></description>
+		<category><![CDATA[fashion]]></category>
+		<content:encoded><![CDATA[<p>첫 문단.</p><figure><img src="https://example.test/a.jpg"/><figcaption>Getty Images</figcaption></figure><script>alert(1)</script><p>둘째 문단.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title><![CDATA[guid 에 쿼리가 없다]]></title>
+		<link>https://example.test/2026/09/no-query/</link>
+		<pubDate>Thu, 03 Sep 2026 02:31:00 +0000</pubDate>
+		<guid isPermaLink="true">https://example.test/2026/09/no-query/</guid>
+		<content:encoded><![CDATA[<p>본문.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title><![CDATA[guid 값이 숫자가 아니다]]></title>
+		<link>https://example.test/2026/09/not-a-number/</link>
+		<pubDate>Thu, 03 Sep 2026 02:32:00 +0000</pubDate>
+		<guid isPermaLink="false">https://example.test/?p=abc</guid>
+		<content:encoded><![CDATA[<p>본문.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title><![CDATA[발행일이 없다]]></title>
+		<link>https://example.test/2026/09/no-date/</link>
+		<guid isPermaLink="false">https://example.test/?p=111</guid>
+		<content:encoded><![CDATA[<p>본문.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title><![CDATA[선언 없는 prefix 와 추적 파라미터]]></title>
+		<link>https://example.test/2026/09/tracked/?utm_source=x&amp;utm_medium=y&amp;fbclid=z&amp;keep=1</link>
+		<pubDate>Wed, 02 Sep 2026 23:30:00 +0000</pubDate>
+		<guid isPermaLink="false">https://example.test/?p=222</guid>
+		<description>평문 요약이다</description>
+		<content:encoded><![CDATA[<p>본문.</p>]]></content:encoded>
+		<media:thumbnail url="https://example.test/t.jpg" width="10" height="10" />
+	</item>
+</channel>
+</rss>
