@@ -5,6 +5,13 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -18,14 +25,17 @@ import com.forever102.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.restdocs.test.autoconfigure.AutoConfigureRestDocs;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
+@AutoConfigureRestDocs
 class AuthControllerTest {
 
     private static final String SIGN_UP_URL = "/auth/signup";
@@ -59,7 +69,33 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.memberId").value(1))
                 .andExpect(jsonPath("$.data.email").value("test@example.com"))
                 .andExpect(jsonPath("$.data.nickname").value("trenduser"))
-                .andExpect(jsonPath("$.data.onboardingCompleted").value(false));
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andDo(document("auth-signup",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestFields(
+                                fieldWithPath("email").type(JsonFieldType.STRING)
+                                        .description("이메일. 필수, 이메일 형식, 최대 254자. 앞뒤 공백 제거 후 소문자로 정규화된다."),
+                                fieldWithPath("password").type(JsonFieldType.STRING)
+                                        .description("비밀번호. 필수, 10~128자, 영문·숫자·특수문자를 모두 포함."),
+                                fieldWithPath("nickname").type(JsonFieldType.STRING)
+                                        .description("닉네임. 필수, 앞뒤 공백 제거 후 2~30자.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.memberId").type(JsonFieldType.NUMBER)
+                                        .description("생성된 회원 식별자"),
+                                fieldWithPath("data.email").type(JsonFieldType.STRING)
+                                        .description("정규화되어 저장된 이메일"),
+                                fieldWithPath("data.nickname").type(JsonFieldType.STRING)
+                                        .description("닉네임"),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. 가입 직후에는 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
     }
 
     @Test
@@ -75,7 +111,17 @@ class AuthControllerTest {
                         .content(VALID_REQUEST))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("이미 가입된 이메일입니다."));
+                .andExpect(jsonPath("$.message").value("이미 가입된 이메일입니다."))
+                .andDo(document("auth-signup-email-already-exists",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )
+                ));
     }
 
     @Test
@@ -95,7 +141,17 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("이메일 형식이 올바르지 않습니다."));
+                .andExpect(jsonPath("$.message").value("이메일 형식이 올바르지 않습니다."))
+                .andDo(document("auth-signup-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
     }
 
     @Test
