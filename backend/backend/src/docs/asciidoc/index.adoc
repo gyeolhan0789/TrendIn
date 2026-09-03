@@ -1,4 +1,4 @@
-= Selah API 문서
+= TrendIn API 문서
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs

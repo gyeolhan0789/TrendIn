@@ -1,5 +1,5 @@
 spring:
   application:
-    name: backend
+    name: trendin
   config:
     import: optional:file:.env[.properties]
