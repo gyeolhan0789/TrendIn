@@ -36,8 +36,9 @@ pipeline/
 cd pipeline
 cp .env.example .env
 # AIRFLOW_UID=$(id -u), 비밀번호 둘, AIRFLOW_JWT_SECRET=$(openssl rand -hex 32) 을 채운다
+# TRENDIN_MINIO_ACCESS_KEY·SECRET_KEY 는 datastore/.env 의 MINIO_CRAWLER_* 와 같은 값
 docker compose config --quiet        # 해석 검증
-docker compose up -d --build         # 이미지 빌드 + 다섯 서비스
+docker compose up -d --build         # 이미지 빌드 + 다섯 서비스 (datastore 가 먼저 떠 있어야 한다)
 docker compose ps                    # 전부 healthy 인지
 ```
 
@@ -82,6 +83,21 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 
 `./src` 와 `./dags` 는 컨테이너에 바인드 마운트되어 있다. 파일을 고치면 재빌드 없이 다음 파싱·실행에 반영된다. 이미지를 다시 만드는 때는 의존성이 바뀔 때뿐이다.
 
+## 수집 계층 저장소 (Kafka · MinIO)
+
+이 프로젝트에는 없다. `datastore/compose.yaml` 이 띄우고, 여기는 붙기만 한다.
+접속 정보 · 기동 절차 · 검증 명령은 `datastore/README.md`.
+
+- 네트워크 `s15p21a102-data` 를 external 로 참조한다. **저장소를 먼저 띄워야 이 프로젝트가 뜬다.**
+- Airflow 태스크는 주소를 환경변수로 받는다: `TRENDIN_KAFKA_BOOTSTRAP`, `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY`, `TRENDIN_MINIO_ENDPOINT`, `TRENDIN_MINIO_BUCKET`, `TRENDIN_MINIO_ACCESS_KEY`, `TRENDIN_MINIO_SECRET_KEY`. 코드에 주소를 적지 않는다.
+- `TRENDIN_MINIO_*` 키는 `datastore/.env` 의 `MINIO_CRAWLER_*` 와 같은 값이어야 한다. 쓰기만 되고 삭제는 안 되는 키다.
+
+```sh
+# 데이터 EC2 기동 순서 — 저장소가 먼저다
+docker compose -f datastore/compose.yaml up -d
+docker compose -f pipeline/compose.yaml up -d
+```
+
 ## 배포 시 바뀌는 것
 
 코드는 같고 `.env` 만 다르다.
@@ -92,4 +108,4 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 
 ## 지금 없는 것
 
-triggerer(deferrable), Celery·Redis, MinIO, CI, slim 이미지, `uv.lock`. 각각 넣을 조건은 Jira `S15P21A102-146` 에 걸린 설계 문서에 있다.
+triggerer(deferrable), Celery·Redis, CI, slim 이미지, `uv.lock`. Kafka·MinIO 는 `datastore/` 로 나갔다. 각각 넣을 조건은 Jira `S15P21A102-146` 에 걸린 설계 문서에 있다.

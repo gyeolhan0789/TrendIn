@@ -1,0 +1,6 @@
+# 컨테이너 안에서 도는 파일은 항상 LF 로 체크아웃한다.
+# Windows 작업자의 core.autocrlf=true 가 CRLF 를 넣으면 셸이 `#!/bin/sh\r` 을 못 읽는다.
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+.env.example text eol=lf
