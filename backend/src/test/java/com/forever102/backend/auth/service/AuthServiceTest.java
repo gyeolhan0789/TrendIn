@@ -9,12 +9,19 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
+import com.forever102.backend.auth.dto.LoginRequest;
+import com.forever102.backend.auth.dto.LoginResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
+import com.forever102.backend.auth.jwt.AuthTokens;
+import com.forever102.backend.auth.jwt.JwtTokenProvider;
+import com.forever102.backend.auth.repository.RefreshTokenRepository;
 import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import com.forever102.backend.member.domain.Member;
 import com.forever102.backend.member.repository.MemberRepository;
+import java.time.Duration;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,12 +40,21 @@ class AuthServiceTest {
     private static final String PASSWORD = "password123!";
     private static final String NICKNAME = "trenduser";
     private static final String ENCODED_PASSWORD = "{bcrypt}$2a$10$encoded";
+    private static final Long MEMBER_ID = 1L;
+    private static final AuthTokens TOKENS =
+            new AuthTokens("access-token", "refresh-token", 900L, 1_209_600L);
 
     @Mock
     private MemberRepository memberRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -132,6 +148,120 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.signUp(signUpRequest()))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_ALREADY_EXISTS);
+    }
+
+    @Test
+    @DisplayName("이메일과 비밀번호가 일치하면 액세스·리프레시 토큰을 발급한다")
+    void loginIssuesTokens() {
+        // given
+        givenRegisteredMember();
+        given(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).willReturn(true);
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(TOKENS);
+
+        // when
+        LoginResponse response = authService.login(loginRequest());
+
+        // then
+        assertThat(response).isEqualTo(
+                new LoginResponse("access-token", "refresh-token", "Bearer", 900L, 1_209_600L, false)
+        );
+    }
+
+    @Test
+    @DisplayName("로그인에 성공하면 리프레시 토큰을 만료 시간만큼의 TTL로 저장한다")
+    void loginStoresRefreshToken() {
+        // given
+        givenRegisteredMember();
+        given(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).willReturn(true);
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(TOKENS);
+
+        // when
+        authService.login(loginRequest());
+
+        // then
+        then(refreshTokenRepository).should()
+                .save(MEMBER_ID, "refresh-token", Duration.ofSeconds(1_209_600L));
+    }
+
+    @Test
+    @DisplayName("온보딩을 완료한 회원은 응답의 onboardingCompleted가 true다")
+    void loginReportsOnboardingCompleted() {
+        // given
+        Member member = givenRegisteredMember();
+        member.completeOnboarding();
+        given(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).willReturn(true);
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(TOKENS);
+
+        // when
+        LoginResponse response = authService.login(loginRequest());
+
+        // then
+        assertThat(response.onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("비밀번호가 일치하지 않으면 INVALID_CREDENTIALS 예외가 발생한다")
+    void loginRejectsWrongPassword() {
+        // given
+        givenRegisteredMember();
+        given(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(loginRequest()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 이메일도 비밀번호 불일치와 같은 INVALID_CREDENTIALS 예외로 응답한다")
+    void loginHidesUnknownEmail() {
+        // given
+        given(memberRepository.findByEmail(EMAIL)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(loginRequest()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    @DisplayName("비밀번호가 없는 계정은 비밀번호 대조 없이 INVALID_CREDENTIALS 예외가 발생한다")
+    void loginRejectsMemberWithoutPassword() {
+        // given
+        Member member = Member.create(EMAIL, null, NICKNAME);
+        ReflectionTestUtils.setField(member, "id", MEMBER_ID);
+        given(memberRepository.findByEmail(EMAIL)).willReturn(Optional.of(member));
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(loginRequest()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_CREDENTIALS);
+    }
+
+    @Test
+    @DisplayName("인증에 실패하면 토큰을 발급하거나 저장하지 않는다")
+    void loginDoesNotIssueTokensWhenAuthenticationFails() {
+        // given
+        givenRegisteredMember();
+        given(passwordEncoder.matches(PASSWORD, ENCODED_PASSWORD)).willReturn(false);
+
+        // when
+        catchThrowable(() -> authService.login(loginRequest()));
+
+        // then
+        then(jwtTokenProvider).should(never()).issue(any());
+        then(refreshTokenRepository).should(never()).save(any(), any(), any());
+    }
+
+    private Member givenRegisteredMember() {
+        Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
+        ReflectionTestUtils.setField(member, "id", MEMBER_ID);
+        given(memberRepository.findByEmail(EMAIL)).willReturn(Optional.of(member));
+        return member;
+    }
+
+    private LoginRequest loginRequest() {
+        return new LoginRequest(EMAIL, PASSWORD);
     }
 
     private SignUpRequest signUpRequest() {

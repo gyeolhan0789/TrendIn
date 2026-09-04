@@ -16,6 +16,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.forever102.backend.auth.dto.LoginRequest;
+import com.forever102.backend.auth.dto.LoginResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.service.AuthService;
@@ -44,6 +46,14 @@ class AuthControllerTest {
               "email": "test@example.com",
               "password": "password123!",
               "nickname": "trenduser"
+            }
+            """;
+
+    private static final String LOGIN_URL = "/auth/login";
+    private static final String VALID_LOGIN_REQUEST = """
+            {
+              "email": "test@example.com",
+              "password": "password123!"
             }
             """;
 
@@ -266,5 +276,149 @@ class AuthControllerTest {
 
         // then
         then(authService).should(never()).signUp(any(SignUpRequest.class));
+    }
+
+    @Test
+    @DisplayName("이메일과 비밀번호가 일치하면 200과 발급된 토큰을 반환한다")
+    void loginReturnsTokens() throws Exception {
+        // given
+        given(authService.login(any(LoginRequest.class)))
+                .willReturn(new LoginResponse(
+                        "example-access-token", "example-refresh-token", "Bearer", 900L, 1_209_600L, false));
+
+        // when & then
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGIN_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("example-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("example-refresh-token"))
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(900))
+                .andExpect(jsonPath("$.data.refreshTokenExpiresIn").value(1_209_600))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andDo(document("auth-login",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestFields(
+                                fieldWithPath("email").type(JsonFieldType.STRING)
+                                        .description("가입 이메일. 필수, 이메일 형식, 최대 254자. 앞뒤 공백 제거 후 소문자로 정규화된다."),
+                                fieldWithPath("password").type(JsonFieldType.STRING)
+                                        .description("가입 비밀번호. 필수, 최대 128자.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.accessToken").type(JsonFieldType.STRING)
+                                        .description("API 호출에 사용하는 액세스 토큰"),
+                                fieldWithPath("data.refreshToken").type(JsonFieldType.STRING)
+                                        .description("액세스 토큰 재발급에 사용하는 리프레시 토큰. 회원당 하나만 유효하며 새로 로그인하면 이전 토큰은 무효가 된다."),
+                                fieldWithPath("data.tokenType").type(JsonFieldType.STRING)
+                                        .description("토큰 사용 방식. 항상 Bearer"),
+                                fieldWithPath("data.accessTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("액세스 토큰의 유효 기간(초)"),
+                                fieldWithPath("data.refreshTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("리프레시 토큰의 유효 기간(초)"),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. false면 관심 분야 선택 화면으로 보낸다."),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("이메일 또는 비밀번호가 일치하지 않으면 401로 응답한다")
+    void loginReturnsUnauthorizedForInvalidCredentials() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INVALID_CREDENTIALS))
+                .given(authService).login(any(LoginRequest.class));
+
+        // when & then
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGIN_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("이메일 또는 비밀번호가 일치하지 않습니다."))
+                .andDo(document("auth-login-invalid-credentials",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지. 계정 존재 여부를 구분해 노출하지 않도록 두 경우 모두 같은 메시지를 반환한다.")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("이메일 형식이 올바르지 않으면 400으로 응답한다")
+    void loginRejectsInvalidEmail() throws Exception {
+        // given
+        String request = """
+                {
+                  "email": "not-an-email",
+                  "password": "password123!"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("이메일 형식이 올바르지 않습니다."))
+                .andDo(document("auth-login-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("비밀번호가 비어 있으면 400으로 응답한다")
+    void loginRejectsBlankPassword() throws Exception {
+        // given
+        String request = """
+                {
+                  "email": "test@example.com",
+                  "password": ""
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post(LOGIN_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("비밀번호는 필수입니다."));
+    }
+
+    @Test
+    @DisplayName("로그인 요청 검증에 실패하면 서비스를 호출하지 않는다")
+    void loginDoesNotCallServiceWhenInvalid() throws Exception {
+        // given
+        String request = """
+                {
+                  "email": "not-an-email",
+                  "password": "password123!"
+                }
+                """;
+
+        // when
+        mockMvc.perform(post(LOGIN_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request));
+
+        // then
+        then(authService).should(never()).login(any(LoginRequest.class));
     }
 }
