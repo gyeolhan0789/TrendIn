@@ -28,14 +28,20 @@ asciidoctorj {
 
 ext {
 	snippetsDir = layout.buildDirectory.dir('generated-snippets')
+	jjwtVersion = '0.12.6'
 }
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	runtimeOnly 'org.postgresql:postgresql'
+
+	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
 
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -45,6 +51,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-restdocs'
 	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+	testRuntimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+	testRuntimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
 	testCompileOnly 'org.projectlombok:lombok'
@@ -55,6 +63,11 @@ dependencies {
 
 	implementation 'org.springframework.boot:spring-boot-h2console'
 	runtimeOnly 'com.h2database:h2'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	outputs.dir snippetsDir
 }
 
 tasks.register('copyDocs', Copy) {

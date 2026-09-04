@@ -15,9 +15,28 @@ services:
     networks:
       - shared
 
+  redis:
+    image: redis:8-bookworm
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
+    command:
+      - sh
+      - -c
+      - exec redis-server /etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/etc/redis/redis.conf:ro
+    networks:
+      - shared
+
 volumes:
   postgres_data:
     name: s15p21a102-postgres-data
+  redis_data:
+    name: s15p21a102-redis-data
 
 networks:
   shared:

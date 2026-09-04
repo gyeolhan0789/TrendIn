@@ -1,5 +1,7 @@
 package com.forever102.backend.auth.controller;
 
+import com.forever102.backend.auth.dto.LoginRequest;
+import com.forever102.backend.auth.dto.LoginResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.service.AuthService;
@@ -24,5 +26,10 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public BaseResponse<SignUpResponse> signUp(@Valid @RequestBody SignUpRequest request) {
         return BaseResponse.success(authService.signUp(request));
+    }
+
+    @PostMapping("/login")
+    public BaseResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return BaseResponse.success(authService.login(request));
     }
 }
