@@ -156,6 +156,7 @@ Topic: `raw-file-ready` · message key: `source_id` · serialization: JSON
 | 무엇 하나에 대응하나 | `(domain, source_id, run_id)` 배치 | 기사 | 소스 하나의 한 실행 |
 | `event_id` | `{source_id}-{run_id}` | `{source_id}-{article_id}` | `{source_id}-{run_id}` |
 | `object_key` | jsonl 키 | `article.json` 키 | `null` |
+| `format` | `jsonl` | `json` | `null` |
 | `record_count` | jsonl 레코드 수 | `1` | 그 실행이 발급한 기사 수 |
 
 기사 단위 소스도 실행 요약 이벤트를 낸다. 기사 이벤트만 내면 "새 글이 없어 0 건"과 "발견이 깨져 0 건"이 똑같이 아무것도 안 온 것으로 보인다. 규약 4·5 가 0 건과 실패에도 이벤트를 요구하는 이유가 그것이고, 기사 단위에서는 그 자리를 요약 이벤트가 맡는다.
