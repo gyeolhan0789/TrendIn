@@ -4,7 +4,8 @@
 이 디렉터리는 그 두 저장소만 띄운다. Airflow 는 `pipeline/`, Spark 는 별도 프로젝트다.
 
 - 계약(버킷 이름, 객체 경로, 토픽 이름, 이벤트 형식): `pipeline/docs/data-pipeline-design.md` 4·5 장
-- 결정과 근거: Jira `S15P21A102-156`
+- 실행 환경 결정과 근거: Jira `S15P21A102-156`
+- 토픽 설정 · 보관 정책 결정과 근거: Jira `S15P21A102-157` (아래 "토픽 설정" · "보관 정책" 절)
 
 ## 어디에 뜨나
 
@@ -23,7 +24,8 @@
 ```
 datastore/
 ├─ compose.yaml        kafka · kafka-storage-init · kafka-init · minio · minio-init
-├─ minio-init/init.sh  버킷 · 정책 · 계정 생성 (매 up 마다 멱등)
+├─ kafka-init/init.sh  토픽 생성 · 보존 설정 적용 (매 up 마다 멱등)
+├─ minio-init/init.sh  버킷 · 정책 · 계정 · 보관 정책 (매 up 마다 멱등)
 ├─ scripts/verify.sh   완료 조건 검증. 실패하면 exit 1
 ├─ .env.example        → .env 로 복사해 채운다
 └─ README.md
@@ -33,9 +35,9 @@ datastore/
 |---|---|
 | `kafka` | KRaft 단일 노드 브로커. ZooKeeper 없음 |
 | `kafka-storage-init` | 빈 볼륨을 브로커 uid(1000) 소유로 넘긴다. 한 번 돌고 끝 |
-| `kafka-init` | 계약 토픽 `raw-file-ready` 생성. 다시 돌려도 같다 |
+| `kafka-init` | 계약 토픽 `raw-file-ready` 생성 + 보존 설정 적용. 다시 돌려도 같다 |
 | `minio` | 원문 객체 저장소. S3 호환 |
-| `minio-init` | 버킷 · 정책 · 계정 생성. 다시 돌려도 같다 |
+| `minio-init` | 버킷 · 정책 · 계정 · 수명 주기 규칙. 다시 돌려도 같다 |
 
 ## 처음 실행
 
@@ -78,6 +80,66 @@ networks:
 크롤러 키에 삭제 권한은 없다. Spark 키로 쓰기를 시도하면 거부된다. 애플리케이션에 root 키를 주지 않는다.
 `.env` 를 고쳐도 이미 만들어진 계정은 그대로다. 값을 바꿨으면 `docker compose -f datastore/compose.yaml up -d minio-init` 을 다시 돌려 반영한다.
 
+## 토픽 설정
+
+`raw-file-ready` 에 붙는 값과 근거다. 결정 근거: Jira `S15P21A102-157`.
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 파티션 | 6 | 소비 병렬도 상한. 늘릴 수만 있고 줄이지 못하므로 미리 여유를 둔다. 이벤트가 배치당 1 건이라 6 개를 유지하는 비용은 디렉터리 몇 개뿐이다 |
+| 복제 계수 | 1 | 브로커가 한 대라 1 이 최대 |
+| `cleanup.policy` | `delete` | 기본값이지만 못 박는다. `compact` 로 바뀌면 message key 가 `source_id` 라 소스당 최신 1 건만 남고 배치 이력이 사라진다 |
+| `retention.ms` | `604800000` (7일) | Kafka 는 원본이 아니다. 토픽이 비어도 `metadata.json` 이 있는 디렉터리를 훑어 이벤트를 재구성할 수 있다(설계문서 5장 재발행). 7일은 소비 측이 멈춰 있어도 따라잡을 수 있는 창이다 |
+| `segment.ms` | `86400000` (1일) | 아래 참고 |
+
+`retention.bytes` 는 설정하지 않는다(무제한). 이벤트 하나가 1KB 안팎이고 하루 수백 건이라 시간 기준이 항상 먼저 걸린다.
+
+**`segment.ms` 를 낮추는 이유.** 보존 기간은 세그먼트 파일 단위로 적용되고, 쓰고 있는 세그먼트는 지우지 않는다. 세그먼트는 `segment.bytes`(1GiB) 나 `segment.ms` 중 먼저 오는 쪽으로 닫히는데, 우리 데이터량으로는 1GiB 를 채울 일이 없어 시간 조건만 남는다. `segment.ms` 가 기본값 7일이면 7일간 쌓아 닫은 뒤 다시 7일을 기다리므로 실제 삭제까지 최대 14일이 걸린다. 1일로 낮춰야 선언한 7일에 맞는다.
+
+**브로커 기본값과의 관계.** `KAFKA_LOG_RETENTION_HOURS` 는 브로커 전체 기본값이고, 위 토픽 설정이 그 값을 덮는다. `raw-file-ready` 의 실제 보존 기간은 토픽 설정이 정한다. 브로커 값은 앞으로 만들 다른 토픽(DLQ 등)의 출발값으로만 의미가 있다.
+
+**다중 브로커로 갈 때.** 복제 계수를 올리고 `min.insync.replicas` 와 producer `acks=all` 을 함께 잡는다. 지금은 브로커가 하나라 어느 쪽도 의미가 없다.
+
+**이미 쓰던 `.env` 가 있으면 고쳐야 한다.** 파티션 수는 이전에 `KAFKA_TOPIC_PARTITIONS=3` 으로 잡혀 있었다. `.env` 에 그 줄이 남아 있으면 compose 기본값 6 이 적용되지 않는다. `.env.example` 과 대조해 아래 줄을 옮겨 넣는다.
+
+```
+KAFKA_TOPIC_PARTITIONS=6
+KAFKA_TOPIC_CLEANUP_POLICY=delete
+KAFKA_TOPIC_RETENTION_MS=604800000
+KAFKA_TOPIC_SEGMENT_MS=86400000
+MINIO_RAW_PREFIX=domain=
+MINIO_RAW_EXPIRE_DAYS=90
+MINIO_VERIFY_EXPIRE_DAYS=1
+```
+
+`KAFKA_TOPIC_PARTITIONS` 외에는 `.env` 에 없어도 compose 기본값으로 같은 값이 들어간다. 파티션만 기존 줄이 이미 있어서 예외다.
+
+`up -d` 를 다시 돌리면 `kafka-init` 이 파티션 수를 6 으로 늘리고 설정을 다시 적용한다. 파티션을 늘리면 message key 의 해시 매핑이 바뀌어, 이미 쌓인 메시지와 새 메시지가 같은 key 인데 다른 파티션에 놓인다. 보존 기간 7일이 지나 옛 메시지가 사라지면 정상으로 돌아온다.
+
+## 보관 정책
+
+MinIO 버킷 `raw-data` 쪽이다. 결정 근거: Jira `S15P21A102-157`.
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| 버전 관리 | off | 같은 `run_id` 로 재실행하면 같은 경로를 덮어쓴다(설계문서 5장 멱등). 켜두면 재시도마다 옛 버전이 쌓여 용량만 는다. 원문 복구가 필요하면 다시 수집한다 |
+| `domain=` 접두 | 90일 만료 | 계약 경로의 최상위. 수집 원문 전체가 여기 들어간다 |
+| `_verify/` 접두 | 1일 만료 | `verify.sh` 가 남기는 검증 객체 청소 |
+
+두 규칙의 접두는 겹치지 않는다. 한 객체에 만료 규칙이 둘 걸리면 어느 쪽이 이기는지 모호해진다.
+
+**만료 기준은 업로드 시각이다.** 경로의 `collected_date` 가 아니다. 백필로 과거 날짜분을 지금 올려도 올린 날부터 90일을 센다.
+
+**Kafka 와의 정합성.**
+
+```
+MinIO 90일  >=  Kafka 7일
+```
+
+원문이 이벤트보다 먼저 사라지면 이벤트의 `object_key` 가 없는 객체를 가리키게 된다. 그래서 원문 보관 기간을 토픽 보존 기간 이상으로 잡는다. `verify.sh` 가 이 부등식을 산술로 확인한다.
+
+90일은 압축 후 하루 수십 MB 를 가정한 값이다. 실제 수집량이 확인되면 EBS 여유에 맞춰 줄여도 되지만, Kafka 보존 기간 아래로는 내리지 않는다.
+
 ## 기동과 중지
 
 ```sh
@@ -94,7 +156,7 @@ docker compose -f datastore/compose.yaml restart kafka minio
 
 ## 검증 스크립트
 
-완료 조건(Jira `S15P21A102-156` AC 1~4) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
+완료 조건(Jira `S15P21A102-156` AC 1~4, `S15P21A102-157` AC 5) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
 
 ```sh
 ./datastore/scripts/verify.sh
@@ -109,9 +171,14 @@ Windows 는 Git Bash 에서 돌린다. PowerShell·CMD 는 `.sh` 를 실행하�
 | 네트워크 `s15p21a102-data` 존재, 그 안에서 `kafka:9092` · `minio:9000` 도달 | 2 |
 | 토픽 존재, produce → consume 왕복 | 3 |
 | 크롤러 키 put/get, Spark 키 get, **Spark 키 write 거부** | 4 |
+| 파티션 수, `cleanup.policy` · `retention.ms` · `segment.ms` 실제 값 | 5 |
+| 수명 주기 규칙 2 개(중복 없음), 버전 관리 off, MinIO 보관 ≥ Kafka 보존 | 5 |
 
 검증용 객체는 `_verify/` 아래에만 만들고 끝나면 지운다. 수집 데이터는 건드리지 않는다.
 Kafka 에 넣은 `_verify` 메시지는 토픽에 남는다. 보존 기간이 지나면 사라진다.
+
+수명 주기 규칙이 각각 1 개인지 세는 이유는 멱등 확인이다. `up` 을 두 번 돌린 뒤에도 2 개여야 한다. 늘어나 있으면 규칙이 교체가 아니라 누적되고 있다는 뜻이다.
+버킷 설정 조회에는 관리자 계정이 필요하다. 크롤러·Spark 정책에는 그 권한이 없다.
 
 ## 손으로 확인할 때
 
@@ -122,6 +189,14 @@ cd datastore
 
 # 토픽 목록
 docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+
+# 파티션 수 · 리더 배치
+docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server localhost:9092 --describe --topic raw-file-ready
+
+# 토픽에 실제로 붙은 설정값
+docker compose exec kafka /opt/kafka/bin/kafka-configs.sh \
+  --bootstrap-server localhost:9092 --entity-type topics --entity-name raw-file-ready --describe
 
 # 테스트 메시지 발행
 echo 'reddit:{"event_id":"test"}' | docker compose exec -T kafka \
@@ -148,6 +223,15 @@ docker run --rm --network s15p21a102-data \
 Spark 키 쓰기가 성공하면 정책이 잘못 붙은 것이다.
 콘솔(`:9001`) 은 객체 브라우저다. 계정·정책 관리는 콘솔이 아니라 `mc admin` 으로 한다.
 
+수명 주기 규칙과 버전 관리 상태는 버킷 설정이라 관리자 계정으로 본다. `mc ls` 에는 안 나온다.
+
+```sh
+docker run --rm --network s15p21a102-data \
+  -e MC_HOST_admin="http://$MINIO_ROOT_USER:$MINIO_ROOT_PASSWORD@minio:9000" \
+  --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
+  'mc ilm rule ls admin/raw-data; mc version info admin/raw-data'
+```
+
 ## EC2 에서 바꾸는 것
 
 `.env` 만 다르다.
@@ -164,5 +248,7 @@ Spark 키 쓰기가 성공하면 정책이 잘못 붙은 것이다.
 
 ## 지금 없는 것
 
-Kafka 인증(SASL)·TLS, 다중 브로커, DLQ 토픽, MinIO 버전 관리·수명 주기 규칙, 백업.
+Kafka 인증(SASL)·TLS, 다중 브로커, DLQ 토픽, 백업.
 DLQ 는 담당 2 의 후속 이슈, 나머지는 필요해질 때 이슈를 판다.
+
+수명 주기 규칙은 만료만 건다. 저장 등급 전환(transition)이나 미완료 멀티파트 정리는 아직 없다.

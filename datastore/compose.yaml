@@ -1,7 +1,7 @@
 # TrendIn 수집 계층 저장소 — Kafka · MinIO.
 # 데이터 EC2(J15A102A) 에 뜬다. Airflow(pipeline/) 와 Spark(spark/) 가 여기에 붙는다.
 # 계약(버킷·객체 경로·토픽·이벤트 형식)은 pipeline/docs/data-pipeline-design.md 4·5 장.
-# 결정 근거: Jira S15P21A102-156
+# 결정 근거: Jira S15P21A102-156 (실행 환경) · S15P21A102-157 (토픽 설정 · 보관 정책)
 name: s15p21a102-datastore
 
 services:
@@ -52,21 +52,21 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka
 
-  # 계약 토픽 생성. 한 번 돌고 끝나며 다시 돌려도 결과가 같다.
+  # 계약 토픽 생성 + 보존 설정 적용. 한 번 돌고 끝나며 다시 돌려도 결과가 같다.
+  # 기본 entrypoint 를 쓰지 않으므로 아래 KAFKA_* 는 server.properties 로 번역되지 않는다.
+  # 브로커 설정이 아니라 init.sh 의 입력값이다.
   kafka-init:
     image: apache/kafka:4.0.0
-    command:
-      - /opt/kafka/bin/kafka-topics.sh
-      - --bootstrap-server
-      - kafka:9092
-      - --create
-      - --if-not-exists
-      - --topic
-      - ${KAFKA_TOPIC_RAW_FILE_READY:-raw-file-ready}
-      - --partitions
-      - "${KAFKA_TOPIC_PARTITIONS:-3}"
-      - --replication-factor
-      - "1"
+    entrypoint: ["/bin/sh", "/init.sh"]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC_RAW_FILE_READY: ${KAFKA_TOPIC_RAW_FILE_READY:-raw-file-ready}
+      KAFKA_TOPIC_PARTITIONS: ${KAFKA_TOPIC_PARTITIONS:-6}
+      KAFKA_TOPIC_CLEANUP_POLICY: ${KAFKA_TOPIC_CLEANUP_POLICY:-delete}
+      KAFKA_TOPIC_RETENTION_MS: ${KAFKA_TOPIC_RETENTION_MS:-604800000}
+      KAFKA_TOPIC_SEGMENT_MS: ${KAFKA_TOPIC_SEGMENT_MS:-86400000}
+    volumes:
+      - ./kafka-init/init.sh:/init.sh:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -104,6 +104,10 @@ services:
       MINIO_CRAWLER_SECRET_KEY: ${MINIO_CRAWLER_SECRET_KEY:?Set MINIO_CRAWLER_SECRET_KEY in datastore/.env}
       MINIO_SPARK_ACCESS_KEY: ${MINIO_SPARK_ACCESS_KEY:?Set MINIO_SPARK_ACCESS_KEY in datastore/.env}
       MINIO_SPARK_SECRET_KEY: ${MINIO_SPARK_SECRET_KEY:?Set MINIO_SPARK_SECRET_KEY in datastore/.env}
+      # 수명 주기. prefix 는 계약 경로의 최상위 (domain=...) 를 가리킨다.
+      MINIO_RAW_PREFIX: ${MINIO_RAW_PREFIX:-domain=}
+      MINIO_RAW_EXPIRE_DAYS: ${MINIO_RAW_EXPIRE_DAYS:-90}
+      MINIO_VERIFY_EXPIRE_DAYS: ${MINIO_VERIFY_EXPIRE_DAYS:-1}
     volumes:
       - ./minio-init/init.sh:/init.sh:ro
     depends_on:
