@@ -18,6 +18,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.forever102.backend.auth.dto.LoginRequest;
 import com.forever102.backend.auth.dto.LoginResponse;
+import com.forever102.backend.auth.dto.ReissueRequest;
+import com.forever102.backend.auth.dto.ReissueResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.service.AuthService;
@@ -54,6 +56,13 @@ class AuthControllerTest {
             {
               "email": "test@example.com",
               "password": "password123!"
+            }
+            """;
+
+    private static final String REISSUE_URL = "/auth/reissue";
+    private static final String VALID_REISSUE_REQUEST = """
+            {
+              "refreshToken": "example-refresh-token"
             }
             """;
 
@@ -420,5 +429,129 @@ class AuthControllerTest {
 
         // then
         then(authService).should(never()).login(any(LoginRequest.class));
+    }
+
+    @Test
+    @DisplayName("유효한 리프레시 토큰이면 200과 새로 발급된 토큰을 반환한다")
+    void reissueReturnsNewTokens() throws Exception {
+        // given
+        given(authService.reissue(any(ReissueRequest.class)))
+                .willReturn(new ReissueResponse(
+                        "example-access-token", "example-refresh-token", "Bearer", 900L, 1_209_600L, false));
+
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REISSUE_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("example-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("example-refresh-token"))
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(900))
+                .andExpect(jsonPath("$.data.refreshTokenExpiresIn").value(1_209_600))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andDo(document("auth-reissue",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestFields(
+                                fieldWithPath("refreshToken").type(JsonFieldType.STRING)
+                                        .description("로그인 또는 이전 재발급에서 받은 리프레시 토큰. 필수.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.accessToken").type(JsonFieldType.STRING)
+                                        .description("새로 발급된 액세스 토큰"),
+                                fieldWithPath("data.refreshToken").type(JsonFieldType.STRING)
+                                        .description("새로 발급된 리프레시 토큰. 요청에 쓴 토큰은 이 시점부터 무효이므로 반드시 이 값으로 교체한다."),
+                                fieldWithPath("data.tokenType").type(JsonFieldType.STRING)
+                                        .description("토큰 사용 방식. 항상 Bearer"),
+                                fieldWithPath("data.accessTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("액세스 토큰의 유효 기간(초)"),
+                                fieldWithPath("data.refreshTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("리프레시 토큰의 유효 기간(초). 재발급 시점부터 다시 계산된다."),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. false면 관심 분야 선택 화면으로 보낸다."),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("리프레시 토큰이 유효하지 않거나 만료되었으면 401로 응답한다")
+    void reissueReturnsUnauthorizedForInvalidRefreshToken() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN))
+                .given(authService).reissue(any(ReissueRequest.class));
+
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_REISSUE_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("유효하지 않거나 만료된 리프레시 토큰입니다."))
+                .andDo(document("auth-reissue-invalid-refresh-token",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지. 서명 불일치·만료·이미 회전된 토큰을 구분해 노출하지 않는다.")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("리프레시 토큰이 비어 있으면 400으로 응답한다")
+    void reissueRejectsBlankRefreshToken() throws Exception {
+        // given
+        String request = """
+                {
+                  "refreshToken": "  "
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post(REISSUE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("리프레시 토큰은 필수입니다."))
+                .andDo(document("auth-reissue-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("리프레시 토큰 필드가 없으면 400으로 응답한다")
+    void reissueRejectsMissingRefreshToken() throws Exception {
+        mockMvc.perform(post(REISSUE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("재발급 요청 검증에 실패하면 서비스를 호출하지 않는다")
+    void reissueDoesNotCallServiceWhenInvalid() throws Exception {
+        // when
+        mockMvc.perform(post(REISSUE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"));
+
+        // then
+        then(authService).should(never()).reissue(any(ReissueRequest.class));
     }
 }

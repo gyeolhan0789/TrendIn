@@ -2,6 +2,8 @@ package com.forever102.backend.auth.controller;
 
 import com.forever102.backend.auth.dto.LoginRequest;
 import com.forever102.backend.auth.dto.LoginResponse;
+import com.forever102.backend.auth.dto.ReissueRequest;
+import com.forever102.backend.auth.dto.ReissueResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.service.AuthService;
@@ -31,5 +33,10 @@ public class AuthController {
     @PostMapping("/login")
     public BaseResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return BaseResponse.success(authService.login(request));
+    }
+
+    @PostMapping("/reissue")
+    public BaseResponse<ReissueResponse> reissue(@Valid @RequestBody ReissueRequest request) {
+        return BaseResponse.success(authService.reissue(request));
     }
 }
