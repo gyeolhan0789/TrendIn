@@ -70,7 +70,7 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | --- | --- | --- |
 | `pl_processing_ledger` | `(event_id, job)` 별 상태·건수·시각 | 전부 |
 | `pl_processing_error` | DLQ 미러. `error_type`, 원본 이벤트 | ingest |
-| `pl_batch_stat` | 배치별 정제 통계 + **일자별 수집 상태** ([02 §4](02-input-contract.md)) | ingest |
+| `pl_batch_stat` | 실행별 정제 통계 + **`(일자, 소스)` 별 수집 상태** ([02 §4](02-input-contract.md)) | ingest |
 | `pl_content_id_map` | `url_hash` → `contents.id` | ingest |
 | `pl_keyword_id_map` | `(domain, normalized_key)` → `keywords.id` | extract |
 | `pl_candidate` | 후보 마스터. 대표 표기, **최초 관측 시각**, 승격 상태 | extract |
@@ -81,6 +81,19 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | `pl_review_queue` | 검수 큐 ([05 §7](05-keyword-registry-spec.md)) | extract |
 | `pl_embedding_cache` | 표기 → 벡터 ([01 §5](01-architecture.md)) | extract |
 | `pl_config_history` | 임계값 변경 이력 ([04 §10](04-keyword-extraction-spec.md)) | 수동 |
+
+### `pl_processing_ledger` 의 키가 두 종류를 담는다
+
+`event_id` 하나로 두 모양의 이벤트를 함께 받는다 ([02 §2](02-input-contract.md)).
+
+| `event_id` 꼴 | 무엇 | 원장 상태 |
+| --- | --- | --- |
+| `{source}-{article_id}` | 기사 이벤트 | `COMPLETED` / `FAILED` |
+| `{source}-{run_id}` | 실행 요약 이벤트 | `COMPLETED` / `SOURCE_FAILED` |
+
+**형식만으로는 구분되지 않는다.** `run_id` 는 `yyyyMMddTHHmmss` 이고 `article_id` 는 소스마다 다른 숫자 문자열인데(두산 계열은 `?p=854414` 의 숫자, `hn` 은 `objectID`), 우연히 겹치지 않는다는 보장이 계약에 없다. 그래서 **원장에 이벤트 종류를 담는 컬럼을 둔다.** 없으면 `pl_batch_stat` 집계가 기사 행을 요약 행으로 세거나 그 반대를 한다.
+
+`SOURCE_FAILED` 는 기사 이벤트에 나올 수 없다 — 기사 이벤트의 `status` 는 늘 `success` 다(불변식 5). 나오면 [02 §2](02-input-contract.md) 의 계약 위반 분기가 먼저 DLQ 로 보낸다.
 
 ### `pl_keyword_daily_stat` 이 이 묶음의 실질적 원본이다
 

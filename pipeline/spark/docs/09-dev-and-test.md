@@ -254,28 +254,62 @@ compose 를 띄우고 실제 경로를 한 번 훑는다. 수는 적게, 시나�
 
 | 시나리오 | 확인 |
 | --- | --- |
-| 정상 이벤트 하나 | Kafka → MinIO → curated → `contents` |
-| 같은 이벤트 두 번 | 원장이 막는지 ([01 §4](01-architecture.md)) |
-| checksum 불일치 | DLQ 로 가는지 ([02 §3](02-input-contract.md)) |
-| `status: failed` 이벤트 | 원장 + `pl_batch_stat` 에 기록되는지 ([02 §4](02-input-contract.md)) |
-| `record_count: 0` | 정상 완료로 처리되는지 |
-| manifest 모드 재처리 | Kafka 없이 도는지 ([02 §6](02-input-contract.md)) |
+| 정상 기사 이벤트 하나 | Kafka → MinIO `article.json` → curated → `contents` |
+| **실행 요약 이벤트 하나** | `object_key: null` 로 분기해 **원문 조회를 건너뛰고** 원장에 남는지 ([02 §2](02-input-contract.md)) |
+| 같은 `event_id` 두 번 | 원장이 막는지 ([01 §4](01-architecture.md)) |
+| checksum 불일치 | DLQ 로 가는지. **대조 대상이 `article.json` 바이트인지** ([02 §3](02-input-contract.md)) |
+| 미지의 `schema_version` | DLQ 로 가는지 |
+| `object_key` 는 있는데 객체가 없음 | `OBJECT_NOT_FOUND` 로 DLQ 에 가는지 |
+| 허용 목록 밖 `domain` | `UNKNOWN_DOMAIN` 으로 DLQ 에 가는지. **`dev` 는 통과하고 `development` 는 걸리는지** ([01 §6](01-architecture.md)) |
+| `status: failed` 요약 이벤트 | 원장 + `pl_batch_stat` 에 기록되고 원문 조회를 건너뛰는지 ([02 §4](02-input-contract.md)) |
+| **`members_only: true` 기사** | 본문 없이 제목만으로 통과하는지 ([03 §2](03-normalization-spec.md)) |
+| **`route: api` 기사 (`hn`)** | 같음. 본문 필터에 걸려 사라지지 않는지 |
+| checkpoint 유지 재실행 | **아무것도 다시 처리하지 않는지** |
+| objects 모드 재처리 | Kafka 없이 프리픽스 스캔으로 도는지 ([02 §6](02-input-contract.md)) |
 | aggregate 두 번 | `trend_metrics` 에 중복 행이 생기지 않는지 ([07 §6](07-metrics-and-ranking-spec.md)) |
 | 수집 실패한 날 | 그 날짜의 `24H` 행이 **만들어지지 않는지** ([07 §2](07-metrics-and-ranking-spec.md)) |
 
-마지막 세 줄이 중요하다. 셋 다 층 1·2 에서 잡히지 않고, 실제 운영에서 자주 일어난다.
+**요약 이벤트 줄이 새로 가장 중요하다.** 한 토픽에 모양이 둘 흐르는데, 분기를 빠뜨리면 요약 이벤트가 전부 DLQ 로 간다. 그러면 문서는 정상으로 들어오면서 수집 상태만 조용히 사라져서 층 1·2 에서 전혀 드러나지 않는다.
+
+**`members_only`·`route: api` 두 줄도 같은 종류다.** 본문 없는 문서가 정상 입력인데 필터가 물면, dev 도메인이 통째로 비면서 "수집이 안 됐나" 로 보인다.
+
+**마지막 두 줄은 층 1·2 에서 잡히지 않는다.** 실제 운영에서 자주 일어나고, 재실행 안정성은 compose 를 실제로 두 번 돌려야만 확인된다.
+
+### Spark 자격증명이 read 전용인지 확인하는 법
+
+[02 §3](02-input-contract.md) 이 요구하는 것이다. 통합 테스트에 한 줄 넣는다.
+
+```python
+# raw-data 에 쓰기를 시도해서 실패해야 통과다.
+with pytest.raises(Exception):
+    spark.createDataFrame([("x",)], "c string") \
+         .write.mode("append").parquet("s3a://raw-data/_write_probe/")
+```
+
+**실패를 기대하는 테스트를 쓰는 이유** — 권한은 조용히 넓어진다. 키를 다시 발급하거나 정책을 손볼 때 쓰기가 붙어도 아무 증상이 없고, 증상이 생기는 날은 원문이 이미 덮인 날이다. `raw-data` 는 담당 1 소유이고 복구 수단이 없다.
 
 ### 회귀 스냅샷 — [04 §9](04-keyword-extraction-spec.md)
 
 ```
 tests/fixtures/
-├─ corpus/      한국어·영어·혼합·코드 포함 문서 30건 (실제 수집 데이터에서 발췌, 익명화)
+├─ corpus/      article.json 30건 (실제 수집분에서 발췌)
 └─ snapshots/   각 문서의 추출 결과
 ```
 
 코드를 고쳤을 때 스냅샷이 바뀌면 실패한다. **의도한 변경이면 갱신하고 diff 를 커밋에 남긴다.** 목적은 변경을 막는 것이 아니라 **의도하지 않은 변경을 드러내는 것**이다. 정규식 하나를 손봤는데 추출 결과가 바뀌는 일은 흔하고, 스냅샷이 없으면 배포 후에야 안다.
 
-코퍼스는 도메인 둘, 언어 셋, 소스 셋을 모두 포함하게 고른다. 30건은 눈으로 diff 를 볼 수 있는 상한이다.
+코퍼스는 **입력의 모양이 갈리는 축을 모두 덮게** 고른다. 30건은 눈으로 diff 를 볼 수 있는 상한이다.
+
+| 축 | 반드시 포함 |
+| --- | --- |
+| `route` | `rss`(피드 전문) · `listing`(기사 페이지 파싱) · `api`(본문 없음) |
+| 본문 유무 | 있음 · `members_only` 로 없음 · `hn` 으로 없음 |
+| 도메인 | `fashion` · `dev` |
+| 언어 | `ko` 주류. `en` 은 `hn` 제목 |
+
+**`en`·`mixed` 표본이 얇을 것이다.** 소스 셋이 국내 매체 7곳과 `hn` 이라 한국어 본문과 영어 제목으로 갈린다. 배치 계약 시절 상정한 "영어 본문 다수" 는 오지 않는다. [03 §5](03-normalization-spec.md) 의 언어 판별 임계값을 이 분포로 정해야 한다.
+
+**⚠️ 본문을 저장소에 커밋할 때 주의한다.** 코퍼스는 매체 본문이고, 불변식 3 이 *"본문과 리드는 내부 저장소에만 둔다"* 고 못박았다. 이 저장소는 팀 내부지만 공개 저장소로 옮겨질 수 있다. 회원 전용 기사의 본문은 애초에 오지 않으므로 문제가 아니고(그게 불변식 2), **일반 기사 본문은 발췌 길이를 짧게 자르고 출처(URL·매체·발행일)를 함께 둔다** — 저작권법 제37조.
 
 ### 안 하는 것
 
@@ -283,15 +317,26 @@ tests/fixtures/
 
 ## 5. Airflow 연동
 
+**수집 DAG 과 같은 DAG 에 두지 않는다.** 수집은 시간 주기(fashion 1시간, `hn` 30분)이고 처리는 그보다 드물게 돌린다. 근거는 [01 §2](01-architecture.md).
+
 ```python
-collect_* >> ingest >> extract >> aggregate
+# 수집 — 도메인당 DAG. 담당 1 소유
+fashion_collect   (1시간 주기)
+dev_collect       (30분 주기)
+
+# 처리 — 별도 DAG. 자기 스케줄로 돈다
+ingest >> extract >> aggregate
 ```
 
 | 태스크 | 설정 |
 | --- | --- |
-| `ingest` | `trigger_rule=ALL_DONE` — 소스 하나가 실패해도 돈다 ([01 §2](01-architecture.md)) |
+| `ingest` | 수집 태스크의 downstream 이 **아니다.** `Trigger.AvailableNow` 가 쌓인 오프셋을 한 번에 먹는다 |
 | 전부 | `retries` 를 `default_args` 에 (`pipeline/README.md` 규약 5번) |
-| 전부 | 멱등. 같은 `run_id` 로 재실행해도 결과가 같다 |
+| 전부 | 멱등. 같은 logical date 로 재실행해도 결과가 같다 |
+
+**`trigger_rule=ALL_DONE` 이 필요 없어졌다.** 수집 태스크와 의존 관계가 없기 때문이다. 배치 계약 시절에는 `ingest` 가 수집의 downstream 이라 "소스 하나가 실패해도 돌아야 한다" 를 `trigger_rule` 로 표현했는데, 지금은 실패가 요약 이벤트로 토픽에 들어오고 `ingest` 는 그걸 데이터로 읽는다.
+
+**대가는 관측성이다.** Airflow 그래프만 봐서는 "수집이 끝났는데 처리가 안 됐다" 를 알 수 없다. 두 DAG 이 남남이라 화면에 선이 없다. 그래서 `pl_batch_stat` 의 `(일자, 소스)` 상태([02 §4](02-input-contract.md))가 유일한 연결 지점이다 — 그 표를 보지 않으면 결손을 못 찾는다.
 
 **XCom 에는 ID 와 건수만 넣는다** (규약 4번). 처리 결과는 `pl_processing_ledger` 를 거친다.
 
@@ -318,22 +363,28 @@ Spark 태스크는 `crawler_pool` 을 쓰지 않는다. 외부 사이트를 치�
 | 3 | `period` · `trend_type` 값 규약 | varchar 라 코드가 정하는 대로 굳는다 ([07 §5](07-metrics-and-ranking-spec.md)) | `aggregate` |
 | 4 | `trend_metrics (trend_id, period, period_start)` UNIQUE | 재실행마다 중복이 쌓인다 | `aggregate` |
 | 4b | **MinIO `curated` 버킷 + Spark 쓰기 권한** | 지금 Spark 키는 `raw-data` 읽기만 한다 (`datastore/minio-init/init.sh`). 정제 결과를 쓸 곳이 없다 ([01 §3](01-architecture.md)) | `ingest` · `extract` |
+| 4c | **DLQ 토픽명 + 메시지 스키마** | 검증 실패의 재투입 경로가 없다 ([02 §5](02-input-contract.md)). 담당 2 소관 | `ingest` — **부분** |
 
-`domain` 값은 합의됐다 — `development` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)).
+`domain` 값은 합의됐다 — 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)). **`development` 가 아니다.**
 
 **1·2 만 적용되면 `ingest` 와 `extract` 를 만들 수 있다.** 3·4 는 `aggregate` 착수 전에 필요하다.
 
 **1번을 먼저 해야 하는 이유** — 2번을 적용해도 `create` 상태면 다음 재배포에 그 제약까지 함께 날아간다. 순서가 뒤바뀌면 같은 일을 두 번 한다.
 
+**4c 가 `ingest` 를 완전히 막지는 않는다.** DLQ 싱크를 인터페이스로 두고 `pl_processing_error` 테이블만 쓰면 검증 로직 전체를 만들고 검증까지 할 수 있다 ([02 §5](02-input-contract.md)). 토픽이 생기면 구현 하나를 더한다. 그 사이 재투입 경로가 없는 것만 감수한다.
+
 ### 품질을 정하려면
 
 | # | 필요한 것 | 없으면 |
 | --- | --- | --- |
-| 5 | **실제 수집 데이터 샘플** | 04~07 의 임계값을 정할 근거가 없다. **추측으로 정하면 전부 다시 하게 된다** |
+| 5 | **실제 수집 데이터 샘플** | 04~07 의 임계값을 정할 근거가 없다. **추측으로 정하면 전부 다시 하게 된다.** 수집기는 구현돼 있으므로(`src/trendin/*/collect/`) 한 번 돌린 결과를 받으면 된다 |
+| 5b | **dev 도메인 본문 부재 결론** | `hn` 은 제목만 온다 ([00 §7](00-overview.md) 한계 19). 제목 한 줄로 동시출현·NPMI 를 계산할지, `hn` 댓글을 받을지, dev 는 빈도만 쓸지가 안 정해지면 [04](04-keyword-extraction-spec.md)·[06](06-related-keyword-spec.md) 의 설계가 바뀐다 |
 | ~~6~~ | ~~Kafka · MinIO 로컬 환경~~ | 해소됐다 — `datastore/compose.yaml` (S15P21A102-156·157) |
 | ~~7~~ | ~~Spark 버전 정합 검증~~ | 해소됐다 — [§2 확정된 버전](#확정된-버전) |
 
 **5번이 가장 중요하다.** [04](04-keyword-extraction-spec.md)~[07](07-metrics-and-ranking-spec.md) 의 임계값을 이 문서들이 숫자로 못박지 않은 것이 그래서다. 실제 데이터의 문서 빈도 분포·문서 길이·발행일 지연을 재기 전에 정한 숫자는 전부 다시 정하게 된다.
+
+**5b 는 5번보다 먼저 답이 나와야 한다.** 데이터를 재도 "dev 에 본문이 없다" 는 사실은 안 바뀌고, 그 상태로 임계값을 재면 도메인 하나의 분포만 재는 것이 된다.
 
 ### 기획이 답해야 하는 것
 

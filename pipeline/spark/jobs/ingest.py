@@ -28,14 +28,33 @@ JOB = "ingest"
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--source",
-        choices=("kafka", "manifest"),
+        choices=("kafka", "objects"),
         default="kafka",
-        help="kafka: 이벤트 소비. manifest: Kafka 없이 목록으로 재처리 ([02 §6])",
+        help="kafka: 이벤트 소비. objects: Kafka 없이 MinIO 프리픽스 스캔으로 재처리 ([02 §6])",
+    )
+    # 아래 넷은 --source objects 전용이다. 배치 계약 시절의 --manifest(metadata.json
+    # 목록 경로)를 대체한다 — 기사 단위로 가면서 그 파일이 없어졌다 ([02 §3]).
+    parser.add_argument(
+        "--domain",
+        default=None,
+        help="--source objects 일 때 훑을 도메인 (fashion | dev)",
     )
     parser.add_argument(
-        "--manifest",
+        "--from",
+        dest="date_from",
         default=None,
-        help="--source manifest 일 때 읽을 객체 키 목록 경로",
+        help="--source objects 일 때 시작 발행일 (YYYY-MM-DD). 수집일이 아니다",
+    )
+    parser.add_argument(
+        "--to",
+        dest="date_to",
+        default=None,
+        help="--source objects 일 때 끝 발행일 (YYYY-MM-DD). 포함",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="원장의 COMPLETED 를 무시하고 다시 처리한다 ([02 §6])",
     )
 
 

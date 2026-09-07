@@ -150,7 +150,7 @@
 
 | 컬럼 | 값 |
 | --- | --- |
-| `domain` | enum 상수명. `development` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)) |
+| `domain` | enum 상수명. 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)) |
 | `name` | 대표 표기 (`surface`) |
 | `normalized_name` | 비교키 ([04 §4](04-keyword-extraction-spec.md)) |
 | `first_seen_at` | **최초 관측 시각.** 승격 시각이 아니다 |

@@ -153,5 +153,5 @@ Spark 범위 밖 (차후 확장). 컬럼은 원본 다이어그램 참조.
 | 3 | `contents.url` 의 길이와 인덱스 | varchar UK 라 긴 URL 에서 삽입 실패 위험 |
 | 4 | `growth_amount` 가 생성 컬럼인지 | 생성 컬럼이면 INSERT 에서 빼야 한다 |
 | 5 | `period` · `trend_type` 의 허용 값 | varchar 라 값 규약이 코드 밖에 없다 |
-| 6 | `keywords.domain` · `member_domains.domain` 의 허용 값 | 수집 이벤트는 `development` 를 주는데 백엔드 enum 은 `DEVELOP`, 표시명은 `개발` 이다 |
+| 6 | `keywords.domain` · `member_domains.domain` 의 허용 값 | 수집 이벤트는 `dev` 를 주는데 백엔드 enum 은 `DEVELOP`, 표시명은 `개발` 이다. 세 표기가 다르므로 `ingest` 가 매핑한다 ([`../01-architecture.md` §6](../01-architecture.md)) |
 | 7 | `keywords` 삭제 시 FK 동작 | 트렌드·관심사·연관이 매달려 있다 |

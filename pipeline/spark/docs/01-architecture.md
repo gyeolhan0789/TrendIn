@@ -49,7 +49,7 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 ```mermaid
 flowchart TD
     K["Kafka<br/>raw-file-ready"] --> ING
-    RAW["MinIO raw-data<br/>part-000.jsonl.gz"] --> ING
+    RAW["MinIO raw-data<br/>기사별 article.json"] --> ING
 
     ING["<b>ingest</b><br/>검증 · 정제 · 중복 제거"]
     ING --> CUR["MinIO curated<br/>Parquet"]
@@ -73,19 +73,30 @@ flowchart TD
 
 ### `extract` 를 분리해야만 하는 이유
 
-키워드 알고리즘은 **자주 바뀐다.** 통계·자동 발견 방식이라 임계값 튜닝 반복이 전제다 ([04 §10](04-keyword-extraction-spec.md)). `ingest` 와 붙여두면 알고리즘을 고칠 때마다 MinIO 원문을 다시 내려받아 압축을 풀고 정제부터 다시 해야 한다. 분리하면 `curated` Parquet 부터 다시 돌린다.
+키워드 알고리즘은 **자주 바뀐다.** 통계·자동 발견 방식이라 임계값 튜닝 반복이 전제다 ([04 §10](04-keyword-extraction-spec.md)). `ingest` 와 붙여두면 알고리즘을 고칠 때마다 MinIO 에서 기사 객체 수백 개를 다시 내려받아 정제부터 다시 해야 한다. 분리하면 `curated` Parquet 부터 다시 돌린다.
 
 셔플이 한 번 더 생기는 것은 사실이지만, [00 §3](00-overview.md) 의 규모에서 그 비용은 무시할 수 있고 반복 속도가 훨씬 값지다.
 
 ### Airflow DAG 배치
 
+수집 DAG 은 **도메인당 하나**이고, 소스별 태스크가 그 안에서 동적으로 매핑된다 (`web-collect.md` #13).
+
 ```
-collect_reddit ─┐
-collect_github ─┼→ ingest → extract → aggregate
-collect_so     ─┘
+fashion_collect (7소스, 1시간 주기) ─┐
+                                     ├→ ingest → extract → aggregate
+dev_collect (hn, 30분 주기)        ─┘
 ```
 
-`ingest` 는 수집 태스크들의 downstream 이되 `trigger_rule=ALL_DONE` 을 쓴다. 소스 하나가 실패해도 나머지를 처리해야 하고, 실패한 소스도 `status: "failed"` 이벤트로 Kafka 에 들어오기 때문이다. 상위 문서 규약 12번(`pipeline/README.md` DAG 규약 8번)과 같은 이유다.
+`ingest` 는 수집 태스크들의 downstream 이되 `trigger_rule=ALL_DONE` 을 쓴다. 소스 하나가 실패해도 나머지를 처리해야 하고, 실패한 소스도 요약 이벤트의 `status: "failed"` 로 Kafka 에 들어오기 때문이다 ([02 §2](02-input-contract.md)). `pipeline/README.md` DAG 규약 8번과 같은 이유다.
+
+**⚠️ 수집 주기와 `ingest` 주기가 다르다.** 수집은 시간 단위인데 `ingest` 는 일 1회를 전제로 쓰여 있다 ([§1](#1-실행-모델--triggeravailablenow) 의 지연 절). 즉 수집 태스크의 downstream 으로 그냥 걸면 `ingest` 도 하루 24~48 번 돈다. 둘 중 하나를 정해야 한다.
+
+| 안 | 결과 |
+| --- | --- |
+| `ingest` 를 수집과 같은 주기로 | 지연이 1시간 이하로 줄지만 Spark 프로세스가 하루 24 번 기동한다. 회당 이벤트가 수십 건이라 기동 비용이 처리 비용보다 크다 |
+| `ingest` 를 별도 스케줄(일 1~수회)로 | 수집 DAG 과 태스크 의존성이 끊긴다. `Trigger.AvailableNow` 가 그때까지 쌓인 것을 한 번에 먹으므로 동작은 문제없다 |
+
+**후자로 간다.** `AvailableNow` 를 고른 이유가 정확히 이것이다 — 쌓인 오프셋을 한 번에 소비하고 종료하므로 생산자 주기와 소비자 주기를 맞출 필요가 없다. 대신 `ingest` 는 수집 DAG 의 downstream 이 아니라 **자기 스케줄을 가진 별도 DAG** 이 된다. `trigger_rule` 은 그러면 의미가 없어진다.
 
 ## 3. MinIO `curated` — 중간 저장소
 
@@ -97,21 +108,36 @@ collect_so     ─┘
 Bucket: curated
 
 curated/
-└─ domain=development/
+└─ domain=fashion/
    └─ published_date=2026-09-03/
-      └─ source=reddit/
-         └─ run_id=20260903T000000/
+      └─ source=vogue/
+         └─ ingest_run_id=20260903T000000/
             └─ part-*.snappy.parquet
 ```
 
 | 항목 | 결정 | 이유 |
 | --- | --- | --- |
 | 형식 | Parquet + snappy | 컬럼 프루닝. `extract` 는 `content_id`·`title`·`body`·`lang` 만 읽는다 |
-| 파티션 키 | `domain` / `published_date` / `source` / `run_id` | `published_date` 가 앞인 이유는 [07 §3](07-metrics-and-ranking-spec.md) 의 소급 재계산이 날짜 범위로 읽기 때문 |
+| 파티션 키 | `domain` / `published_date` / `source` / `ingest_run_id` | `published_date` 가 앞인 이유는 [07 §3](07-metrics-and-ranking-spec.md) 의 소급 재계산이 날짜 범위로 읽기 때문 |
 | 버킷 소유 | Spark | `raw-data` 는 담당 1 소유. 섞지 않는다 |
 | 보존 | 원문보다 짧게. 재생성 가능하므로 | 원문이 있으면 언제든 다시 만든다 |
 
-`published_date` 로 파티션을 자르므로 **하나의 `run_id` 가 여러 날짜 파티션에 흩어질 수 있다.** 발행이 오래된 글이 섞여 들어오기 때문이다. 이건 의도한 것이고, `extract` 가 "이번에 새로 쓰인 파티션"을 알아야 하므로 `ingest` 가 쓴 파티션 목록을 원장에 남긴다.
+### `ingest_run_id` 는 생산자의 `run_id` 가 아니다
+
+**기사 이벤트에는 `run_id` 가 `null` 이다** — "기사는 실행에 속하지 않는다" 가 생산자 계약이다 ([02 §2](02-input-contract.md)). 그래서 배치 계약 시절에 쓰던 `run_id` 파티션을 그대로 둘 수 없다.
+
+대신 **이 Spark Job 자신의 실행 식별자**를 쓴다. Airflow logical date 파생 `yyyyMMddTHHmmss` (KST) 로, 생산자의 `run_id` 와 형식은 같고 뜻이 다르다.
+
+| | 뜻 | 어디서 |
+| --- | --- | --- |
+| 생산자 `run_id` | 수집기가 한 번 돈 것 | 요약 이벤트에만 있다 |
+| `ingest_run_id` | `ingest` 가 한 번 돈 것 | Spark 가 만든다 |
+
+**파티션 4단을 유지하는 이유** — 재처리 단위가 필요하다. `--force` 로 다시 돌릴 때 "그 실행이 쓴 것" 을 통째로 지우고 다시 쓸 수 있어야 한다 ([02 §6](02-input-contract.md)). 4단을 없애고 `domain/published_date/source` 로만 자르면 재처리가 그 날짜·소스의 **모든** 실행분을 함께 덮어쓰게 되고, 범위 밖 문서가 딸려 사라진다.
+
+**대가는 작은 파일이다.** 실행마다 파티션이 하나 생기므로, `ingest` 를 하루 여러 번 돌리면 같은 날짜·소스 밑에 파티션이 여럿 쌓인다. [00 §3](00-overview.md) 규모(하루 700건, 소스 8개)에서 파티션당 수십 건이라 감당되지만, `ingest` 를 시간 주기로 돌리기로 하면 이 결정을 다시 봐야 한다.
+
+`published_date` 로 파티션을 자르므로 **하나의 `ingest_run_id` 가 여러 날짜 파티션에 흩어질 수 있다.** 발행이 오래된 글이 섞여 들어오기 때문이고, 과거분 백필(`web-collect.md` #9)에서는 6주치가 한 번에 흩어진다. 이건 의도한 것이고, `extract` 가 "이번에 새로 쓰인 파티션" 을 알아야 하므로 `ingest` 가 쓴 파티션 목록을 원장에 남긴다.
 
 ### `contents.body_object_key` 에 무엇을 넣나
 
@@ -191,9 +217,9 @@ def _get_model():
 
 **확정된 값** — `keywords.domain` 에는 **enum 상수명**이 들어간다.
 
-| 이벤트 `domain` (상위 문서) | `keywords.domain` | 표시명 (백엔드 보유) |
+| 이벤트 `domain` | `keywords.domain` | 표시명 (백엔드 보유) |
 | --- | --- | --- |
-| `development` | `DEVELOP` | 개발 |
+| `dev` | `DEVELOP` | 개발 |
 | `fashion` | `FASHION` | 패션 |
 
 `ingest` 가 이 매핑을 한다. 표시명(`개발`)을 넣지 않는 이유는 그게 화면 문자열이라 바뀔 수 있고, 바뀌면 저장된 데이터가 통째로 어긋나기 때문이다. enum 상수명은 코드 식별자라 훨씬 안정적이다.
@@ -201,16 +227,32 @@ def _get_model():
 ```python
 # 이벤트 슬러그 → keywords.domain
 DOMAIN_VALUES = {
-    "development": "DEVELOP",
-    "fashion":     "FASHION",
+    "dev":     "DEVELOP",
+    "fashion": "FASHION",
 }
 ```
+
+### ⚠️ 슬러그가 `development` 가 아니라 `dev` 다
+
+**`data-pipeline-design.md` §5 예시는 `development` 를 쓰지만, 실제로 발행되는 값은 `dev` 다.**
+
+| 근거 | |
+| --- | --- |
+| `web-collect.md` #1 | *"도메인은 `fashion` / `dev` 둘이다"* |
+| `contracts.py` `SourceDef.domain` | `# "fashion" \| "dev"` |
+| MinIO 키 첫 조각 | `{domain}/…` 이므로 객체 경로도 `dev/` 다 |
+
+`development` 로 매핑을 짜면 **dev 도메인 전량이 `UNKNOWN_DOMAIN` 으로 DLQ 에 간다.** 지금은 `hn` 어댑터가 아직 없어서(`web-collect.md` #1) dev 이벤트가 하나도 안 나오므로 드러나지 않는다. 어댑터가 붙는 날 전량이 막힌다.
+
+`erd/erd-00-current.md` 의 요청 6번도 `development` 로 적혀 있어 함께 고쳤다.
 
 ### 허용 목록에 없으면 DLQ
 
 DB 가 FK 로 막아주지 않으므로 **이 검증이 유일한 방어선이다.** 오타 하나가 새 분야를 만든다 — `DEVELOP` 과 `Develop` 이 별개 분야가 되고, 그 순간부터 통계가 조용히 갈라진다.
 
 매핑에 없는 값이 오면 처리하지 않고 DLQ 로 보낸다 ([02 §5](02-input-contract.md)). 조용히 넘기지 않는 이유는, 잘못된 도메인 값으로 들어간 키워드가 **어느 화면에도 안 나오면서 통계만 갉아먹기** 때문이다. 그런 데이터는 몇 주 뒤에야 발견되고 그때는 원인을 찾을 수 없다.
+
+**슬러그가 늘어나면 사전 통보가 필요하다.** 소스 추가는 `web-collect.md` #1 표에 줄을 더하는 것만으로 되므로(#10 교체 지점), 새 도메인이 조용히 들어올 수 있다. 그때 이 매핑을 먼저 고치지 않으면 그 도메인 전량이 DLQ 로 간다.
 
 ### ⚠️ 백엔드에 부탁할 것 두 가지
 

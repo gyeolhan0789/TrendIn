@@ -12,6 +12,10 @@ MinIO curated         →  extract    키워드 추출 · 통합 · 승격 · ke
 내부 통계             →  aggregate  언급량 · 순위 · 성장률 · 연관 키워드
 ```
 
+입력은 **기사 하나에 이벤트 하나**다. 토픽 `raw-file-ready` 에 기사 이벤트와 실행 요약 이벤트가
+함께 흐르고, 원문은 MinIO 의 기사별 `article.json` 이다. 계약과 근거는
+[02](docs/02-input-contract.md), 생산자 쪽 정본은 [`../docs/web-collect.md`](../docs/web-collect.md).
+
 Airflow 가 `spark-submit` 으로 각 Job 을 깨우고, Job 은 처리 후 스스로 종료한다.
 
 쓰는 서비스 테이블은 여섯 개다 — `contents`, `keywords`, `keyword_contents`, `trends`, `trend_metrics`, `keyword_relations`. 나머지는 건드리지 않는다.
@@ -227,7 +231,7 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 
 | 항목 | 결론 |
 | --- | --- |
-| `domain` 값 | enum 상수명. `development` → `DEVELOP`, `fashion` → `FASHION`. `ingest` 가 매핑 |
+| `domain` 값 | enum 상수명. 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION`. `ingest` 가 매핑. **`development` 가 아니다** ([01 §6](docs/01-architecture.md)) |
 | `keywords` 유일성 | `(domain, normalized_name)` 복합 UNIQUE. 단독이면 개발의 `모델` 과 패션의 `모델` 이 충돌한다 |
 
 백엔드에 부탁할 것 둘 — `@Enumerated(EnumType.STRING)` 명시(JPA 기본값이 `ORDINAL` 이라 컬럼이 int 가 된다), PostgreSQL 네이티브 enum 타입 미사용(Spark JDBC 쓰기가 캐스트 없이 죽는다). [01 §6](docs/01-architecture.md).
