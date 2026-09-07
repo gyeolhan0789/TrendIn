@@ -11,7 +11,14 @@ import json
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 SCHEMA_VERSION = 1
 
@@ -33,8 +40,9 @@ class Article(BaseModel):
     title: NonEmptyStr
     published_at: datetime  # 소스가 준 오프셋 그대로. UTC 로 바꾸지 않는다.
     collected_at: datetime  # UTC. 원문을 받은 시각.
-    raw_key: NonEmptyStr
-    content_sha256: NonEmptyStr
+    # 회원 전용 기사는 raw 를 저장하지 않으므로 둘 다 없다(불변식 2, 아래 검증).
+    raw_key: NonEmptyStr | None = None
+    content_sha256: NonEmptyStr | None = None
 
     modified_at: datetime | None = None
     summary: str | None = None
@@ -50,6 +58,25 @@ class Article(BaseModel):
         if v is not None and v.tzinfo is None:
             raise ValueError("오프셋 없는 시각은 받지 않는다")
         return v
+
+    @model_validator(mode="after")
+    def _raw_unless_members_only(self) -> "Article":
+        """raw 는 회원 전용이 아닐 때만 필수다.
+
+        회원 전용 기사의 기사 페이지 HTML 에는 본문이 통째로 실려 온다(① 2026-09-03 실측
+        8/8). 그 바이트를 raw 로 저장하면 불변식 2 의 "HTML 에 텍스트가 실려 있어도
+        저장하지 않는다" 가 무의미해진다. 그래서 저장하지 않고, 여기서 필수 필드가 빈 것을
+        실패가 아니라 허용으로 읽는다.
+
+        **이것은 확정이 아니라 가역적 기본값이다** — 설계 문서 #12 열린 질문 2 가 열려 있다.
+        뒤집어 저장하기로 하면 이 검증을 지우면 되고, 반대로 저장해 둔 뒤 뒤집으면 MinIO 에서
+        골라 지우고 이미 나간 이벤트를 좇아야 한다. 되돌림 비용이 싼 쪽을 기본으로 뒀다.
+        """
+        if not self.members_only and (self.raw_key is None or self.content_sha256 is None):
+            raise ValueError("회원 전용이 아니면 raw_key·content_sha256 이 있어야 한다")
+        if self.members_only and self.body_text is not None:
+            raise ValueError("회원 전용 기사에 body_text 를 실을 수 없다")
+        return self
 
     @field_validator("collected_at")
     @classmethod

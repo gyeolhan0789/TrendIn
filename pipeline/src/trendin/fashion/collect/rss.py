@@ -156,9 +156,9 @@ class RssAdapter:
 
     def page_url(self, page: int | None) -> str:
         if page is None:
-            return self.source.feed_url
-        separator = "&" if "?" in self.source.feed_url else "?"
-        return f"{self.source.feed_url}{separator}paged={page}"
+            return self.source.discover_url
+        separator = "&" if "?" in self.source.discover_url else "?"
+        return f"{self.source.discover_url}{separator}paged={page}"
 
     def discover(self, page: int | None = None) -> DiscoverResult:
         url = self.page_url(page)

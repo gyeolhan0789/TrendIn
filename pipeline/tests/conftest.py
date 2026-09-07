@@ -50,6 +50,14 @@ def feed_bytes():
 
 
 @pytest.fixture
+def listing_bytes():
+    def read(name: str) -> bytes:
+        return (FIXTURES / "listing" / name).read_bytes()
+
+    return read
+
+
+@pytest.fixture
 def mock_transport():
     """`handler(request) -> httpx.Response` 를 httpx 에 끼우는 공장."""
 
