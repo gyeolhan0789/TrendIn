@@ -2,8 +2,10 @@ package com.forever102.backend.trend.controller;
 
 import com.forever102.backend.global.response.BaseResponse;
 import com.forever102.backend.trend.dto.TrendDetailResponse;
+import com.forever102.backend.trend.dto.TrendHistoryResponse;
 import com.forever102.backend.trend.domain.AnalysisPeriod;
 import com.forever102.backend.trend.service.TrendService;
+import com.forever102.backend.trend.service.TrendHistoryService;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TrendController {
 
     private final TrendService trendService;
+    private final TrendHistoryService trendHistoryService;
 
     @GetMapping("/{trendId}")
     public BaseResponse<TrendDetailResponse> getTrendDetail(
@@ -25,5 +28,13 @@ public class TrendController {
             @RequestParam String period
     ) {
         return BaseResponse.success(trendService.getTrendDetail(trendId, AnalysisPeriod.from(period)));
+    }
+
+    @GetMapping("/{trendId}/history")
+    public BaseResponse<TrendHistoryResponse> getTrendHistory(
+            @PathVariable @Positive Long trendId,
+            @RequestParam String period
+    ) {
+        return BaseResponse.success(trendHistoryService.getHistory(trendId, AnalysisPeriod.from(period)));
     }
 }

@@ -17,6 +17,10 @@ public enum AnalysisPeriod {
     private final String value;
     private final Duration duration;
 
+    public HistoryBucketUnit getHistoryBucketUnit() {
+        return this == HOURS_24 ? HistoryBucketUnit.HOUR : HistoryBucketUnit.DAY;
+    }
+
     public static AnalysisPeriod from(String value) {
         return Arrays.stream(values())
                 .filter(period -> period.value.equals(value))

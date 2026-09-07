@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.forever102.backend.member.domain.Domain;
 import com.forever102.backend.trend.TrendFixture;
 import com.forever102.backend.trend.domain.AnalysisPeriod;
+import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.domain.Keyword;
 import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.domain.TrendAiAnalysis;
@@ -34,12 +35,18 @@ class TrendRepositoryTest {
         persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END, 7);
         TrendAnalysis latestSevenDays =
                 persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END.plusDays(2), 70);
+        persistAnalysis(trend, AnalysisPeriod.DAYS_7,
+                new AnalysisWindow(AnalysisPeriod.DAYS_7,
+                        TrendFixture.END.minusDays(14), TrendFixture.END.minusDays(7),
+                        TrendFixture.END.minusDays(21), TrendFixture.END.minusDays(14)),
+                TrendFixture.END.plusDays(4), 700);
         persistAnalysis(trend, AnalysisPeriod.DAYS_30, TrendFixture.END.plusDays(3), 30);
         entityManager.flush();
         entityManager.clear();
         // when
         TrendAnalysis loaded = analysisRepository
-                .findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(trend.getId(), "7D")
+                .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
+                        trend.getId(), "7D", TrendFixture.END.minusDays(7), TrendFixture.END)
                 .orElseThrow();
         // then
         assertThat(loaded.getId()).isEqualTo(latestSevenDays.getId());
@@ -80,8 +87,8 @@ class TrendRepositoryTest {
         // when
         Trend loadedTrend = trendRepository.findById(trend.getId()).orElseThrow();
         var periodAnalysis = analysisRepository
-                .findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
-                        trend.getId(), "30D").orElse(null);
+                .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
+                        trend.getId(), "30D", TrendFixture.END.minusDays(30), TrendFixture.END).orElse(null);
         var ai = aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(trend.getId()).orElseThrow();
         var response = TrendDetailResponse.from(loadedTrend, periodAnalysis, ai);
         // then
@@ -100,9 +107,14 @@ class TrendRepositoryTest {
 
     private TrendAnalysis persistAnalysis(
             Trend trend, AnalysisPeriod period, OffsetDateTime analyzedAt, long count) {
+        return persistAnalysis(trend, period, TrendFixture.window(period), analyzedAt, count);
+    }
+
+    private TrendAnalysis persistAnalysis(
+            Trend trend, AnalysisPeriod period, AnalysisWindow window, OffsetDateTime analyzedAt, long count) {
         TrendAnalysis analysis = TrendAnalysis.builder().trend(trend).period(period).trendType("RISING")
                 .mentionCount(count).previousMentionCount(0)
-                .analysisWindow(TrendFixture.window(period)).analyzedAt(analyzedAt).build();
+                .analysisWindow(window).analyzedAt(analyzedAt).build();
         entityManager.persist(analysis);
         return analysis;
     }

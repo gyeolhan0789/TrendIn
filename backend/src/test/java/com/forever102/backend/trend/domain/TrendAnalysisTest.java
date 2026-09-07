@@ -7,7 +7,10 @@ import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import com.forever102.backend.trend.TrendFixture;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,6 +41,20 @@ class TrendAnalysisTest {
     @DisplayName("Asia/Seoul 자정 기준으로 연속된 요청 기간 구간을 허용한다")
     void acceptsPeriodWindow(AnalysisPeriod period) {
         assertThat(TrendFixture.window(period).getRecentEnd()).isEqualTo(TrendFixture.END);
+    }
+
+    @ParameterizedTest
+    @EnumSource(AnalysisPeriod.class)
+    @DisplayName("현재 시각에서 Asia/Seoul 기준 완료된 공통 분석 구간을 계산한다")
+    void calculatesCompletedWindow(AnalysisPeriod period) {
+        Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
+
+        AnalysisWindow window = AnalysisWindow.completed(period, clock);
+
+        assertThat(window.getRecentEnd()).isEqualTo(TrendFixture.END);
+        assertThat(window.getRecentStart()).isEqualTo(TrendFixture.END.minus(period.getDuration()));
+        assertThat(window.getPreviousEnd()).isEqualTo(window.getRecentStart());
+        assertThat(window.getPreviousStart()).isEqualTo(window.getRecentStart().minus(period.getDuration()));
     }
 
     @Test
