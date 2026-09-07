@@ -194,7 +194,7 @@ class InMemoryLedger:
 
     def __init__(self) -> None:
         self._rows: dict[tuple[str, str], PendingArticle] = {}
-        self._emitted: dict[tuple[str, str], datetime] = {}
+        self._emitted: dict[tuple[str, str], tuple[datetime, str]] = {}
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
         return {aid for aid in article_ids if (source, aid) not in self._rows}
@@ -220,9 +220,9 @@ class InMemoryLedger:
 
     def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
         counts: dict[str, int] = {}
-        for key, (_at, emitted_run) in self._emitted.items():
+        for key, (at, emitted_run) in self._emitted.items():
             row = self._rows[key]
-            if row.domain == domain and emitted_run == run_id:
+            if row.domain == domain and emitted_run == run_id and at is not None:
                 counts[row.source] = counts.get(row.source, 0) + 1
         return counts
 
@@ -250,10 +250,12 @@ LIMIT %s
 """
 
 
+# `event_emitted_at IS NOT NULL` 이 붙는 이유는 재발행 때문이다. 발급 표시만 지우고
+# `event_run_id` 를 남기면 아직 안 나간 행이 옛 실행 몫으로 잡힌다.
 _SELECT_EMITTED_BY_RUN = """
 SELECT source, count(*)
 FROM collected_article
-WHERE domain = %s AND event_run_id = %s
+WHERE domain = %s AND event_run_id = %s AND event_emitted_at IS NOT NULL
 GROUP BY source
 """
 

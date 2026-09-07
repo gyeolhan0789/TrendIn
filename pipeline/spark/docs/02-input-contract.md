@@ -55,16 +55,16 @@ EVENT_SCHEMA = StructType([
 
 `status` 와 `record_count` 조합으로 갈린다.
 
-| `status` | `record_count` | `object_key` | `event_id` 꼬리 | 처리 |
+| `status` | `record_count` | `object_key` | `format` | 처리 |
 | --- | --- | --- | --- | --- |
-| `success` | > 0 | 유효 | — | MinIO 조회 → [§3](#3-원문-조회와-검증) |
-| `success` | 0 | 유효 (빈 파일) | — | 원문 조회 생략. 원장에 `COMPLETED`, 문서 0건 기록 |
-| `failed` | 0 | `null` | — | 원문 조회 생략. 원장에 `SOURCE_FAILED` + `failure_reason` 기록 |
-| `success` | ≥ 0 | `null` | `run_id` | **실행 요약.** 원문 조회 생략. 원장에 그 실행의 수집 건수만 기록 |
-| `success` | > 0 | `null` | `run_id` 아님 | **계약 위반.** DLQ |
+| `success` | > 0 | 유효 | `jsonl` \| `json` | MinIO 조회 → [§3](#3-원문-조회와-검증) |
+| `success` | 0 | 유효 (빈 파일) | `jsonl` | 원문 조회 생략. 원장에 `COMPLETED`, 문서 0건 기록 |
+| `failed` | 0 | `null` | `null` | 원문 조회 생략. 원장에 `SOURCE_FAILED` + `failure_reason` 기록 |
+| `success` | ≥ 0 | `null` | `null` | **실행 요약.** 원문 조회 생략. 원장에 그 실행의 수집 건수만 기록 |
+| `success` | > 0 | `null` | `jsonl` \| `json` | **계약 위반.** DLQ |
 | 그 외 `status` | — | — | — | **계약 위반.** DLQ |
 
-**넷째 줄이 기사 단위 소스의 실행 요약 이벤트다.** 상위 문서 §5 "입자가 둘이다"가 정의한다 — 기사마다 이벤트를 내는 소스는 배치 객체가 없어서, 0 건과 장애를 구분할 자리를 요약 이벤트가 맡는다. `object_key` 가 `null` 인데 `status` 가 `success` 인 것은 이 한 경우뿐이다.
+**넷째 줄이 기사 단위 소스의 실행 요약 이벤트다.** 가르는 건 `format` 이다([§5](#5-원장에-무엇을-남기나)와 같은 기준) — `event_id` 를 파싱하지 않는다. 상위 문서 §5 "입자가 둘이다"가 정의한다 — 기사마다 이벤트를 내는 소스는 배치 객체가 없어서, 0 건과 장애를 구분할 자리를 요약 이벤트가 맡는다. `object_key` 가 `null` 인데 `status` 가 `success` 인 것은 이 한 경우뿐이다.
 
 다섯째 줄은 여전히 생산자 버그다. 조용히 넘기면 영영 안 드러난다.
 
@@ -135,7 +135,9 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | --- | --- | --- |
 | `jsonl` | 배치 이벤트 | 센다 |
 | `json` | 기사 이벤트 | 안 센다 |
-| `null` | 실행 요약 이벤트 | 센다 | "수집이 얼마나 됐나"를 보는 것이지 "얼마나 살아남았나"가 아니다.
+| `null` | 실행 요약 이벤트 | 센다 |
+
+"수집이 얼마나 됐나"를 보는 것이지 "얼마나 살아남았나"가 아니다.
 
 ### 날짜 축이 두 개라는 것도 기록해둔다
 

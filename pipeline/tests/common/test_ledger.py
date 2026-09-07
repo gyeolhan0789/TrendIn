@@ -210,3 +210,28 @@ def test_실패하면_되돌리고_닫는다():
     with pytest.raises(RuntimeError):
         PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
     assert not conn.committed and conn.closed
+
+
+def test_실행별_발급_건수는_그_실행_태그로만_센다():
+    """완료 기준을 지탱하는 질의라 SQL 경로를 직접 탄다.
+
+    메모리 구현은 SQL 을 안 거치므로 컬럼 이름이 틀려도 못 잡는다 — 실제로 이 브랜치에서
+    `event_run_id` 를 DDL 에 안 넣고도 테스트가 통과한 적이 있다.
+    """
+    db, conn = fake_db([("vogue", 3), ("wkorea", 1)])
+    counts = PostgresLedger(db).emitted_by_run("fashion", "20260903T110000")
+
+    assert counts == {"vogue": 3, "wkorea": 1}
+    sql, params = conn.cursors[0].executed[-1]
+    assert params == ("fashion", "20260903T110000")
+    # 발급 표시가 지워진 행의 옛 태그를 세면 재발행 뒤 건수가 부푼다.
+    assert "event_emitted_at IS NOT NULL" in sql
+
+
+def test_발급을_적을_때_실행도_같이_적는다():
+    db, conn = fake_db([])
+    PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
+
+    sql, params = conn.cursors[0].executed[-1]
+    assert "event_run_id" in sql
+    assert params == (NOW, "20260903T110000", "vogue", "1")

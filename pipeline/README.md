@@ -172,7 +172,7 @@ CLI python -c "
 from trendin.common.collect.db import Database
 with Database.from_env().transaction() as c:
     cur = c.cursor()
-    cur.execute('UPDATE collected_article SET event_emitted_at = NULL')
+    cur.execute('UPDATE collected_article SET event_emitted_at = NULL, event_run_id = NULL')
     print('되돌린 행:', cur.rowcount)
 "
 CLI airflow dags trigger fashion_collect
@@ -181,6 +181,8 @@ CLI airflow dags trigger fashion_collect
 발급 태스크가 미발급 행을 내므로 다음 실행부터 다시 나간다. MinIO 는 건드리지 않는다.
 
 한 실행이 내는 상한은 500건이다. 장부가 그보다 크면 여러 회차에 나눠 나가니 `trigger` 를 몇 번 더 하거나 주기 실행이 따라잡게 둔다.
+
+**밀린 게 500건을 넘은 채로 발급 태스크가 재시도되면** 요약 이벤트의 건수가 시도마다 커진다 — 같은 `event_id` 로 내용이 다른 메시지가 나가는 것이라 팀 발행 규약 3 에 걸린다. 재발행 직후처럼 밀린 게 많을 때는 요약 건수를 믿지 말고 장부를 직접 본다.
 
 ## DAG 추가 규약
 
