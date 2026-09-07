@@ -1,5 +1,11 @@
 package com.forever102.backend.auth.jwt;
 
+import com.forever102.backend.global.exception.BusinessException;
+import com.forever102.backend.global.exception.ErrorCode;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -21,6 +27,7 @@ public class JwtTokenProvider {
     private static final String KEY_ALGORITHM = "HmacSHA256";
 
     private final SecretKey secretKey;
+    private final JwtParser parser;
     private final Duration accessTokenExpiration;
     private final Duration refreshTokenExpiration;
 
@@ -31,6 +38,7 @@ public class JwtTokenProvider {
         }
         // 시크릿 길이에 따라 서명 알고리즘이 달라지지 않도록 HS256으로 고정한다.
         this.secretKey = new SecretKeySpec(secret, KEY_ALGORITHM);
+        this.parser = Jwts.parser().verifyWith(this.secretKey).build();
         this.accessTokenExpiration = properties.accessTokenExpiration();
         this.refreshTokenExpiration = properties.refreshTokenExpiration();
     }
@@ -43,6 +51,38 @@ public class JwtTokenProvider {
                 accessTokenExpiration.toSeconds(),
                 refreshTokenExpiration.toSeconds()
         );
+    }
+
+    /**
+     * 액세스 토큰을 검증하고 회원 식별자를 꺼낸다.
+     * 서명, 만료, 토큰 타입 중 하나라도 어긋나면 BusinessException을 던진다.
+     */
+    public Long parseAccessToken(String token) {
+        Claims claims = parseClaims(token);
+        if (!ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+            // 리프레시 토큰으로 API를 호출하는 것을 막는다.
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+        return parseMemberId(claims);
+    }
+
+    private Claims parseClaims(String token) {
+        try {
+            return parser.parseSignedClaims(token).getPayload();
+        } catch (ExpiredJwtException e) {
+            // 클라이언트가 재발급으로 넘어갈 수 있도록 만료만 따로 구분한다.
+            throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+    }
+
+    private Long parseMemberId(Claims claims) {
+        try {
+            return Long.valueOf(claims.getSubject());
+        } catch (NumberFormatException e) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
     }
 
     private String createToken(Long memberId, String tokenType, Instant issuedAt, Duration expiration) {

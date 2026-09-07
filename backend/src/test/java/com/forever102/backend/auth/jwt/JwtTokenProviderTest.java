@@ -3,6 +3,8 @@ package com.forever102.backend.auth.jwt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.forever102.backend.global.exception.BusinessException;
+import com.forever102.backend.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.nio.charset.StandardCharsets;
@@ -134,6 +136,72 @@ class JwtTokenProviderTest {
         assertThat(tokens.refreshTokenTtl()).isEqualTo(REFRESH_TOKEN_EXPIRATION);
     }
 
+    @Test
+    @DisplayName("액세스 토큰을 파싱하면 회원 식별자를 돌려준다")
+    void parsesMemberIdFromAccessToken() {
+        // given
+        String accessToken = jwtTokenProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        assertThat(jwtTokenProvider.parseAccessToken(accessToken)).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("리프레시 토큰으로는 액세스 토큰 파싱에 실패한다")
+    void rejectsRefreshTokenAsAccessToken() {
+        // given
+        String refreshToken = jwtTokenProvider.issue(MEMBER_ID).refreshToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken(refreshToken))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    @DisplayName("만료된 토큰은 EXPIRED_TOKEN으로 구분한다")
+    void rejectsExpiredToken() {
+        // given
+        JwtTokenProvider expiredProvider = new JwtTokenProvider(
+                new JwtProperties(SECRET, Duration.ofSeconds(-1), REFRESH_TOKEN_EXPIRATION)
+        );
+        String expiredToken = expiredProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken(expiredToken))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.EXPIRED_TOKEN);
+    }
+
+    @Test
+    @DisplayName("다른 키로 서명된 토큰은 INVALID_TOKEN으로 거부한다")
+    void rejectsTokenSignedWithAnotherKeyOnParse() {
+        // given
+        JwtTokenProvider otherProvider = new JwtTokenProvider(new JwtProperties(
+                "another-secret-key-that-is-also-long-enough-1234",
+                ACCESS_TOKEN_EXPIRATION,
+                REFRESH_TOKEN_EXPIRATION
+        ));
+        String foreignToken = otherProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken(foreignToken))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    @DisplayName("JWT 형식이 아닌 문자열은 INVALID_TOKEN으로 거부한다")
+    void rejectsMalformedToken() {
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseAccessToken("not-a-jwt"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_TOKEN);
+    }
     private Claims parse(String token) {
         SecretKey key = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();

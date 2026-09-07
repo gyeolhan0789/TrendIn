@@ -21,7 +21,7 @@ import com.forever102.backend.auth.dto.LoginResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.service.AuthService;
-import com.forever102.backend.global.config.SecurityConfig;
+import com.forever102.backend.global.config.SecurityTestConfig;
 import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +36,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
+@Import(SecurityTestConfig.class)
 @AutoConfigureRestDocs
 class AuthControllerTest {
 
