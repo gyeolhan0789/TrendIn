@@ -1,0 +1,2 @@
+# jar 는 커밋하지 않는다. scripts/fetch-jars.sh 가 버전을 고정해 받는다 (09 §2).
+*.jar

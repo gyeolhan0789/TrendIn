@@ -25,7 +25,8 @@ pipeline/
 │  ├─ fashion/
 │  └─ dev/
 ├─ tests/                DagBag import 테스트 + 태스크 함수 단위 테스트
-└─ scripts/dev-setup.sh  로컬 가상환경
+├─ spark/                Spark Job — 진입점 · 설정 · jar · 컴포즈 오버레이 (spark/README.md)
+└─ scripts/dev-setup.sh  로컬 가상환경 (+ Spark 의존성과 jar)
 ```
 
 ## 처음 실행
@@ -105,6 +106,25 @@ docker compose -f pipeline/compose.yaml up -d
 - `AIRFLOW_CONN_APP_DB` 를 팀 postgres(`forever102`) 로. 같은 EC2 에 있으면 `infra/compose.yaml` 의 `s15p21a102-shared` 네트워크를 외부 참조해 호스트 `postgres`, 다른 EC2 면 접근 경로부터 열어야 한다.
 - 비밀번호·JWT 비밀은 서버에서만 생성한다. `.env` 는 Git 에 올리지 않는다.
 - UI 포트는 `127.0.0.1` 바인드 그대로 두고 SSH 터널로 본다.
+
+## Spark
+
+`spark/` 에 있다. Airflow 가 `spark-submit` 으로 깨우는 Job 세 개(`ingest` · `extract` · `aggregate`)와 그 실행 환경이다.
+
+**컨테이너는 늘지 않는다.** Spark 는 상시 서비스가 아니라 Airflow 가 `spark-submit` 으로 깨우면 돌고 끝나는 프로그램이다. 그래서 Spark 컨테이너를 따로 띄우는 대신, Airflow 이미지에 JRE 와 `pyspark` 를 얹은 파생 이미지를 쓴다.
+
+```sh
+docker compose -f ../datastore/compose.yaml up -d          # Kafka · MinIO. 먼저다
+spark/scripts/fetch-jars.sh                                # jar 를 호스트에 받아둔다
+spark/scripts/build-image.sh                               # 이미지 두 단계
+docker compose -f compose.yaml -f spark/compose.spark.yaml up -d
+```
+
+`Dockerfile` 과 `compose.yaml` 은 건드리지 않는다 — `spark/Dockerfile` 이 `s15p21a102/pipeline:local` 을 `FROM` 으로 상속하고, `spark/compose.spark.yaml` 오버레이가 Airflow 서비스의 `image` 만 바꾼다. 되돌릴 때는 `-f` 를 뺀다.
+
+로컬에서 호스트 `.venv` 로 돌릴 때는 `spark/compose.dev.yaml` 쪽을 쓴다.
+
+절차와 결정은 [`spark/README.md`](spark/README.md), 설계는 [`spark/docs/`](spark/docs/).
 
 ## 지금 없는 것
 
