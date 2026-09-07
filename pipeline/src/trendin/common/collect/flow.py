@@ -301,25 +301,24 @@ def publish_pending(
     나간다. 이 순서면 중복이 날 수 있는데, 그건 소비 측이 `event_id` 로 거르기로 팀
     계약에 적혀 있다(at-least-once).
 
-    소스별 건수를 돌려주는 이유는 요약 이벤트의 `record_count` 가 그 값이라서다. 장부를
-    실행 구간으로 다시 세면 실행이 겹칠 때 앞 실행이 낸 것까지 제 몫이 된다 — 이번에
-    실제로 보낸 것만 세면 그 일이 안 생긴다.
+    소스별 건수를 돌려주는 이유는 요약 이벤트의 `record_count` 가 그 값이라서다. 그 값을
+    **장부에 적힌 발급 실행**으로 세는 데는 이유가 둘 있다.
+
+    이번 시도가 보낸 것만 세면 재시도에서 뒤집힌다 — 발급까지 마치고 요약 중간에 죽으면
+    다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른 요약이 나간다.
+
+    실행 구간으로 세면 겹칠 때 부푼다 — 실행 둘이 가까우면 앞 실행이 낸 것까지 센다.
     """
     rows = ledger.pending(domain, limit)
-    if not rows:
-        return {}
-
     for row in rows:
         # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
         # 순서가 보장되고, 뒤이어 나가는 요약 이벤트가 그 소스의 기사들 뒤에 선다.
         publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
-    publisher.flush()
-
-    counts: dict[str, int] = {}
-    for row in rows:
-        ledger.mark_emitted(row.source, row.article_id, now)
-        counts[row.source] = counts.get(row.source, 0) + 1
-    return counts
+    if rows:
+        publisher.flush()
+        for row in rows:
+            ledger.mark_emitted(row.source, row.article_id, now, run_id)
+    return ledger.emitted_by_run(domain, run_id)
 
 
 def publish_summaries(
@@ -333,9 +332,11 @@ def publish_summaries(
 ) -> int:
     """소스별 실행 요약. 0건이어도 낸다(팀 발행 규약 4).
 
-    `counts` 는 장부가 센 "이 실행 구간에 발급된 기사 수" 다. 태스크가 그 순간 들고 있던
-    숫자가 아니라 장부에서 오므로, 같은 실행이 재시도돼도 값이 줄지 않는다 — 같은
-    `event_id` 로 내용이 다른 메시지가 나가는 것을 막는다(팀 발행 규약 3).
+    `counts` 는 `publish_pending` 이 **이번 실행에서 실제로 내보낸** 소스별 건수다.
+    장부를 실행 구간으로 다시 세면 실행이 겹칠 때 앞 실행 몫까지 제 것으로 센다.
+
+    태스크가 재시도돼도 값이 흔들리지 않는다 — 앞 시도에서 나간 행은 장부에 발급 표시가
+    남아 `pending` 에 안 잡히므로 다시 세지 않는다(팀 발행 규약 3).
     """
     for status in statuses:
         publisher.publish(

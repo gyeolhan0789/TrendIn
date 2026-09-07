@@ -60,7 +60,7 @@ def test_소스가_다르면_같은_article_id_라도_다른_기사다():
 def test_발급_시각을_적으면_미발급_목록에서_빠진다():
     ledger = InMemoryLedger()
     record(ledger, make_article("1"))
-    ledger.mark_emitted("vogue", "1", NOW)
+    ledger.mark_emitted("vogue", "1", NOW, "20260903T110000")
     assert ledger.pending("fashion") == []
 
 
@@ -89,13 +89,14 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
         "article_sha256",
         "members_only",
         "event_emitted_at",
+        "event_run_id",
         "article_key",
         "published_at_offset",
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 둘 + 인덱스 하나 + 칸을 여는 ALTER 하나, 그리고 걷어내는 DROP 하나.
-    assert DDL.count("IF NOT EXISTS") == 4
+    # 테이블 둘 + 인덱스 둘 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
+    assert DDL.count("IF NOT EXISTS") == 6
     assert DDL.count("DROP INDEX IF EXISTS") == 1
 
 
@@ -195,7 +196,7 @@ def test_오프셋이_없는_옛_행은_지어내지_않는다():
 
 def test_커밋하고_닫는다():
     db, conn = fake_db()
-    PostgresLedger(db).mark_emitted("vogue", "1", NOW)
+    PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
     assert conn.committed and conn.closed
 
 
@@ -207,5 +208,5 @@ def test_실패하면_되돌리고_닫는다():
     conn = Boom()
     db = Database(uri="postgres://fake", connect=lambda _uri: conn)
     with pytest.raises(RuntimeError):
-        PostgresLedger(db).mark_emitted("vogue", "1", NOW)
+        PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
     assert not conn.committed and conn.closed

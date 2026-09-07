@@ -209,11 +209,11 @@ def test_두_번째_발급은_아무것도_내지_않는다():
     for _ in range(2):
         publish_pending(
             ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW
+            publisher=publisher,
+            bucket="raw-data",
+            domain="fashion",
+            run_id="20260903T110000",
+            now=NOW,
         )
     assert len(publisher.sent) == 1
 
@@ -428,3 +428,42 @@ def test_기사_이벤트에_그_발급_실행의_run_id_가_박힌다():
     )
     _key, event = publisher.sent[0]
     assert event["run_id"] == "20260903T110000"
+
+
+def test_재시도해도_요약_건수가_그대로다():
+    """publish 태스크는 `retries=2` 다. 발급을 마치고 요약 중간에 죽으면 재시도가 온다.
+
+    그때 "이번 시도가 보낸 것"만 세면 0 이 나오고, 같은 `event_id` 로 내용이 다른 요약이
+    나간다(팀 발행 규약 3 위반). 그래서 건수는 장부에 적힌 발급 실행으로 센다.
+    """
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    kw = dict(
+        ledger=ledger,
+        publisher=RecordingEventPublisher(),
+        bucket="raw-data",
+        domain="fashion",
+    )
+
+    first = publish_pending(run_id="20260903T110000", now=NOW, **kw)
+    # 같은 실행의 재시도 — logical date 가 같으니 run_id 도 같다.
+    retry = publish_pending(run_id="20260903T110000", now=NOW, **kw)
+
+    assert first == {"vogue": 2}
+    assert retry == {"vogue": 2}, "재시도가 0 을 돌려주면 요약이 0건으로 다시 나간다"
+
+
+def test_다음_실행은_앞_실행이_낸_것을_제_몫으로_세지_않는다():
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    kw = dict(
+        ledger=ledger,
+        publisher=RecordingEventPublisher(),
+        bucket="raw-data",
+        domain="fashion",
+    )
+
+    publish_pending(run_id="20260903T110000", now=NOW, **kw)
+    later = publish_pending(run_id="20260903T120000", now=NOW, **kw)
+
+    assert later == {}

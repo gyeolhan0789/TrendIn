@@ -46,19 +46,26 @@ CREATE TABLE IF NOT EXISTS collected_article (
     members_only        boolean     NOT NULL DEFAULT false,
     collected_at        timestamptz NOT NULL,
     event_emitted_at    timestamptz,
+    event_run_id        text,
     PRIMARY KEY (source, article_id)
 );
 
--- 이 브랜치 전에 만들어진 테이블에도 오프셋 칸을 연다. 이미 있으면 아무 일도 없다.
+-- 이 브랜치 전에 만들어진 테이블에도 칸을 연다. 이미 있으면 아무 일도 없다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS published_at_offset smallint;
+
+-- 어느 실행이 이 행을 발급했나. 요약 이벤트의 건수를 이 값으로 센다 (S15P21A102-204).
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS event_run_id text;
 
 -- 발급 태스크가 미발급 행만 훑는다. 장부는 계속 자라고 미발급은 늘 소수다.
 CREATE INDEX IF NOT EXISTS collected_article_pending_idx
     ON collected_article (domain, collected_at)
     WHERE event_emitted_at IS NULL;
 
--- 발급 건수는 발급 태스크가 이번에 보낸 행을 직접 세므로 이 인덱스는 읽는 질의가 없다
--- (S15P21A102-204). 이 브랜치 전에 만들어진 DB 에서 걷어낸다.
+-- 요약 이벤트가 "이 실행이 발급한 건수" 를 셀 때 쓴다.
+CREATE INDEX IF NOT EXISTS collected_article_run_idx
+    ON collected_article (domain, event_run_id);
+
+-- 실행 구간으로 세던 시절의 인덱스. 읽는 질의가 없어졌다 (S15P21A102-204).
 DROP INDEX IF EXISTS collected_article_emitted_idx;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
@@ -120,8 +127,23 @@ class Ledger(Protocol):
         """
         ...
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
-        """발급 성공 뒤에만 부른다. 순서를 뒤집으면 유실이 생긴다(at-least-once)."""
+    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
+        """발급 성공 뒤에만 부른다. 순서를 뒤집으면 유실이 생긴다(at-least-once).
+
+        `run_id` 는 어느 실행이 냈는지다. 요약 건수를 이 값으로 센다.
+        """
+        ...
+
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
+        """그 실행이 발급한 기사 수를 소스별로 센다. 요약 이벤트의 `record_count` 다.
+
+        "이번 시도가 보낸 것" 을 세지 않는 이유는 재시도 때문이다 — 발급까지 마치고 요약
+        중간에 죽으면 다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른
+        요약이 나간다(팀 발행 규약 3 위반). 장부에 적힌 실행으로 세면 흔들리지 않는다.
+
+        실행 구간(`event_emitted_at >= 시작시각`)으로 세지 않는 이유는 겹침이다 — 실행 둘이
+        가까우면 앞 실행이 낸 것까지 뒤 실행 몫으로 센다.
+        """
         ...
 
 def _offset_minutes(value: datetime) -> int:
@@ -193,8 +215,16 @@ class InMemoryLedger:
         rows.sort(key=lambda r: (r.collected_at, r.source, r.article_id))
         return rows[:limit]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
-        self._emitted[(source, article_id)] = at
+    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
+        self._emitted[(source, article_id)] = (at, run_id)
+
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for key, (_at, emitted_run) in self._emitted.items():
+            row = self._rows[key]
+            if row.domain == domain and emitted_run == run_id:
+                counts[row.source] = counts.get(row.source, 0) + 1
+        return counts
 
 
 _INSERT = """
@@ -217,6 +247,14 @@ FROM collected_article
 WHERE event_emitted_at IS NULL AND domain = %s
 ORDER BY collected_at, source, article_id
 LIMIT %s
+"""
+
+
+_SELECT_EMITTED_BY_RUN = """
+SELECT source, count(*)
+FROM collected_article
+WHERE domain = %s AND event_run_id = %s
+GROUP BY source
 """
 
 
@@ -288,10 +326,15 @@ class PostgresLedger:
             for r in rows
         ]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
+    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(
-                "UPDATE collected_article SET event_emitted_at = %s "
+                "UPDATE collected_article SET event_emitted_at = %s, event_run_id = %s "
                 "WHERE source = %s AND article_id = %s",
-                (at, source, article_id),
+                (at, run_id, source, article_id),
             )
+
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
+        with self._db.transaction() as conn, conn.cursor() as cur:
+            cur.execute(_SELECT_EMITTED_BY_RUN, (domain, run_id))
+            return {r[0]: r[1] for r in cur.fetchall()}
