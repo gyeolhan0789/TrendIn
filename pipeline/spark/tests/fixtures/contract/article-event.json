@@ -1,0 +1,23 @@
+{
+  "event_id": "vogue-854414",
+  "schema_version": 1,
+  "bucket": "raw-data",
+  "object_key": "fashion/vogue/rss/2026/09/03/854414/article.json",
+  "raw_object_key": "fashion/vogue/rss/2026/09/03/854414/raw.xml",
+  "domain": "fashion",
+  "source_id": "vogue",
+  "article_id": "854414",
+  "run_id": null,
+  "url": "https://www.vogue.co.kr/2026/09/03/some-article/",
+  "title": "2026 F/W 런웨이가 다시 꺼낸 실루엣",
+  "published_at": "2026-09-03T10:00:00+09:00",
+  "collected_at": "2026-09-03T11:10:00+09:00",
+  "status": "success",
+  "record_count": 1,
+  "size_bytes": null,
+  "checksum": "sha256-3232186bb2167d955db6103cf6fedf73767596903c7f8ceec07f14a8cbcf36cd",
+  "format": "json",
+  "compression": "none",
+  "failure_reason": null,
+  "members_only": false
+}
