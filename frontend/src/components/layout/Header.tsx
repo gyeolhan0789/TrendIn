@@ -10,7 +10,6 @@ export function Header() {
         <NavLink className="brand" to="/" aria-label="TrendIn 홈">TrendIn<span className="brand-dot">.</span></NavLink>
         <nav className="main-nav" aria-label="주요 메뉴">
           <NavLink to="/">대시보드</NavLink>
-          <NavLink to="/saved-trends">저장한 트렌드</NavLink>
         </nav>
         <div className="header-right">
           {isHome && <span className="header-collection">수집 1,291건 · 갱신 방금</span>}

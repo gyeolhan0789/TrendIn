@@ -3,9 +3,6 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { PageContainer } from '../../components/layout/PageContainer';
-import { useDeleteSavedTrend } from '../../features/savedTrend/hooks/useDeleteSavedTrend';
-import { useSaveTrend } from '../../features/savedTrend/hooks/useSaveTrend';
-import { useSavedTrends } from '../../features/savedTrend/hooks/useSavedTrends';
 import { useNewTrends } from '../../features/trend/hooks/useNewTrends';
 import { useRelatedTrends } from '../../features/trend/hooks/useRelatedTrends';
 import { useResurgingTrends } from '../../features/trend/hooks/useResurgingTrends';
@@ -168,18 +165,11 @@ export function HomePage() {
   const newQuery = useNewTrends(params);
   const risingQuery = useResurgingTrends(params);
   const relatedQuery = useRelatedTrends(params);
-  const savedQuery = useSavedTrends();
-  const saveMutation = useSaveTrend();
-  const deleteMutation = useDeleteSavedTrend();
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (savedQuery.data) setSavedIds(new Set(savedQuery.data.map((trend) => trend.trendId)));
-  }, [savedQuery.data]);
 
   const updateFilter = (key: 'category' | 'period', value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -193,10 +183,8 @@ export function HomePage() {
       const next = new Set(current);
       if (next.has(trendId)) {
         next.delete(trendId);
-        deleteMutation.mutate(trendId);
       } else {
         next.add(trendId);
-        saveMutation.mutate(trendId);
       }
       return next;
     });
