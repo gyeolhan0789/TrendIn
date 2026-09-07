@@ -2,8 +2,8 @@ package com.forever102.backend.trend.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AnalysisWindow {
+
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
     @Column(name = "recent_start", nullable = false)
     private OffsetDateTime recentStart;
@@ -25,17 +27,25 @@ public class AnalysisWindow {
     @Column(name = "previous_end", nullable = false)
     private OffsetDateTime previousEnd;
 
-    public AnalysisWindow(OffsetDateTime recentStart, OffsetDateTime recentEnd,
+    public AnalysisWindow(AnalysisPeriod period, OffsetDateTime recentStart, OffsetDateTime recentEnd,
             OffsetDateTime previousStart, OffsetDateTime previousEnd) {
         if (recentStart == null || recentEnd == null || previousStart == null || previousEnd == null
-                || !Duration.between(recentStart, recentEnd).equals(Duration.ofHours(24))
-                || !Duration.between(previousStart, previousEnd).equals(Duration.ofHours(24))
-                || !previousEnd.isEqual(recentStart)) {
-            throw new IllegalArgumentException("분석 구간은 연속된 두 24시간 구간이어야 합니다.");
+                || period == null
+                || !java.time.Duration.between(recentStart, recentEnd).equals(period.getDuration())
+                || !java.time.Duration.between(previousStart, previousEnd).equals(period.getDuration())
+                || !previousEnd.isEqual(recentStart)
+                || !isSeoulDayBoundary(recentStart) || !isSeoulDayBoundary(recentEnd)
+                || !isSeoulDayBoundary(previousStart) || !isSeoulDayBoundary(previousEnd)) {
+            throw new IllegalArgumentException("분석 구간은 Asia/Seoul 기준으로 연속된 요청 기간이어야 합니다.");
         }
         this.recentStart = recentStart;
         this.recentEnd = recentEnd;
         this.previousStart = previousStart;
         this.previousEnd = previousEnd;
+    }
+
+    private static boolean isSeoulDayBoundary(OffsetDateTime dateTime) {
+        return dateTime.toZonedDateTime().withZoneSameInstant(SEOUL).toLocalTime()
+                .equals(java.time.LocalTime.MIDNIGHT);
     }
 }

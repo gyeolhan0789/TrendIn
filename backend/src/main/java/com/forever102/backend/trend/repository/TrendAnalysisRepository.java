@@ -6,5 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TrendAnalysisRepository extends JpaRepository<TrendAnalysis, Long> {
 
-    Optional<TrendAnalysis> findFirstByTrendIdOrderByAnalyzedAtDescIdDesc(Long trendId);
+    Optional<TrendAnalysis> findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
+            Long trendId, String period);
 }

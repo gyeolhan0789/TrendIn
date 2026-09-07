@@ -1,6 +1,7 @@
 package com.forever102.backend.trend;
 
 import com.forever102.backend.member.domain.Domain;
+import com.forever102.backend.trend.domain.AnalysisPeriod;
 import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.domain.Keyword;
 import com.forever102.backend.trend.domain.Trend;
@@ -28,19 +29,26 @@ public final class TrendFixture {
         return trend;
     }
 
-    public static TrendAnalysis analysis(Trend trend, long current, long previous) {
-        return TrendAnalysis.builder().trend(trend).trendType("RISING")
+    public static TrendAnalysis analysis(Trend trend, AnalysisPeriod period, long current, long previous) {
+        return TrendAnalysis.builder().trend(trend).period(period).trendType("RISING")
                 .mentionCount(current).previousMentionCount(previous)
-                .analysisWindow(window()).analyzedAt(END.plusHours(8))
-                .evidence(new TrendEvidence("example-v1", "최근 24시간 언급 100건 이상이며 증가율 100% 이상",
+                .analysisWindow(window(period)).analyzedAt(END.plusHours(8))
+                .evidence(new TrendEvidence("example-v1", "요청 기간 언급량과 증가율 규칙",
                         Map.of("minimumMentionCount", BigDecimal.valueOf(100),
                                 "minimumGrowthRate", BigDecimal.valueOf(100)), "COMPLETE"))
-                .aiAnalysis(new TrendAiAnalysis("COMPLETED", "관련 콘텐츠에서 발레 스타일 스니커즈 언급이 증가했습니다.",
-                        "기사들은 신제품 출시를 주요 배경으로 언급합니다.", List.of(301L, 302L), END.plusHours(8).plusMinutes(10)))
                 .build();
     }
 
-    public static AnalysisWindow window() {
-        return new AnalysisWindow(END.minusDays(1), END, END.minusDays(2), END.minusDays(1));
+    public static TrendAiAnalysis aiAnalysis(Trend trend) {
+        return new TrendAiAnalysis(trend, "COMPLETED",
+                "관련 콘텐츠에서 발레 스타일 스니커즈 언급이 증가했습니다.",
+                "기사들은 신제품 출시를 주요 배경으로 언급합니다.",
+                List.of(301L, 302L), END.plusHours(8).plusMinutes(10));
+    }
+
+    public static AnalysisWindow window(AnalysisPeriod period) {
+        long days = period.getDuration().toDays();
+        return new AnalysisWindow(period, END.minusDays(days), END,
+                END.minusDays(days * 2), END.minusDays(days));
     }
 }
