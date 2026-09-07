@@ -27,14 +27,14 @@ SYNTHETIC_P = SourceDef(
     key="synthetic",
     domain="fashion",
     route="rss",
-    feed_url="https://example.test/feed/",
+    discover_url="https://example.test/feed/",
     allowed_url_prefixes=("https://example.test/",),
 )
 SYNTHETIC_POST = SourceDef(
     key="synthetic",
     domain="fashion",
     route="rss",
-    feed_url="https://example.test/feed/",
+    discover_url="https://example.test/feed/",
     allowed_url_prefixes=("https://example.test/",),
     guid_param="post",
     author_field="author",
@@ -183,7 +183,7 @@ def test_추적_파라미터만_빼고_평문_요약은_남긴다(clock, feed_by
 def test_페이지_번호가_URL_에_붙는다(clock, feed_bytes):
     adapter, session = adapter_for(sources.get("vogue"), serve(feed_bytes("vogue.xml")), clock)
     with session:
-        assert adapter.page_url(None) == sources.get("vogue").feed_url
+        assert adapter.page_url(None) == sources.get("vogue").discover_url
         assert adapter.page_url(2).endswith("?paged=2")
 
 

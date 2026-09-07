@@ -72,3 +72,41 @@ def test_JSON_으로_낼_때_빈_선택_필드는_빠진다():
     assert "body_text" not in dumped
     assert dumped["published_at"].startswith("2026-09-03T04:41:17")
     assert dumped["schema_version"] == 1
+
+
+# --- 회원 전용 (불변식 2 · 설계 문서 #12-2 의 가역적 기본값) -----------------
+
+MEMBERS = {k: v for k, v in FULL.items() if k not in ("raw_key", "content_sha256")} | {
+    "source": "harpersbazaar",
+    "route": "listing",
+    "members_only": True,
+}
+
+
+def test_회원_전용은_raw_없이_만들어진다():
+    """기사 페이지 HTML 에 본문이 실려 와도 raw 를 저장하지 않기로 했다."""
+    article = Article(**MEMBERS)
+    assert article.members_only is True
+    assert article.raw_key is None and article.content_sha256 is None
+    # 제목·URL·발행일은 남는다 (불변식 11 의 출처 명시).
+    assert article.url and article.published_at
+    dumped = article.to_json_dict()
+    assert "raw_key" not in dumped and "content_sha256" not in dumped
+
+
+def test_회원_전용이_아니면_raw_가_필수다():
+    with pytest.raises(ValidationError, match="raw_key"):
+        Article(**{k: v for k, v in MEMBERS.items() if k != "members_only"})
+
+
+@pytest.mark.parametrize("field", ["raw_key", "content_sha256"])
+def test_회원_전용이_아니면_한쪽만_있어도_실패한다(field):
+    payload = {k: v for k, v in FULL.items() if k != field}
+    with pytest.raises(ValidationError, match="raw_key"):
+        Article(**payload)
+
+
+def test_회원_전용에_본문을_실을_수_없다():
+    """불변식 2 — HTML 에 텍스트가 실려 있어도 저장하지 않는다."""
+    with pytest.raises(ValidationError, match="body_text"):
+        Article(**MEMBERS, body_text="회원 전용 본문")

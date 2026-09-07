@@ -42,14 +42,15 @@
 | allure | 위와 같음 | 위와 같음 | `/category/style/feed/` | 10 | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
 | marieclaire | WordPress (자체) | `/wp-admin/` 만 금지 | `/category/fashion/feed/` | 10 | 피드 `content:encoded` 전문. 기사 페이지 ld+json `NewsArticle.articleBody` 도 있다 | guid `?p=558420` 의 숫자 | pubDate (UTC) | `?paged=N` 동작 |
 | ~~hypebeast~~ (제외) | 자체 CMS (CloudFront) | `/api /_ajax /post-content /search-suggest` 등 금지, 그 외 `Allow: /` | `/fashion/feed` | 20 | 피드 `content:encoded` 전문 | guid `?post=705465` 의 숫자 | pubDate (UTC) | 없음. `?paged=2` 가 같은 20건 |
-| harpersbazaar | 자체 플랫폼 (cosmopolitan 과 동일 템플릿) | `/event/notice` 만 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{news,style,trend,sports,watchnjewelry}` | 목록 36건 (섹션별 `?offset=N` 동작) | 기사 페이지 `atc_body`. ld+json `NewsArticle` 에 headline·datePublished 는 있고 articleBody 는 없다 | URL `/article/{숫자}` | `article:published_time` (+09:00) | 섹션 페이지 offset 으로 일부 |
+| harpersbazaar | 자체 플랫폼 (cosmopolitan 과 동일 템플릿) | `/event/notice` 만 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{news,style,trend,sports,watchnjewelry}` | 목록 36건 (섹션별 `?offset=N` 동작) | 기사 페이지 `div.atc_body_cont`. 그 안에 로그인 마스크(`atc_mask_login`)와 관련기사(`ab_related_article`)가 섞여 있어 둘은 걷어낸다. 바깥 `atc_body` 는 크레딧·태그·추천까지 감싸서 넓다. ld+json `NewsArticle` 에 headline·datePublished·description·author 는 있고 articleBody 는 없다 | URL `/article/{숫자}` | `article:published_time` (+09:00) | 섹션 페이지 offset 으로 일부 |
 | cosmopolitan | 위와 같음 | `/event/notice` 와 기사 1건 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{trends,item,howto,celebstyle,watchandjewelry}` | 목록 49건 (`?offset=20` 에서 10건 추가 후 멈춤) | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
 | hn | 공식 API | HTML 은 `Crawl-delay: 30`. API 는 robots 대상이 아니다 | Algolia HN Search `search_by_date?tags=story&numericFilters=created_at_i>{커서}` | 시간당 약 26건 (1회 요청 최대 1000건) | 없음. 제목·URL·점수·댓글수·작성자만 | `objectID` | `created_at_i` (epoch) | 커서로 무제한. 대안 Firebase `newstories` 는 500건 ≈ 10시간 |
 
 특이사항.
 
 - **harpersbazaar·cosmopolitan 의 `/rss`** 는 살아 있지만 사이트 전체 피드이고 `?category=` 파라미터를 무시한다. 카테고리는 항목 안 `cate_depth1` 태그로만 구분된다. 건수가 2건(bazaar)·10건(cosmo)이라 발견 경로로 쓰기엔 얕다. 그래서 목록 HTML 을 발견 경로로 삼는다.
-- **harpersbazaar·cosmopolitan 에 회원 전용 기사가 있다.** 목록에서 `membersYn === 'Y'` 일 때 `memmark` 표시가 붙고, 기사 페이지에 "전체 페이지를 읽으시려면 회원가입 및 로그인을 해주세요" 마스크가 뜬다. 처리 규칙은 #7 불변식 2.
+- **harpersbazaar·cosmopolitan 에 회원 전용 기사가 있다.** 판정 신호는 **기사 페이지의 `div.membershipLine`** 이다 (① 재실측 2026-09-03, 표본 8/8 정확히 갈랐다). 목록 6장 기준 회원 전용은 217건 중 16건(7.4%)이다. 처리 규칙은 #7 불변식 2.
+  - ⚠️ **판정에 쓰면 안 되는 것 둘.** (1) 목록 HTML 의 `membersYn` 은 **추천 위젯 JSON** 의 필드다. 그 JSON 은 페이지당 20건인데 앵커 36건 중 34건이 거기 없다 — 목록이 아니다. 목록 앵커 쪽 신호는 `div.memmark` 이고 둘은 다른 집합이다. (2) 기사 페이지의 "전체 페이지를 읽으시려면…" **마스크 문구는 8/8 전부에 있다**(숨은 모달 템플릿). 일반 기사에도 있으므로 구분자가 못 된다. `memmark` 역시 기사 페이지의 관련기사 위젯에 1~3개 나타난다.
 - **두산매거진 4곳의 피드는 10건뿐**이고 vogue 는 하루치가 10건을 넘길 때가 있다(09-02 ~ 09-03 사이 10건). 주기가 길면 놓친다. #9 의 주기가 이 관찰에서 나왔다.
 - **두산매거진 4곳은 WordPress REST(`/wp-json/wp/v2/posts`) 가 401** 이다. 피드가 유일한 구조화 경로다.
 - **hypebeast 는 이 표에 실측 기록으로만 남는다.** 약관 8조 문언이 피드를 예외로 두지 않아 소스에서 뺐다(#3.2 · 확정 2-1). 위 행은 2026-09-03 에 실제로 잰 값이고, 다시 넣기로 하면 출발점이 된다.
@@ -170,7 +171,7 @@ hypebeast 만 약관 문언으로 자동 수집을 금지하고, 그 문언에 �
 | `modified_at` | | 소스가 주면 |
 | `summary` | | description / og:description / 리드 |
 | `body_text` | | 본문. HTML 태그를 벗긴 평문. 문단 경계는 빈 줄 |
-| `categories` | | 소스가 붙인 분류 문자열 배열 (피드 `<category>`, `article:section`, `cate_depth1/2`) |
+| `categories` | | 소스가 붙인 분류 문자열 배열. 피드 소스는 `<category>`. 목록 소스는 **그 기사를 발견한 하위 섹션 슬러그**다 — `article:section` 은 8/8 상수 `"FASHION"` 이라 `domain` 필드의 사본이고, `cate_depth1/2` 는 `/rss` 에만 있고 기사 페이지엔 없다 (① 재실측). 루트 목록(`/fashion`)은 분류가 아니라 목록이므로 라벨로 치지 않는다 |
 | `author` | | |
 | `members_only` | | harpersbazaar·cosmopolitan 회원 전용이면 `true`. 이때 `body_text` 는 없다 |
 | `extra` | | 소스 고유 값. hn 은 `score` `descendants` `by` |
@@ -303,7 +304,7 @@ v1 은 장부에 있는 `(source, article_id)` 는 다시 취득하지 않는다
 | # | 질문 | 이 문서의 잠정 답 |
 |---|---|---|
 | 1 | MinIO 보존 기간. 90일이면 그 뒤로는 새 추출 모델로 옛 기사를 다시 못 돌린다. 무기한이면 복제권·제93조 부담이 쌓인다 | 90일 |
-| 2 | harpersbazaar·cosmopolitan 회원 전용 기사: 본문 제외(보수) vs 로그인 없이 HTML 에 실린 만큼 저장. **로그인해서 받는 안은 여기 없다** — 제5조 2항·제10조 3항 때문에 별개 결정이다(#3.2) | 본문 제외 |
+| 2 | harpersbazaar·cosmopolitan 회원 전용 기사: 본문 제외(보수) vs 로그인 없이 HTML 에 실린 만큼 저장. **로그인해서 받는 안은 여기 없다** — 제5조 2항·제10조 3항 때문에 별개 결정이다(#3.2). 재실측으로 자리가 하나 늘었다: 기사 페이지 HTML 자체에 본문이 실려 오므로 **raw 를 저장하면 본문을 저장하는 것**이다 | 본문 제외 + **raw 도 저장하지 않음**. 164 가 이걸 구현했지만 **확정이 아니라 가역적 기본값**이다 — 뒤집어 저장하려면 `Article` 의 검증 하나를 지우면 되고, 반대로 저장해 둔 뒤 뒤집으면 MinIO 에서 골라 지우고 이미 나간 이벤트를 좇아야 한다. 되돌림 비용이 싼 쪽을 기본으로 뒀다. 잃는 것은 7.4% 의 본문이고 제목·URL·발행일·요약은 남는다 |
 | 3 | hn 외부 원문 본문을 받을 것인가 | v1 안 받음. 받는다면 robots 를 미리 확인한 도메인 화이트리스트를 가진 별도 부품 |
 | 4 | Kafka 메시지: #6 잠정안 승인 여부. 토픽 하나 vs 도메인별 둘 | 하나 |
 | 5 | 장부를 앱 DB 에 둘지, 장부 없이 MinIO 존재 확인만으로 갈지 | 앱 DB 장부 |
@@ -350,5 +351,14 @@ v1 은 장부에 있는 `(source, article_id)` 는 다시 취득하지 않는다
 | harpersbazaar `/fashion` 목록 | 기사 링크 36건. `/fashion/news?offset=20` 에서 새 링크 21건 |
 | cosmopolitan `/fashion` 목록 | 기사 링크 49건. `?offset=20` 에서 10건 추가, `offset=40` 이후 동일 |
 | bazaar·cosmo 기사 페이지 | ld+json `NewsArticle`(headline·datePublished·copyrightHolder, articleBody 없음), 본문 컨테이너 `atc_body`, 회원 전용 마스크 |
+| **재실측 (같은 날, 목록 12장·기사 8건)** | |
+| 목록 응답 | 12/12 가 200. 장당 190~250 KB |
+| 앵커 `/article/{숫자}` | bazaar 루트 36 · 섹션 32씩 (6장 합쳐 고유 110건), cosmo 루트 49 · 섹션 32씩 (고유 107건) |
+| 목록 안 JSON 페이로드 | 페이지당 고유 20건. **앵커 36건 중 34건이 여기 없다** — 추천 위젯이지 목록이 아니다 |
+| 회원 전용 비중 | 217건 중 16건 (7.4%). bazaar 9/110, cosmo 7/107 |
+| `div.membershipLine` | 기사 8건에서 회원 전용에만 1개, 일반엔 0개 (8/8) |
+| 마스크 문구 | 기사 8건 **전부**에 존재 — 판정 불가 |
+| ld+json ↔ meta 태그 | 발행일·url·요약이 8/8 완전 일치. `author` 는 ld+json 에만 있다 |
+| 회원 전용 기사 페이지 | 본문이 HTML 에 통째로 실려 온다. `membershipLine` 은 유료 구간 시작 표시일 뿐 본문을 자르지 않는다 |
 | hn Algolia `search_by_date` + `numericFilters=created_at_i>` | 200, 최근 1시간 26건 |
 | hn Firebase `newstories` | 200, 500건이 약 9.7시간 |
