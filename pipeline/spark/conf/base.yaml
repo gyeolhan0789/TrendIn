@@ -1,0 +1,67 @@
+# 모든 프로파일의 바닥. 여기 없는 키는 프로파일 파일에도 없어야 한다 — 병합 결과를
+# 읽을 때 이 파일만 보면 전체 모양을 알 수 있어야 한다.
+#
+# 병합 순서: base.yaml ← {profile}.yaml ← 환경변수 (09 §3).
+# 비밀(비밀번호·시크릿 키)은 이 파일 계열에 적지 않는다. 환경변수로만 들어온다.
+
+spark:
+  master: "local[*]"
+  conf:
+    # 기본값 200 은 이 규모에서 순수 오버헤드다 (09 §2). 파티션당 수십 건짜리
+    # 태스크 200 개를 만드는 데 계산보다 스케줄링에 시간이 더 든다.
+    spark.sql.shuffle.partitions: 8
+    # 내부 계산은 UTC 로 한다. 화면에 보이는 시각 변환은 백엔드가 한다.
+    spark.sql.session.timeZone: "UTC"
+    # 파티션 덮어쓰기를 쓸 때 건드리지 않은 파티션이 지워지지 않게 한다 ([01 §4] 겹 3).
+    spark.sql.sources.partitionOverwriteMode: "dynamic"
+
+logging:
+  level: "INFO"        # 파이썬 쪽
+  spark_level: "WARN"  # JVM 쪽. INFO 로 두면 로그가 사람 눈으로 못 읽을 양이 된다
+
+kafka:
+  bootstrap_servers: ""   # 환경변수 KAFKA_BOOTSTRAP_SERVERS 또는 프로파일이 채운다
+  group_id_prefix: "trendin-spark"
+  topics:
+    raw_file_ready: "raw-file-ready"
+
+minio:
+  endpoint: ""      # 비면 S3A 설정을 아예 걸지 않는다
+  access_key: ""    # 환경변수 MINIO_ACCESS_KEY
+  secret_key: ""    # 환경변수 MINIO_SECRET_KEY
+  region: "us-east-1"  # MinIO 는 리전이 없지만 AWS SDK v2 가 값을 요구한다
+  buckets:
+    raw: "raw-data"      # 담당 1 소유. 읽기만 한다
+    curated: "curated"   # Spark 소유 ([01 §3])
+  # 그대로 spark.hadoop.* 로 넘어간다. 새 S3A 옵션 때문에 코드를 고치지 않으려고 둔다.
+  hadoop_conf: {}
+
+jdbc:
+  url: ""       # 환경변수 APP_DB_URL
+  user: ""      # 환경변수 APP_DB_USER
+  password: ""  # 환경변수 APP_DB_PASSWORD
+  driver: "org.postgresql.Driver"
+  # 한 번에 보내는 행 수. 측정 전에는 드라이버 기본값을 쓴다.
+  batch_size: 1000
+
+checkpoint:
+  # Job 마다 하위 디렉터리를 판다 ([01 §4]). 환경변수 CHECKPOINT_ROOT.
+  root: ""
+
+# --- Job 별 ---------------------------------------------------------------
+# 알고리즘 임계값은 아직 비어 있다. 실제 수집 데이터의 분포를 재기 전에 정한 숫자는
+# 전부 다시 정하게 된다 (09 §7 항목 5). 04~07 이 숫자를 못박지 않은 것도 같은 이유다.
+
+ingest:
+  # 정상 완료로 볼지 실패로 볼지가 갈리는 값들. [02] 를 채울 때 함께 정한다.
+  thresholds: {}
+
+extract:
+  thresholds: {}
+
+aggregate:
+  # 서비스가 파는 기간 ([07]). 값 규약은 백엔드와 합의 전이다 (09 §7 항목 3).
+  periods: ["24H", "7D", "30D"]
+  # 연관 키워드 기준 기간. 30D 를 제안했고 기획 답변 대기 중 ([06 §3]).
+  related_window: "30D"
+  thresholds: {}

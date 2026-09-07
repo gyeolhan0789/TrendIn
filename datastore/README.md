@@ -14,9 +14,9 @@
 | 기본 `J15A102` | `infra/` · `s15p21a102-infra` | 서비스 DB `forever102` |
 | 데이터 `J15A102A` | **`datastore/` · `s15p21a102-datastore`** | **Kafka · MinIO** |
 | 데이터 `J15A102A` | `pipeline/` · `s15p21a102-pipeline` | Airflow · 크롤러 · Airflow 메타 DB |
-| 데이터 `J15A102A` | `spark/` (예정) | Spark |
+| 데이터 `J15A102A` | Spark — 별도 프로젝트 없음 | `pipeline/spark/compose.spark.yaml` 이 Airflow 이미지에 얹는다 (S15P21A102-169) |
 
-데이터 EC2 안의 세 프로젝트는 이 프로젝트가 만드는 네트워크 `s15p21a102-data` 로 이어진다.
+데이터 EC2 안의 두 프로젝트는 이 프로젝트가 만드는 네트워크 `s15p21a102-data` 로 이어진다.
 **이 프로젝트가 네트워크 주인이라 항상 먼저 떠야 한다.** 없으면 나머지가 뜨다 실패한다.
 
 ## 구조
