@@ -1,0 +1,23 @@
+{
+  "event_id": "wkorea-20260903T100000",
+  "schema_version": 1,
+  "bucket": "raw-data",
+  "object_key": null,
+  "raw_object_key": null,
+  "domain": "fashion",
+  "source_id": "wkorea",
+  "article_id": null,
+  "run_id": "20260903T100000",
+  "url": null,
+  "title": null,
+  "published_at": null,
+  "collected_at": "2026-09-03T10:00:00+09:00",
+  "status": "failed",
+  "record_count": 0,
+  "size_bytes": null,
+  "checksum": null,
+  "format": null,
+  "compression": null,
+  "failure_reason": "목록 페이지가 3회 연속 타임아웃",
+  "members_only": null
+}
