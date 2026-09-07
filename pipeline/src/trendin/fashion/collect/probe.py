@@ -18,22 +18,10 @@ import json
 import logging
 import sys
 
-from trendin.common.collect.contracts import SourceAdapter
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.stores import InMemoryValidatorStore
 from trendin.fashion.collect import sources
-from trendin.fashion.collect.listing import ListingAdapter
-from trendin.fashion.collect.rss import RssAdapter
-
-# route 하나에 어댑터 하나다 (#5.1 은 소스당 route 도 하나로 고정한다).
-ADAPTERS = {"rss": RssAdapter, "listing": ListingAdapter}
-
-
-def build_adapter(source, session) -> SourceAdapter:
-    try:
-        return ADAPTERS[source.route](source, session)
-    except KeyError:
-        raise KeyError(f"어댑터가 없는 route 다: {source.route!r}") from None
+from trendin.fashion.collect.runner import build_adapter
 
 
 def _build_parser() -> argparse.ArgumentParser:

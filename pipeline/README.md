@@ -52,6 +52,7 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 | import 오류 | `docker compose run --rm airflow-cli airflow dags list-import-errors` (비어 있어야 함) |
 | DAG 목록 | `docker compose run --rm airflow-cli airflow dags list` |
 | 단일 프로세스 실행 | `docker compose run --rm airflow-cli airflow dags test fashion_example` |
+| 수집 한 주기 (실제 사이트를 친다) | `docker compose run --rm airflow-cli airflow dags test fashion_collect`. `datastore` 가 먼저 떠 있어야 한다. 호스트당 3초 간격이라 7소스에 수 분 걸린다 |
 | 실제 경로 실행 | `docker compose run --rm airflow-cli airflow dags unpause fashion_example` 후 `... airflow dags trigger fashion_example`. 로그는 `./logs/` |
 | 로컬 단위 테스트 | `./scripts/dev-setup.sh` 한 번, 이후 `.venv/bin/pytest` |
 | 린트 | `.venv/bin/ruff check .` (AIR 규칙이 Airflow 2 식 import 를 잡는다) |
