@@ -6,7 +6,7 @@ import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.domain.Keyword;
 import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.domain.TrendAiAnalysis;
-import com.forever102.backend.trend.domain.TrendAnalysis;
+import com.forever102.backend.trend.domain.TrendMetric;
 import com.forever102.backend.trend.domain.TrendEvidence;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -29,8 +29,8 @@ public final class TrendFixture {
         return trend;
     }
 
-    public static TrendAnalysis analysis(Trend trend, AnalysisPeriod period, long current, long previous) {
-        return TrendAnalysis.builder().trend(trend).period(period).trendType("RISING")
+    public static TrendMetric metric(Trend trend, AnalysisPeriod period, long current, long previous) {
+        return TrendMetric.builder().trend(trend).period(period).trendType("RISING")
                 .mentionCount(current).previousMentionCount(previous)
                 .analysisWindow(window(period)).analyzedAt(END.plusHours(8))
                 .evidence(new TrendEvidence("example-v1", "요청 기간 언급량과 증가율 규칙",

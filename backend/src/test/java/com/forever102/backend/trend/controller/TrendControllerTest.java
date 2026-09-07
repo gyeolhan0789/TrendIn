@@ -149,7 +149,7 @@ class TrendControllerTest {
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_7))
                 .willReturn(TrendDetailResponse.from(trend,
-                        TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7, 430, 123),
+                        TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123),
                         TrendFixture.aiAnalysis(trend)));
         // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "7D")
@@ -203,7 +203,7 @@ class TrendControllerTest {
     @Test
     @WithMockUser
     @DisplayName("요청 기간 지표가 없으면 200과 null 지표 및 최신 AI 분석을 반환한다")
-    void returnsNullPeriodAnalysisWithOk() throws Exception {
+    void returnsNullPeriodMetricWithOk() throws Exception {
         // given
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_30))

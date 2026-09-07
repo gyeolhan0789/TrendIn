@@ -9,7 +9,7 @@ import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.domain.Keyword;
 import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.domain.TrendAiAnalysis;
-import com.forever102.backend.trend.domain.TrendAnalysis;
+import com.forever102.backend.trend.domain.TrendMetric;
 import com.forever102.backend.trend.dto.TrendDetailResponse;
 import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
@@ -23,28 +23,28 @@ class TrendRepositoryTest {
 
     @Autowired EntityManager entityManager;
     @Autowired TrendRepository trendRepository;
-    @Autowired TrendAnalysisRepository analysisRepository;
+    @Autowired TrendMetricRepository metricRepository;
     @Autowired TrendAiAnalysisRepository aiAnalysisRepository;
 
     @Test
-    @DisplayName("요청한 기간에 속한 최신 분석만 조회한다")
-    void loadsLatestAnalysisForRequestedPeriod() {
+    @DisplayName("요청한 기간에 속한 최신 지표만 조회한다")
+    void loadsLatestMetricForRequestedPeriod() {
         // given
         Trend trend = persistTrend("Ballet Sneakers");
-        persistAnalysis(trend, AnalysisPeriod.HOURS_24, TrendFixture.END.plusDays(1), 24);
-        persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END, 7);
-        TrendAnalysis latestSevenDays =
-                persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END.plusDays(2), 70);
-        persistAnalysis(trend, AnalysisPeriod.DAYS_7,
+        persistMetric(trend, AnalysisPeriod.HOURS_24, TrendFixture.END.plusDays(1), 24);
+        persistMetric(trend, AnalysisPeriod.DAYS_7, TrendFixture.END, 7);
+        TrendMetric latestSevenDays =
+                persistMetric(trend, AnalysisPeriod.DAYS_7, TrendFixture.END.plusDays(2), 70);
+        persistMetric(trend, AnalysisPeriod.DAYS_7,
                 new AnalysisWindow(AnalysisPeriod.DAYS_7,
                         TrendFixture.END.minusDays(14), TrendFixture.END.minusDays(7),
                         TrendFixture.END.minusDays(21), TrendFixture.END.minusDays(14)),
                 TrendFixture.END.plusDays(4), 700);
-        persistAnalysis(trend, AnalysisPeriod.DAYS_30, TrendFixture.END.plusDays(3), 30);
+        persistMetric(trend, AnalysisPeriod.DAYS_30, TrendFixture.END.plusDays(3), 30);
         entityManager.flush();
         entityManager.clear();
         // when
-        TrendAnalysis loaded = analysisRepository
+        TrendMetric loaded = metricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         trend.getId(), "7D", TrendFixture.END.minusDays(7), TrendFixture.END)
                 .orElseThrow();
@@ -52,7 +52,7 @@ class TrendRepositoryTest {
         assertThat(loaded.getId()).isEqualTo(latestSevenDays.getId());
         assertThat(loaded.getMentionCount()).isEqualTo(70);
         assertThat(loaded.getAnalysisWindow().getRecentStart()).isEqualTo(TrendFixture.END.minusDays(7));
-        assertThat(entityManager.createNativeQuery("select period from trend_analyses where id = :id", String.class)
+        assertThat(entityManager.createNativeQuery("select period from trend_metrics where id = :id", String.class)
                 .setParameter("id", loaded.getId()).getSingleResult()).isEqualTo("7D");
     }
 
@@ -77,8 +77,8 @@ class TrendRepositoryTest {
     }
 
     @Test
-    @DisplayName("요청 기간 분석이 없어도 트렌드와 최신 AI 결과를 조합할 수 있다")
-    void combinesMissingPeriodAnalysisWithAi() {
+    @DisplayName("요청 기간 지표가 없어도 트렌드와 최신 AI 결과를 조합할 수 있다")
+    void combinesMissingPeriodMetricWithAi() {
         // given
         Trend trend = persistTrend("AI");
         entityManager.persist(TrendFixture.aiAnalysis(trend));
@@ -86,11 +86,11 @@ class TrendRepositoryTest {
         entityManager.clear();
         // when
         Trend loadedTrend = trendRepository.findById(trend.getId()).orElseThrow();
-        var periodAnalysis = analysisRepository
+        var periodMetric = metricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         trend.getId(), "30D", TrendFixture.END.minusDays(30), TrendFixture.END).orElse(null);
         var ai = aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(trend.getId()).orElseThrow();
-        var response = TrendDetailResponse.from(loadedTrend, periodAnalysis, ai);
+        var response = TrendDetailResponse.from(loadedTrend, periodMetric, ai);
         // then
         assertThat(response.mentionCount()).isNull();
         assertThat(response.evidence()).isNull();
@@ -105,17 +105,17 @@ class TrendRepositoryTest {
         return trend;
     }
 
-    private TrendAnalysis persistAnalysis(
+    private TrendMetric persistMetric(
             Trend trend, AnalysisPeriod period, OffsetDateTime analyzedAt, long count) {
-        return persistAnalysis(trend, period, TrendFixture.window(period), analyzedAt, count);
+        return persistMetric(trend, period, TrendFixture.window(period), analyzedAt, count);
     }
 
-    private TrendAnalysis persistAnalysis(
+    private TrendMetric persistMetric(
             Trend trend, AnalysisPeriod period, AnalysisWindow window, OffsetDateTime analyzedAt, long count) {
-        TrendAnalysis analysis = TrendAnalysis.builder().trend(trend).period(period).trendType("RISING")
+        TrendMetric metric = TrendMetric.builder().trend(trend).period(period).trendType("RISING")
                 .mentionCount(count).previousMentionCount(0)
                 .analysisWindow(window).analyzedAt(analyzedAt).build();
-        entityManager.persist(analysis);
-        return analysis;
+        entityManager.persist(metric);
+        return metric;
     }
 }

@@ -21,12 +21,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "trend_analyses", indexes = @Index(
-        name = "idx_trend_analyses_latest",
+@Table(name = "trend_metrics", indexes = @Index(
+        name = "idx_trend_metrics_latest",
         columnList = "trend_id, period, recent_start, recent_end, analyzed_at, id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TrendAnalysis {
+public class TrendMetric {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,7 +58,7 @@ public class TrendAnalysis {
     private TrendEvidence evidence;
 
     @Builder
-    public TrendAnalysis(Trend trend, AnalysisPeriod period, String trendType,
+    public TrendMetric(Trend trend, AnalysisPeriod period, String trendType,
             long mentionCount, long previousMentionCount,
             AnalysisWindow analysisWindow, OffsetDateTime analyzedAt,
             TrendEvidence evidence) {
