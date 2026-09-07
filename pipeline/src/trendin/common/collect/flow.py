@@ -291,28 +291,35 @@ def publish_pending(
     publisher: EventPublisher,
     bucket: str,
     domain: str,
+    run_id: str,
     now: datetime,
     limit: int = 500,
-) -> int:
+) -> dict[str, int]:
     """그 도메인에서 아직 안 나간 행을 전부 낸다. 지난 실행의 미발급분이 여기 딸려 온다.
 
     순서는 발행 → 장부 기록이다. 뒤집으면 기록 뒤 발행 전에 죽었을 때 그 기사가 영영 안
     나간다. 이 순서면 중복이 날 수 있는데, 그건 소비 측이 `event_id` 로 거르기로 팀
     계약에 적혀 있다(at-least-once).
+
+    소스별 건수를 돌려주는 이유는 요약 이벤트의 `record_count` 가 그 값이라서다. 장부를
+    실행 구간으로 다시 세면 실행이 겹칠 때 앞 실행이 낸 것까지 제 몫이 된다 — 이번에
+    실제로 보낸 것만 세면 그 일이 안 생긴다.
     """
     rows = ledger.pending(domain, limit)
     if not rows:
-        return 0
+        return {}
 
     for row in rows:
         # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
         # 순서가 보장되고, 뒤이어 나가는 요약 이벤트가 그 소스의 기사들 뒤에 선다.
-        publisher.publish(row.source, article_event(row, bucket=bucket))
+        publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
     publisher.flush()
 
+    counts: dict[str, int] = {}
     for row in rows:
         ledger.mark_emitted(row.source, row.article_id, now)
-    return len(rows)
+        counts[row.source] = counts.get(row.source, 0) + 1
+    return counts
 
 
 def publish_summaries(

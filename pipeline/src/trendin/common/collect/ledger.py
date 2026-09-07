@@ -57,9 +57,9 @@ CREATE INDEX IF NOT EXISTS collected_article_pending_idx
     ON collected_article (domain, collected_at)
     WHERE event_emitted_at IS NULL;
 
--- 요약 이벤트의 건수를 실행 구간으로 세는 질의가 쓴다.
-CREATE INDEX IF NOT EXISTS collected_article_emitted_idx
-    ON collected_article (domain, event_emitted_at);
+-- 발급 건수는 발급 태스크가 이번에 보낸 행을 직접 세므로 이 인덱스는 읽는 질의가 없다
+-- (S15P21A102-204). 이 브랜치 전에 만들어진 DB 에서 걷어낸다.
+DROP INDEX IF EXISTS collected_article_emitted_idx;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
     url           text        PRIMARY KEY,
@@ -123,16 +123,6 @@ class Ledger(Protocol):
     def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
         """발급 성공 뒤에만 부른다. 순서를 뒤집으면 유실이 생긴다(at-least-once)."""
         ...
-
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
-        """그 시각 이후로 발급된 기사 수를 소스별로 센다.
-
-        요약 이벤트의 `record_count` 가 이 값이다. 실행 안에서 누적이라 같은 실행이
-        재시도돼도 값이 줄지 않는다 — `event_id` 가 같은데 내용이 달라지는 것을 막는다
-        (팀 발행 규약 3).
-        """
-        ...
-
 
 def _offset_minutes(value: datetime) -> int:
     offset = value.utcoffset()
@@ -206,14 +196,6 @@ class InMemoryLedger:
     def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
         self._emitted[(source, article_id)] = at
 
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for key, at in self._emitted.items():
-            row = self._rows[key]
-            if row.domain == domain and at >= since:
-                counts[row.source] = counts.get(row.source, 0) + 1
-        return counts
-
 
 _INSERT = """
 INSERT INTO collected_article (
@@ -235,13 +217,6 @@ FROM collected_article
 WHERE event_emitted_at IS NULL AND domain = %s
 ORDER BY collected_at, source, article_id
 LIMIT %s
-"""
-
-_SELECT_EMITTED_SINCE = """
-SELECT source, count(*)
-FROM collected_article
-WHERE domain = %s AND event_emitted_at >= %s
-GROUP BY source
 """
 
 
@@ -320,8 +295,3 @@ class PostgresLedger:
                 "WHERE source = %s AND article_id = %s",
                 (at, source, article_id),
             )
-
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
-        with self._db.transaction() as conn, conn.cursor() as cur:
-            cur.execute(_SELECT_EMITTED_SINCE, (domain, since))
-            return {r[0]: r[1] for r in cur.fetchall()}

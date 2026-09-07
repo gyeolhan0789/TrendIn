@@ -94,8 +94,9 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 둘 + 인덱스 둘 + 이미 있는 테이블에 칸을 여는 ALTER 하나.
-    assert DDL.count("IF NOT EXISTS") == 5
+    # 테이블 둘 + 인덱스 하나 + 칸을 여는 ALTER 하나, 그리고 걷어내는 DROP 하나.
+    assert DDL.count("IF NOT EXISTS") == 4
+    assert DDL.count("DROP INDEX IF EXISTS") == 1
 
 
 # --- Postgres 구현 -----------------------------------------------------------
@@ -208,11 +209,3 @@ def test_실패하면_되돌리고_닫는다():
     with pytest.raises(RuntimeError):
         PostgresLedger(db).mark_emitted("vogue", "1", NOW)
     assert not conn.committed and conn.closed
-
-
-def test_발급_건수는_실행_구간으로_센다():
-    """요약 이벤트의 record_count. 재시도해도 줄지 않아야 한다(팀 발행 규약 3)."""
-    db, conn = fake_db([("vogue", 10), ("wkorea", 3)])
-    counts = PostgresLedger(db).emitted_since("fashion", NOW)
-    assert counts == {"vogue": 10, "wkorea": 3}
-    assert conn.cursors[0].executed[0][1] == ("fashion", NOW)

@@ -35,15 +35,17 @@ def _kst(value: datetime) -> str:
     return value.astimezone(KST).isoformat()
 
 
-def article_event(row: PendingArticle, *, bucket: str) -> dict[str, Any]:
+def article_event(row: PendingArticle, *, bucket: str, run_id: str) -> dict[str, Any]:
     """기사 하나의 이벤트. `stat` 으로 저장을 확인한 뒤에만 만든다.
 
     `collected_at` 은 **그 기사를 받은 시각**이지 이번 실행의 시각이 아니다. 팀 계약이
     `collected_at` 에 요구하는 성질("재처리해도 값이 바뀌지 않는다")을 기사 단위로 옮기면
     이게 된다 — 지난 실행에서 저장만 되고 못 나간 행을 이번에 내도 값이 그대로다.
 
-    `run_id` 는 `null` 이다. 기사는 실행에 속하지 않는다 — 같은 기사가 어느 실행에서
-    나가든 같은 이벤트여야 하고, 실행을 적으면 이월분에서 거짓이 된다.
+    `run_id` 는 **이 기사를 발급한 실행**이다. 수집한 실행이 아니다 — 저장만 되고 못
+    나간 행은 다음 실행이 내므로 둘이 갈리고, 그게 정상이다. 소비 측이 이 값으로 curated
+    를 파티션하고(`domain/published_date/source/run_id`) 재처리 단위를 자르기 때문에
+    비워 둘 수 없다. "기사를 언제 받았나"는 `collected_at` 이 따로 든다.
 
     본문은 싣지 않는다(불변식 6). `url` · `source_id` · `published_at` 은 저작권법
     제37조 출처 명시라 반드시 있다(불변식 11).
@@ -59,7 +61,7 @@ def article_event(row: PendingArticle, *, bucket: str) -> dict[str, Any]:
         "domain": row.domain,
         "source_id": row.source,
         "article_id": row.article_id,
-        "run_id": None,
+        "run_id": run_id,
         "url": row.url,
         "title": row.title,
         # 소스가 준 오프셋 그대로. 장부가 `published_at_offset` 을 따로 들고 있는 이유다.
@@ -93,8 +95,9 @@ def run_summary_event(
     """소스 하나의 이번 실행 결과. `object_key` 가 `null` 이라 기사 이벤트와 갈린다.
 
     `collected_at` 은 logical date 라 재시도해도 값이 같다(팀 계약 필드 규약).
-    `record_count` 는 실행 구간 안의 누적이라 재시도에도 줄지 않는다 — 같은 `event_id` 로
-    내용이 다른 메시지가 나가는 것을 막는다(팀 발행 규약 3).
+    `record_count` 는 **이 실행이 발급한 기사 수**다. 장부를 실행 구간으로 다시 세면
+    실행이 겹칠 때 앞 실행이 낸 것까지 제 몫으로 세어 통계가 부푼다. 태스크 재시도는
+    `publish_pending` 이 이미 나간 행을 다시 세지 않으므로 값이 흔들리지 않는다.
     """
     if status not in ("success", "failed"):
         raise ValueError(f"status 는 success 아니면 failed 다: {status!r}")
