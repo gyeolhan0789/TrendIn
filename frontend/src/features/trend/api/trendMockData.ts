@@ -60,17 +60,27 @@ export function getMockAllTrends(): Trend[] {
 }
 
 export function getMockTrendDetail(trendId: string): TrendDetail | undefined {
-  return getMockAllTrends().find((trend) => trend.trendId === trendId);
+  const trend = getMockAllTrends().find((item) => item.trendId === trendId);
+  return trend ? { ...trend, firstDetectedAt: '2026-08-21T00:00:00+09:00', updatedAt: '2026-09-03T00:00:00+09:00' } : undefined;
 }
 
 export function getMockTrendAnalysis(trendId: string): TrendAnalysis {
   const trend = getMockTrendDetail(trendId);
   const category = getMockCategory(trend?.category);
-  return { trendId, description: `${category.summary} ${trend?.keyword ?? '이 트렌드'}가 지금 새로운 흐름으로 이어지고 있습니다.` };
+  return {
+    trendId,
+    reason: trend ? `${trend.keyword} 관련 사례가 새로운 흐름으로 확산` : '관련 콘텐츠에서 새로운 흐름이 시작',
+    description: `${category.summary} ${trend?.keyword ?? '이 트렌드'}가 지금 새로운 흐름으로 이어지고 있습니다.`,
+  };
 }
 
 export function getMockRelatedKeywords(trendId: string): RelatedKeyword[] {
-  return getMockCategory(getMockTrendDetail(trendId)?.category).keywords.map((keyword) => ({ keyword, relevance: 0.8 }));
+  const trend = getMockTrendDetail(trendId);
+  if (!trend) return [];
+  return getMockAllTrends()
+    .filter((item) => item.category === trend.category && item.trendId !== trendId)
+    .slice(0, 4)
+    .map((item, index) => ({ trendId: item.trendId, keyword: item.keyword, relevance: 0.8 - index * 0.08 }));
 }
 
 export function getMockRelatedContents(trendId: string): TrendContent[] {
