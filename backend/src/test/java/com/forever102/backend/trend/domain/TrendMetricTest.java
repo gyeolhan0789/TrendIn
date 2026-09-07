@@ -18,11 +18,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class TrendAnalysisTest {
+class TrendMetricTest {
 
     @ParameterizedTest
     @CsvSource({"24H,HOURS_24", "7D,DAYS_7", "30D,DAYS_30"})
-    @DisplayName("허용된 API 기간 값을 분석 기간으로 변환한다")
+    @DisplayName("허용된 API 기간 값을 지표 기간으로 변환한다")
     void parsesPeriod(String value, AnalysisPeriod expected) {
         assertThat(AnalysisPeriod.from(value)).isEqualTo(expected);
     }
@@ -79,15 +79,15 @@ class TrendAnalysisTest {
     @CsvSource({"430,123,307,249.6", "50,100,-50,-50.0", "100,100,0,0.0"})
     @DisplayName("증가량과 소수 첫째 자리 증가율을 계산한다")
     void calculatesGrowth(long current, long previous, long amount, BigDecimal rate) {
-        var analysis = TrendFixture.analysis(TrendFixture.trend(), AnalysisPeriod.DAYS_7, current, previous);
-        assertThat(analysis.getGrowthAmount()).isEqualTo(amount);
-        assertThat(analysis.getGrowthRate()).isEqualByComparingTo(rate);
+        var metric = TrendFixture.metric(TrendFixture.trend(), AnalysisPeriod.DAYS_7, current, previous);
+        assertThat(metric.getGrowthAmount()).isEqualTo(amount);
+        assertThat(metric.getGrowthRate()).isEqualByComparingTo(rate);
     }
 
     @Test
     @DisplayName("이전 언급량이 0이면 증가율은 null이다")
     void returnsNullForZeroBaseline() {
-        var analysis = TrendFixture.analysis(TrendFixture.trend(), AnalysisPeriod.DAYS_30, 430, 0);
-        assertThat(analysis.getGrowthRate()).isNull();
+        var metric = TrendFixture.metric(TrendFixture.trend(), AnalysisPeriod.DAYS_30, 430, 0);
+        assertThat(metric.getGrowthRate()).isNull();
     }
 }

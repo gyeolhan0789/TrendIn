@@ -11,7 +11,7 @@ import com.forever102.backend.trend.TrendFixture;
 import com.forever102.backend.trend.domain.AnalysisPeriod;
 import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.repository.TrendAiAnalysisRepository;
-import com.forever102.backend.trend.repository.TrendAnalysisRepository;
+import com.forever102.backend.trend.repository.TrendMetricRepository;
 import com.forever102.backend.trend.repository.TrendRepository;
 import java.time.Clock;
 import java.time.Instant;
@@ -28,14 +28,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class TrendServiceTest {
 
     @Mock TrendRepository trendRepository;
-    @Mock TrendAnalysisRepository analysisRepository;
+    @Mock TrendMetricRepository metricRepository;
     @Mock TrendAiAnalysisRepository aiAnalysisRepository;
     TrendService trendService;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
-        trendService = new TrendService(trendRepository, analysisRepository, aiAnalysisRepository, clock);
+        trendService = new TrendService(trendRepository, metricRepository, aiAnalysisRepository, clock);
     }
 
     @Test
@@ -44,10 +44,10 @@ class TrendServiceTest {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository
+        given(metricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         101L, "7D", TrendFixture.END.minusDays(7), TrendFixture.END))
-                .willReturn(Optional.of(TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7, 430, 123)));
+                .willReturn(Optional.of(TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123)));
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
                 .willReturn(Optional.of(TrendFixture.aiAnalysis(trend)));
         // when
@@ -60,11 +60,11 @@ class TrendServiceTest {
 
     @Test
     @DisplayName("요청 기간 지표가 없어도 기본 정보와 최신 AI 분석을 반환한다")
-    void returnsBasicInfoAndAiWithoutPeriodAnalysis() {
+    void returnsBasicInfoAndAiWithoutPeriodMetric() {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository
+        given(metricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         101L, "30D", TrendFixture.END.minusDays(30), TrendFixture.END)).willReturn(Optional.empty());
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
@@ -83,14 +83,14 @@ class TrendServiceTest {
 
     @Test
     @DisplayName("AI 분석이 없으면 기간 지표를 유지하고 AI 결과만 null로 반환한다")
-    void returnsPeriodAnalysisWithoutAi() {
+    void returnsPeriodMetricWithoutAi() {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository
+        given(metricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         101L, "24H", TrendFixture.END.minusDays(1), TrendFixture.END))
-                .willReturn(Optional.of(TrendFixture.analysis(trend, AnalysisPeriod.HOURS_24, 10, 0)));
+                .willReturn(Optional.of(TrendFixture.metric(trend, AnalysisPeriod.HOURS_24, 10, 0)));
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
                 .willReturn(Optional.empty());
         // when
@@ -102,7 +102,7 @@ class TrendServiceTest {
     }
 
     @Test
-    @DisplayName("존재하지 않는 트렌드는 분석을 조회하지 않고 404 예외를 발생시킨다")
+    @DisplayName("존재하지 않는 트렌드는 지표를 조회하지 않고 404 예외를 발생시킨다")
     void rejectsMissingTrend() {
         // given
         given(trendRepository.findById(101L)).willReturn(Optional.empty());
@@ -110,7 +110,7 @@ class TrendServiceTest {
         assertThatThrownBy(() -> trendService.getTrendDetail(101L, AnalysisPeriod.HOURS_24))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.TREND_NOT_FOUND));
-        then(analysisRepository).shouldHaveNoInteractions();
+        then(metricRepository).shouldHaveNoInteractions();
         then(aiAnalysisRepository).shouldHaveNoInteractions();
     }
 }

@@ -4,7 +4,7 @@ import com.forever102.backend.member.domain.Domain;
 import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.domain.TrendAiAnalysis;
-import com.forever102.backend.trend.domain.TrendAnalysis;
+import com.forever102.backend.trend.domain.TrendMetric;
 import com.forever102.backend.trend.domain.TrendEvidence;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -29,18 +29,18 @@ public record TrendDetailResponse(
         AiAnalysisResponse aiAnalysis
 ) {
 
-    public static TrendDetailResponse from(Trend trend, TrendAnalysis analysis, TrendAiAnalysis aiAnalysis) {
+    public static TrendDetailResponse from(Trend trend, TrendMetric metric, TrendAiAnalysis aiAnalysis) {
         return new TrendDetailResponse(trend.getId(), trend.getKeyword().getId(),
                 trend.getKeyword().getName(), trend.getDescription(), trend.getFirstDetectedAt(),
                 DomainResponse.from(trend.getKeyword().getDomain()),
-                analysis == null ? null : analysis.getTrendType(),
-                analysis == null ? null : analysis.getMentionCount(),
-                analysis == null ? null : analysis.getPreviousMentionCount(),
-                analysis == null ? null : analysis.getGrowthAmount(),
-                analysis == null ? null : analysis.getGrowthRate(),
-                analysis == null ? null : AnalysisWindowResponse.from(analysis.getAnalysisWindow()),
-                analysis == null ? null : analysis.getAnalyzedAt(),
-                analysis == null ? null : EvidenceResponse.from(analysis.getEvidence()),
+                metric == null ? null : metric.getTrendType(),
+                metric == null ? null : metric.getMentionCount(),
+                metric == null ? null : metric.getPreviousMentionCount(),
+                metric == null ? null : metric.getGrowthAmount(),
+                metric == null ? null : metric.getGrowthRate(),
+                metric == null ? null : AnalysisWindowResponse.from(metric.getAnalysisWindow()),
+                metric == null ? null : metric.getAnalyzedAt(),
+                metric == null ? null : EvidenceResponse.from(metric.getEvidence()),
                 AiAnalysisResponse.from(aiAnalysis));
     }
 

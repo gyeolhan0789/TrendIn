@@ -3,12 +3,12 @@ package com.forever102.backend.trend.service;
 import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import com.forever102.backend.trend.domain.Trend;
-import com.forever102.backend.trend.domain.TrendAnalysis;
+import com.forever102.backend.trend.domain.TrendMetric;
 import com.forever102.backend.trend.domain.TrendAiAnalysis;
 import com.forever102.backend.trend.domain.AnalysisPeriod;
 import com.forever102.backend.trend.domain.AnalysisWindow;
 import com.forever102.backend.trend.dto.TrendDetailResponse;
-import com.forever102.backend.trend.repository.TrendAnalysisRepository;
+import com.forever102.backend.trend.repository.TrendMetricRepository;
 import com.forever102.backend.trend.repository.TrendRepository;
 import com.forever102.backend.trend.repository.TrendAiAnalysisRepository;
 import java.time.Clock;
@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class TrendService {
 
     private final TrendRepository trendRepository;
-    private final TrendAnalysisRepository trendAnalysisRepository;
+    private final TrendMetricRepository trendMetricRepository;
     private final TrendAiAnalysisRepository trendAiAnalysisRepository;
     private final Clock trendClock;
 
@@ -30,11 +30,11 @@ public class TrendService {
         Trend trend = trendRepository.findById(trendId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.TREND_NOT_FOUND));
         AnalysisWindow window = AnalysisWindow.completed(period, trendClock);
-        TrendAnalysis analysis = trendAnalysisRepository
+        TrendMetric metric = trendMetricRepository
                 .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
                         trendId, period.getValue(), window.getRecentStart(), window.getRecentEnd()).orElse(null);
         TrendAiAnalysis aiAnalysis = trendAiAnalysisRepository
                 .findFirstByTrendIdOrderByGeneratedAtDescIdDesc(trendId).orElse(null);
-        return TrendDetailResponse.from(trend, analysis, aiAnalysis);
+        return TrendDetailResponse.from(trend, metric, aiAnalysis);
     }
 }
