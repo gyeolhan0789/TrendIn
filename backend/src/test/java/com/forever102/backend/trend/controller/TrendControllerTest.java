@@ -18,7 +18,7 @@ import static org.springframework.restdocs.request.RequestDocumentation.queryPar
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.forever102.backend.global.config.SecurityConfig;
+import com.forever102.backend.global.config.SecurityTestConfig;
 import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import com.forever102.backend.trend.TrendFixture;
@@ -40,7 +40,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(TrendController.class)
-@Import(SecurityConfig.class)
+@Import(SecurityTestConfig.class)
 @AutoConfigureRestDocs
 class TrendControllerTest {
 
@@ -185,6 +185,17 @@ class TrendControllerTest {
                         responseFields(
                                 fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("false"),
                                 fieldWithPath("message").type(JsonFieldType.STRING).description("오류 메시지"))));
+        then(trendService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("인증 없이 요청하면 401을 반환하고 트렌드 서비스를 호출하지 않는다")
+    void existingSecurityBlocksAnonymousRequest() throws Exception {
+        // given & when & then
+        mockMvc.perform(get("/trends/{trendId}", 101L))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
         then(trendService).shouldHaveNoInteractions();
     }
 }
