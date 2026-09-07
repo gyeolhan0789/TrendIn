@@ -2,14 +2,14 @@
 # MinIO 초기화. compose 의 minio-init 서비스가 한 번 돌리며, 매 up 마다 다시 돌아도 결과가 같다.
 # 하는 일: 버킷 생성 → 정책 두 개 등록 → 계정 두 개 생성 → 정책 연결 → 버전 관리 · 수명 주기 적용.
 # 크롤러는 write, Spark 는 read 로 나눈다 (Jira S15P21A102-156).
-# 보관 정책은 Jira S15P21A102-157. 값과 근거는 datastore/README.md "보관 정책" 절.
+# 보관 정책은 Jira S15P21A102-157 · S15P21A102-158. 값과 근거는 datastore/README.md "보관 정책" 절.
 # minio/mc 이미지에는 sed 가 없다. 정책 JSON 은 여기서 직접 만든다.
 set -eu
 
 : "${MINIO_ENDPOINT:?}" "${MINIO_ROOT_USER:?}" "${MINIO_ROOT_PASSWORD:?}" "${MINIO_BUCKET:?}"
 : "${MINIO_CRAWLER_ACCESS_KEY:?}" "${MINIO_CRAWLER_SECRET_KEY:?}"
 : "${MINIO_SPARK_ACCESS_KEY:?}" "${MINIO_SPARK_SECRET_KEY:?}"
-: "${MINIO_RAW_PREFIX:?}" "${MINIO_RAW_EXPIRE_DAYS:?}" "${MINIO_VERIFY_EXPIRE_DAYS:?}"
+: "${MINIO_RAW_EXPIRE_DAYS:?}"
 
 WORK=/tmp/minio-init
 mkdir -p "$WORK"
@@ -94,23 +94,23 @@ case "$VSTATE" in
     mc version suspend "local/$MINIO_BUCKET" >/dev/null ;;
 esac
 
-# 수명 주기. 만료 기준은 경로의 collected_date 가 아니라 객체 업로드 시각이다.
+# 수명 주기. 만료 기준은 경로의 발행일이 아니라 객체 업로드 시각이다.
 # 백필로 과거분을 지금 올려도 올린 날부터 센다.
-# 두 규칙의 prefix 는 겹치지 않는다 — 겹치면 어느 만료가 이기는지 모호해진다.
+#
+# 규칙은 하나고 접두어를 보지 않는다 (S15P21A102-158). 버킷에 들어오는 것이 전부 수집
+# 원문이고 만료 기간도 하나라, 접두어로 가르면 키 규칙이 바뀔 때마다 규칙이 어긋난다 —
+# 실제로 "domain=" 접두를 잡고 있었는데 키가 "fashion/..." 로 시작해 아무것도 매칭되지
+# 않았다. 규칙은 유효하고 대상만 0 개라 에러도 나지 않는다.
+# verify.sh 가 남기는 _verify/ 객체도 같이 90 일을 산다. 7 바이트짜리 텍스트라 규칙을
+# 하나 더 두는 값이 없다.
 cat > "$WORK/lifecycle.json" <<JSON
 {
   "Rules": [
     {
-      "ID": "expire-raw",
+      "ID": "expire-all",
       "Status": "Enabled",
-      "Filter": { "Prefix": "$MINIO_RAW_PREFIX" },
+      "Filter": { "Prefix": "" },
       "Expiration": { "Days": $MINIO_RAW_EXPIRE_DAYS }
-    },
-    {
-      "ID": "expire-verify",
-      "Status": "Enabled",
-      "Filter": { "Prefix": "_verify/" },
-      "Expiration": { "Days": $MINIO_VERIFY_EXPIRE_DAYS }
     }
   ]
 }
@@ -125,4 +125,4 @@ fi
 
 rm -rf "$WORK"
 echo "minio-init: bucket=$MINIO_BUCKET crawler=$MINIO_CRAWLER_ACCESS_KEY(write) spark=$MINIO_SPARK_ACCESS_KEY(read)"
-echo "minio-init: versioning=off lifecycle=${MINIO_RAW_PREFIX}:${MINIO_RAW_EXPIRE_DAYS}d _verify/:${MINIO_VERIFY_EXPIRE_DAYS}d"
+echo "minio-init: versioning=off lifecycle=버킷 전체 ${MINIO_RAW_EXPIRE_DAYS}일"

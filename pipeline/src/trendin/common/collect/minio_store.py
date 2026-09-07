@@ -15,6 +15,18 @@ from trendin.common.collect.env import require_env
 
 logger = logging.getLogger("trendin.collect.minio")
 
+def _ascii_only(metadata: dict[str, str]) -> dict[str, str]:
+    """객체 메타데이터는 latin-1 헤더(`x-amz-meta-*`)로 실린다. 한글이 섞이면 요청이 깨진다.
+
+    조용히 버리지 않고 여기서 막는다. 깨진 값이 객체에 붙으면 어느 기사가 그랬는지
+    되짚을 방법이 없다.
+    """
+    for name, value in metadata.items():
+        if not value.isascii():
+            raise ValueError(f"객체 메타데이터에 ASCII 아닌 값: {name}={value!r}")
+    return metadata
+
+
 ENDPOINT_ENV = "TRENDIN_MINIO_ENDPOINT"
 BUCKET_ENV = "TRENDIN_MINIO_BUCKET"
 ACCESS_KEY_ENV = "TRENDIN_MINIO_ACCESS_KEY"
@@ -61,9 +73,19 @@ class MinioObjectStore:
     def bucket(self) -> str:
         return self._bucket
 
-    def put(self, key: str, body: bytes, content_type: str) -> None:
+    def put(
+        self,
+        key: str,
+        body: bytes,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> None:
         self._client.put_object(
-            Bucket=self._bucket, Key=key, Body=body, ContentType=content_type
+            Bucket=self._bucket,
+            Key=key,
+            Body=body,
+            ContentType=content_type,
+            Metadata=_ascii_only(metadata or {}),
         )
         logger.debug("put %s (%d bytes)", key, len(body))
 
@@ -74,7 +96,11 @@ class MinioObjectStore:
             self._client.head_object(Bucket=self._bucket, Key=key)
         except ClientError as exc:
             status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if status in (403, 404):  # 없는 객체는 권한에 따라 403 으로도 온다
+            if status == 404:
                 return False
+            # 403 을 "없음" 으로 읽지 않는다. 크롤러 키에는 ListBucket · GetObject 가
+            # 있어서(datastore/README.md) 없는 객체는 404 로 온다. 403 은 정책이
+            # 잘못 붙은 것이고, False 로 뭉개면 저장은 됐는데 장부에 안 적혀 다음
+            # 실행이 같은 기사를 다시 받는다 — 매 주기 반복이고 불변식 12 에 걸린다.
             raise
         return True

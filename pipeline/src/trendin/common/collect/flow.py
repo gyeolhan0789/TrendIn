@@ -23,7 +23,7 @@ from typing import Callable, Iterable, Sequence
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, Failure, SourceAdapter
 from trendin.common.collect.events import article_event, run_summary_event
-from trendin.common.collect.keys import ROUTE_EXT, article_key
+from trendin.common.collect.keys import ROUTE_EXT, article_key, raw_key
 from trendin.common.collect.ledger import Ledger
 from trendin.common.collect.session import (
     BlockedUserAgent,
@@ -219,6 +219,19 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
     )
 
 
+def object_metadata(collected_at: datetime, sha256: str | None) -> dict[str, str]:
+    """객체에 붙는 메타데이터 (설계 문서 #5.1).
+
+    이벤트와 장부에도 같은 값이 있지만, 객체만 손에 쥔 상황에서 "언제 받은 것이고 내용이
+    무엇이었나"를 되짚을 수 있어야 해서 여기에도 둔다. `content-sha256` 은 그 객체 자신의
+    해시다 — raw 객체에는 raw 의 해시, article.json 에는 article.json 의 해시.
+    """
+    meta = {"collected-at": collected_at.astimezone(KST).isoformat()}
+    if sha256:
+        meta["content-sha256"] = sha256
+    return meta
+
+
 def store_article(article: Article, raw: bytes, *, store: ObjectStore, ledger: Ledger) -> bool:
     """raw 와 article.json 을 쓰고, 둘 다 있는 것을 확인한 뒤 장부에 적는다.
 
@@ -233,10 +246,34 @@ def store_article(article: Article, raw: bytes, *, store: ObjectStore, ledger: L
         article.article_id,
     )
     body = article_bytes(article)
+    body_sha256 = hashlib.sha256(body).hexdigest()
 
     if article.raw_key:
-        store.put(article.raw_key, raw, CONTENT_TYPES[ROUTE_EXT[article.route]])
-    store.put(key, body, ARTICLE_CONTENT_TYPE)
+        # 어댑터가 계산한 키를 규칙으로 다시 만들어 맞춰 본다. `keys.py` 를 고치면서
+        # 어댑터를 안 고치면 여기서 드러난다 — 안 보면 같은 기사가 두 키에 생긴다(불변식 7).
+        expected = raw_key(
+            article.domain,
+            article.source,
+            article.route,
+            article.published_at,
+            article.article_id,
+        )
+        if expected != article.raw_key:
+            raise ValueError(
+                f"raw_key 가 키 규칙과 다르다: article={article.raw_key!r} 규칙={expected!r}"
+            )
+        store.put(
+            article.raw_key,
+            raw,
+            CONTENT_TYPES[ROUTE_EXT[article.route]],
+            object_metadata(article.collected_at, article.content_sha256),
+        )
+    store.put(
+        key,
+        body,
+        ARTICLE_CONTENT_TYPE,
+        object_metadata(article.collected_at, body_sha256),
+    )
 
     # 불변식 5 — 소비자가 키로 읽었을 때 반드시 있어야 한다.
     if not store.exists(key):
@@ -244,11 +281,7 @@ def store_article(article: Article, raw: bytes, *, store: ObjectStore, ledger: L
     if article.raw_key and not store.exists(article.raw_key):
         return False
 
-    ledger.record(
-        article,
-        article_key=key,
-        article_sha256=hashlib.sha256(body).hexdigest(),
-    )
+    ledger.record(article, article_key=key, article_sha256=body_sha256)
     return True
 
 

@@ -5,12 +5,14 @@
 전부 보고 발행 뒤에 장부를 적는다.
 """
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
+from trendin.common.collect.doubles import InMemoryObjectStore, RecordingEventPublisher
 from trendin.common.collect.flow import (
     SourceOutcome,
     SourceStatus,
@@ -20,6 +22,7 @@ from trendin.common.collect.flow import (
     publish_summaries,
     run_id_of,
     source_statuses,
+    store_article,
 )
 from trendin.common.collect.keys import raw_key
 from trendin.common.collect.ledger import InMemoryLedger
@@ -35,32 +38,6 @@ SOURCE = SourceDef(
     discover_url="https://www.vogue.co.kr/category/fashion/feed/",
     allowed_url_prefixes=("https://www.vogue.co.kr/",),
 )
-
-
-class FakeStore:
-    """`ObjectStore` 대역. 넣은 것만 있다고 답한다."""
-
-    def __init__(self, swallow: set[str] | None = None) -> None:
-        self.objects: dict[str, tuple[bytes, str]] = {}
-        self._swallow = swallow or set()  # put 은 받되 없는 척하는 키 (저장 확인 실패 재현)
-
-    def put(self, key: str, body: bytes, content_type: str) -> None:
-        self.objects[key] = (body, content_type)
-
-    def exists(self, key: str) -> bool:
-        return key in self.objects and key not in self._swallow
-
-
-class FakePublisher:
-    def __init__(self) -> None:
-        self.sent: list[tuple[str, dict]] = []
-        self.flushes = 0
-
-    def publish(self, key: str, value: dict) -> None:
-        self.sent.append((key, value))
-
-    def flush(self) -> None:
-        self.flushes += 1
 
 
 def make_article(article_id: str, *, members_only: bool = False) -> Article:
@@ -128,7 +105,7 @@ class FakeAdapter:
 def test_장부에_있는_기사는_기사_페이지를_받지_않는다():
     """불변식 12 — 다시 받지도 저장하지도 않는다. 거르는 자리는 취득 **앞**이다."""
     ledger = InMemoryLedger()
-    store = FakeStore()
+    store = InMemoryObjectStore()
     adapter = FakeAdapter(["1", "2"])
     collect_source(adapter, ledger=ledger, store=store)
 
@@ -141,7 +118,7 @@ def test_장부에_있는_기사는_기사_페이지를_받지_않는다():
 
 
 def test_raw_와_article_json_을_둘_다_쓴다():
-    store = FakeStore()
+    store = InMemoryObjectStore()
     collect_source(FakeAdapter(["1"]), ledger=InMemoryLedger(), store=store)
     keys = sorted(store.objects)
     assert keys == [
@@ -152,7 +129,7 @@ def test_raw_와_article_json_을_둘_다_쓴다():
 
 def test_회원_전용은_raw_를_쓰지_않는다():
     """불변식 2 — HTML 에 본문이 실려 와도 저장하지 않는다."""
-    store = FakeStore()
+    store = InMemoryObjectStore()
     collect_source(FakeAdapter(["1"], members=["1"]), ledger=InMemoryLedger(), store=store)
     assert list(store.objects) == ["fashion/vogue/rss/2026/09/03/1/article.json"]
 
@@ -160,7 +137,7 @@ def test_회원_전용은_raw_를_쓰지_않는다():
 def test_저장이_확인_안_되면_장부에_적지_않는다():
     """불변식 5 — 소비자가 키로 읽었을 때 반드시 있어야 한다."""
     ledger = InMemoryLedger()
-    store = FakeStore(swallow={"fashion/vogue/rss/2026/09/03/1/article.json"})
+    store = InMemoryObjectStore(swallow={"fashion/vogue/rss/2026/09/03/1/article.json"})
     outcome = collect_source(FakeAdapter(["1"]), ledger=ledger, store=store)
 
     assert outcome.stored == 0
@@ -171,7 +148,9 @@ def test_저장이_확인_안_되면_장부에_적지_않는다():
 def test_기사_하나가_깨져도_나머지는_간다():
     """불변식 9 의 실패 단위는 기사다."""
     outcome = collect_source(
-        FakeAdapter(["1", "2", "3"], broken=["2"]), ledger=InMemoryLedger(), store=FakeStore()
+        FakeAdapter(["1", "2", "3"], broken=["2"]),
+        ledger=InMemoryLedger(),
+        store=InMemoryObjectStore(),
     )
     assert outcome.stored == 2
     assert outcome.failed == 2  # 취득 1건 + 발견 1건
@@ -183,14 +162,14 @@ def test_재시도하면_안_되는_실패는_그대로_올라간다():
         collect_source(
             FakeAdapter([], raises=HostBlocked("429 를 받았다")),
             ledger=InMemoryLedger(),
-            store=FakeStore(),
+            store=InMemoryObjectStore(),
         )
 
 
 def test_같은_구간을_두_번_돌려도_키와_행이_안_는다():
     """불변식 7 — `(source, article_id)` 하나는 키 하나, 장부 행 하나."""
     ledger = InMemoryLedger()
-    store = FakeStore()
+    store = InMemoryObjectStore()
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=store)
     before = dict(store.objects)
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=store)
@@ -204,10 +183,10 @@ def test_같은_구간을_두_번_돌려도_키와_행이_안_는다():
 
 def test_발급은_미발급_행을_전부_보고_발행_뒤에_장부를_적는다():
     ledger = InMemoryLedger()
-    store = FakeStore()
+    store = InMemoryObjectStore()
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=store)
 
-    publisher = FakePublisher()
+    publisher = RecordingEventPublisher()
     sent = publish_pending(
         ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW
     )
@@ -220,8 +199,8 @@ def test_발급은_미발급_행을_전부_보고_발행_뒤에_장부를_적는
 
 def test_두_번째_발급은_아무것도_내지_않는다():
     ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=FakeStore())
-    publisher = FakePublisher()
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
     for _ in range(2):
         publish_pending(
             ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW
@@ -232,12 +211,12 @@ def test_두_번째_발급은_아무것도_내지_않는다():
 def test_발행이_실패하면_장부를_적지_않는다():
     """적어 버리면 토픽엔 없는데 나갔다고 적힌 기사가 생긴다."""
 
-    class Broken(FakePublisher):
+    class Broken(RecordingEventPublisher):
         def flush(self) -> None:
             raise RuntimeError("브로커가 안 받았다")
 
     ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=FakeStore())
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
     with pytest.raises(RuntimeError):
         publish_pending(
             ledger=ledger, publisher=Broken(), bucket="raw-data", domain="fashion", now=NOW
@@ -248,8 +227,8 @@ def test_발행이_실패하면_장부를_적지_않는다():
 def test_다른_도메인_행은_건드리지_않는다():
     """발급이 DAG 마다 하나씩이라 도메인으로 자르지 않으면 dev DAG 이 fashion 행을 낸다."""
     ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=FakeStore())
-    publisher = FakePublisher()
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
     sent = publish_pending(
         ledger=ledger, publisher=publisher, bucket="raw-data", domain="dev", now=NOW
     )
@@ -258,7 +237,7 @@ def test_다른_도메인_행은_건드리지_않는다():
 
 
 def test_요약_이벤트는_0건이어도_나가고_죽은_소스는_failed_로_나간다():
-    publisher = FakePublisher()
+    publisher = RecordingEventPublisher()
     sent = publish_summaries(
         publisher=publisher,
         bucket="raw-data",
@@ -312,9 +291,72 @@ def test_매핑이_한_건이면_dict_하나로_온다():
 def test_XCom_에_예외_문자열을_싣지_않는다():
     """규약 4 — XCom 엔 ID·건수만. 예외 문자열은 길이도 내용도 예측이 안 된다."""
     outcome = collect_source(
-        FakeAdapter(["1", "2"], broken=["2"]), ledger=InMemoryLedger(), store=FakeStore()
+        FakeAdapter(["1", "2"], broken=["2"]), ledger=InMemoryLedger(), store=InMemoryObjectStore()
     )
     payload = outcome.to_dict()
     assert payload["failed"] == 2
     assert all(isinstance(v, (str, int, bool)) for v in payload.values())
     assert "발행일이 없다" not in repr(payload)
+
+
+# --- 객체 메타데이터와 키 규칙 (S15P21A102-158) -----------------------------
+
+
+def test_객체마다_수집_시각과_자기_해시가_붙는다():
+    """이벤트·장부에도 있지만, 객체만 손에 쥔 상황에서 되짚을 수 있어야 한다 (#5.1)."""
+    store = InMemoryObjectStore()
+    collect_source(FakeAdapter(["1"]), ledger=InMemoryLedger(), store=store)
+
+    raw_meta = store.objects["fashion/vogue/rss/2026/09/03/1/raw.xml"].metadata
+    article = store.objects["fashion/vogue/rss/2026/09/03/1/article.json"]
+
+    # collected_at 은 UTC 로 들어오지만 KST 표기로 붙는다 (팀 계약 시각 규약).
+    assert raw_meta["collected-at"] == "2026-09-03T11:00:00+09:00"
+    assert raw_meta["content-sha256"] == "c" * 64  # raw 의 해시
+    # article.json 메타데이터는 그 객체 자신의 해시다. raw 해시와 다른 값이다.
+    assert article.metadata["content-sha256"] == hashlib.sha256(article.body).hexdigest()
+    assert article.metadata["content-sha256"] != "c" * 64
+
+
+def test_메타데이터는_ASCII_뿐이다():
+    """latin-1 헤더로 실리므로 한글이 섞이면 실제 저장소에서 요청이 깨진다."""
+    store = InMemoryObjectStore()
+    collect_source(FakeAdapter(["1"]), ledger=InMemoryLedger(), store=store)
+    for stored in store.objects.values():
+        assert all(v.isascii() for v in stored.metadata.values())
+
+
+def test_회원_전용은_해시_메타데이터가_없다():
+    store = InMemoryObjectStore()
+    collect_source(FakeAdapter(["1"], members=["1"]), ledger=InMemoryLedger(), store=store)
+    meta = store.objects["fashion/vogue/rss/2026/09/03/1/article.json"].metadata
+    assert "collected-at" in meta
+    # article.json 자신의 해시는 회원 전용이어도 붙는다. raw 해시는 애초에 없다.
+    assert "content-sha256" in meta
+
+
+def test_raw_content_type_에_charset_을_붙이지_않는다():
+    """raw 는 받은 바이트 그대로다(불변식 8). utf-8 을 단정하면 헤더가 거짓이 된다."""
+    store = InMemoryObjectStore()
+    collect_source(FakeAdapter(["1"]), ledger=InMemoryLedger(), store=store)
+    assert store.objects["fashion/vogue/rss/2026/09/03/1/raw.xml"].content_type == "application/xml"
+
+
+def test_어댑터가_준_raw_key_가_규칙과_다르면_저장하지_않는다():
+    """`keys.py` 를 고치면서 어댑터를 안 고치면 같은 기사가 두 키에 생긴다 (불변식 7)."""
+    store = InMemoryObjectStore()
+    article = make_article("1").model_copy(
+        update={"raw_key": "domain=fashion/vogue/2026/09/03/1/raw.xml"}
+    )
+    with pytest.raises(ValueError, match="키 규칙과 다르다"):
+        store_article(article, b"<item/>", store=store, ledger=InMemoryLedger())
+    assert store.objects == {}
+
+
+def test_저장_확인_조회가_실패하면_없음으로_뭉개지_않는다():
+    """403·5xx 를 False 로 읽으면 저장은 됐는데 장부에 안 적혀 매 주기 다시 받는다."""
+    ledger = InMemoryLedger()
+    store = InMemoryObjectStore(fail_exists={"fashion/vogue/rss/2026/09/03/1/article.json"})
+    with pytest.raises(RuntimeError, match="조회"):
+        store_article(make_article("1"), b"<item/>", store=store, ledger=ledger)
+    assert ledger.pending("fashion") == []
