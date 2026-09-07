@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HomePage } from '../HomePage/HomePage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -70,7 +70,7 @@ export function TrendDetailPage() {
     drawerContent = (
       <>
         <div className="detail-label"><span>{trend.category}{trend.tag ? ` / ${trend.tag}` : ''}</span></div>
-        <div className="detail-title-row"><h2 className="detail-title">{trend.keyword}</h2></div>
+        <div className="detail-title-row"><h2 className="detail-title">{trend.keyword}</h2><Link className="saved-page-link" to="/saved-trends">저장한 트렌드</Link></div>
         <p className="detail-sub">{trend.description ?? '트렌드 설명이 준비 중입니다.'}</p>
         <p className="detail-period">최근 {periodLabels[period] ?? period} 기준</p>
         <div className="detail-stats">

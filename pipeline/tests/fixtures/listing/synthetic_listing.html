@@ -1,0 +1,24 @@
+<!doctype html>
+<!-- 실측 목록의 함정만 남긴 축소본. 원본 두 장은 따로 있다. -->
+<html><head><title>합성 목록</title></head>
+<body>
+  <!-- 추천 위젯. 실측에서 이 JSON 의 articleId 는 앵커와 거의 겹치지 않았다.
+       후보로 삼으면 안 되는 것들이다. -->
+  <script>
+    var recommend = [
+      {"articleId":"9000001","title":"위젯 기사 1","membersYn":"Y"},
+      {"articleId":"9000002","title":"위젯 기사 2","membersYn":"N"}
+    ];
+  </script>
+
+  <ul class="list">
+    <li><a href="/article/1000001"><div class="imgbox"><img src="a.jpg"></div>
+        <p class="tit">일반 기사</p></a></li>
+    <li><a href="/article/1000002"><div class="imgbox"><div class="memmark"></div><img src="b.jpg"></div>
+        <p class="tit">회원 전용 표시가 붙은 기사</p></a></li>
+    <!-- 같은 기사가 다른 자리에 또 나온다. 한 번만 후보가 돼야 한다. -->
+    <li><a href="/article/1000001"><p class="tit">일반 기사(중복)</p></a></li>
+    <li><a href="/event/notice">기사가 아닌 링크</a></li>
+    <li><a href="https://example.test/article/1000003">절대 URL 앵커</a></li>
+  </ul>
+</body></html>

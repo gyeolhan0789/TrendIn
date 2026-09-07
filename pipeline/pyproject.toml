@@ -13,6 +13,10 @@ dependencies = [
   "apache-airflow==3.3.1",
   "apache-airflow-providers-standard",
   "apache-airflow-providers-postgres",
+  # 수집 계층 저장소 클라이언트. Airflow 훅이 아니라 순수 클라이언트를 쓴다 —
+  # 태스크 함수는 airflow 를 import 하지 않는다(README 규약 12, S15P21A102-167).
+  "boto3",             # MinIO. S3 호환이라 endpoint_url 만 바꾸면 실제 S3 로도 간다
+  "confluent-kafka",   # 발급
 ]
 
 [project.optional-dependencies]
@@ -25,13 +29,17 @@ dev = [
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# spark/tests 는 층 1(순수 함수) · 층 2(local[2] 세션) · 층 3(compose) 로 나뉜다.
+# 층 3 은 아직 비어 있다 (spark/docs/09-dev-and-test.md 4절).
+# pyspark 는 여기에 없다 — 버전 핀은 spark/versions.sh 한 곳이고, 설치는
+# spark/scripts/dev-setup.sh(로컬) 와 spark/Dockerfile(컨테이너) 이 한다.
+testpaths = ["tests", "spark/tests"]
 addopts = "-q"
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["logs"]
+extend-exclude = ["logs", "spark/jars"]
 
 [tool.ruff.lint]
 # AIR: Airflow 3 마이그레이션 규칙(깨진 import 탐지). E/F/I: 기본 오류·미사용·import 정렬.

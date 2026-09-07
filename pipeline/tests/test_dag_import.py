@@ -7,7 +7,7 @@ from airflow.dag_processing.dagbag import DagBag
 
 DAGS_DIR = Path(__file__).resolve().parents[1] / "dags"
 POOLS_JSON = Path(__file__).resolve().parents[1] / "pools.json"
-EXPECTED_DAG_IDS = {"fashion_example", "dev_example"}
+EXPECTED_DAG_IDS = {"fashion_example", "dev_example", "fashion_collect", "dev_collect"}
 
 
 def load_bag() -> DagBag:
