@@ -48,19 +48,36 @@ class ArticleParseError(Exception):
     """기사 페이지에서 필요한 것을 못 뽑았다."""
 
 
+def _same_site(href: str, allowed: tuple[str, ...]) -> bool:
+    """다른 호스트를 가리키는 앵커인가.
+
+    ID 만 뽑아 우리 호스트 URL 로 조립하므로, 걸러 내지 않으면 외부 링크의 번호가 우리
+    사이트의 **다른 기사**를 가리키게 된다. 404 로 끝나면 다행이고 실재하면 조용히 엉뚱한
+    기사를 수집한다. 실측 목록의 `/article/` 링크는 65개가 전부 상대경로였지만(① 2026-09-03),
+    근거가 "지금은 없다" 뿐이라 문을 닫아 둔다.
+    """
+    if "://" not in href:
+        return True
+    return bool(allowed) and href.startswith(allowed)
+
+
 class _AnchorIds(HTMLParser):
     """`/article/{숫자}` 앵커의 article_id 를 모은다. 순서를 지킨다."""
 
-    def __init__(self) -> None:
+    def __init__(self, allowed_prefixes: tuple[str, ...] = ()) -> None:
         super().__init__(convert_charrefs=True)
         self.ids: list[str] = []
+        self._allowed = allowed_prefixes
         self._seen: set[str] = set()
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "a":
             return
-        match = ARTICLE_HREF.search(dict(attrs).get("href") or "")
-        if match and match.group(1) not in self._seen:
+        href = dict(attrs).get("href") or ""
+        match = ARTICLE_HREF.search(href)
+        if not match or not _same_site(href, self._allowed):
+            return
+        if match.group(1) not in self._seen:
             self._seen.add(match.group(1))
             self.ids.append(match.group(1))
 
@@ -78,8 +95,8 @@ class _HasClass(HTMLParser):
             self.found = True
 
 
-def article_ids(html: str) -> list[str]:
-    parser = _AnchorIds()
+def article_ids(html: str, allowed_prefixes: tuple[str, ...] = ()) -> list[str]:
+    parser = _AnchorIds(allowed_prefixes)
     parser.feed(html)
     parser.close()
     return parser.ids
@@ -188,7 +205,8 @@ class ListingAdapter:
                 not_modified += 1
                 continue
 
-            for article_id in article_ids(response.body.decode("utf-8", "replace")):
+            page_html = response.body.decode("utf-8", "replace")
+            for article_id in article_ids(page_html, self.source.allowed_url_prefixes):
                 if article_id not in sections:
                     sections[article_id] = set()
                     order.append(article_id)
