@@ -1,5 +1,6 @@
 #!/bin/sh
-# datastore 완료 조건 검증 (Jira S15P21A102-156 AC 1~4). 실패 항목이 있으면 exit 1.
+# datastore 완료 조건 검증. 실패 항목이 있으면 exit 1.
+# AC1~4 는 Jira S15P21A102-156, AC5 는 S15P21A102-157 (토픽 설정 · 보관 정책).
 # Windows 는 Git Bash 에서 돌린다. 검증은 전부 컨테이너 안에서 일어난다.
 set -u
 
@@ -17,18 +18,28 @@ fail=0
 
 BUCKET=$(sed -n 's/^MINIO_BUCKET=//p' .env);                  BUCKET=${BUCKET:-raw-data}
 TOPIC=$(sed -n 's/^KAFKA_TOPIC_RAW_FILE_READY=//p' .env);     TOPIC=${TOPIC:-raw-file-ready}
+PARTS=$(sed -n 's/^KAFKA_TOPIC_PARTITIONS=//p' .env);         PARTS=${PARTS:-6}
+POLICY=$(sed -n 's/^KAFKA_TOPIC_CLEANUP_POLICY=//p' .env);    POLICY=${POLICY:-delete}
+RET_MS=$(sed -n 's/^KAFKA_TOPIC_RETENTION_MS=//p' .env);      RET_MS=${RET_MS:-604800000}
+SEG_MS=$(sed -n 's/^KAFKA_TOPIC_SEGMENT_MS=//p' .env);        SEG_MS=${SEG_MS:-86400000}
+RAW_DAYS=$(sed -n 's/^MINIO_RAW_EXPIRE_DAYS=//p' .env);       RAW_DAYS=${RAW_DAYS:-90}
+VFY_DAYS=$(sed -n 's/^MINIO_VERIFY_EXPIRE_DAYS=//p' .env);    VFY_DAYS=${VFY_DAYS:-1}
 CK=$(sed -n 's/^MINIO_CRAWLER_ACCESS_KEY=//p' .env); CS=$(sed -n 's/^MINIO_CRAWLER_SECRET_KEY=//p' .env)
 SK=$(sed -n 's/^MINIO_SPARK_ACCESS_KEY=//p' .env);   SS=$(sed -n 's/^MINIO_SPARK_SECRET_KEY=//p' .env)
+RU=$(sed -n 's/^MINIO_ROOT_USER=//p' .env);          RP=$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env)
 [ -n "$CK$CS$SK$SS" ] || { echo "datastore/.env 의 MinIO 키가 비어 있다"; exit 1; }
+[ -n "$RU$RP" ] || { echo "datastore/.env 의 MinIO 관리자 계정이 비어 있다"; exit 1; }
 
 # 첫 인자가 0 이면 통과, 아니면 실패로 찍는다.
 check() { [ "$1" -eq 0 ] && echo "  PASS  $2" || { echo "  FAIL  $2"; fail=1; }; }
 
 # mc 를 저장소 네트워크 안에서 돌린다. crawler · spark 두 계정을 미리 물려둔다.
+# admin 은 버킷 설정(버전 관리 · 수명 주기) 조회용이다. crawler · spark 정책에는 그 권한이 없다.
 mc() {
   docker run --rm --network "$NET" \
     -e MC_HOST_crawler="http://$CK:$CS@minio:9000" \
     -e MC_HOST_spark="http://$SK:$SS@minio:9000" \
+    -e MC_HOST_admin="http://$RU:$RP@minio:9000" \
     --entrypoint sh "$MC_IMAGE" -c "$1"
 }
 
@@ -70,6 +81,29 @@ if mc "echo x > /tmp/x && mc cp /tmp/x spark/$BUCKET/_verify/should-fail" >/dev/
 else
   check 0 "Spark 키 write 거부"
 fi
+
+echo "[AC5] 토픽 설정"
+PC=$($DC exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+      --describe --topic "$TOPIC" 2>/dev/null | tr -d '\r' \
+      | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1)
+[ "${PC:-0}" -eq "$PARTS" ]; check $? "파티션 $PARTS 개 (실제 ${PC:-?})"
+CFG=$($DC exec -T kafka /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092 \
+      --entity-type topics --entity-name "$TOPIC" --describe 2>/dev/null | tr -d '\r')
+for kv in "cleanup.policy=$POLICY" "retention.ms=$RET_MS" "segment.ms=$SEG_MS"; do
+  printf '%s\n' "$CFG" | grep -q -- "$kv"; check $? "$kv"
+done
+
+echo "[AC5] 보관 정책"
+# 규칙 조회는 버킷 설정 읽기 권한이 필요하다. 관리자 계정으로 본다.
+ILM=$(mc "mc ilm rule ls admin/$BUCKET 2>/dev/null || mc ilm ls admin/$BUCKET" 2>/dev/null | tr -d '\r')
+# 각각 정확히 1 개여야 한다. 2 개 이상이면 매 up 마다 규칙이 덧붙고 있다는 뜻이다.
+[ "$(printf '%s\n' "$ILM" | grep -c 'expire-raw')" -eq 1 ];    check $? "lifecycle expire-raw 1 개"
+[ "$(printf '%s\n' "$ILM" | grep -c 'expire-verify')" -eq 1 ]; check $? "lifecycle expire-verify 1 개 (중복 없음)"
+mc "mc version info admin/$BUCKET" 2>/dev/null | grep -qiE 'un-versioned|suspended'
+check $? "버전 관리 off"
+# 원문이 이벤트보다 먼저 사라지면 참조가 깨진다. 등호 포함이라 같아도 통과다.
+[ "$((RAW_DAYS * 86400000))" -ge "$RET_MS" ]
+check $? "MinIO 보관 ${RAW_DAYS}일 >= Kafka retention ${RET_MS}ms"
 
 # 검증 객체만 지운다. 수집 데이터는 건드리지 않는다.
 mc "mc rm -r --force crawler/$BUCKET/_verify" >/dev/null 2>&1
