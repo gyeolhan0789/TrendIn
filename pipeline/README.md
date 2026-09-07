@@ -92,7 +92,7 @@ CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
 | --- | --- |
 | `--pages` | 2페이지부터 몇 장. 기본값이 없다 — 실수로 30장이 돌지 않게 |
 | `--store` | MinIO·장부에 실제로 쓴다. 없으면 훑기만 한다 |
-| `--json` | 정규화된 article.json 을 한 줄씩 낸다 |
+| `--json` | 정규화된 article.json 을 한 줄씩 낸다. 훑기 모드에서만 듣는다 — `--store` 와 같이 주면 아무것도 안 나온다 |
 
 **RSS 5소스만 된다** — `allure` · `gqkorea` · `marieclaire` · `vogue` · `wkorea`. 목록 소스(바자·코스모)는 거부한다. 목록에 보이는 것이 전부라 과거분이라는 개념이 없다.
 
@@ -178,7 +178,9 @@ with Database.from_env().transaction() as c:
 CLI airflow dags trigger fashion_collect
 ```
 
-발급 태스크가 미발급 행을 전부 내므로 다음 실행에서 다시 나간다. MinIO 는 건드리지 않는다.
+발급 태스크가 미발급 행을 내므로 다음 실행부터 다시 나간다. MinIO 는 건드리지 않는다.
+
+한 실행이 내는 상한은 500건이다. 장부가 그보다 크면 여러 회차에 나눠 나가니 `trigger` 를 몇 번 더 하거나 주기 실행이 따라잡게 둔다.
 
 ## DAG 추가 규약
 
