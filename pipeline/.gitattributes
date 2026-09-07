@@ -5,3 +5,10 @@
 *.yml text eol=lf
 Dockerfile text eol=lf
 .env.example text eol=lf
+
+# 계약 fixture 의 객체는 바이트 그대로 둔다 (S15P21A102-159).
+# 이 파일들은 MinIO 에 올라간 원문의 사본이고, 그 sha256 이 이벤트의 `checksum` 과
+# article.json 의 `content_sha256` 에 박혀 있다. 개행이 한 번 바뀌면 해시가 달라져
+# 소비 측이 checksum 검증 코드를 이 fixture 로 테스트할 때 실패한다 — fixture 가 낡은 것도
+# 아니고 코드가 틀린 것도 아닌데 실패하므로 원인을 찾기 어렵다.
+spark/tests/fixtures/contract/objects/** -text
