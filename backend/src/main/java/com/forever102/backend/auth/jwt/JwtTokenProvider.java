@@ -55,33 +55,45 @@ public class JwtTokenProvider {
 
     /**
      * 액세스 토큰을 검증하고 회원 식별자를 꺼낸다.
-     * 서명, 만료, 토큰 타입 중 하나라도 어긋나면 BusinessException을 던진다.
+     * 클라이언트가 재발급으로 분기할 수 있도록 만료는 EXPIRED_TOKEN으로 따로 구분한다.
      */
     public Long parseAccessToken(String token) {
-        Claims claims = parseClaims(token);
-        if (!ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
-            // 리프레시 토큰으로 API를 호출하는 것을 막는다.
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
-        }
-        return parseMemberId(claims);
+        return parseToken(token, ACCESS_TOKEN_TYPE, ErrorCode.EXPIRED_TOKEN, ErrorCode.INVALID_TOKEN);
     }
 
-    private Claims parseClaims(String token) {
+    /**
+     * 리프레시 토큰을 검증하고 회원 식별자를 꺼낸다.
+     * 재발급 실패는 어느 경우든 재로그인으로 이어지므로 만료와 무효를 구분하지 않는다.
+     */
+    public Long parseRefreshToken(String token) {
+        return parseToken(token, REFRESH_TOKEN_TYPE,
+                ErrorCode.INVALID_REFRESH_TOKEN, ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    private Long parseToken(String token, String expectedType, ErrorCode expiredCode, ErrorCode invalidCode) {
+        Claims claims = parseClaims(token, expiredCode, invalidCode);
+        if (!expectedType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {
+            // 액세스 토큰과 리프레시 토큰을 서로의 자리에 쓰지 못하게 막는다.
+            throw new BusinessException(invalidCode);
+        }
+        return parseMemberId(claims, invalidCode);
+    }
+
+    private Claims parseClaims(String token, ErrorCode expiredCode, ErrorCode invalidCode) {
         try {
             return parser.parseSignedClaims(token).getPayload();
         } catch (ExpiredJwtException e) {
-            // 클라이언트가 재발급으로 넘어갈 수 있도록 만료만 따로 구분한다.
-            throw new BusinessException(ErrorCode.EXPIRED_TOKEN);
+            throw new BusinessException(expiredCode);
         } catch (JwtException | IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+            throw new BusinessException(invalidCode);
         }
     }
 
-    private Long parseMemberId(Claims claims) {
+    private Long parseMemberId(Claims claims, ErrorCode invalidCode) {
         try {
             return Long.valueOf(claims.getSubject());
         } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+            throw new BusinessException(invalidCode);
         }
     }
 

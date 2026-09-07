@@ -11,6 +11,8 @@ import static org.mockito.Mockito.never;
 
 import com.forever102.backend.auth.dto.LoginRequest;
 import com.forever102.backend.auth.dto.LoginResponse;
+import com.forever102.backend.auth.dto.ReissueRequest;
+import com.forever102.backend.auth.dto.ReissueResponse;
 import com.forever102.backend.auth.dto.SignUpRequest;
 import com.forever102.backend.auth.dto.SignUpResponse;
 import com.forever102.backend.auth.jwt.AuthTokens;
@@ -43,6 +45,9 @@ class AuthServiceTest {
     private static final Long MEMBER_ID = 1L;
     private static final AuthTokens TOKENS =
             new AuthTokens("access-token", "refresh-token", 900L, 1_209_600L);
+    private static final String REFRESH_TOKEN = "refresh-token";
+    private static final AuthTokens REISSUED_TOKENS =
+            new AuthTokens("new-access-token", "new-refresh-token", 900L, 1_209_600L);
 
     @Mock
     private MemberRepository memberRepository;
@@ -253,6 +258,103 @@ class AuthServiceTest {
         then(refreshTokenRepository).should(never()).save(any(), any(), any());
     }
 
+
+    @Test
+    @DisplayName("유효한 리프레시 토큰이면 새 토큰 한 쌍을 발급한다")
+    void reissueIssuesNewTokens() {
+        // given
+        givenStoredRefreshToken();
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(REISSUED_TOKENS);
+
+        // when
+        ReissueResponse response = authService.reissue(new ReissueRequest(REFRESH_TOKEN));
+
+        // then
+        assertThat(response).isEqualTo(new ReissueResponse(
+                "new-access-token", "new-refresh-token", "Bearer", 900L, 1_209_600L, false));
+    }
+
+    @Test
+    @DisplayName("재발급하면 새 리프레시 토큰으로 교체하고 TTL을 다시 설정한다")
+    void reissueRotatesStoredRefreshToken() {
+        // given
+        givenStoredRefreshToken();
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(REISSUED_TOKENS);
+
+        // when
+        authService.reissue(new ReissueRequest(REFRESH_TOKEN));
+
+        // then
+        then(refreshTokenRepository).should()
+                .save(MEMBER_ID, "new-refresh-token", Duration.ofSeconds(1_209_600L));
+    }
+
+    @Test
+    @DisplayName("온보딩 완료 여부는 저장된 회원 정보에서 읽는다")
+    void reissueReportsOnboardingCompleted() {
+        // given
+        Member member = givenStoredRefreshToken();
+        member.completeOnboarding();
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(REISSUED_TOKENS);
+
+        // when
+        ReissueResponse response = authService.reissue(new ReissueRequest(REFRESH_TOKEN));
+
+        // then
+        assertThat(response.onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("저장된 토큰과 다르면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    void reissueRejectsRotatedRefreshToken() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("토큰 검증에 실패하면 회원을 조회하거나 토큰을 발급하지 않는다")
+    void reissueDoesNotIssueTokensWhenValidationFails() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(false);
+
+        // when
+        catchThrowable(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)));
+
+        // then
+        then(memberRepository).should(never()).findById(any());
+        then(jwtTokenProvider).should(never()).issue(any());
+        then(refreshTokenRepository).should(never()).save(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("탈퇴 등으로 회원이 없으면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    void reissueRejectsMissingMember() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    private Member givenStoredRefreshToken() {
+        Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
+        ReflectionTestUtils.setField(member, "id", MEMBER_ID);
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        return member;
+    }
     private Member givenRegisteredMember() {
         Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
         ReflectionTestUtils.setField(member, "id", MEMBER_ID);

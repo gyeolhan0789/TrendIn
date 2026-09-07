@@ -202,6 +202,55 @@ class JwtTokenProviderTest {
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_TOKEN);
     }
+
+    @Test
+    @DisplayName("리프레시 토큰을 파싱하면 회원 식별자를 돌려준다")
+    void parsesMemberIdFromRefreshToken() {
+        // given
+        String refreshToken = jwtTokenProvider.issue(MEMBER_ID).refreshToken();
+
+        // when & then
+        assertThat(jwtTokenProvider.parseRefreshToken(refreshToken)).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("액세스 토큰으로는 리프레시 토큰 파싱에 실패한다")
+    void rejectsAccessTokenAsRefreshToken() {
+        // given
+        String accessToken = jwtTokenProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseRefreshToken(accessToken))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("만료된 리프레시 토큰도 무효와 같은 INVALID_REFRESH_TOKEN으로 거부한다")
+    void rejectsExpiredRefreshTokenWithSameErrorCode() {
+        // given
+        JwtTokenProvider expiredProvider = new JwtTokenProvider(
+                new JwtProperties(SECRET, ACCESS_TOKEN_EXPIRATION, Duration.ofSeconds(-1))
+        );
+        String expiredToken = expiredProvider.issue(MEMBER_ID).refreshToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseRefreshToken(expiredToken))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("JWT 형식이 아닌 리프레시 토큰은 INVALID_REFRESH_TOKEN으로 거부한다")
+    void rejectsMalformedRefreshToken() {
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseRefreshToken("not-a-jwt"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+    }
     private Claims parse(String token) {
         SecretKey key = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();

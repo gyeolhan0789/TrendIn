@@ -91,9 +91,9 @@ operation::trends-detail-not-found[snippets='http-response,response-fields']
 ==== 인증 연동
 
 인증이 필요한 API이며, 서비스는 로그인 사용자 정보를 사용하지 않는다.
-문서 테스트는 Spring Security의 테스트용 인증 컨텍스트를 사용한다. 예시 Bearer 헤더로 실제 JWT 검증이 구현되는 것은 아니다.
-현재 공통 보안 설정은 비인증 요청에 403을 반환한다. 명세의 401 응답과 실제 토큰 검증은 인증팀의 공통 인증 구현에 의존한다.
-이 API 작업에서는 회원·인증·Security·JWT 코드를 변경하지 않는다.
+`Authorization: Bearer <액세스 토큰>` 헤더로 호출하며, 토큰 검증은 공통 인증 필터가 담당한다.
+토큰이 없거나 유효하지 않으면 공통 오류 구조로 401을 반환한다.
+문서 테스트는 Spring Security의 테스트용 인증 컨텍스트를 사용하므로 예시 Bearer 헤더 값 자체가 검증되지는 않는다.
 
 [[auth-login]]
 === 로그인
@@ -125,3 +125,38 @@ operation::auth-login-invalid-request[snippets='http-response,response-fields']
 이메일 또는 비밀번호가 일치하지 않는 경우.
 
 operation::auth-login-invalid-credentials[snippets='http-response,response-fields']
+
+[[auth-reissue]]
+=== 토큰 재발급
+
+`POST /auth/reissue`
+
+유효한 리프레시 토큰을 새 액세스 토큰과 리프레시 토큰 한 쌍으로 교환한다. 인증 헤더 없이 호출한다.
+
+리프레시 토큰은 재발급할 때마다 회전한다. 요청에 사용한 리프레시 토큰은 응답을 받은 시점부터 무효이므로,
+클라이언트는 응답의 `refreshToken`으로 반드시 교체해야 한다. 유효 기간은 재발급 시점부터 다시 계산된다.
+
+리프레시 토큰은 회원당 하나만 유효하다. 다른 기기에서 로그인하거나 재발급하면 이전 토큰은 무효가 된다.
+
+==== 요청
+
+operation::auth-reissue[snippets='http-request,request-fields']
+
+==== 응답
+
+operation::auth-reissue[snippets='http-response,response-fields']
+
+==== 에러
+
+===== 400 Bad Request
+
+`refreshToken`이 없거나 비어 있는 경우.
+
+operation::auth-reissue-invalid-request[snippets='http-response,response-fields']
+
+===== 401 Unauthorized
+
+리프레시 토큰의 서명이 올바르지 않거나, 만료되었거나, 이미 회전되어 무효가 된 경우.
+어느 경우인지 구분해 노출하지 않으며 클라이언트는 재로그인으로 처리한다.
+
+operation::auth-reissue-invalid-refresh-token[snippets='http-response,response-fields']

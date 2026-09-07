@@ -27,7 +27,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_POST_ENDPOINTS = {"/auth/signup", "/auth/login"};
+    private static final String[] PUBLIC_POST_ENDPOINTS = {"/auth/signup", "/auth/login", "/auth/reissue"};
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
