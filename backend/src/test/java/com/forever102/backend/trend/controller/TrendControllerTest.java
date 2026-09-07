@@ -23,8 +23,13 @@ import com.forever102.backend.global.exception.BusinessException;
 import com.forever102.backend.global.exception.ErrorCode;
 import com.forever102.backend.trend.TrendFixture;
 import com.forever102.backend.trend.domain.AnalysisPeriod;
+import com.forever102.backend.trend.domain.TrendHistoryDataStatus;
 import com.forever102.backend.trend.dto.TrendDetailResponse;
+import com.forever102.backend.trend.dto.TrendHistoryResponse;
+import com.forever102.backend.trend.dto.TrendHistoryResponse.HistoryPointResponse;
+import com.forever102.backend.trend.service.TrendHistoryService;
 import com.forever102.backend.trend.service.TrendService;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,6 +51,95 @@ class TrendControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean TrendService trendService;
+    @MockitoBean TrendHistoryService trendHistoryService;
+
+    @Test
+    @WithMockUser
+    @DisplayName("관심도 시계열을 조회하고 문서화한다")
+    void returnsTrendHistory() throws Exception {
+        var start = OffsetDateTime.parse("2026-08-24T00:00:00+09:00");
+        var end = OffsetDateTime.parse("2026-08-31T00:00:00+09:00");
+        given(trendHistoryService.getHistory(101L, AnalysisPeriod.DAYS_7))
+                .willReturn(TrendHistoryResponse.of(101L, AnalysisPeriod.DAYS_7, start, end,
+                        TrendHistoryDataStatus.AVAILABLE,
+                        List.of(new HistoryPointResponse(start, 40L),
+                                new HistoryPointResponse(start.plusDays(1), 0L),
+                                new HistoryPointResponse(start.plusDays(2), 0L))));
+
+        mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "7D")
+                        .header("Authorization", "Bearer example-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.period").value("7D"))
+                .andExpect(jsonPath("$.data.timezone").value("Asia/Seoul"))
+                .andExpect(jsonPath("$.data.startAt").value("2026-08-24T00:00:00+09:00"))
+                .andExpect(jsonPath("$.data.endAt").value("2026-08-31T00:00:00+09:00"))
+                .andExpect(jsonPath("$.data.dataStatus").value("AVAILABLE"))
+                .andExpect(jsonPath("$.data.history[1].mentionCount").value(0))
+                .andExpect(jsonPath("$.data.history[2].mentionCount").value(0))
+                .andDo(document("trends-history", preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName("Authorization").description("인증 토큰")),
+                        pathParameters(parameterWithName("trendId").description("조회할 트렌드 ID. 양의 정수")),
+                        queryParameters(parameterWithName("period").description("필수 조회 기간: 24H, 7D, 30D")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL).description("성공 시 null"),
+                                fieldWithPath("data.trendId").type(JsonFieldType.NUMBER).description("트렌드 ID"),
+                                fieldWithPath("data.period").type(JsonFieldType.STRING).description("조회 기간"),
+                                fieldWithPath("data.timezone").type(JsonFieldType.STRING).description("시간대"),
+                                fieldWithPath("data.startAt").type(JsonFieldType.STRING).description("완료 구간 시작"),
+                                fieldWithPath("data.endAt").type(JsonFieldType.STRING).description("완료 구간 종료. 미포함"),
+                                fieldWithPath("data.dataStatus").type(JsonFieldType.STRING).description("AVAILABLE 또는 NO_DATA"),
+                                fieldWithPath("data.history").type(JsonFieldType.ARRAY).description("오름차순 시계열"),
+                                fieldWithPath("data.history[].timestamp").type(JsonFieldType.STRING).description("버킷 시작 시각"),
+                                fieldWithPath("data.history[].mentionCount").type(JsonFieldType.NUMBER)
+                                        .description("언급량. 해당 버킷에 언급 데이터가 없으면 0"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("시계열 데이터가 없으면 200과 NO_DATA를 반환한다")
+    void returnsNoHistoryData() throws Exception {
+        var start = OffsetDateTime.parse("2026-08-30T00:00:00+09:00");
+        var end = start.plusDays(1);
+        given(trendHistoryService.getHistory(101L, AnalysisPeriod.HOURS_24))
+                .willReturn(TrendHistoryResponse.of(101L, AnalysisPeriod.HOURS_24, start, end,
+                        TrendHistoryDataStatus.NO_DATA, List.of()));
+
+        mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "24H"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataStatus").value("NO_DATA"))
+                .andExpect(jsonPath("$.data.history").isEmpty());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("시계열 조회 기간이 누락되거나 잘못되면 400을 반환한다")
+    void rejectsInvalidHistoryPeriod() throws Exception {
+        mockMvc.perform(get("/trends/{trendId}/history", 101L))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "1D"))
+                .andExpect(status().isBadRequest());
+        then(trendHistoryService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("존재하지 않는 트렌드의 시계열 조회는 404를 반환한다")
+    void returnsNotFoundForHistory() throws Exception {
+        given(trendHistoryService.getHistory(999L, AnalysisPeriod.DAYS_30))
+                .willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND));
+        mockMvc.perform(get("/trends/{trendId}/history", 999L).queryParam("period", "30D"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("인증 없이 시계열을 요청하면 401을 반환한다")
+    void existingSecurityBlocksAnonymousHistoryRequest() throws Exception {
+        mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "7D"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+        then(trendHistoryService).shouldHaveNoInteractions();
+    }
 
     @Test
     @WithMockUser

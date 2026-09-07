@@ -13,11 +13,14 @@ import com.forever102.backend.trend.domain.Trend;
 import com.forever102.backend.trend.repository.TrendAiAnalysisRepository;
 import com.forever102.backend.trend.repository.TrendAnalysisRepository;
 import com.forever102.backend.trend.repository.TrendRepository;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,7 +30,13 @@ class TrendServiceTest {
     @Mock TrendRepository trendRepository;
     @Mock TrendAnalysisRepository analysisRepository;
     @Mock TrendAiAnalysisRepository aiAnalysisRepository;
-    @InjectMocks TrendService trendService;
+    TrendService trendService;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
+        trendService = new TrendService(trendRepository, analysisRepository, aiAnalysisRepository, clock);
+    }
 
     @Test
     @DisplayName("요청 기간의 최신 지표와 기간과 무관한 최신 AI 분석을 반환한다")
@@ -35,8 +44,9 @@ class TrendServiceTest {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository.findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
-                101L, "7D"))
+        given(analysisRepository
+                .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
+                        101L, "7D", TrendFixture.END.minusDays(7), TrendFixture.END))
                 .willReturn(Optional.of(TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7, 430, 123)));
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
                 .willReturn(Optional.of(TrendFixture.aiAnalysis(trend)));
@@ -54,8 +64,9 @@ class TrendServiceTest {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository.findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
-                101L, "30D")).willReturn(Optional.empty());
+        given(analysisRepository
+                .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
+                        101L, "30D", TrendFixture.END.minusDays(30), TrendFixture.END)).willReturn(Optional.empty());
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
                 .willReturn(Optional.of(TrendFixture.aiAnalysis(trend)));
         // when
@@ -76,8 +87,9 @@ class TrendServiceTest {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
-        given(analysisRepository.findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
-                101L, "24H"))
+        given(analysisRepository
+                .findFirstByTrendIdAndPeriodAndAnalysisWindowRecentStartAndAnalysisWindowRecentEndOrderByAnalyzedAtDescIdDesc(
+                        101L, "24H", TrendFixture.END.minusDays(1), TrendFixture.END))
                 .willReturn(Optional.of(TrendFixture.analysis(trend, AnalysisPeriod.HOURS_24, 10, 0)));
         given(aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(101L))
                 .willReturn(Optional.empty());

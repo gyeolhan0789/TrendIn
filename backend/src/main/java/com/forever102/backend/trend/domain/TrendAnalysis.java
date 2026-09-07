@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "trend_analyses", indexes = @Index(
-        name = "idx_trend_analyses_latest", columnList = "trend_id, period, analyzed_at, id"))
+        name = "idx_trend_analyses_latest",
+        columnList = "trend_id, period, recent_start, recent_end, analyzed_at, id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TrendAnalysis {

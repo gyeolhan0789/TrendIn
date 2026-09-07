@@ -2,6 +2,7 @@ package com.forever102.backend.trend.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import lombok.AccessLevel;
@@ -13,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AnalysisWindow {
 
-    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    public static final ZoneId ANALYSIS_ZONE = ZoneId.of("Asia/Seoul");
 
     @Column(name = "recent_start", nullable = false)
     private OffsetDateTime recentStart;
@@ -44,8 +45,16 @@ public class AnalysisWindow {
         this.previousEnd = previousEnd;
     }
 
+    public static AnalysisWindow completed(AnalysisPeriod period, Clock clock) {
+        OffsetDateTime recentEnd = clock.instant().atZone(ANALYSIS_ZONE).toLocalDate()
+                .atStartOfDay(ANALYSIS_ZONE).toOffsetDateTime();
+        OffsetDateTime recentStart = recentEnd.minus(period.getDuration());
+        return new AnalysisWindow(period, recentStart, recentEnd,
+                recentStart.minus(period.getDuration()), recentStart);
+    }
+
     private static boolean isSeoulDayBoundary(OffsetDateTime dateTime) {
-        return dateTime.toZonedDateTime().withZoneSameInstant(SEOUL).toLocalTime()
+        return dateTime.toZonedDateTime().withZoneSameInstant(ANALYSIS_ZONE).toLocalTime()
                 .equals(java.time.LocalTime.MIDNIGHT);
     }
 }
