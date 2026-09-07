@@ -20,10 +20,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 상세 화면에서 사용하는 고정 24H 분석 스냅샷. */
 @Entity
-@Table(name = "trend_daily_analyses", indexes = @Index(
-        name = "idx_trend_daily_analyses_latest", columnList = "trend_id, analyzed_at, id"))
+@Table(name = "trend_analyses", indexes = @Index(
+        name = "idx_trend_analyses_latest", columnList = "trend_id, period, analyzed_at, id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TrendAnalysis {
@@ -35,6 +34,9 @@ public class TrendAnalysis {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "trend_id", nullable = false)
     private Trend trend;
+
+    @Column(nullable = false, length = 20)
+    private String period;
 
     @Column(name = "trend_type", nullable = false)
     private String trendType;
@@ -54,13 +56,11 @@ public class TrendAnalysis {
     @Embedded
     private TrendEvidence evidence;
 
-    @Embedded
-    private TrendAiAnalysis aiAnalysis;
-
     @Builder
-    public TrendAnalysis(Trend trend, String trendType, long mentionCount, long previousMentionCount,
+    public TrendAnalysis(Trend trend, AnalysisPeriod period, String trendType,
+            long mentionCount, long previousMentionCount,
             AnalysisWindow analysisWindow, OffsetDateTime analyzedAt,
-            TrendEvidence evidence, TrendAiAnalysis aiAnalysis) {
+            TrendEvidence evidence) {
         if (mentionCount < 0 || previousMentionCount < 0) {
             throw new IllegalArgumentException("언급량은 0 이상이어야 합니다.");
         }
@@ -68,13 +68,13 @@ public class TrendAnalysis {
             throw new IllegalArgumentException("트렌드 유형은 비어 있을 수 없습니다.");
         }
         this.trend = Objects.requireNonNull(trend);
+        this.period = Objects.requireNonNull(period).getValue();
         this.trendType = trendType;
         this.mentionCount = mentionCount;
         this.previousMentionCount = previousMentionCount;
         this.analysisWindow = Objects.requireNonNull(analysisWindow);
         this.analyzedAt = Objects.requireNonNull(analyzedAt);
         this.evidence = evidence;
-        this.aiAnalysis = aiAnalysis;
     }
 
     public long getGrowthAmount() {

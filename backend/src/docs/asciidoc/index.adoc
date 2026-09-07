@@ -44,34 +44,39 @@ operation::auth-signup-email-already-exists[snippets='http-response,response-fie
 [[trends-detail]]
 === 트렌드 상세 조회
 
-`GET /trends/{trendId}`
+`GET /trends/{trendId}?period={period}`
 
-기간 파라미터는 사용하지 않는다. 상세 지표는 저장된 최신 24H 분석 결과를 사용한다.
-분석 시각(`analyzedAt`)이 같으면 더 큰 분석 ID를 선택한다.
+`period`는 필수이며 `24H`, `7D`, `30D`만 허용한다. 대시보드에서 선택한 기간을 그대로 전달한다.
+상세 지표는 요청 기간에 저장된 최신 분석 결과를 사용하며, 분석 시각(`analyzedAt`)이 같으면 더 큰 분석 ID를 선택한다.
 `description`은 트렌드의 짧은 설명이고, `aiAnalysis.summary`는 관련 콘텐츠에서 생성한 별도의 AI 요약이다.
+`aiAnalysis`는 요청 기간과 무관하게 해당 트렌드에 저장된 최신 AI 분석 결과다.
 분야는 기존 회원 도메인의 `DEVELOP`, `FASHION` 코드를 사용하며 중분류는 없다.
 
 ==== 요청
 
-operation::trends-detail[snippets='http-request,request-headers,path-parameters']
+operation::trends-detail[snippets='http-request,request-headers,path-parameters,query-parameters']
 
 ==== 200 OK
 
 operation::trends-detail[snippets='http-response,response-fields']
 
-증가량은 최근 24H 언급량에서 직전 24H 언급량을 뺀 값이다.
+분석 구간은 `Asia/Seoul` 자정 기준의 완료된 연속 구간이며, 요청 기간과 그 직전 동일 기간을 비교한다.
+증가량은 요청 기간 언급량에서 직전 동일 기간 언급량을 뺀 값이다.
 증가율은 `(증가량 / 직전 언급량) × 100`을 소수 둘째 자리에서 반올림하여 소수 첫째 자리까지 표시한다.
 직전 언급량이 0이면 `growthRate`는 `null`이다.
 시각은 오프셋을 포함하는 ISO 8601이며 분석 구간은 시작 포함, 종료 제외이다.
 
-==== 200 OK — 24H 분석 없음
+==== 200 OK — 요청 기간 분석 없음
 
 트렌드가 존재하면 기본 정보를 반환한다.
-`trendType`, 언급량·증가량·증가율, `analysisWindow`, `analyzedAt`, `evidence`, `aiAnalysis`는 모두 명시적인 `null`이다.
+`trendType`, 언급량·증가량·증가율, `analysisWindow`, `analyzedAt`, `evidence`는 모두 명시적인 `null`이다.
+최신 AI 분석이 존재하면 `aiAnalysis`는 요청 기간 분석 유무와 관계없이 반환한다.
 이는 실제 언급량이 0인 분석과 구분된다. 성공 응답의 `message`도 기존 계약대로 `null`이다.
 분석이 있더라도 판정 근거나 AI 결과를 아직 저장하지 않았다면 각각 `null`이며, 예시 데이터를 생성하지 않는다.
 
-operation::trends-detail-no-analysis[snippets='http-response,response-fields']
+==== 400 Bad Request — 기간 누락 또는 오류
+
+operation::trends-detail-invalid-period[snippets='http-response,response-fields']
 
 ==== 400 Bad Request — 잘못된 ID
 

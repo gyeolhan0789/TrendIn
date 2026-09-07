@@ -29,7 +29,7 @@ public record TrendDetailResponse(
         AiAnalysisResponse aiAnalysis
 ) {
 
-    public static TrendDetailResponse from(Trend trend, TrendAnalysis analysis) {
+    public static TrendDetailResponse from(Trend trend, TrendAnalysis analysis, TrendAiAnalysis aiAnalysis) {
         return new TrendDetailResponse(trend.getId(), trend.getKeyword().getId(),
                 trend.getKeyword().getName(), trend.getDescription(), trend.getFirstDetectedAt(),
                 DomainResponse.from(trend.getKeyword().getDomain()),
@@ -41,7 +41,7 @@ public record TrendDetailResponse(
                 analysis == null ? null : AnalysisWindowResponse.from(analysis.getAnalysisWindow()),
                 analysis == null ? null : analysis.getAnalyzedAt(),
                 analysis == null ? null : EvidenceResponse.from(analysis.getEvidence()),
-                analysis == null ? null : AiAnalysisResponse.from(analysis.getAiAnalysis()));
+                AiAnalysisResponse.from(aiAnalysis));
     }
 
     public record DomainResponse(Domain code, String name) {

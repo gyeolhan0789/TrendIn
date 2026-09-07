@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.forever102.backend.member.domain.Domain;
 import com.forever102.backend.trend.TrendFixture;
+import com.forever102.backend.trend.domain.AnalysisPeriod;
 import com.forever102.backend.trend.domain.Keyword;
 import com.forever102.backend.trend.domain.Trend;
+import com.forever102.backend.trend.domain.TrendAiAnalysis;
 import com.forever102.backend.trend.domain.TrendAnalysis;
 import com.forever102.backend.trend.dto.TrendDetailResponse;
 import jakarta.persistence.EntityManager;
@@ -18,70 +20,74 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class TrendRepositoryTest {
 
-    @Autowired
-    private EntityManager entityManager;
-    @Autowired
-    private TrendRepository trendRepository;
-    @Autowired
-    private TrendAnalysisRepository analysisRepository;
+    @Autowired EntityManager entityManager;
+    @Autowired TrendRepository trendRepository;
+    @Autowired TrendAnalysisRepository analysisRepository;
+    @Autowired TrendAiAnalysisRepository aiAnalysisRepository;
 
     @Test
-    @DisplayName("해당 트렌드의 최신 분석을 선택하고 JSON 근거와 AI 출처를 복원한다")
-    void loadsLatestAnalysisAndPersistedMetadata() {
+    @DisplayName("요청한 기간에 속한 최신 분석만 조회한다")
+    void loadsLatestAnalysisForRequestedPeriod() {
         // given
         Trend trend = persistTrend("Ballet Sneakers");
-        Trend other = persistTrend("Other");
-        persistAnalysis(trend, TrendFixture.END, 1);
-        TrendAnalysis latest = TrendFixture.analysis(trend, 430, 123);
+        persistAnalysis(trend, AnalysisPeriod.HOURS_24, TrendFixture.END.plusDays(1), 24);
+        persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END, 7);
+        TrendAnalysis latestSevenDays =
+                persistAnalysis(trend, AnalysisPeriod.DAYS_7, TrendFixture.END.plusDays(2), 70);
+        persistAnalysis(trend, AnalysisPeriod.DAYS_30, TrendFixture.END.plusDays(3), 30);
+        entityManager.flush();
+        entityManager.clear();
+        // when
+        TrendAnalysis loaded = analysisRepository
+                .findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(trend.getId(), "7D")
+                .orElseThrow();
+        // then
+        assertThat(loaded.getId()).isEqualTo(latestSevenDays.getId());
+        assertThat(loaded.getMentionCount()).isEqualTo(70);
+        assertThat(loaded.getAnalysisWindow().getRecentStart()).isEqualTo(TrendFixture.END.minusDays(7));
+        assertThat(entityManager.createNativeQuery("select period from trend_analyses where id = :id", String.class)
+                .setParameter("id", loaded.getId()).getSingleResult()).isEqualTo("7D");
+    }
+
+    @Test
+    @DisplayName("최신 AI 분석은 기간 지표와 독립적으로 조회하고 출처를 복원한다")
+    void loadsLatestAiAnalysisIndependently() {
+        // given
+        Trend trend = persistTrend("Java");
+        TrendAiAnalysis older = new TrendAiAnalysis(trend, "COMPLETED", "이전 요약", "이전 이유",
+                java.util.List.of(300L), TrendFixture.END);
+        entityManager.persist(older);
+        TrendAiAnalysis latest = TrendFixture.aiAnalysis(trend);
         entityManager.persist(latest);
-        persistAnalysis(other, TrendFixture.END.plusDays(5), 999);
-        Long expectedId = latest.getId();
+        entityManager.flush();
+        entityManager.clear();
+        // when
+        TrendAiAnalysis loaded = aiAnalysisRepository
+                .findFirstByTrendIdOrderByGeneratedAtDescIdDesc(trend.getId()).orElseThrow();
+        // then
+        assertThat(loaded.getId()).isEqualTo(latest.getId());
+        assertThat(loaded.getSourceContentIds()).containsExactly(301L, 302L);
+    }
+
+    @Test
+    @DisplayName("요청 기간 분석이 없어도 트렌드와 최신 AI 결과를 조합할 수 있다")
+    void combinesMissingPeriodAnalysisWithAi() {
+        // given
+        Trend trend = persistTrend("AI");
+        entityManager.persist(TrendFixture.aiAnalysis(trend));
         entityManager.flush();
         entityManager.clear();
         // when
         Trend loadedTrend = trendRepository.findById(trend.getId()).orElseThrow();
-        TrendAnalysis loaded = analysisRepository.findFirstByTrendIdOrderByAnalyzedAtDescIdDesc(trend.getId()).orElseThrow();
-        TrendDetailResponse response = TrendDetailResponse.from(loadedTrend, loaded);
+        var periodAnalysis = analysisRepository
+                .findFirstByTrendIdAndPeriodOrderByAnalyzedAtDescIdDesc(
+                        trend.getId(), "30D").orElse(null);
+        var ai = aiAnalysisRepository.findFirstByTrendIdOrderByGeneratedAtDescIdDesc(trend.getId()).orElseThrow();
+        var response = TrendDetailResponse.from(loadedTrend, periodAnalysis, ai);
         // then
-        assertThat(loaded.getId()).isEqualTo(expectedId);
-        assertThat(entityManager.getEntityManagerFactory().getPersistenceUnitUtil().isLoaded(loadedTrend, "keyword")).isTrue();
-        assertThat(response.mentionCount()).isEqualTo(430);
-        assertThat(response.evidence().appliedThresholds().get("minimumMentionCount")).isEqualByComparingTo("100");
-        assertThat(response.aiAnalysis().sourceContentIds()).containsExactly(301L, 302L);
-        assertThat(response.analysisWindow().recentEnd().toInstant()).isEqualTo(TrendFixture.END.toInstant());
-    }
-
-    @Test
-    @DisplayName("분석 시각이 같으면 더 큰 ID로 최신 결과를 결정한다")
-    void breaksTimestampTiesById() {
-        // given
-        Trend trend = persistTrend("Java");
-        persistAnalysis(trend, TrendFixture.END, 1);
-        TrendAnalysis second = persistAnalysis(trend, TrendFixture.END, 2);
-        entityManager.flush();
-        entityManager.clear();
-        // when & then
-        assertThat(analysisRepository.findFirstByTrendIdOrderByAnalyzedAtDescIdDesc(trend.getId()).orElseThrow().getId())
-                .isEqualTo(second.getId());
-    }
-
-    @Test
-    @DisplayName("분석이나 AI 결과가 없는 상태를 데이터베이스 조회 후에도 구분한다")
-    void preservesMissingAnalysisAndAi() {
-        // given
-        Trend trend = persistTrend("Java");
-        assertThat(analysisRepository.findFirstByTrendIdOrderByAnalyzedAtDescIdDesc(trend.getId())).isEmpty();
-        persistAnalysis(trend, TrendFixture.END, 0);
-        entityManager.flush();
-        entityManager.clear();
-        // when
-        var analysis = analysisRepository.findFirstByTrendIdOrderByAnalyzedAtDescIdDesc(trend.getId()).orElseThrow();
-        var response = TrendDetailResponse.from(trendRepository.findById(trend.getId()).orElseThrow(), analysis);
-        // then
-        assertThat(response.mentionCount()).isZero();
-        assertThat(response.growthRate()).isNull();
+        assertThat(response.mentionCount()).isNull();
         assertThat(response.evidence()).isNull();
-        assertThat(response.aiAnalysis()).isNull();
+        assertThat(response.aiAnalysis().summary()).isNotBlank();
     }
 
     private Trend persistTrend(String name) {
@@ -92,10 +98,11 @@ class TrendRepositoryTest {
         return trend;
     }
 
-    private TrendAnalysis persistAnalysis(Trend trend, OffsetDateTime analyzedAt, long count) {
-        TrendAnalysis analysis = TrendAnalysis.builder().trend(trend).trendType("RISING")
-                .mentionCount(count).previousMentionCount(0).analysisWindow(TrendFixture.window())
-                .analyzedAt(analyzedAt).build();
+    private TrendAnalysis persistAnalysis(
+            Trend trend, AnalysisPeriod period, OffsetDateTime analyzedAt, long count) {
+        TrendAnalysis analysis = TrendAnalysis.builder().trend(trend).period(period).trendType("RISING")
+                .mentionCount(count).previousMentionCount(0)
+                .analysisWindow(TrendFixture.window(period)).analyzedAt(analyzedAt).build();
         entityManager.persist(analysis);
         return analysis;
     }

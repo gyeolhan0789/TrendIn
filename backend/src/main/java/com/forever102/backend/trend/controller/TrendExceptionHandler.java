@@ -5,6 +5,7 @@ import com.forever102.backend.global.response.ErrorResponse;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -24,5 +25,10 @@ public class TrendExceptionHandler {
         return ResponseEntity.status(exception.getStatusCode())
                 .body(ErrorResponse.of(exception.isForReturnValue()
                         ? ErrorCode.INTERNAL_SERVER_ERROR.getMessage() : ErrorCode.VALIDATION_ERROR.getMessage()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException exception) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of(ErrorCode.VALIDATION_ERROR.getMessage()));
     }
 }
