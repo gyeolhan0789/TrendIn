@@ -142,7 +142,8 @@ def test_내장_JSON_위젯은_후보가_아니다(listing_bytes):
     found = article_ids(html)
 
     assert "9000001" not in found and "9000002" not in found
-    assert found == ["1000001", "1000002", "1000003"]  # 중복은 한 번, 기사 아닌 링크는 제외
+    # 중복은 한 번, 기사 아닌 링크는 제외, 외부 호스트 절대 URL(1000003)도 제외.
+    assert found == ["1000001", "1000002"]
 
 
 def test_실측_목록에서도_위젯_id_가_섞이지_않는다(listing_bytes):
@@ -295,3 +296,13 @@ def test_기사_페이지가_404_면_취득이_실패한다(make_session, routes
         candidate = next(c for c in adapter.discover().candidates if c.article_id == "1908982")
         with pytest.raises(FetchFailed):
             adapter.materialize(candidate)
+
+
+def test_외부_호스트_앵커는_후보가_아니다(listing_bytes):
+    """ID 만 뽑아 우리 호스트로 조립하므로, 거르지 않으면 엉뚱한 기사를 수집한다."""
+    html = listing_bytes("synthetic_listing.html").decode("utf-8")
+
+    assert "https://example.test/article/1000003" in html
+    assert "1000003" not in article_ids(html, BAZAAR.allowed_url_prefixes)
+    # 허용 목록을 안 주면 절대 URL 은 전부 막는다.
+    assert "1000003" not in article_ids(html)
