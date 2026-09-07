@@ -23,7 +23,6 @@ POLICY=$(sed -n 's/^KAFKA_TOPIC_CLEANUP_POLICY=//p' .env);    POLICY=${POLICY:-d
 RET_MS=$(sed -n 's/^KAFKA_TOPIC_RETENTION_MS=//p' .env);      RET_MS=${RET_MS:-604800000}
 SEG_MS=$(sed -n 's/^KAFKA_TOPIC_SEGMENT_MS=//p' .env);        SEG_MS=${SEG_MS:-86400000}
 RAW_DAYS=$(sed -n 's/^MINIO_RAW_EXPIRE_DAYS=//p' .env);       RAW_DAYS=${RAW_DAYS:-90}
-VFY_DAYS=$(sed -n 's/^MINIO_VERIFY_EXPIRE_DAYS=//p' .env);    VFY_DAYS=${VFY_DAYS:-1}
 CK=$(sed -n 's/^MINIO_CRAWLER_ACCESS_KEY=//p' .env); CS=$(sed -n 's/^MINIO_CRAWLER_SECRET_KEY=//p' .env)
 SK=$(sed -n 's/^MINIO_SPARK_ACCESS_KEY=//p' .env);   SS=$(sed -n 's/^MINIO_SPARK_SECRET_KEY=//p' .env)
 RU=$(sed -n 's/^MINIO_ROOT_USER=//p' .env);          RP=$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env)
@@ -96,9 +95,9 @@ done
 echo "[AC5] 보관 정책"
 # 규칙 조회는 버킷 설정 읽기 권한이 필요하다. 관리자 계정으로 본다.
 ILM=$(mc "mc ilm rule ls admin/$BUCKET 2>/dev/null || mc ilm ls admin/$BUCKET" 2>/dev/null | tr -d '\r')
-# 각각 정확히 1 개여야 한다. 2 개 이상이면 매 up 마다 규칙이 덧붙고 있다는 뜻이다.
-[ "$(printf '%s\n' "$ILM" | grep -c 'expire-raw')" -eq 1 ];    check $? "lifecycle expire-raw 1 개"
-[ "$(printf '%s\n' "$ILM" | grep -c 'expire-verify')" -eq 1 ]; check $? "lifecycle expire-verify 1 개 (중복 없음)"
+# 정확히 1 개여야 한다. 2 개 이상이면 매 up 마다 규칙이 덧붙고 있다는 뜻이다.
+# 접두어를 보지 않는 규칙 하나라 키 규칙이 바뀌어도 어긋나지 않는다 (S15P21A102-158).
+[ "$(printf '%s\n' "$ILM" | grep -c 'expire-all')" -eq 1 ]; check $? "lifecycle expire-all 1 개 (중복 없음)"
 mc "mc version info admin/$BUCKET" 2>/dev/null | grep -qiE 'un-versioned|suspended'
 check $? "버전 관리 off"
 # 원문이 이벤트보다 먼저 사라지면 참조가 깨진다. 등호 포함이라 같아도 통과다.
@@ -106,7 +105,9 @@ check $? "버전 관리 off"
 check $? "MinIO 보관 ${RAW_DAYS}일 >= Kafka retention ${RET_MS}ms"
 
 # 검증 객체만 지운다. 수집 데이터는 건드리지 않는다.
-mc "mc rm -r --force crawler/$BUCKET/_verify" >/dev/null 2>&1
+# 크롤러 키에는 삭제 권한이 없다. 관리자 키로 지운다 — 크롤러 키로 하면 조용히
+# 실패하고 객체가 수명 주기(90 일)까지 남는다.
+mc "mc rm -r --force admin/$BUCKET/_verify" >/dev/null 2>&1
 
 [ "$fail" -eq 0 ] && { echo; echo "전부 통과."; exit 0; }
 echo; echo "실패한 항목이 있다. 위 FAIL 을 확인한다."; exit 1

@@ -7,23 +7,13 @@
 import httpx
 import pytest
 
+from trendin.common.collect.doubles import InMemoryObjectStore
 from trendin.common.collect.ledger import InMemoryLedger
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.stores import InMemoryValidatorStore
 from trendin.fashion.collect import runner
 from trendin.fashion.collect.listing import ListingAdapter
 from trendin.fashion.collect.rss import RssAdapter
-
-
-class FakeStore:
-    def __init__(self) -> None:
-        self.objects: dict[str, bytes] = {}
-
-    def put(self, key: str, body: bytes, content_type: str) -> None:
-        self.objects[key] = body
-
-    def exists(self, key: str) -> bool:
-        return key in self.objects
 
 
 def test_route_로_어댑터를_고른다():
@@ -64,7 +54,7 @@ def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes
         )
 
     ledger = InMemoryLedger()
-    store = FakeStore()
+    store = InMemoryObjectStore()
     outcome = runner.collect(
         "vogue",
         ledger=ledger,
@@ -101,7 +91,7 @@ def test_두_번_돌려도_장부와_객체가_안_는다(feed_bytes, clock, rob
         )
 
     ledger = InMemoryLedger()
-    store = FakeStore()
+    store = InMemoryObjectStore()
     kwargs = dict(
         ledger=ledger,
         store=store,

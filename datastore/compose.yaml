@@ -104,10 +104,8 @@ services:
       MINIO_CRAWLER_SECRET_KEY: ${MINIO_CRAWLER_SECRET_KEY:?Set MINIO_CRAWLER_SECRET_KEY in datastore/.env}
       MINIO_SPARK_ACCESS_KEY: ${MINIO_SPARK_ACCESS_KEY:?Set MINIO_SPARK_ACCESS_KEY in datastore/.env}
       MINIO_SPARK_SECRET_KEY: ${MINIO_SPARK_SECRET_KEY:?Set MINIO_SPARK_SECRET_KEY in datastore/.env}
-      # 수명 주기. prefix 는 계약 경로의 최상위 (domain=...) 를 가리킨다.
-      MINIO_RAW_PREFIX: ${MINIO_RAW_PREFIX:-domain=}
+      # 수명 주기. 버킷 전체에 한 규칙이라 접두어를 보지 않는다 (S15P21A102-158).
       MINIO_RAW_EXPIRE_DAYS: ${MINIO_RAW_EXPIRE_DAYS:-90}
-      MINIO_VERIFY_EXPIRE_DAYS: ${MINIO_VERIFY_EXPIRE_DAYS:-1}
     volumes:
       - ./minio-init/init.sh:/init.sh:ro
     depends_on:
