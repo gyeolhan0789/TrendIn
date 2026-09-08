@@ -3,6 +3,8 @@
 메시지 판별을 통과한 기사 이벤트에 대해 세 가지를 본다:
 
 1. `object_key` 가 가리키는 객체가 있는가 — 없으면 `OBJECT_NOT_FOUND`
+   (**키만** 해당한다. 버킷이 없으면 `io/objects.fetch` 가 `BucketNotFound` 로 올려 배치를
+   멈춘다 — 이벤트 하나의 문제가 아니라 저장소를 잘못 보고 있다는 뜻이라서다)
 2. **받은 바이트**의 sha256 이 메시지의 `checksum` 과 같은가 — 아니면 `CHECKSUM_MISMATCH`
 3. `article.json` 이 필수 필드를 갖췄고 이벤트와 같은 기사를 가리키는가 —
    아니면 `ARTICLE_CONTRACT_VIOLATION`

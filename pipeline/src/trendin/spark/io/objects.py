@@ -24,8 +24,24 @@ log = get_logger(__name__)
 
 DEFAULT_REGION = "us-east-1"
 
-# 객체가 없을 때 S3 가 주는 코드. MinIO 도 같은 값을 쓴다.
-_NOT_FOUND = {"404", "NoSuchKey", "NoSuchBucket"}
+# **키가** 없을 때 S3 가 주는 코드. MinIO 도 같은 값을 쓴다.
+#
+# `NoSuchBucket` 은 여기 없다. 버킷 부재는 `fetch` 가 `BucketNotFound` 로 올린다.
+_NOT_FOUND = {"404", "NoSuchKey"}
+
+# 버킷 자체가 없을 때의 코드. 이것도 HTTP 404 로 오므로 상태보다 **먼저** 봐야 한다 —
+# 순서가 뒤집히면 위 집합의 `"404"` 가 다시 삼킨다.
+_NO_SUCH_BUCKET = "NoSuchBucket"
+
+
+class BucketNotFound(RuntimeError):
+    """버킷 자체가 없다.
+
+    `ConfigError` 를 쓰지 않는 이유 — 버킷 이름은 우리 설정이 아니라 **이벤트 봉투의
+    `bucket` 필드**에서 온다 (`io/schema.py`). 생산자가 틀렸을 수도, 우리 `minio.endpoint`
+    가 다른 MinIO 를 가리키는 것일 수도 있어서 타입으로 원인을 단정할 수 없다. 메시지에
+    둘 다 적어 사람이 가른다.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,11 +95,23 @@ def client(store: StoreConfig) -> Any:
 
 
 def fetch(store: StoreConfig, bucket: str, key: str) -> bytes | None:
-    """객체 바이트. 없으면 `None`.
+    """객체 바이트. **키가** 없으면 `None`. 버킷이 없으면 `BucketNotFound`.
 
-    **없는 것과 못 읽는 것을 가른다.** 404 만 `None` 이고 나머지는 그대로 올린다. 403 을
+    **없는 것과 못 읽는 것을 가른다.** 없는 키만 `None` 이고 나머지는 그대로 올린다. 403 을
     "없음" 으로 무시하면 정책이 잘못 붙은 날 배치가 통째로 `OBJECT_NOT_FOUND` DLQ 가 되고,
     그건 생산자 잘못으로 보인다 — 우리 키 설정이 틀린 것인데.
+
+    **같은 이유가 404 에도 걸린다.** `minio.endpoint` 가 다른 MinIO 를 가리키면 붙기는 붙고
+    버킷만 없어서, 그 배치의 기사 이벤트가 **전부** `NoSuchBucket` 을 맞는다. 이걸 `None` 으로
+    삼키면 전량 `OBJECT_NOT_FOUND` DLQ 인데, 그 실패는 **되돌릴 수 없다** — 처리 이력에
+    `stage=object` 로 적히고 (`ingest/routing.STAGE_OBJECT`) 오프셋도 전진하므로,
+    endpoint 를 고쳐 재실행해도 `ledger.filter_new()` 가 걸러내 다시 읽지 않는다.
+    예외로 올리면 이력·오프셋이 그대로 남아 재실행만으로 복구된다.
+
+    **키 하나가 없는 것과는 분류가 다르다.** 키는 기사마다 다른 데이터라 하나쯤 비는 것이
+    정상 경로이고, 그래서 이 모듈이 `binaryFile` 을 버리고 행마다 가져온다 (위 참조). 반면
+    버킷은 인프라다 — 시스템 전체에 몇 개뿐이고 전부 알려져 있다. 없는 버킷을 가리키는
+    이벤트 하나가 배치를 죽이는 편이, 조용히 비워진 배치보다 낫다.
     """
     from botocore.exceptions import ClientError
 
@@ -91,7 +119,14 @@ def fetch(store: StoreConfig, bucket: str, key: str) -> bytes | None:
         return client(store).get_object(Bucket=bucket, Key=key)["Body"].read()
     except ClientError as exc:
         error = exc.response.get("Error", {})
+        code = str(error.get("Code", ""))
         status = str(exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", ""))
-        if status in _NOT_FOUND or str(error.get("Code", "")) in _NOT_FOUND:
+        # 코드를 상태보다 먼저 본다 (`_NO_SUCH_BUCKET` 주석 참조).
+        if code == _NO_SUCH_BUCKET:
+            raise BucketNotFound(
+                f"버킷이 없다: {bucket} (endpoint={store.endpoint}). "
+                "이벤트의 bucket 값이 맞는지, minio.endpoint 가 맞는 MinIO 를 가리키는지 본다."
+            ) from exc
+        if code in _NOT_FOUND or status in _NOT_FOUND:
             return None
         raise
