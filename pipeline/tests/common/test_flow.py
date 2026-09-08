@@ -188,10 +188,15 @@ def test_발급은_미발급_행을_전부_보고_발행_뒤에_장부를_적는
 
     publisher = RecordingEventPublisher()
     sent = publish_pending(
-        ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
     )
 
-    assert sent == 2
+    assert sent == {"vogue": 2}
     assert publisher.flushes == 1  # 한 번에 모아 비운다
     assert [k for k, _ in publisher.sent] == ["vogue", "vogue"]  # message key 는 source_id
     assert ledger.pending("fashion") == []  # 다 나갔으니 남은 게 없다
@@ -203,7 +208,12 @@ def test_두_번째_발급은_아무것도_내지_않는다():
     publisher = RecordingEventPublisher()
     for _ in range(2):
         publish_pending(
-            ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW
+            ledger=ledger,
+            publisher=publisher,
+            bucket="raw-data",
+            domain="fashion",
+            run_id="20260903T110000",
+            now=NOW,
         )
     assert len(publisher.sent) == 1
 
@@ -219,7 +229,12 @@ def test_발행이_실패하면_장부를_적지_않는다():
     collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
     with pytest.raises(RuntimeError):
         publish_pending(
-            ledger=ledger, publisher=Broken(), bucket="raw-data", domain="fashion", now=NOW
+            ledger=ledger,
+            publisher=Broken(),
+            bucket="raw-data",
+            domain="fashion",
+            run_id="20260903T110000",
+            now=NOW,
         )
     assert len(ledger.pending("fashion")) == 1  # 다음 실행이 이어 낸다
 
@@ -230,9 +245,14 @@ def test_다른_도메인_행은_건드리지_않는다():
     collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
     publisher = RecordingEventPublisher()
     sent = publish_pending(
-        ledger=ledger, publisher=publisher, bucket="raw-data", domain="dev", now=NOW
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="dev",
+        run_id="20260903T110000",
+        now=NOW,
     )
-    assert sent == 0
+    assert sent == {}
     assert len(ledger.pending("fashion")) == 1
 
 
@@ -360,3 +380,144 @@ def test_저장_확인_조회가_실패하면_없음으로_뭉개지_않는다()
     with pytest.raises(RuntimeError, match="조회"):
         store_article(make_article("1"), b"<item/>", store=store, ledger=ledger)
     assert ledger.pending("fashion") == []
+
+
+def test_발급은_소스별로_이번_실행이_낸_건수를_돌려준다():
+    """요약 이벤트의 `record_count` 가 이 값이다.
+
+    장부를 구간으로 다시 세면 실행이 겹칠 때 앞 실행이 낸 것까지 제 몫으로 센다.
+    이번에 실제로 보낸 것만 세면 그 일이 안 생긴다.
+    """
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    sent = publish_pending(
+        ledger=ledger,
+        publisher=RecordingEventPublisher(),
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+    )
+    assert sent == {"vogue": 2}
+
+
+def test_연달아_두_번_발급하면_두_번째는_0건이다():
+    """실행 구간이 겹쳐도 앞 실행이 낸 건수를 제 것으로 세지 않는다."""
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
+    first = publish_pending(run_id="20260903T110000", **kw)
+    second = publish_pending(run_id="20260903T120000", **kw)
+    assert first == {"vogue": 2}
+    assert second == {}
+    assert len(publisher.sent) == 2
+
+
+def test_기사_이벤트에_그_발급_실행의_run_id_가_박힌다():
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+    )
+    _key, event = publisher.sent[0]
+    assert event["run_id"] == "20260903T110000"
+
+
+def test_재시도해도_요약_건수가_그대로다():
+    """publish 태스크는 `retries=2` 다. 발급을 마치고 요약 중간에 죽으면 재시도가 온다.
+
+    그때 "이번 시도가 보낸 것"만 세면 0 이 나오고, 같은 `event_id` 로 내용이 다른 요약이
+    나간다(팀 발행 규약 3 위반). 그래서 건수는 장부에 적힌 발급 실행으로 센다.
+    """
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    kw = dict(
+        ledger=ledger,
+        publisher=RecordingEventPublisher(),
+        bucket="raw-data",
+        domain="fashion",
+    )
+
+    first = publish_pending(run_id="20260903T110000", now=NOW, **kw)
+    # 같은 실행의 재시도 — logical date 가 같으니 run_id 도 같다.
+    retry = publish_pending(run_id="20260903T110000", now=NOW, **kw)
+
+    assert first == {"vogue": 2}
+    assert retry == {"vogue": 2}, "재시도가 0 을 돌려주면 요약이 0건으로 다시 나간다"
+
+
+def test_다음_실행은_앞_실행이_낸_것을_제_몫으로_세지_않는다():
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
+    kw = dict(
+        ledger=ledger,
+        publisher=RecordingEventPublisher(),
+        bucket="raw-data",
+        domain="fashion",
+    )
+
+    publish_pending(run_id="20260903T110000", now=NOW, **kw)
+    later = publish_pending(run_id="20260903T120000", now=NOW, **kw)
+
+    assert later == {}
+
+
+class CountingLedger(InMemoryLedger):
+    """`pending` 이 몇 번 불렸는지 센다. 한 회차가 몇 묶음을 도는지 보려고."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pending_calls = 0
+
+    def pending(self, domain: str, limit: int = 500):
+        self.pending_calls += 1
+        return super().pending(domain, limit)
+
+
+def test_밀린_게_묶음보다_많아도_한_회차가_다_비운다():
+    """묶음 상한만큼만 내고 끝나면 요약 건수가 시도마다 커진다.
+
+    1차 시도가 250 중 100 만 내고 요약 도중 죽으면, 2차 시도가 나머지를 내고 `emitted_by_run`
+    이 250 을 준다 — 같은 `event_id` 로 `record_count` 가 100 이었다가 250 이 된다
+    (팀 발행 규약 3 위반).
+    """
+    ledger = CountingLedger()
+    adapter = FakeAdapter([str(i) for i in range(250)])
+    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+
+    counts = publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+        batch=100,
+    )
+
+    assert counts == {"vogue": 250}
+    assert len(publisher.sent) == 250
+    # 100·100·50 을 내고, 비었음을 확인하는 한 번이 더 붙는다.
+    assert ledger.pending_calls == 4
+
+
+def test_다_비운_뒤_재시도해도_건수가_같다():
+    ledger = InMemoryLedger()
+    adapter = FakeAdapter([str(i) for i in range(250)])
+    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
+
+    first = publish_pending(run_id="20260903T110000", batch=100, **kw)
+    retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
+
+    assert first == retry == {"vogue": 250}
+    assert len(publisher.sent) == 250, "재시도가 이미 나간 것을 다시 내면 안 된다"

@@ -66,7 +66,9 @@ def test_기사_이벤트_fixture_가_봉투_출력과_같다(article_evt):
     여기서 잡는 것은 봉투가 **계산하는** 것 — 필드 집합, `event_id` 형식, `checksum`
     접두어, `collected_at` 의 KST 변환, `record_count`·`format` 같은 상수다.
     """
-    rebuilt = article_event(_pending_from(article_evt), bucket=article_evt["bucket"])
+    rebuilt = article_event(
+        _pending_from(article_evt), bucket=article_evt["bucket"], run_id=article_evt["run_id"]
+    )
     assert rebuilt == article_evt
 
 
@@ -189,10 +191,7 @@ def test_요약_이벤트는_object_key_가_null_이고_기사수가_0_이_아�
     assert evt["record_count"] > 0
 
 
-def test_기사_이벤트의_run_id_는_null_이다(article_evt):
-    """기사는 실행에 속하지 않는다 — 이월분에서 거짓이 되므로 비운다(`events.py`).
-
-    소비 측 스키마가 `run_id` 를 non-nullable 로 선언하면 이 계약과 어긋난다.
-    """
-    assert article_evt["run_id"] is None
+def test_기사_이벤트의_run_id_는_발급한_실행이다(article_evt):
+    """159 는 `null` 로 뒀고 204 가 발급 실행 값으로 바꿨다. 결정은 S15P21A102-205."""
+    assert article_evt["run_id"]
     assert article_evt["article_id"]

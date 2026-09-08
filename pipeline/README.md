@@ -52,12 +52,135 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 | import 오류 | `docker compose run --rm airflow-cli airflow dags list-import-errors` (비어 있어야 함) |
 | DAG 목록 | `docker compose run --rm airflow-cli airflow dags list` |
 | 단일 프로세스 실행 | `docker compose run --rm airflow-cli airflow dags test fashion_example` |
-| 수집 한 주기 (실제 사이트를 친다) | `docker compose run --rm airflow-cli airflow dags test fashion_collect`. `datastore` 가 먼저 떠 있어야 한다. 호스트당 3초 간격이라 7소스에 수 분 걸린다 |
+| 수집을 실제로 돌린다 | [수집 운영](#수집-운영) 참조. 외부 사이트를 치므로 확인 명령과 다르게 다룬다 |
 | 실제 경로 실행 | `docker compose run --rm airflow-cli airflow dags unpause fashion_example` 후 `... airflow dags trigger fashion_example`. 로그는 `./logs/` |
 | 로컬 단위 테스트 | `./scripts/dev-setup.sh` 한 번, 이후 `.venv/bin/pytest` |
 | 린트 | `.venv/bin/ruff check .` (AIR 규칙이 Airflow 2 식 import 를 잡는다) |
 
 `dags test` 는 메타 DB 만 있으면 된다. scheduler·api-server 없이 `docker compose run` 한 번으로 돈다.
+
+## 수집 운영
+
+기사를 실제로 받아 MinIO·Kafka·장부에 넣는 일이다. 위 검증 명령과 달리 **외부 사이트를 친다** — 돌리기 전에 `datastore` 가 떠 있어야 한다.
+
+아래에서 `CLI` 는 `docker compose run --rm --no-deps airflow-cli` 를 줄인 말이다.
+
+### 주기 실행
+
+| 무엇 | 명령 |
+| --- | --- |
+| 켠다 | `CLI airflow dags unpause fashion_collect` |
+| 끈다 | `CLI airflow dags pause fashion_collect` |
+| 지금 한 번 | `CLI airflow dags trigger fashion_collect` |
+| 켜졌나 | `CLI airflow dags list` 의 `is_paused` 열 |
+
+`fashion_collect` 은 매시 정각(KST), `dev_collect` 은 30분마다다. `dev_collect` 은 소스가 비어 있어 켜도 수집 태스크가 돌지 않는다 — 어댑터는 `S15P21A102-165` 가 채운다.
+
+**켜는 순간 예약 회차가 한 번 바로 돈다.** `catchup=False` 라 밀린 회차가 몰려 돌지는 않지만, 직후에 `trigger` 까지 하면 실행 둘이 겹친다.
+
+한 주기는 7소스 병렬로 20초에서 7분이다. 편차는 새 기사 수에서 온다 — 목록 소스(바자·코스모)가 기사마다 페이지를 받고 건당 3초쯤 걸린다.
+
+### 과거분 백필
+
+주기 실행은 피드에 보이는 만큼(10건)만 받는다. 그보다 오래된 것은 이 명령이 받는다.
+
+```sh
+CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
+```
+
+| 인자 | 뜻 |
+| --- | --- |
+| `--pages` | 2페이지부터 몇 장. 기본값이 없다 — 실수로 30장이 돌지 않게 |
+| `--store` | MinIO·장부에 실제로 쓴다. 없으면 훑기만 한다 |
+| `--json` | 정규화된 article.json 을 한 줄씩 낸다. 훑기 모드에서만 듣는다 — `--store` 와 같이 주면 아무것도 안 나온다 |
+
+**RSS 5소스만 된다** — `allure` · `gqkorea` · `marieclaire` · `vogue` · `wkorea`. 목록 소스(바자·코스모)는 거부한다. 목록에 보이는 것이 전부라 과거분이라는 개념이 없다.
+
+`--store` 를 주면 한 페이지가 통째로 이미 받은 기사일 때 멈춘다. 훑기 모드는 장부가 없어 그 판정을 못 하므로 `--pages` 만큼 다 돈다.
+
+발급은 백필이 하지 않는다. 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+
+### 결과 확인
+
+세 곳의 숫자가 맞물려야 한다 — 장부 행 수 = MinIO `article.json` 수 = 토픽의 기사 이벤트 수.
+
+```sh
+CLI python -c "
+from trendin.common.collect.db import Database
+with Database.from_env().transaction() as c:
+    cur = c.cursor()
+    cur.execute('SELECT count(*), count(event_emitted_at), max(collected_at) FROM collected_article')
+    total, emitted, last = cur.fetchone()
+    print('장부', total, '행 / 미발급', total - emitted, '/ 마지막 수집', last)
+"
+```
+
+```sh
+CLI python -c "
+import os, boto3, collections
+s3 = boto3.client('s3', endpoint_url=os.environ['TRENDIN_MINIO_ENDPOINT'],
+    aws_access_key_id=os.environ['TRENDIN_MINIO_ACCESS_KEY'],
+    aws_secret_access_key=os.environ['TRENDIN_MINIO_SECRET_KEY'])
+kinds, tok = collections.Counter(), {}
+while True:
+    r = s3.list_objects_v2(Bucket=os.environ['TRENDIN_MINIO_BUCKET'], **tok)
+    for o in r.get('Contents', []):
+        kinds[o['Key'].rsplit('/', 1)[-1]] += 1
+    if not r.get('IsTruncated'):
+        break
+    tok = {'ContinuationToken': r['NextContinuationToken']}
+print(dict(kinds))
+"
+```
+
+```sh
+docker exec s15p21a102-datastore-kafka-1 \
+  /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic raw-file-ready
+```
+
+`raw.*` 가 `article.json` 보다 적은 것은 정상이다. 회원 전용 기사는 원문을 저장하지 않는다.
+
+토픽 건수는 장부보다 **소스 수 × 실행 횟수**만큼 많다. 실행마다 소스별 요약 이벤트가 하나씩 더 나가기 때문이다 — `object_key` 가 `null` 인 것이 그것이다.
+
+### 조용히 멈췄나
+
+자동 탐지는 아직 없다(`S15P21A102-199`). 그때까지는 이 값을 사람이 본다.
+
+```sh
+CLI python -c "
+from trendin.common.collect.db import Database
+with Database.from_env().transaction() as c:
+    cur = c.cursor()
+    cur.execute('SELECT source, max(collected_at) FROM collected_article GROUP BY source ORDER BY 2')
+    for source, last in cur.fetchall():
+        print('%-16s %s' % (source, last))
+"
+```
+
+**소스 하나만 오래됐으면** 그 사이트가 구조를 바꿨거나 우리를 막은 것이다. 태스크는 성공으로 뜬다 — 후보를 0건 발견해도 실패가 아니라서다.
+
+**전부 오래됐으면** DAG 이 꺼졌거나 앱 DB·MinIO·Kafka 중 하나가 죽은 것이다. `CLI airflow dags list` 로 `is_paused` 부터 본다.
+
+새 글이 없어서 안 늘어난 것과는 구분이 안 된다. 그 판정이 `S15P21A102-199` 의 몫이다.
+
+### 다시 내기
+
+토픽을 비웠거나 소비 측이 처음부터 다시 받아야 할 때, 장부가 원본이라 그대로 재구성한다.
+
+```sh
+CLI python -c "
+from trendin.common.collect.db import Database
+with Database.from_env().transaction() as c:
+    cur = c.cursor()
+    cur.execute('UPDATE collected_article SET event_emitted_at = NULL, event_run_id = NULL')
+    print('되돌린 행:', cur.rowcount)
+"
+CLI airflow dags trigger fashion_collect
+```
+
+발급 태스크가 미발급 행을 내므로 다음 실행부터 다시 나간다. MinIO 는 건드리지 않는다.
+
+한 회차가 밀린 것을 **다 비운다.** 500건씩 묶어 내되 남은 게 없을 때까지 돈다 — 1200건에 0.2초다. `trigger` 한 번이면 끝이고 회차를 나눠 돌릴 필요가 없다.
 
 ## DAG 추가 규약
 
