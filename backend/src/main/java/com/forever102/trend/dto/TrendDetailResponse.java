@@ -39,10 +39,7 @@ public record TrendDetailResponse(
 
     public record DomainResponse(Domain code, String name) {
         private static DomainResponse from(Domain domain) {
-            return new DomainResponse(domain, switch (domain) {
-                case DEVELOP -> "개발";
-                case FASHION -> "패션";
-            });
+            return new DomainResponse(domain, domain.getName());
         }
     }
 

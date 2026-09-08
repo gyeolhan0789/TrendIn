@@ -41,6 +41,25 @@ operation::auth-signup-email-already-exists[snippets='http-response,response-fie
 [[trends]]
 == Trends
 
+[[trends-list]]
+=== 분야별 트렌드 조회
+
+`GET /trends?domain={domain}&type={type}&period={period}&page={page}&size={size}`
+
+분야(`DEVELOP`, `FASHION`), 트렌드 유형(`CURRENT`, `NEW`, `RISING`), 기간(`24H`, `7D`, `30D`)은 필수다.
+기간은 다른 트렌드 API와 같은 `Asia/Seoul` 기준 완료 구간을 사용하며, `keyword_metrics`에서 해당 구간의 지표를 반환한다.
+페이지 번호의 기본값은 0, 페이지 크기의 기본값은 20이다.
+
+==== 요청 및 응답
+
+operation::trends-list[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+요청한 `type`이 `trends.trend_types`에 포함된 트렌드만 조회한다.
+`CURRENT`는 언급량 내림차순, `NEW`는 트렌드 갱신 시각 내림차순,
+`RISING`은 저장된 증가율 내림차순으로 정렬한다. 증가율이 `null`인 항목은 뒤에 둔다.
+같은 정렬 값에서는 트렌드 ID 오름차순을 적용해 페이지 결과를 고정한다.
+조건에 맞는 지표가 없으면 200과 빈 `content`를 반환한다.
+
 [[trends-detail]]
 === 트렌드 상세 조회
 
