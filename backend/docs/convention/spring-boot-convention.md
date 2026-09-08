@@ -41,4 +41,4 @@ backend/
 ```
 
 도메인 아래 필요한 `controller`, `service`, `repository`, `domain`, `dto` 패키지를 둔다.
-공통 코드는 `global`에 둔다. Java 패키지 경로는 `com.forever102.backend`를 유지한다.
+공통 코드는 `global`에 둔다. Java 패키지 경로는 `com.forever102`를 유지한다.

@@ -1,0 +1,1 @@
+CREATE DOMAIN IF NOT EXISTS metric_period AS VARCHAR(3);
