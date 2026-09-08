@@ -63,6 +63,8 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 
 기사를 실제로 받아 MinIO·Kafka·장부에 넣는 일이다. 위 검증 명령과 달리 **외부 사이트를 친다** — 돌리기 전에 `datastore` 가 떠 있어야 한다.
 
+기사가 MinIO 에 어떤 모양으로 놓이는지, 그 규칙을 고칠 때 어느 파일을 여는지는 [`docs/collect-storage.md`](docs/collect-storage.md).
+
 아래에서 `CLI` 는 `docker compose run --rm --no-deps airflow-cli` 를 줄인 말이다.
 
 ### 주기 실행
