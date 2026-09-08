@@ -25,6 +25,14 @@ EVENT_SCHEMA = StructType([
     StructField("schema_version", IntegerType(), False),
     StructField("bucket",         StringType(), True),
     StructField("object_key",     StringType(), True),
+    # 아래 여섯은 팀 봉투에 없던 칸이다. 기사 이벤트만 채우고 나머지 모양에서는 null 이다.
+    # 스키마에서 빼면 `from_json` 이 조용히 버려서 출처 명시(url·published_at)까지 사라진다.
+    StructField("raw_object_key", StringType(), True),
+    StructField("article_id",     StringType(), True),
+    StructField("url",            StringType(), True),
+    StructField("title",          StringType(), True),
+    StructField("published_at",   StringType(), True),
+    StructField("members_only",   BooleanType(), True),
     StructField("domain",         StringType(), False),
     StructField("source_id",      StringType(), False),
     StructField("run_id",         StringType(), False),   # 기사 이벤트는 발급한 실행의 값
