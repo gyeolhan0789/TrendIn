@@ -72,3 +72,23 @@ to_file_uri() {
     echo "file://$path"
   fi
 }
+
+# spark-submit 에 넘길 **앱 스크립트**(.py) 경로.
+#
+# Git Bash 는 POSIX 경로 인자를 네이티브 프로그램에 넘길 때 드라이브 표기로 자동 변환하는데,
+# spark-submit 은 그 앞 글자를 URI 스킴으로 읽어 `No FileSystem for scheme "C"` 로 죽는다.
+# `file:///` 로 시작하면 자동 변환도 걸리지 않는다.
+#
+# 리눅스에서는 손대지 않는다 — 경로 그대로가 로그와 오류 메시지에 읽기 쉽게 남는다.
+#
+# `to_file_uri` 를 직접 부르지 않고 이 함수를 두는 이유: 앱 경로를 넘기는 스크립트가 둘
+# (submit.sh · check-jars.sh) 이고, 한쪽만 고쳐 두면 나머지가 조용히 Git Bash 에서만
+# 죽는다. 실제로 그렇게 한 번 갈렸다.
+to_app_uri() {
+  local path=$1
+  if command -v cygpath >/dev/null 2>&1; then
+    to_file_uri "$path"
+  else
+    echo "$path"
+  fi
+}

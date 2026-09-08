@@ -124,9 +124,11 @@ jar 없이 도는 뼈대 실행은 멀쩡하지만, Kafka·MinIO·JDBC 를 쓰�
 2026-09-08 에 실제로 확인했다 — `pytest spark/tests` (층 1·2)는 전부 통과하는데
 `submit.sh` 는 세션이 뜨기 전에 죽는다.
 
-경로 문제는 스크립트가 이미 처리한다. `submit.sh` 와 `_common.sh` 가 jar 목록과 Job 스크립트
-경로를 `file:///` URI 로 바꿔 넘긴다 — 안 그러면 spark-submit 이 드라이브 문자를 URI 스킴으로
-읽어 `No FileSystem for scheme "C"` 로 죽는다. 그건 winutils 와 별개 문제이고 이미 고쳐져 있다.
+경로 문제는 스크립트가 이미 처리한다. jar 목록·log4j·앱 스크립트 경로를 `file:///` URI 로
+바꿔 넘긴다 — 안 그러면 spark-submit 이 드라이브 문자를 URI 스킴으로 읽어
+`No FileSystem for scheme "C"` 로 죽는다. 변환은 `_common.sh` 한 곳에 있고
+(`jar_list` · `to_file_uri` · `to_app_uri`) `submit.sh` 와 `check-jars.sh` 가 함께 쓴다.
+그건 winutils 와 별개 문제이고 이미 고쳐져 있다.
 
 | | |
 | --- | --- |

@@ -169,7 +169,7 @@ log4j 설정을 파일로 주는 이유는 코드의 `setLogLevel` 이 SparkCont
 
 `--packages` 로 런타임에 받지 않는다. 매 실행마다 네트워크를 타고, 오프라인이면 죽고, 버전이 조용히 바뀔 수 있다. `spark/jars/` 에 받아두고 `.gitignore` 에 넣는다. 받는 스크립트는 버전을 고정해 커밋한다 — `spark/scripts/fetch-jars.sh`.
 
-받은 jar 가 실제로 물리는지는 `spark-submit --jars "spark/jars/*" spark/scripts/check-jars.py` 로 확인한다. 어긋난 조합은 보통 처음 Kafka 를 읽을 때 `NoSuchMethodError` 로 죽는데, 그때는 원인이 jar 인지 코드인지 구분하기 어렵다.
+받은 jar 가 실제로 물리는지는 `spark/scripts/check-jars.sh` 로 확인한다. `spark-submit` 을 손으로 부르지 않는 이유는 두 가지다 — 글롭 `--jars "spark/jars/*"` 는 Windows/Git Bash 에서 `No main class set in JAR` 로 죽고, 경로를 `file:///` URI 로 바꾸지 않으면 `No FileSystem for scheme "C"` 로 죽는다. 스크립트가 둘 다 처리한다 (`_common.sh`). 어긋난 조합은 보통 처음 Kafka 를 읽을 때 `NoSuchMethodError` 로 죽는데, 그때는 원인이 jar 인지 코드인지 구분하기 어렵다.
 
 ### 확정된 버전
 
