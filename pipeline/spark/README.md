@@ -1,24 +1,28 @@
 # spark — TrendIn 데이터 처리
 
-Kafka 이벤트를 받아 MinIO 원문을 처리하고, 서비스가 조회하는 PostgreSQL 테이블을 채운다.
+Kafka 이벤트를 받아 MinIO 객체을 처리하고, 서비스가 조회하는 PostgreSQL 테이블을 채운다.
 
-**실행 환경과 뼈대만 있다. 세 Job 의 로직은 비어 있다.** 착수 조건은 [`docs/09-dev-and-test.md` §7](docs/09-dev-and-test.md).
+`ingest` 는 **Kafka 소비 → 계약 판별 → MinIO 객체 조회·checksum 대조 → 처리 이력 → DLQ** 까지
+돈다. 정제·`curated` 쓰기·`contents` 적재는 아직 없고, `extract`·`aggregate` 는 뼈대뿐이다.
+착수 조건은 [`docs/09-dev-and-test.md` §7](docs/09-dev-and-test.md), 스토리 분해와 진행 상태는 [`docs/10-delivery-plan.md`](docs/10-delivery-plan.md).
 
 ## 무엇을 하나
 
 ```
-Kafka raw-file-ready  →  ingest     원문 검증 · 정제 · contents 적재 · curated 기록
+Kafka raw-file-ready  →  ingest     객체 검증 · 정제 · contents 적재 · curated 기록
 MinIO curated         →  extract    키워드 추출 · 통합 · 승격 · keywords 적재
 내부 통계             →  aggregate  언급량 · 순위 · 성장률 · 연관 키워드
 ```
 
 입력은 **기사 하나에 이벤트 하나**다. 토픽 `raw-file-ready` 에 기사 이벤트와 실행 요약 이벤트가
-함께 흐르고, 원문은 MinIO 의 기사별 `article.json` 이다. 계약과 근거는
-[02](docs/02-input-contract.md), 생산자 쪽 정본은 [`../docs/web-collect.md`](../docs/web-collect.md).
+함께 흐르고, 객체는 MinIO 의 기사별 `article.json` 이다. 계약과 근거는
+[02](docs/02-input-contract.md), 생산자 쪽 기준은 [`../docs/web-collect.md`](../docs/web-collect.md).
 
 Airflow 가 `spark-submit` 으로 각 Job 을 깨우고, Job 은 처리 후 스스로 종료한다.
 
-쓰는 서비스 테이블은 여섯 개다 — `contents`, `keywords`, `keyword_contents`, `trends`, `trend_metrics`, `keyword_relations`. 나머지는 건드리지 않는다.
+쓰는 서비스 테이블은 일곱 개다 — `contents`, `keywords`, `keyword_contents`, `trends`,
+`keyword_metrics`, `keyword_metric_history`, `keyword_relations`. 나머지 여섯은 건드리지 않는다.
+스키마 기준은 [`docs/erd/erd-00-current.md`](docs/erd/erd-00-current.md) (v2).
 
 ## 어떻게 도나
 
@@ -117,10 +121,16 @@ spark-submit \
 호스트 `.venv` 로 돌릴 때만 해당한다. `--jars` 를 쓰는 순간 Hadoop 이 `winutils.exe` 를 찾고,
 없으면 SparkContext 기동이 `HADOOP_HOME and hadoop.home.dir are unset` 으로 **실패한다.**
 jar 없이 도는 뼈대 실행은 멀쩡하지만, Kafka·MinIO·JDBC 를 쓰는 순간부터 막힌다.
+2026-09-08 에 실제로 확인했다 — `pytest spark/tests` (층 1·2)는 전부 통과하는데
+`submit.sh` 는 세션이 뜨기 전에 죽는다.
+
+경로 문제는 스크립트가 이미 처리한다. `submit.sh` 와 `_common.sh` 가 jar 목록과 Job 스크립트
+경로를 `file:///` URI 로 바꿔 넘긴다 — 안 그러면 spark-submit 이 드라이브 문자를 URI 스킴으로
+읽어 `No FileSystem for scheme "C"` 로 죽는다. 그건 winutils 와 별개 문제이고 이미 고쳐져 있다.
 
 | | |
 | --- | --- |
-| 컨테이너에서 실행 | **가장 간단하다.** `compose.spark.yaml` 로 띄우면 리눅스 컨테이너 안이라 이 문제가 없다 |
+| 컨테이너에서 실행 | **가장 간단하다.** `compose.spark.yaml` 로 띄우면 리눅스 컨테이너 안이라 이 문제가 없다. 한 번만 돌려볼 때는 `docker compose -f compose.yaml -f spark/compose.spark.yaml run --rm --no-deps airflow-cli bash -c "spark/scripts/submit.sh ingest --profile dev"` |
 | WSL2 에서 개발 | 호스트 `.venv` 를 쓰고 싶으면 이쪽. 서버와 같은 환경이다 |
 | `winutils.exe` 설치 | 서드파티 저장소에서 받아 `HADOOP_HOME` 에 둔다. 출처는 팀이 정해야 한다 |
 
@@ -155,7 +165,10 @@ spark/
 
 src/trendin/spark/    로직. jobs 가 import 한다
 ├─ common/    설정 · 로깅 · 세션
-├─ io/ normalize/ extract/ registry/ metrics/    아직 비어 있다
+├─ io/        contract.py(판별) · schema.py(스키마) · kafka.py(소비)
+│             objects.py(MinIO 조회) · ledger.py(처리 이력) · dlq.py(DLQ) · jdbc.py(앱 DB)
+├─ ingest/    routing.py(판별→상태·단계) · objects.py(객체 검증) · batch.py(배치 배선)
+├─ normalize/ extract/ registry/ metrics/    아직 비어 있다
 ```
 
 로직을 `src/trendin/` 아래 두는 이유는 [09 §1](docs/09-dev-and-test.md) 에 있다 —
@@ -170,16 +183,17 @@ src/trendin/spark/    로직. jobs 가 import 한다
 | [00](docs/00-overview.md) | 개요 | 담당 경계 · 확정된 결정 · 용어 · **스키마 한계와 미결 항목** |
 | [01](docs/01-architecture.md) | 아키텍처 | 실행 모델 · Job 분해 · 중간 저장소 · 멱등성 |
 | [02](docs/02-input-contract.md) | 입력 계약 | Kafka 소비 · MinIO 검증 · DLQ · 재처리 |
-| [03](docs/03-normalization-spec.md) | 정제 규격 | 원문 → 표준 문서 · 중복 제거 · 품질 필터 |
+| [03](docs/03-normalization-spec.md) | 정제 규격 | 객체 → 표준 문서 · 중복 제거 · 품질 필터 |
 | [04](docs/04-keyword-extraction-spec.md) | 키워드 추출 | 후보 생성 · 스코어링 · 선별 · 품질 측정 |
 | [05](docs/05-keyword-registry-spec.md) | 키워드 레지스트리 | 정규화 · 동의어 통합 · 승격 |
 | [06](docs/06-related-keyword-spec.md) | 연관 키워드 | 동시출현 · NPMI · 동의어와의 구분선 |
 | [07](docs/07-metrics-and-ranking-spec.md) | 지표와 순위 | 언급량 · 시계열 · 성장률 · 트렌드 유형 |
 | [08](docs/08-storage-schema.md) | 저장 스키마 | 적재 전략 · 내부 테이블 · **백엔드에 요청할 것** |
 | [09](docs/09-dev-and-test.md) | 개발과 테스트 | 폴더 구조 · 로컬 실행 · 테스트 · 착수 조건 |
+| [10](docs/10-delivery-plan.md) | 실행 계획 | 에픽 · 스토리 분해 · 착수 순서 · **차단 항목** |
 
 상위 설계는 [`../docs/data-pipeline-design.md`](../docs/data-pipeline-design.md).
-서비스 테이블 정의는 [`docs/erd/`](docs/erd/) — 정본은 `erd-00-current.md` 다.
+서비스 테이블 정의는 [`docs/erd/`](docs/erd/) — 기준은 `erd-00-current.md` 다.
 
 ## 핵심 결정 요약
 
@@ -197,8 +211,9 @@ src/trendin/spark/    로직. jobs 가 import 한다
 MVP 에서 아래는 채우지 않는다. 누락이 아니라 결정이다 — 근거는 [00 §4](docs/00-overview.md).
 
 - `trends.description` · `.summary` · `.reason` → `NULL`
-- `contents.summary` → `NULL`
 - `briefings` · `briefing_trends` · `notifications` → 차후 확장, 손대지 않음
+
+v1 의 `contents.summary` 는 스키마에서 없어졌다 — 결정이 컬럼 부재로 굳었다.
 
 ## 지금 막혀 있는 것
 
@@ -208,8 +223,9 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | --- | --- | --- |
 | 1 | **`ddl-auto: create` → `update`** — 지금은 백엔드 재배포마다 수집 데이터가 전부 사라진다 | 전부 |
 | 2 | **`keywords (domain, normalized_name)` UNIQUE** — **나중에 붙일 수 없는 유일한 항목** | `extract` |
-| 3 | `period` · `trend_type` 값 규약 (varchar 라 코드가 정하는 대로 굳는다) | `aggregate` |
-| 4 | `trend_metrics (trend_id, period, period_start)` UNIQUE | `aggregate` |
+| 3 | `period` 값 규약 (varchar 라 코드가 정하는 대로 굳는다) | `aggregate` |
+| 4 | `keyword_metrics (keyword_id, period)` · `keyword_metric_history (keyword_id, bucket_start)` UNIQUE | `aggregate` |
+| 4a | **`trends.trend_types` 의 실제 타입** — 배열 컬럼인지 조인 테이블인지 ([01 §6](docs/01-architecture.md)) | `aggregate` |
 | 5 | **실제 수집 데이터 샘플** — 임계값을 추측으로 정하면 전부 다시 하게 된다 | 품질 |
 
 **1·2 만 적용되면 `ingest` 와 `extract` 는 착수할 수 있다.** 1을 2보다 먼저 해야 한다 — `create` 상태에서는 2번 제약도 다음 재배포에 함께 날아간다.
@@ -224,7 +240,7 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | Spark 계정 | `spark-read` — `raw-data` 읽기만 | `curated` 에 대한 쓰기 |
 
 `datastore/minio-init/init.sh` 가 정책을 만든다. 담당이 다르므로 그쪽에 요청한다 (S15P21A102-156·157).
-읽기 전용으로 나눈 것 자체는 옳다 — 원문을 Spark 가 지우지 못하게 하는 것이 목적이었다.
+읽기 전용으로 나눈 것 자체는 옳다 — 객체를 Spark 가 지우지 못하게 하는 것이 목적이었다.
 `curated` 는 Spark 소유이므로 그 버킷에만 쓰기를 더하면 된다.
 
 ### 합의된 것
@@ -233,8 +249,13 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | --- | --- |
 | `domain` 값 | enum 상수명. 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION`. `ingest` 가 매핑. **`development` 가 아니다** ([01 §6](docs/01-architecture.md)) |
 | `keywords` 유일성 | `(domain, normalized_name)` 복합 UNIQUE. 단독이면 개발의 `모델` 과 패션의 `모델` 이 충돌한다 |
+| 지표의 키 | `keyword_id`. `trends` 를 거치지 않으므로 **트렌드가 아닌 키워드도 지표와 그래프를 갖는다** |
+| 트렌드 유형 | `trends.trend_types` 배열. `CURRENT`/`NEW`/`RISING` 이고 **복수 가능**하다 ([07 §6](docs/07-metrics-and-ranking-spec.md)) |
+| 기준일 | 집계의 마지막 날 D 는 **KST 로 완결된 마지막 날**(기본 = 실행일 전날). 진행 중인 오늘을 쓰면 증가율이 시각에 따라 뒤집힌다 |
 
 백엔드에 부탁할 것 둘 — `@Enumerated(EnumType.STRING)` 명시(JPA 기본값이 `ORDINAL` 이라 컬럼이 int 가 된다), PostgreSQL 네이티브 enum 타입 미사용(Spark JDBC 쓰기가 캐스트 없이 죽는다). [01 §6](docs/01-architecture.md).
+
+**두 번째 부탁이 `trend_types` 에서 바로 걸린다.** ERD 표기가 `trend_type_array` 라, 네이티브 enum 배열이면 스테이징 + 캐스트가 필요하고 `@ElementCollection` 이면 적재 대상이 조인 테이블로 바뀐다.
 
 전체 요청 목록은 [08 §5](docs/08-storage-schema.md), 스키마 한계는 [00 §7](docs/00-overview.md).
 
@@ -242,7 +263,11 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 
 현행 스키마에는 담을 자리가 없어서 생기는 것들이다. 구현은 진행할 수 있지만 답에 따라 화면이 달라진다.
 
-- 수집이 실패한 날을 **그래프의 구멍**으로 그릴 것인가 ([07 §2](docs/07-metrics-and-ranking-spec.md))
-- 트렌드가 아닌 관심 키워드의 지표를 보여줄 것인가 ([07 §2](docs/07-metrics-and-ranking-spec.md))
+- 수집이 실패한 날을 **그래프의 구멍**으로 그릴 것인가 ([07 §3](docs/07-metrics-and-ranking-spec.md))
+- **`24H` 상세의 추이를 무엇으로 그릴 것인가** — 버킷이 1일이라 24시간 구간에는 점이 하나다. 최근 N일을 보여주는 안을 제안했다 ([07 §3](docs/07-metrics-and-ranking-spec.md))
+- **`24H` 라벨이 "어제 하루" 를 뜻하는 것을 어떻게 표기할 것인가** ([07 §4](docs/07-metrics-and-ranking-spec.md))
+- 기간별 유형 배지를 정확히 보여줄 것인가 — 지금 `trend_types` 에는 기간 구분이 없다 ([07 §6](docs/07-metrics-and-ranking-spec.md))
 - 연관 키워드의 기준 기간 — `30D` 를 제안했다 ([06 §3](docs/06-related-keyword-spec.md))
 - `growth_rate` 가 `NULL` 인 카드를 어떻게 보일 것인가 ([07 §5](docs/07-metrics-and-ranking-spec.md))
+
+"트렌드가 아닌 관심 키워드의 지표" 는 v2 스키마에서 **해소됐다** — 지표가 키워드에 직접 붙는다.

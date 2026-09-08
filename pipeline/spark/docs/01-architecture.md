@@ -18,7 +18,7 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 
 코드는 상시 Structured Streaming 과 거의 같다. `readStream.format("kafka")` 를 그대로 쓰고 트리거만 다르다.
 
-### 이 선택의 값어치
+### 이 선택의 이점
 
 - **오프셋 관리를 직접 짜지 않는다.** checkpoint 디렉터리를 그대로 쓰므로 "어디까지 읽었나"는 Spark 가 관리한다. 순수 배치로 갔다면 이 코드를 직접 써야 했고, 그게 가장 흔한 버그 원천이다.
 - **프로세스가 상시 뜨지 않는다.** 데이터 EC2 한 대에 Airflow · Kafka · MinIO 가 이미 있다. Spark driver 와 executor 가 24시간 메모리를 점유하면 여유가 없다.
@@ -30,7 +30,7 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 | 대안 | 기각 이유 |
 | --- | --- |
 | 상시 Structured Streaming | 지연이 초 단위가 되지만 트렌드 집계는 일·주·월 단위라 값을 하지 않는다. 단일 노드 메모리 상시 점유, 코드 변경 시 수동 재시작, 재처리 경로 별도 구축, 그리고 `aggregate` 는 어차피 배치라 실행 모델이 두 개가 된다 |
-| 순수 배치 (Kafka 미사용) | [00 §2](00-overview.md) 의 Kafka 값어치 네 가지가 전부 사라지고 오프셋 관리를 직접 짜야 한다 |
+| 순수 배치 (Kafka 미사용) | [00 §2](00-overview.md) 의 Kafka 이점 네 가지가 전부 사라지고 오프셋 관리를 직접 짜야 한다 |
 
 ### 지연
 
@@ -42,9 +42,9 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 
 | Job | 트리거 단위 | 입력 | 출력 |
 | --- | --- | --- | --- |
-| `ingest` | Kafka 이벤트 | Kafka `raw-file-ready`, MinIO `raw-data` | MinIO `curated`, `contents`, 원장 |
+| `ingest` | Kafka 이벤트 | Kafka `raw-file-ready`, MinIO `raw-data` | MinIO `curated`, `contents`, 처리 이력 |
 | `extract` | 새 정제 문서 | MinIO `curated` | 내부 후보·점수 테이블, `keywords`, `keyword_contents` |
-| `aggregate` | **날짜** | 내부 통계 테이블 | `trends`, `trend_metrics`, `keyword_relations` |
+| `aggregate` | **날짜** | 내부 통계 테이블 | `trends`, `keyword_metrics`, `keyword_metric_history`, `keyword_relations` |
 
 ```mermaid
 flowchart TD
@@ -62,8 +62,9 @@ flowchart TD
 
     I1 --> AGG["<b>aggregate</b><br/>집계 · 순위 · 연관"]
     C4 --> AGG
-    AGG --> C5["trends"]
-    AGG --> C6["trend_metrics"]
+    AGG --> C5["trends<br/>trend_types"]
+    AGG --> C6["keyword_metrics<br/>기간별 1행"]
+    AGG --> C6B["keyword_metric_history<br/>일 버킷 시계열"]
     AGG --> C7["keyword_relations"]
 ```
 
@@ -84,7 +85,7 @@ flowchart TD
 ```
 fashion_collect (7소스, 1시간 주기) ─┐
                                      ├→ ingest → extract → aggregate
-dev_collect (hn, 30분 주기)        ─┘
+dev_collect (hn, 30분 주기)        ─┘   ← 소스 비어 있음 (어댑터 대기)
 ```
 
 `ingest` 는 수집 태스크들의 downstream 이되 `trigger_rule=ALL_DONE` 을 쓴다. 소스 하나가 실패해도 나머지를 처리해야 하고, 실패한 소스도 요약 이벤트의 `status: "failed"` 로 Kafka 에 들어오기 때문이다 ([02 §2](02-input-contract.md)). `pipeline/README.md` DAG 규약 8번과 같은 이유다.
@@ -94,7 +95,7 @@ dev_collect (hn, 30분 주기)        ─┘
 | 안 | 결과 |
 | --- | --- |
 | `ingest` 를 수집과 같은 주기로 | 지연이 1시간 이하로 줄지만 Spark 프로세스가 하루 24 번 기동한다. 회당 이벤트가 수십 건이라 기동 비용이 처리 비용보다 크다 |
-| `ingest` 를 별도 스케줄(일 1~수회)로 | 수집 DAG 과 태스크 의존성이 끊긴다. `Trigger.AvailableNow` 가 그때까지 쌓인 것을 한 번에 먹으므로 동작은 문제없다 |
+| `ingest` 를 별도 스케줄(일 1~수회)로 | 수집 DAG 과 태스크 의존성이 끊긴다. `Trigger.AvailableNow` 가 그때까지 쌓인 것을 한 번에 소비하므로 동작은 문제없다 |
 
 **후자로 간다.** `AvailableNow` 를 고른 이유가 정확히 이것이다 — 쌓인 오프셋을 한 번에 소비하고 종료하므로 생산자 주기와 소비자 주기를 맞출 필요가 없다. 대신 `ingest` 는 수집 DAG 의 downstream 이 아니라 **자기 스케줄을 가진 별도 DAG** 이 된다. `trigger_rule` 은 그러면 의미가 없어진다.
 
@@ -120,7 +121,7 @@ curated/
 | 형식 | Parquet + snappy | 컬럼 프루닝. `extract` 는 `content_id`·`title`·`body`·`lang` 만 읽는다 |
 | 파티션 키 | `domain` / `published_date` / `source` / `ingest_run_id` | `published_date` 가 앞인 이유는 [07 §3](07-metrics-and-ranking-spec.md) 의 소급 재계산이 날짜 범위로 읽기 때문 |
 | 버킷 소유 | Spark | `raw-data` 는 담당 1 소유. 섞지 않는다 |
-| 보존 | 원문보다 짧게. 재생성 가능하므로 | 원문이 있으면 언제든 다시 만든다 |
+| 보존 | 객체보다 짧게. 재생성 가능하므로 | 객체가 있으면 언제든 다시 만든다 |
 
 ### `ingest_run_id` 는 생산자의 `run_id` 가 아니다
 
@@ -135,33 +136,33 @@ curated/
 
 **파티션 4단을 유지하는 이유** — 재처리 단위가 필요하다. `--force` 로 다시 돌릴 때 "그 실행이 쓴 것" 을 통째로 지우고 다시 쓸 수 있어야 한다 ([02 §6](02-input-contract.md)). 4단을 없애고 `domain/published_date/source` 로만 자르면 재처리가 그 날짜·소스의 **모든** 실행분을 함께 덮어쓰게 되고, 범위 밖 문서가 딸려 사라진다.
 
-**대가는 작은 파일이다.** 실행마다 파티션이 하나 생기므로, `ingest` 를 하루 여러 번 돌리면 같은 날짜·소스 밑에 파티션이 여럿 쌓인다. [00 §3](00-overview.md) 규모(하루 700건, 소스 8개)에서 파티션당 수십 건이라 감당되지만, `ingest` 를 시간 주기로 돌리기로 하면 이 결정을 다시 봐야 한다.
+**대가는 작은 파일이다.** 실행마다 파티션이 하나 생기므로, `ingest` 를 하루 여러 번 돌리면 같은 날짜·소스 밑에 파티션이 여럿 쌓인다. [00 §3](00-overview.md) 규모(하루 700건, 소스 8개 — `hn` 이 붙기 전이라 지금은 7개)에서 파티션당 수십 건이라 감당되지만, `ingest` 를 시간 주기로 돌리기로 하면 이 결정을 다시 봐야 한다.
 
-`published_date` 로 파티션을 자르므로 **하나의 `ingest_run_id` 가 여러 날짜 파티션에 흩어질 수 있다.** 발행이 오래된 글이 섞여 들어오기 때문이고, 과거분 백필(`web-collect.md` #9)에서는 6주치가 한 번에 흩어진다. 이건 의도한 것이고, `extract` 가 "이번에 새로 쓰인 파티션" 을 알아야 하므로 `ingest` 가 쓴 파티션 목록을 원장에 남긴다.
+`published_date` 로 파티션을 자르므로 **하나의 `ingest_run_id` 가 여러 날짜 파티션에 흩어질 수 있다.** 발행이 오래된 글이 섞여 들어오기 때문이고, 과거분 백필(`web-collect.md` #9)에서는 6주치가 한 번에 흩어진다. 이건 의도한 것이고, `extract` 가 "이번에 새로 쓰인 파티션" 을 알아야 하므로 `ingest` 가 쓴 파티션 목록을 처리 이력에 남긴다.
 
 ### `contents.body_object_key` 에 무엇을 넣나
 
 **그 문서가 들어 있는 Parquet 파일의 객체 키**를 넣는다. 파일 안에서 문서 하나를 특정하는 것은 `contents.url` 로 한다.
 
-문서마다 개별 객체(`bodies/{hash}.txt`)를 만드는 방법도 있지만 쓰지 않는다. [00 §3](00-overview.md) 규모에서 연 270만 개의 작은 객체가 생기고, 그 관리 비용이 얻는 정확도보다 크다. Parquet 한 파일에 수천 건을 묶는 편이 읽기도 빠르다.
+문서마다 개별 객체(`bodies/{hash}.txt`)를 만드는 방법도 있지만 쓰지 않는다. [00 §3](00-overview.md) 규모에서 연 25만 개의 작은 객체가 더 생기고(객체 쪽에 이미 그만큼 있다), 그 관리 비용이 얻는 정확도보다 크다. Parquet 한 파일에 수천 건을 묶는 편이 읽기도 빠르다.
 
-**한계** — 키가 파일을 가리키지 문서를 가리키지 않는다. 이 값을 읽는 쪽은 파일을 열어 `url` 로 행을 찾아야 한다. MVP 에서는 `contents.summary` 를 만들지 않으므로([00 §4](00-overview.md)) 실제 소비자가 없고, 나중에 요약 태스크가 생기면 그 태스크가 이 규칙을 따른다.
+**한계** — 키가 파일을 가리키지 문서를 가리키지 않는다. 이 값을 읽는 쪽은 파일을 열어 `url` 로 행을 찾아야 한다. **지금은 실제 소비자가 없다** — `contents` 에 요약 컬럼이 아예 없고([erd](erd/erd-00-current.md)) `trends.summary` 는 키워드 단위라 문서 본문을 이 키로 찾을 일이 아직 없다. 나중에 본문을 읽는 태스크가 생기면 그 태스크가 이 규칙을 따른다.
 
 `curated` 파티션을 재작성하면 이 키가 가리키는 대상이 바뀐다. 파일명이 바뀌는 재처리에서는 `body_object_key` 도 함께 갱신해야 한다 ([02 §6](02-input-contract.md)).
 
-## 4. 멱등성 — 세 겹
+## 4. 멱등성 — 3중
 
-같은 이벤트가 두 번 와도, 같은 Job 을 두 번 돌려도 결과가 같아야 한다. 한 겹으로는 부족해서 세 겹을 둔다.
+같은 이벤트가 두 번 와도, 같은 Job 을 두 번 돌려도 결과가 같아야 한다. 하나로는 부족해서 셋을 둔다.
 
-| 겹 | 무엇을 막나 | 어떻게 |
+| 중복 차단 | 무엇을 막나 | 어떻게 |
 | --- | --- | --- |
 | 1. Kafka checkpoint | 같은 오프셋 재소비 | Spark 가 관리. Job 별 별도 디렉터리 |
-| 2. `event_id` 원장 | checkpoint 를 지웠거나 이벤트가 재발행된 경우 | 내부 테이블에 `(event_id, job)` 별 상태. 이미 `COMPLETED` 면 건너뛴다 |
+| 2. `event_id` 처리 이력 | checkpoint 를 지웠거나 이벤트가 재발행된 경우 | 내부 테이블에 `(event_id, job)` 별 상태. 이미 `COMPLETED` 면 건너뛴다 |
 | 3. DB upsert | 위 둘을 다 뚫고 온 경우, 그리고 의도적 재처리 | 모든 적재가 `ON CONFLICT DO UPDATE` 또는 범위 삭제 후 삽입 |
 
-**겹 1만으로는 안 되는 이유** — checkpoint 는 파일이고, 디스크가 날아가거나 실수로 지우면 처음부터 다시 읽는다. 겹 2가 그때 방어한다.
+**중복 차단 1만으로는 안 되는 이유** — checkpoint 는 파일이고, 디스크가 날아가거나 실수로 지우면 처음부터 다시 읽는다. 중복 차단 2가 그때 방어한다.
 
-**겹 2만으로는 안 되는 이유** — 재처리는 정상적인 요구다. 로직을 고쳐 과거를 다시 돌릴 때 원장을 강제로 무시해야 하는데, 그러면 겹 3만 남는다.
+**중복 차단 2만으로는 안 되는 이유** — 재처리는 정상적인 요구다. 로직을 고쳐 과거를 다시 돌릴 때 처리 이력을 강제로 무시해야 하는데, 그러면 중복 차단 3만 남는다.
 
 checkpoint 경로:
 
@@ -248,7 +249,7 @@ DOMAIN_VALUES = {
 
 ### 허용 목록에 없으면 DLQ
 
-DB 가 FK 로 막아주지 않으므로 **이 검증이 유일한 방어선이다.** 오타 하나가 새 분야를 만든다 — `DEVELOP` 과 `Develop` 이 별개 분야가 되고, 그 순간부터 통계가 조용히 갈라진다.
+DB 가 FK 로 막아주지 않으므로 **이 검증이 유일한 방어선이다.** 오타 하나가 새 분야를 만든다 — `DEVELOP` 과 `Develop` 이 별개 분야가 되고, 그 순간부터 통계가 조용히 나뉜다.
 
 매핑에 없는 값이 오면 처리하지 않고 DLQ 로 보낸다 ([02 §5](02-input-contract.md)). 조용히 넘기지 않는 이유는, 잘못된 도메인 값으로 들어간 키워드가 **어느 화면에도 안 나오면서 통계만 갉아먹기** 때문이다. 그런 데이터는 몇 주 뒤에야 발견되고 그때는 원인을 찾을 수 없다.
 
@@ -258,7 +259,7 @@ DB 가 FK 로 막아주지 않으므로 **이 검증이 유일한 방어선이�
 
 **1. `@Enumerated(EnumType.STRING)` 을 명시할 것.**
 
-JPA 의 기본값은 `ORDINAL` 이다. 명시하지 않으면 컬럼이 int 가 되고 `DEVELOP=0`, `FASHION=1` 로 저장된다. 그 상태에서 enum 중간에 값을 하나 끼워 넣으면 **기존 행의 의미가 전부 한 칸씩 밀린다.** 다이어그램이 `varchar domain` 이니 STRING 을 의도한 것으로 보이지만, 명시하지 않으면 기본값이 이긴다.
+JPA 의 기본값은 `ORDINAL` 이다. 명시하지 않으면 컬럼이 int 가 되고 `DEVELOP=0`, `FASHION=1` 로 저장된다. 그 상태에서 enum 중간에 값을 하나 끼워 넣으면 **기존 행의 의미가 전부 한 칸씩 밀린다.** 다이어그램이 `varchar domain` 이니 STRING 을 의도한 것으로 보이지만, 명시하지 않으면 기본값이 우선한다.
 
 **2. PostgreSQL 네이티브 enum 타입을 쓰지 말 것.**
 
@@ -269,6 +270,20 @@ column "domain" is of type domain_enum but expression is of type character varyi
 ```
 
 Spark 는 varchar 로 보내는데 PostgreSQL 이 암묵 캐스팅을 하지 않는다. 우회하려면 스테이징 테이블에 넣고 `::domain_enum` 캐스트를 직접 걸어야 하는데, 그 캐스트를 빠뜨린 컬럼이 하나만 생겨도 배치가 죽는다. **Java enum + varchar 컬럼**이면 이 문제가 없다.
+
+### ⚠️ `trends.trend_types` 가 바로 그 사례다
+
+v2 ERD 의 타입 표기가 **`trend_type_array`** 다 ([erd](erd/erd-00-current.md)). 위 2번이 경고한 것이 이 컬럼에서 현실이 됐다 — 배열이라 1중 더 까다롭다.
+
+| 실제 타입 | Spark 쪽 처리 |
+| --- | --- |
+| `varchar[]` · `text[]` | 그대로 쓸 수 있다. **이걸 권한다** |
+| 네이티브 enum 배열 (`trend_type[]`) | 스테이징에 `text[]` 로 넣고 MERGE 에서 `::trend_type[]` 캐스트 |
+| JPA `@ElementCollection` | 배열 컬럼이 아니라 **별도 조인 테이블**이 생긴다. 적재 대상이 테이블 하나 더가 된다 |
+
+**세 경우의 적재 코드가 서로 다르므로 실제 DDL 을 보고 확인해야 한다.** 어느 쪽이든 동작하게 하려면 스테이징 컬럼을 `text[]` 로 두고 캐스트를 MERGE SQL 한 줄에 모은다 ([08 §4](08-storage-schema.md)).
+
+`domain` 과 달리 이건 **선택 가능한 여지가 적다** — 값이 복수인 것은 기획 결정이고, 배열 컬럼과 조인 테이블 중 무엇이 되든 Spark 는 받아야 한다. 그래서 요청이 아니라 확인 항목이다 ([00 §7](00-overview.md) 21번).
 
 ## 7. 배포와 리소스
 
@@ -296,7 +311,7 @@ Spark 는 varchar 로 보내는데 PostgreSQL 이 암묵 캐스팅을 하지 않
 | `SPARK_MASTER` | 기본 `local[*]` |
 | `SPARK_JOB_PROFILE` | `local` / `dev`. 임계값 프로파일 선택 |
 
-**이 목록이 전부다.** 정본은 `src/trendin/spark/common/config.py` 의 `ENV_BINDINGS` 고, 여기 없는 이름은 설정을 덮지 않는다. 일반 규칙(`TRENDIN__EXTRACT__MIN_SCORE` 같은 것)을 열지 않은 이유는 오타 난 이름이 조용히 무시되기 때문이다 — [09 §3](09-dev-and-test.md).
+**이 목록이 전부다.** 설정을 덮는 이름의 기준은 `src/trendin/spark/common/config.py` 의 `ENV_BINDINGS` 고, 여기 없는 이름은 설정을 덮지 않는다. `SPARK_JOB_PROFILE` 만 성격이 다르다 — 설정 값을 덮는 것이 아니라 **어느 프로파일 파일을 읽을지**를 고르므로 `ENV_BINDINGS` 가 아니라 `common/cli.py` 의 `--profile` 기본값에 있다. 일반 규칙(`TRENDIN__EXTRACT__MIN_SCORE` 같은 것)을 열지 않은 이유는 오타 난 이름이 조용히 무시되기 때문이다 — [09 §3](09-dev-and-test.md).
 
 주소는 비밀이 아니므로 프로파일 파일이 기본값을 갖고, 환경변수가 그것을 덮는다. **비밀만 환경변수 전용이다.** 파일에 적으면 그대로 커밋된다.
 
