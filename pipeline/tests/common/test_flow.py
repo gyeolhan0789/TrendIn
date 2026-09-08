@@ -467,3 +467,57 @@ def test_다음_실행은_앞_실행이_낸_것을_제_몫으로_세지_않는�
     later = publish_pending(run_id="20260903T120000", now=NOW, **kw)
 
     assert later == {}
+
+
+class CountingLedger(InMemoryLedger):
+    """`pending` 이 몇 번 불렸는지 센다. 한 회차가 몇 묶음을 도는지 보려고."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pending_calls = 0
+
+    def pending(self, domain: str, limit: int = 500):
+        self.pending_calls += 1
+        return super().pending(domain, limit)
+
+
+def test_밀린_게_묶음보다_많아도_한_회차가_다_비운다():
+    """묶음 상한만큼만 내고 끝나면 요약 건수가 시도마다 커진다.
+
+    1차 시도가 250 중 100 만 내고 요약 도중 죽으면, 2차 시도가 나머지를 내고 `emitted_by_run`
+    이 250 을 준다 — 같은 `event_id` 로 `record_count` 가 100 이었다가 250 이 된다
+    (팀 발행 규약 3 위반).
+    """
+    ledger = CountingLedger()
+    adapter = FakeAdapter([str(i) for i in range(250)])
+    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+
+    counts = publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+        batch=100,
+    )
+
+    assert counts == {"vogue": 250}
+    assert len(publisher.sent) == 250
+    # 100·100·50 을 내고, 비었음을 확인하는 한 번이 더 붙는다.
+    assert ledger.pending_calls == 4
+
+
+def test_다_비운_뒤_재시도해도_건수가_같다():
+    ledger = InMemoryLedger()
+    adapter = FakeAdapter([str(i) for i in range(250)])
+    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
+
+    first = publish_pending(run_id="20260903T110000", batch=100, **kw)
+    retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
+
+    assert first == retry == {"vogue": 250}
+    assert len(publisher.sent) == 250, "재시도가 이미 나간 것을 다시 내면 안 된다"

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Protocol
+from typing import Iterable, Protocol, Sequence
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.db import Database
@@ -127,8 +127,13 @@ class Ledger(Protocol):
         """
         ...
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
-        """발급 성공 뒤에만 부른다. 순서를 뒤집으면 유실이 생긴다(at-least-once).
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        """발급된 행을 한 번에 적는다. 발급 성공 뒤에만 부른다(at-least-once).
+
+        묶음으로 받는 이유는 트랜잭션이다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
+        절반만 적힌 채로 남는다. 한 트랜잭션이면 다 적히거나 하나도 안 적힌다.
 
         `run_id` 는 어느 실행이 냈는지다. 요약 건수를 이 값으로 센다.
         """
@@ -215,8 +220,11 @@ class InMemoryLedger:
         rows.sort(key=lambda r: (r.collected_at, r.source, r.article_id))
         return rows[:limit]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
-        self._emitted[(source, article_id)] = (at, run_id)
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        for key in keys:
+            self._emitted[key] = (at, run_id)
 
     def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -328,12 +336,16 @@ class PostgresLedger:
             for r in rows
         ]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime, run_id: str) -> None:
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        if not keys:
+            return
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(
                 "UPDATE collected_article SET event_emitted_at = %s, event_run_id = %s "
-                "WHERE source = %s AND article_id = %s",
-                (at, run_id, source, article_id),
+                "WHERE (source, article_id) IN %s",
+                (at, run_id, tuple(keys)),
             )
 
     def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:

@@ -293,7 +293,7 @@ def publish_pending(
     domain: str,
     run_id: str,
     now: datetime,
-    limit: int = 500,
+    batch: int = 500,
 ) -> dict[str, int]:
     """그 도메인에서 아직 안 나간 행을 전부 낸다. 지난 실행의 미발급분이 여기 딸려 온다.
 
@@ -308,16 +308,23 @@ def publish_pending(
     다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른 요약이 나간다.
 
     실행 구간으로 세면 겹칠 때 부푼다 — 실행 둘이 가까우면 앞 실행이 낸 것까지 센다.
+
+    **밀린 것을 다 비운다.** 묶음 상한에서 끊으면 1차 시도가 100 건, 2차 시도가 250 건을
+    세어 같은 `event_id` 로 `record_count` 가 다른 요약이 나간다. 다 비우면 재시도는 낼
+    것이 없어 값이 그대로다. `batch` 는 한 번에 메모리에 들 행 수지 한 회차의 상한이 아니다.
     """
-    rows = ledger.pending(domain, limit)
-    for row in rows:
-        # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
-        # 순서가 보장되고, 뒤이어 나가는 요약 이벤트가 그 소스의 기사들 뒤에 선다.
-        publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
-    if rows:
-        publisher.flush()
+    while True:
+        rows = ledger.pending(domain, batch)
+        if not rows:
+            break
         for row in rows:
-            ledger.mark_emitted(row.source, row.article_id, now, run_id)
+            # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
+            # 순서가 보장되고, 뒤이어 나가는 요약 이벤트가 그 소스의 기사들 뒤에 선다.
+            publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
+        publisher.flush()
+        # 한 묶음을 한 트랜잭션으로 적는다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
+        # 절반만 적힌 채로 남는다.
+        ledger.mark_emitted_many([(r.source, r.article_id) for r in rows], now, run_id)
     return ledger.emitted_by_run(domain, run_id)
 
 

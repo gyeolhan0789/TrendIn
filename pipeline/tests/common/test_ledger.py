@@ -60,7 +60,7 @@ def test_소스가_다르면_같은_article_id_라도_다른_기사다():
 def test_발급_시각을_적으면_미발급_목록에서_빠진다():
     ledger = InMemoryLedger()
     record(ledger, make_article("1"))
-    ledger.mark_emitted("vogue", "1", NOW, "20260903T110000")
+    ledger.mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert ledger.pending("fashion") == []
 
 
@@ -196,7 +196,7 @@ def test_오프셋이_없는_옛_행은_지어내지_않는다():
 
 def test_커밋하고_닫는다():
     db, conn = fake_db()
-    PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
+    PostgresLedger(db).mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert conn.committed and conn.closed
 
 
@@ -208,7 +208,7 @@ def test_실패하면_되돌리고_닫는다():
     conn = Boom()
     db = Database(uri="postgres://fake", connect=lambda _uri: conn)
     with pytest.raises(RuntimeError):
-        PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
+        PostgresLedger(db).mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert not conn.committed and conn.closed
 
 
@@ -230,8 +230,16 @@ def test_실행별_발급_건수는_그_실행_태그로만_센다():
 
 def test_발급을_적을_때_실행도_같이_적는다():
     db, conn = fake_db([])
-    PostgresLedger(db).mark_emitted("vogue", "1", NOW, "20260903T110000")
+    PostgresLedger(db).mark_emitted_many([("vogue", "1"), ("wkorea", "2")], NOW, "20260903T110000")
 
     sql, params = conn.cursors[0].executed[-1]
     assert "event_run_id" in sql
-    assert params == (NOW, "20260903T110000", "vogue", "1")
+    assert params == (NOW, "20260903T110000", (("vogue", "1"), ("wkorea", "2")))
+    # 여러 행이 UPDATE 하나로 간다 — 행마다 열면 만 건에 만 번이다.
+    assert len(conn.cursors[0].executed) == 1
+
+
+def test_적을_행이_없으면_DB_를_열지_않는다():
+    db, conn = fake_db([])
+    PostgresLedger(db).mark_emitted_many([], NOW, "20260903T110000")
+    assert conn.cursors == []
