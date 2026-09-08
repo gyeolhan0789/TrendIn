@@ -60,7 +60,7 @@ def test_소스가_다르면_같은_article_id_라도_다른_기사다():
 def test_발급_시각을_적으면_미발급_목록에서_빠진다():
     ledger = InMemoryLedger()
     record(ledger, make_article("1"))
-    ledger.mark_emitted("vogue", "1", NOW)
+    ledger.mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert ledger.pending("fashion") == []
 
 
@@ -89,13 +89,15 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
         "article_sha256",
         "members_only",
         "event_emitted_at",
+        "event_run_id",
         "article_key",
         "published_at_offset",
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 둘 + 인덱스 둘 + 이미 있는 테이블에 칸을 여는 ALTER 하나.
-    assert DDL.count("IF NOT EXISTS") == 5
+    # 테이블 둘 + 인덱스 둘 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
+    assert DDL.count("IF NOT EXISTS") == 6
+    assert DDL.count("DROP INDEX IF EXISTS") == 1
 
 
 # --- Postgres 구현 -----------------------------------------------------------
@@ -194,7 +196,7 @@ def test_오프셋이_없는_옛_행은_지어내지_않는다():
 
 def test_커밋하고_닫는다():
     db, conn = fake_db()
-    PostgresLedger(db).mark_emitted("vogue", "1", NOW)
+    PostgresLedger(db).mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert conn.committed and conn.closed
 
 
@@ -206,13 +208,38 @@ def test_실패하면_되돌리고_닫는다():
     conn = Boom()
     db = Database(uri="postgres://fake", connect=lambda _uri: conn)
     with pytest.raises(RuntimeError):
-        PostgresLedger(db).mark_emitted("vogue", "1", NOW)
+        PostgresLedger(db).mark_emitted_many([("vogue", "1")], NOW, "20260903T110000")
     assert not conn.committed and conn.closed
 
 
-def test_발급_건수는_실행_구간으로_센다():
-    """요약 이벤트의 record_count. 재시도해도 줄지 않아야 한다(팀 발행 규약 3)."""
-    db, conn = fake_db([("vogue", 10), ("wkorea", 3)])
-    counts = PostgresLedger(db).emitted_since("fashion", NOW)
-    assert counts == {"vogue": 10, "wkorea": 3}
-    assert conn.cursors[0].executed[0][1] == ("fashion", NOW)
+def test_실행별_발급_건수는_그_실행_태그로만_센다():
+    """완료 기준을 지탱하는 질의라 SQL 경로를 직접 탄다.
+
+    메모리 구현은 SQL 을 안 거치므로 컬럼 이름이 틀려도 못 잡는다 — 실제로 이 브랜치에서
+    `event_run_id` 를 DDL 에 안 넣고도 테스트가 통과한 적이 있다.
+    """
+    db, conn = fake_db([("vogue", 3), ("wkorea", 1)])
+    counts = PostgresLedger(db).emitted_by_run("fashion", "20260903T110000")
+
+    assert counts == {"vogue": 3, "wkorea": 1}
+    sql, params = conn.cursors[0].executed[-1]
+    assert params == ("fashion", "20260903T110000")
+    # 발급 표시가 지워진 행의 옛 태그를 세면 재발행 뒤 건수가 부푼다.
+    assert "event_emitted_at IS NOT NULL" in sql
+
+
+def test_발급을_적을_때_실행도_같이_적는다():
+    db, conn = fake_db([])
+    PostgresLedger(db).mark_emitted_many([("vogue", "1"), ("wkorea", "2")], NOW, "20260903T110000")
+
+    sql, params = conn.cursors[0].executed[-1]
+    assert "event_run_id" in sql
+    assert params == (NOW, "20260903T110000", (("vogue", "1"), ("wkorea", "2")))
+    # 여러 행이 UPDATE 하나로 간다 — 행마다 열면 만 건에 만 번이다.
+    assert len(conn.cursors[0].executed) == 1
+
+
+def test_적을_행이_없으면_DB_를_열지_않는다():
+    db, conn = fake_db([])
+    PostgresLedger(db).mark_emitted_many([], NOW, "20260903T110000")
+    assert conn.cursors == []

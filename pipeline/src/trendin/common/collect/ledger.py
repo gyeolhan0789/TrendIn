@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Protocol
+from typing import Iterable, Protocol, Sequence
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.db import Database
@@ -46,20 +46,27 @@ CREATE TABLE IF NOT EXISTS collected_article (
     members_only        boolean     NOT NULL DEFAULT false,
     collected_at        timestamptz NOT NULL,
     event_emitted_at    timestamptz,
+    event_run_id        text,
     PRIMARY KEY (source, article_id)
 );
 
--- 이 브랜치 전에 만들어진 테이블에도 오프셋 칸을 연다. 이미 있으면 아무 일도 없다.
+-- 이 브랜치 전에 만들어진 테이블에도 칸을 연다. 이미 있으면 아무 일도 없다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS published_at_offset smallint;
+
+-- 어느 실행이 이 행을 발급했나. 요약 이벤트의 건수를 이 값으로 센다 (S15P21A102-204).
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS event_run_id text;
 
 -- 발급 태스크가 미발급 행만 훑는다. 장부는 계속 자라고 미발급은 늘 소수다.
 CREATE INDEX IF NOT EXISTS collected_article_pending_idx
     ON collected_article (domain, collected_at)
     WHERE event_emitted_at IS NULL;
 
--- 요약 이벤트의 건수를 실행 구간으로 세는 질의가 쓴다.
-CREATE INDEX IF NOT EXISTS collected_article_emitted_idx
-    ON collected_article (domain, event_emitted_at);
+-- 요약 이벤트가 "이 실행이 발급한 건수" 를 셀 때 쓴다.
+CREATE INDEX IF NOT EXISTS collected_article_run_idx
+    ON collected_article (domain, event_run_id);
+
+-- 실행 구간으로 세던 시절의 인덱스. 읽는 질의가 없어졌다 (S15P21A102-204).
+DROP INDEX IF EXISTS collected_article_emitted_idx;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
     url           text        PRIMARY KEY,
@@ -120,19 +127,29 @@ class Ledger(Protocol):
         """
         ...
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
-        """발급 성공 뒤에만 부른다. 순서를 뒤집으면 유실이 생긴다(at-least-once)."""
-        ...
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        """발급된 행을 한 번에 적는다. 발급 성공 뒤에만 부른다(at-least-once).
 
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
-        """그 시각 이후로 발급된 기사 수를 소스별로 센다.
+        묶음으로 받는 이유는 트랜잭션이다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
+        절반만 적힌 채로 남는다. 한 트랜잭션이면 다 적히거나 하나도 안 적힌다.
 
-        요약 이벤트의 `record_count` 가 이 값이다. 실행 안에서 누적이라 같은 실행이
-        재시도돼도 값이 줄지 않는다 — `event_id` 가 같은데 내용이 달라지는 것을 막는다
-        (팀 발행 규약 3).
+        `run_id` 는 어느 실행이 냈는지다. 요약 건수를 이 값으로 센다.
         """
         ...
 
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
+        """그 실행이 발급한 기사 수를 소스별로 센다. 요약 이벤트의 `record_count` 다.
+
+        "이번 시도가 보낸 것" 을 세지 않는 이유는 재시도 때문이다 — 발급까지 마치고 요약
+        중간에 죽으면 다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른
+        요약이 나간다(팀 발행 규약 3 위반). 장부에 적힌 실행으로 세면 흔들리지 않는다.
+
+        실행 구간(`event_emitted_at >= 시작시각`)으로 세지 않는 이유는 겹침이다 — 실행 둘이
+        가까우면 앞 실행이 낸 것까지 뒤 실행 몫으로 센다.
+        """
+        ...
 
 def _offset_minutes(value: datetime) -> int:
     offset = value.utcoffset()
@@ -182,7 +199,7 @@ class InMemoryLedger:
 
     def __init__(self) -> None:
         self._rows: dict[tuple[str, str], PendingArticle] = {}
-        self._emitted: dict[tuple[str, str], datetime] = {}
+        self._emitted: dict[tuple[str, str], tuple[datetime, str]] = {}
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
         return {aid for aid in article_ids if (source, aid) not in self._rows}
@@ -203,14 +220,17 @@ class InMemoryLedger:
         rows.sort(key=lambda r: (r.collected_at, r.source, r.article_id))
         return rows[:limit]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
-        self._emitted[(source, article_id)] = at
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        for key in keys:
+            self._emitted[key] = (at, run_id)
 
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
         counts: dict[str, int] = {}
-        for key, at in self._emitted.items():
+        for key, (at, emitted_run) in self._emitted.items():
             row = self._rows[key]
-            if row.domain == domain and at >= since:
+            if row.domain == domain and emitted_run == run_id and at is not None:
                 counts[row.source] = counts.get(row.source, 0) + 1
         return counts
 
@@ -237,10 +257,13 @@ ORDER BY collected_at, source, article_id
 LIMIT %s
 """
 
-_SELECT_EMITTED_SINCE = """
+
+# `event_emitted_at IS NOT NULL` 이 붙는 이유는 재발행 때문이다. 발급 표시만 지우고
+# `event_run_id` 를 남기면 아직 안 나간 행이 옛 실행 몫으로 잡힌다.
+_SELECT_EMITTED_BY_RUN = """
 SELECT source, count(*)
 FROM collected_article
-WHERE domain = %s AND event_emitted_at >= %s
+WHERE domain = %s AND event_run_id = %s AND event_emitted_at IS NOT NULL
 GROUP BY source
 """
 
@@ -313,15 +336,19 @@ class PostgresLedger:
             for r in rows
         ]
 
-    def mark_emitted(self, source: str, article_id: str, at: datetime) -> None:
+    def mark_emitted_many(
+        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
+    ) -> None:
+        if not keys:
+            return
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(
-                "UPDATE collected_article SET event_emitted_at = %s "
-                "WHERE source = %s AND article_id = %s",
-                (at, source, article_id),
+                "UPDATE collected_article SET event_emitted_at = %s, event_run_id = %s "
+                "WHERE (source, article_id) IN %s",
+                (at, run_id, tuple(keys)),
             )
 
-    def emitted_since(self, domain: str, since: datetime) -> dict[str, int]:
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
         with self._db.transaction() as conn, conn.cursor() as cur:
-            cur.execute(_SELECT_EMITTED_SINCE, (domain, since))
+            cur.execute(_SELECT_EMITTED_BY_RUN, (domain, run_id))
             return {r[0]: r[1] for r in cur.fetchall()}

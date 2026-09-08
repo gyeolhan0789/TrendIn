@@ -127,7 +127,8 @@ def verify_summary_event(event: dict, *, label: str) -> None:
 
 
 def verify_article_event(event: dict, *, spark_s3, bucket: str, label: str) -> None:
-    check(event.get("run_id") is None, f"{label} 기사: run_id 가 null")
+    # 발급한 실행의 값이다 (data-pipeline-design.md §5 필드 규약). 수집한 실행이 아니다.
+    check(event.get("run_id") not in (None, ""), f"{label} 기사: run_id 가 있다")
     count = event.get("record_count")
     check(count == 1, f"{label} 기사: record_count=1", str(count))
     blank = [f for f in ATTRIBUTION if not event.get(f)]

@@ -121,7 +121,7 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
     )
 
     events = {
-        "article-event.json": article_event(pending, bucket=BUCKET),
+        "article-event.json": article_event(pending, bucket=BUCKET, run_id=RUN_ID),
         "run-summary-success.json": run_summary_event(
             source=SOURCE,
             domain=DOMAIN,

@@ -112,11 +112,15 @@ def build_collect_dag(
             store = MinioObjectStore.from_env()
             publisher = KafkaEventPublisher.from_env()
 
-            articles = flow.publish_pending(
+            run_id = flow.run_id_of(logical_date)
+            # 소스별 건수가 그대로 요약 이벤트의 `record_count` 가 된다. 장부를 구간으로
+            # 다시 세지 않는 이유는 실행이 겹치면 앞 실행 몫까지 세기 때문이다.
+            counts = flow.publish_pending(
                 ledger=ledger,
                 publisher=publisher,
                 bucket=store.bucket,
                 domain=domain,
+                run_id=run_id,
                 now=pendulum.now("UTC"),
             )
             statuses = flow.source_statuses(
@@ -127,13 +131,13 @@ def build_collect_dag(
             summaries = flow.publish_summaries(
                 publisher=publisher,
                 bucket=store.bucket,
-                run_id=flow.run_id_of(logical_date),
+                run_id=run_id,
                 logical_date=logical_date,
                 statuses=statuses,
-                counts=ledger.emitted_since(domain, logical_date),
+                counts=counts,
             )
             return {
-                "articles": articles,
+                "articles": sum(counts.values()),
                 "summaries": summaries,
                 "failed_sources": [s.source for s in statuses if s.status == "failed"],
             }
