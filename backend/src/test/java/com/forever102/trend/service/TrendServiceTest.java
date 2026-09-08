@@ -7,14 +7,17 @@ import static org.mockito.BDDMockito.then;
 
 import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
+import com.forever102.member.domain.Domain;
 import com.forever102.trend.TrendFixture;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +25,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 class TrendServiceTest {
@@ -34,6 +40,42 @@ class TrendServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
         trendService = new TrendService(trendRepository, metricRepository, clock);
+    }
+
+    @Test
+    @DisplayName("분야와 복수 트렌드 유형 및 완료 구간으로 목록을 조회한다")
+    void returnsTrendList() {
+        Trend trend = TrendFixture.trend();
+        var metric = TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123);
+        var pageable = PageRequest.of(0, 20);
+        given(metricRepository.findRisingTrendPage("FASHION", "7D",
+                TrendFixture.END.minusDays(7), TrendFixture.END, pageable))
+                .willReturn(new PageImpl<>(List.of(metric), pageable, 1));
+        given(trendRepository.findByKeywordIdIn(List.of(81L))).willReturn(List.of(trend));
+
+        var response = trendService.getTrends(
+                Domain.FASHION, TrendType.RISING, AnalysisPeriod.DAYS_7, 0, 20);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().trendTypes()).containsExactly(TrendType.RISING);
+        assertThat(response.content().getFirst().rank()).isEqualTo(1);
+        assertThat(response.content().getFirst().mentionCount()).isEqualTo(430);
+        assertThat(response.analysisWindow().recentStart()).isEqualTo(TrendFixture.END.minusDays(7));
+    }
+
+    @Test
+    @DisplayName("목록 지표가 없으면 트렌드를 추가 조회하지 않고 빈 페이지를 반환한다")
+    void returnsEmptyListWithoutTrendLookup() {
+        var pageable = PageRequest.of(0, 20);
+        given(metricRepository.findCurrentTrendPage("DEVELOP", "24H",
+                TrendFixture.END.minusDays(1), TrendFixture.END, pageable))
+                .willReturn(Page.empty(pageable));
+
+        var response = trendService.getTrends(
+                Domain.DEVELOP, TrendType.CURRENT, AnalysisPeriod.HOURS_24, 0, 20);
+
+        assertThat(response.content()).isEmpty();
+        then(trendRepository).shouldHaveNoInteractions();
     }
 
     @Test

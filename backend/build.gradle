@@ -84,6 +84,7 @@ tasks.named('test') {
 tasks.named('asciidoctor') {
 	dependsOn tasks.named('test')
 	configurations 'asciidoctorExt'
+	sourceDir layout.projectDirectory.dir('docs/asciidoc')
 	inputs.dir snippetsDir
 	attributes 'snippets': snippetsDir.get().asFile
 }

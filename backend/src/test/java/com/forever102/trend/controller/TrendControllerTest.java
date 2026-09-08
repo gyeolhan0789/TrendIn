@@ -21,15 +21,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.forever102.global.config.SecurityTestConfig;
 import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
+import com.forever102.member.domain.Domain;
 import com.forever102.trend.TrendFixture;
 import com.forever102.trend.domain.AnalysisPeriod;
+import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendHistoryResponse.HistoryPointResponse;
+import com.forever102.trend.dto.TrendListResponse;
 import com.forever102.trend.service.TrendHistoryService;
 import com.forever102.trend.service.TrendService;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,6 +42,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.restdocs.test.autoconfigure.AutoConfigureRestDocs;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -51,6 +57,124 @@ class TrendControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean TrendService trendService;
     @MockitoBean TrendHistoryService trendHistoryService;
+
+    @Test
+    @WithMockUser
+    @DisplayName("최신 명세의 분야별 트렌드 목록을 반환하고 문서화한다")
+    void returnsTrendList() throws Exception {
+        var trend = TrendFixture.trend();
+        var metric = TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123);
+        var result = new PageImpl<>(List.of(metric),
+                PageRequest.of(0, 5), 1);
+        given(trendService.getTrends(
+                Domain.FASHION, TrendType.RISING, AnalysisPeriod.DAYS_7, 0, 5))
+                .willReturn(TrendListResponse.from(result, Map.of(81L, trend),
+                        TrendFixture.window(AnalysisPeriod.DAYS_7)));
+
+        mockMvc.perform(get("/trends")
+                        .queryParam("domain", "FASHION")
+                        .queryParam("type", "RISING")
+                        .queryParam("period", "7D")
+                        .queryParam("page", "0")
+                        .queryParam("size", "5")
+                        .header("Authorization", "Bearer example-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].trendId").value(101))
+                .andExpect(jsonPath("$.data.content[0].keywordId").value(81))
+                .andExpect(jsonPath("$.data.content[0].domain.domain").value("FASHION"))
+                .andExpect(jsonPath("$.data.content[0].trendTypes[0]").value("RISING"))
+                .andExpect(jsonPath("$.data.content[0].rank").value(1))
+                .andExpect(jsonPath("$.data.content[0].growthRate").value(249.6))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(5))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.analysisWindow.recentStart")
+                        .value("2026-08-24T00:00:00+09:00"))
+                .andExpect(jsonPath("$.data.content[0].firstDetectedAt").doesNotExist())
+                .andDo(document("trends-list", preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName("Authorization").description("인증 토큰")),
+                        queryParameters(
+                                parameterWithName("domain").description("필수 분야: DEVELOP, FASHION"),
+                                parameterWithName("type").description("필수 유형: CURRENT, NEW, RISING"),
+                                parameterWithName("period").description("필수 조회 기간: 24H, 7D, 30D"),
+                                parameterWithName("page").optional().description("페이지 번호. 기본 0"),
+                                parameterWithName("size").optional().description("페이지 크기. 기본 20")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL).description("성공 시 null"),
+                                fieldWithPath("data.content").type(JsonFieldType.ARRAY).description("트렌드 목록"),
+                                fieldWithPath("data.content[].trendId").type(JsonFieldType.NUMBER).description("트렌드 ID"),
+                                fieldWithPath("data.content[].keywordId").type(JsonFieldType.NUMBER).description("키워드 ID"),
+                                fieldWithPath("data.content[].keyword").type(JsonFieldType.STRING).description("키워드"),
+                                fieldWithPath("data.content[].description").type(JsonFieldType.STRING).description("짧은 설명"),
+                                fieldWithPath("data.content[].domain.domain").type(JsonFieldType.STRING).description("분야 값"),
+                                fieldWithPath("data.content[].domain.name").type(JsonFieldType.STRING).description("분야 이름"),
+                                fieldWithPath("data.content[].trendTypes").type(JsonFieldType.ARRAY).description("트렌드 유형 목록"),
+                                fieldWithPath("data.content[].rank").type(JsonFieldType.NUMBER).description("언급량 순위"),
+                                fieldWithPath("data.content[].mentionCount").type(JsonFieldType.NUMBER).description("언급량"),
+                                fieldWithPath("data.content[].previousMentionCount").type(JsonFieldType.NUMBER).description("직전 언급량"),
+                                fieldWithPath("data.content[].growthAmount").type(JsonFieldType.NUMBER).description("언급 증가량"),
+                                fieldWithPath("data.content[].growthRate").type(JsonFieldType.NUMBER).optional().description("언급 증가율"),
+                                fieldWithPath("data.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
+                                fieldWithPath("data.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 여부"),
+                                fieldWithPath("data.analysisWindow.recentStart").type(JsonFieldType.STRING).description("현재 구간 시작"),
+                                fieldWithPath("data.analysisWindow.recentEnd").type(JsonFieldType.STRING).description("현재 구간 종료"),
+                                fieldWithPath("data.analysisWindow.previousStart").type(JsonFieldType.STRING).description("이전 구간 시작"),
+                                fieldWithPath("data.analysisWindow.previousEnd").type(JsonFieldType.STRING).description("이전 구간 종료"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("목록 조회의 page와 size를 생략하면 기본값을 사용한다")
+    void usesDefaultPagination() throws Exception {
+        mockMvc.perform(get("/trends").queryParam("domain", "DEVELOP")
+                        .queryParam("type", "CURRENT").queryParam("period", "24H"))
+                .andExpect(status().isOk());
+
+        then(trendService).should().getTrends(
+                Domain.DEVELOP, TrendType.CURRENT, AnalysisPeriod.HOURS_24, 0, 20);
+    }
+
+    @ParameterizedTest
+    @WithMockUser
+    @ValueSource(strings = {"domain", "type", "period"})
+    @DisplayName("목록 조회 필수 파라미터가 누락되면 400을 반환한다")
+    void rejectsMissingListParameter(String omitted) throws Exception {
+        var request = get("/trends");
+        if (!omitted.equals("domain")) request.queryParam("domain", "FASHION");
+        if (!omitted.equals("type")) request.queryParam("type", "CURRENT");
+        if (!omitted.equals("period")) request.queryParam("period", "7D");
+
+        mockMvc.perform(request).andExpect(status().isBadRequest());
+        then(trendService).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @WithMockUser
+    @ValueSource(strings = {"domain=BEAUTY", "type=POPULAR", "period=1D", "page=-1", "size=0"})
+    @DisplayName("목록 조회 파라미터가 잘못되면 400을 반환한다")
+    void rejectsInvalidListParameter(String invalid) throws Exception {
+        String[] pair = invalid.split("=");
+        var request = get("/trends")
+                .queryParam("domain", pair[0].equals("domain") ? pair[1] : "FASHION")
+                .queryParam("type", pair[0].equals("type") ? pair[1] : "CURRENT")
+                .queryParam("period", pair[0].equals("period") ? pair[1] : "7D")
+                .queryParam("page", pair[0].equals("page") ? pair[1] : "0")
+                .queryParam("size", pair[0].equals("size") ? pair[1] : "20");
+
+        mockMvc.perform(request).andExpect(status().isBadRequest());
+        then(trendService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("인증 없이 목록을 요청하면 401을 반환한다")
+    void blocksAnonymousTrendList() throws Exception {
+        mockMvc.perform(get("/trends").queryParam("domain", "FASHION")
+                        .queryParam("type", "CURRENT").queryParam("period", "7D"))
+                .andExpect(status().isUnauthorized());
+        then(trendService).shouldHaveNoInteractions();
+    }
 
     @Test
     @WithMockUser
