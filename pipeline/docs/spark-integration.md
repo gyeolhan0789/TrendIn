@@ -68,7 +68,7 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 | 언제 | 기사 하나가 MinIO 에 저장된 뒤 | 소스 하나의 실행이 끝날 때마다 (0건·실패에도) |
 | `event_id` | `{source_id}-{article_id}` | `{source_id}-{run_id}` |
 | `object_key` | article.json 키 | **`null`** |
-| `run_id` | `yyyyMMddTHHmmss` (KST). **그 기사를 발급한 실행** | `yyyyMMddTHHmmss` (KST) |
+| `run_id` | **`null`** | `yyyyMMddTHHmmss` (KST) |
 | 하루 몇 건 | 700 건 안팎 | 소스 수 × 실행 수 |
 
 ### ⚠️ 분기 기준은 `object_key` 의 null 여부다
@@ -85,12 +85,6 @@ is_article_event = event["object_key"] is not None
 요약 이벤트를 없애지 않는 이유는 팀 발행 규약 4·5 가 있는 이유와 같다 — 기사 이벤트만 내면
 "그 소스에 새 글이 없던 것"과 "그 소스 수집이 실패한 것"이 똑같이 "아무것도 안 옴" 으로 보인다.
 
-**토픽 전체로 보면 모양이 셋이다.** 이 문서는 크롤러 출력만 다루므로 둘이지만, 같은 토픽에
-다른 소스의 배치 이벤트(`part-000.jsonl.gz`)도 흐른다. 위 한 줄은 배치를 기사로 읽는다 —
-둘 다 `object_key` 가 있어서다. 크롤러 이벤트만 걸러 보는 자리에서는 맞고, 토픽을 통째로
-읽는 자리에서는 `format` 으로 가른다: `jsonl` 배치 · `json` 기사 · `null` 요약. 셋을 다 세는
-규칙은 [`02 §2`](../spark/docs/02-input-contract.md) 판정 표와 `§5` 건수 표에 있다.
-
 ### 필드
 
 `events.py` 가 정본이다. 두 모양 다 팀 봉투의 칸을 하나도 빼지 않고, 안 쓰는 칸은 `null` 로 둔다.
@@ -105,7 +99,7 @@ is_article_event = event["object_key"] is not None
 | `domain` | string | `fashion` \| `dev` (§11 참고) | 같음 |
 | `source_id` | string | 소스 키 (`vogue` 등) | 같음 |
 | `article_id` | string \| null | 소스의 기사 식별자 | `null` |
-| `run_id` | string | `yyyyMMddTHHmmss` (KST). 수집한 실행이 아니라 **발급한** 실행이다 | `yyyyMMddTHHmmss` (KST) |
+| `run_id` | string \| null | **`null`** | `yyyyMMddTHHmmss` (KST) |
 | `url` | string \| null | 기사 정식 URL | `null` |
 | `title` | string \| null | 기사 제목 | `null` |
 | `published_at` | string \| null | ISO-8601, **소스가 준 오프셋 그대로** | `null` |
@@ -356,7 +350,7 @@ cd pipeline
 | 층 | 무엇을 보나 |
 |---|---|
 | Kafka | message key == `source_id` · 소스별로 한 파티션에 모이는지 · **요약 이벤트가 그 소스의 기사들 뒤에 오는지** (§2 의 순서 보장) |
-| 봉투 | 공통 필드 · `schema_version` · 기사/요약 분기 · 기사의 `run_id` 가 있음 · `record_count=1` · 출처 명시 3종 · 요약의 `failure_reason` |
+| 봉투 | 공통 필드 · `schema_version` · 기사/요약 분기 · 기사의 `run_id` 가 `null` · `record_count=1` · 출처 명시 3종 · 요약의 `failure_reason` |
 | MinIO | `object_key` 와 `raw_object_key` 읽기 · `checksum` 대조 · 봉투와 `article.json` 의 값 일치 · raw 가 없으면 `members_only` 인지 |
 | 권한 | **Spark 키 write 거부** |
 
@@ -408,15 +402,18 @@ fixture 를 다시 만들어야 하고, 그러면 fixture diff 가 MR 에 남는
 | 4 | consumer group 이름 | §2. 소비 측이 정한다 |
 | 5 | DLQ 토픽 이름 | 소비 측 소유. 아직 없다 ([`datastore/README.md`](../../datastore/README.md) "지금 없는 것") |
 
-### `02-input-contract.md` 를 이 목록대로 갱신했다 (S15P21A102-204)
+### `02-input-contract.md` 가 이 문서보다 낡았다
 
-여기 있던 어긋남 목록은 `02` 에 반영했다. 소비 측 소유 문서라 손대지 않는 것이 원칙이었지만,
-같은 계약을 두 문서가 다르게 말하는 채로 두는 값이 더 컸다. **강민수 확인이 남았다.**
+[`spark/docs/02-input-contract.md`](../spark/docs/02-input-contract.md) 는 배치 이벤트를 전제로
+쓰였다. 그대로 구현하면 어긋나는 자리:
 
-| `02` 의 옛 내용 | 어떻게 고쳤나 |
+| `02` 의 내용 | 실제 |
 |---|---|
-| `EVENT_SCHEMA` 에 `raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only` 가 없다 | `02 §1` 에 여섯 칸을 넣었다. `BooleanType` 이 하나 늘었다 |
-| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 실행 요약 줄을 정상으로 넣고, 그 아래 줄만 계약 위반으로 남겼다 |
-| §3 `record_count` 를 파싱된 줄 수와 대조 | 기사 이벤트는 `1` 과 대조하도록 적었다 |
-| §6 manifest 모드가 `metadata.json` 을 훑는다 | 기사 단위 소스는 이 모드로 못 훑는다고 적고, 장부로 재발행하는 경로를 넣었다 |
-| `format: jsonl` · `compression: gzip` 전제 | `format` 을 모양 판별자로 못 박고 `§2` · `§5` 표를 그 기준으로 다시 썼다 |
+| `EVENT_SCHEMA` | `raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only` 6 개가 없다. `from_json` 이 버린다 |
+| `run_id` 가 `nullable=False` | 기사 이벤트는 항상 `null` 이다 |
+| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 실행 요약 이벤트가 정확히 그 모양이다 (§3) |
+| §3 `record_count` 를 파싱된 줄 수와 대조 | 객체가 jsonl 이 아니라 단일 JSON 객체다 |
+| §6 manifest 모드가 `metadata.json` 을 훑는다 | `metadata.json` 이 없다. `article.json` 이 완료 마커다 (§5) |
+| `format: jsonl` · `compression: gzip` | `json` · `none` |
+
+`02` 는 소비 측 소유 문서라 이 문서가 고치지 않는다. 위 목록을 근거로 갱신해 주면 된다.

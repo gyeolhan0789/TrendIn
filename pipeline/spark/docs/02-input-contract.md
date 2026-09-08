@@ -25,17 +25,9 @@ EVENT_SCHEMA = StructType([
     StructField("schema_version", IntegerType(), False),
     StructField("bucket",         StringType(), True),
     StructField("object_key",     StringType(), True),
-    # 아래 여섯은 팀 봉투에 없던 칸이다. 기사 이벤트만 채우고 나머지 모양에서는 null 이다.
-    # 스키마에서 빼면 `from_json` 이 조용히 버려서 출처 명시(url·published_at)까지 사라진다.
-    StructField("raw_object_key", StringType(), True),
-    StructField("article_id",     StringType(), True),
-    StructField("url",            StringType(), True),
-    StructField("title",          StringType(), True),
-    StructField("published_at",   StringType(), True),
-    StructField("members_only",   BooleanType(), True),
     StructField("domain",         StringType(), False),
     StructField("source_id",      StringType(), False),
-    StructField("run_id",         StringType(), False),   # 기사 이벤트는 발급한 실행의 값
+    StructField("run_id",         StringType(), False),
     StructField("collected_at",   StringType(), False),
     StructField("status",         StringType(), False),
     StructField("record_count",   LongType(),   True),
@@ -63,18 +55,15 @@ EVENT_SCHEMA = StructType([
 
 `status` 와 `record_count` 조합으로 갈린다.
 
-| `status` | `record_count` | `object_key` | `format` | 처리 |
-| --- | --- | --- | --- | --- |
-| `success` | > 0 | 유효 | `jsonl` \| `json` | MinIO 조회 → [§3](#3-원문-조회와-검증) |
-| `success` | 0 | 유효 (빈 파일) | `jsonl` | 원문 조회 생략. 원장에 `COMPLETED`, 문서 0건 기록 |
-| `failed` | 0 | `null` | `null` | 원문 조회 생략. 원장에 `SOURCE_FAILED` + `failure_reason` 기록 |
-| `success` | ≥ 0 | `null` | `null` | **실행 요약.** 원문 조회 생략. 원장에 그 실행의 수집 건수만 기록 |
-| `success` | > 0 | `null` | `jsonl` \| `json` | **계약 위반.** DLQ |
-| 그 외 `status` | — | — | — | **계약 위반.** DLQ |
+| `status` | `record_count` | `object_key` | 처리 |
+| --- | --- | --- | --- |
+| `success` | > 0 | 유효 | MinIO 조회 → [§3](#3-원문-조회와-검증) |
+| `success` | 0 | 유효 (빈 파일) | 원문 조회 생략. 원장에 `COMPLETED`, 문서 0건 기록 |
+| `failed` | 0 | `null` | 원문 조회 생략. 원장에 `SOURCE_FAILED` + `failure_reason` 기록 |
+| `success` | > 0 | `null` | **계약 위반.** DLQ |
+| 그 외 `status` | — | — | **계약 위반.** DLQ |
 
-**넷째 줄이 기사 단위 소스의 실행 요약 이벤트다.** 가르는 건 `format` 이다([§5](#5-원장에-무엇을-남기나)와 같은 기준) — `event_id` 를 파싱하지 않는다. 상위 문서 §5 "입자가 둘이다"가 정의한다 — 기사마다 이벤트를 내는 소스는 배치 객체가 없어서, 0 건과 장애를 구분할 자리를 요약 이벤트가 맡는다. `object_key` 가 `null` 인데 `status` 가 `success` 인 것은 이 한 경우뿐이다.
-
-다섯째 줄은 여전히 생산자 버그다. 조용히 넘기면 영영 안 드러난다.
+상위 문서 발행 규약 4번이 *"`status` 가 `success` 면 `object_key` 는 항상 유효하다"* 고 보장하므로, 넷째 줄은 생산자 버그다. 조용히 넘기면 생산자 버그가 영영 안 드러난다.
 
 **`failed` 이벤트를 원장에 남기는 이유** — 실패를 기록하지 않으면 "수집이 실패한 날"과 "그날 아무 일도 없던 날"을 구분할 수 없다. 서비스에는 이 구분을 내보낼 자리가 없지만([§4](#4--수집-상태를-서비스에-알릴-방법이-없다)) 운영 조회에는 반드시 필요하다.
 
@@ -102,7 +91,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | 검증 | 방법 | 불일치 시 |
 | --- | --- | --- |
 | checksum | 객체 바이트의 `sha256` 을 이벤트의 `checksum`(`sha256-` 접두 제거) 과 대조 | **DLQ.** 원문이 손상됐거나 다른 파일이다 |
-| `record_count` | 파싱된 줄 수와 대조. 기사 이벤트는 객체가 `article.json` 한 건이라 `1` 과 대조한다 | **DLQ.** 부분 업로드 의심 |
+| `record_count` | 파싱된 줄 수와 대조 | **DLQ.** 부분 업로드 의심 |
 | `size_bytes` | 객체 크기와 대조 | 경고 로그만. checksum 이 이미 더 강한 보증이다 |
 
 **checksum 검증을 생략하지 않는 이유** — 상위 문서가 *"소비 측이 원문 다운로드 후 대조한다"* 고 소비자 책임으로 명시했다. 그리고 부분 업로드된 gzip 은 압축 해제가 성공하면서 뒷부분만 잘려 나가는 경우가 있다. 줄 수 검증만으로는 잡히지만 checksum 이 더 빠르고 확실하다.
@@ -135,17 +124,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | 전부 `failed` | `MISSING` |
 | 이벤트가 하나도 없음 | 행 없음 |
 
-수집 건수도 함께 남긴다. **배치 이벤트와 실행 요약 이벤트**의 `record_count` 합이며, 정제·중복 제거 **이전** 값이다. 기사 이벤트는 세지 않는다 — 한 실행의 기사 이벤트 건수는 그 실행의 요약 이벤트가 이미 들고 있어서, 같이 더하면 두 번 센다.
-
-배치와 기사를 가르는 건 `format` 이다. 배치는 `jsonl`, 기사는 `json`, 요약은 `null` 이다. `event_id` 를 파싱해 가르지 않는다 — 생산·소비 양쪽이 같은 파싱을 각자 들고 있게 된다.
-
-| `format` | 무엇 | 건수에 세나 |
-| --- | --- | --- |
-| `jsonl` | 배치 이벤트 | 센다 |
-| `json` | 기사 이벤트 | 안 센다 |
-| `null` | 실행 요약 이벤트 | 센다 |
-
-"수집이 얼마나 됐나"를 보는 것이지 "얼마나 살아남았나"가 아니다.
+수집 건수도 함께 남긴다. `success` 이벤트들의 `record_count` 합이며, 정제·중복 제거 **이전** 값이다. "수집이 얼마나 됐나"를 보는 것이지 "얼마나 살아남았나"가 아니다.
 
 ### 날짜 축이 두 개라는 것도 기록해둔다
 
@@ -214,8 +193,6 @@ spark-submit ingest.py \
 5. `--force` 가 있으면 원장의 `COMPLETED` 를 무시하고 다시 처리한다.
 
 **이 모드가 성립하는 이유** — 상위 문서 §5 재발행 절이 *"Kafka 는 원본이 아니다. 토픽이 유실되어도 `metadata.json` 이 있는 디렉터리를 훑어 이벤트를 그대로 재구성할 수 있다"* 고 보장한다. 그 보장을 코드로 옮긴 것이다.
-
-**기사 단위 소스는 이 모드로 못 훑는다.** `metadata.json` 을 쓰지 않기 때문이다(상위 문서 발행 규약 1번의 면제). 대신 그쪽은 수집 장부 `collected_article` 이 원본이고, 재발행은 생산자가 한다 — 장부의 `event_emitted_at` 을 비우면 다음 발급 태스크가 그 행들을 다시 낸다. 소비 측이 할 일은 원장의 `COMPLETED` 를 지우고 다시 받는 것뿐이다.
 
 ### 재처리 시 지워야 할 것
 

@@ -192,17 +192,6 @@ def test_요약_이벤트는_object_key_가_null_이고_기사수가_0_이_아�
 
 
 def test_기사_이벤트의_run_id_는_발급한_실행이다(article_evt):
-    """159 는 `null` 로 뒀다. 204 가 **발급한** 실행의 값으로 바꿨다.
-
-    159 의 근거는 "기사는 실행에 속하지 않는다 — 이월분에서 거짓이 된다" 였고, 그건
-    **수집한** 실행을 찍을 때 맞는 말이다. 앞 실행이 받아 두고 못 낸 기사에 그 실행을
-    찍으면 거짓이 된다. 발급한 실행은 이월분에서도 거짓이 되지 않는다 — 그 기사를 실제로
-    내보낸 회차가 하나뿐이라서다.
-
-    바꾼 이유는 소비 측이 curated 를 `domain/published_date/source/run_id` 로 파티션하고
-    재처리 단위를 그것으로 자르기 때문이다. `null` 이면 그 축이 없다. 덤으로 159 가
-    `spark-integration.md` 에 적어 둔 "`run_id` 가 `nullable=False` 인데 기사는 항상 null"
-    어긋남이 사라진다.
-    """
+    """159 는 `null` 로 뒀고 204 가 발급 실행 값으로 바꿨다. 결정은 S15P21A102-205."""
     assert article_evt["run_id"]
     assert article_evt["article_id"]
