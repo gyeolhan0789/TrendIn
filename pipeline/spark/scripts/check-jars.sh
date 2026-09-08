@@ -16,9 +16,10 @@ PIPELINE_DIR=$(cd "$SPARK_DIR/.." && pwd)
 jars=$(jar_list "$SPARK_DIR/jars")
 resolve_python "$PIPELINE_DIR"
 log4j=$(to_file_uri "$SPARK_DIR/conf/log4j2.properties")
+script=$(to_app_uri "$SPARK_DIR/scripts/check-jars.py")
 
 cd "$PIPELINE_DIR"
 exec spark-submit \
   --jars "$jars" \
   --driver-java-options "-Dlog4j.configurationFile=$log4j" \
-  "$SPARK_DIR/scripts/check-jars.py"
+  "$script"

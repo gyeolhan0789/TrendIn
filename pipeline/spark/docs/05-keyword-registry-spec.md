@@ -6,14 +6,18 @@
 
 ## 1. 절대 제약 — 키워드를 삭제하지 않는다
 
-`keywords` 행 하나에 네 가지가 매달려 있다.
+`keywords` 행 하나에 여섯 가지가 딸려 있다.
 
 | 참조하는 곳 | 잃는 것 |
 | --- | --- |
 | `member_interest_keywords.keyword_id` | **사용자가 등록한 관심 키워드** |
-| `trends.keyword_id` | 트렌드와 그에 딸린 모든 지표 |
+| `trends.keyword_id` | 트렌드와 그 설명 텍스트 |
+| `keyword_metrics.keyword_id` | 기간별 지표 |
+| `keyword_metric_history.keyword_id` | **언급량 시계열 전체** |
 | `keyword_contents.keyword_id` | 관련 콘텐츠 연결 |
 | `keyword_relations.source/target_keyword_id` | 연관 관계 |
+
+v2 에서 지표가 `trends` 밑에서 `keywords` 밑으로 올라왔으므로([erd](erd/erd-00-current.md)) 이 목록이 둘 늘었다. **키워드 하나를 지우면 그 키워드의 그래프가 통째로 사라진다.**
 
 **FK 의 `ON DELETE` 동작이 다이어그램에 표시돼 있지 않다.** 어느 쪽이든 결과가 나쁘다.
 
@@ -39,10 +43,18 @@
 **MVP 에서는 하지 않는다.** 필요해지면 백엔드와 함께 아래 순서로 수동 진행한다.
 
 1. 흡수될 키워드를 참조하는 `member_interest_keywords` 를 대표로 옮기고, 같은 회원에게 중복이 생긴 행을 정리
-2. `trends`, `keyword_contents`, `keyword_relations` 를 대표로 이관
+2. `trends`, `keyword_contents`, `keyword_relations`, `keyword_metrics`, `keyword_metric_history` 를 대표로 이관
 3. 그다음 삭제
 
-2번에서 `trends.keyword_id` 에 **UK 가 걸려 있다는 점**을 주의한다. 두 키워드가 모두 트렌드였다면 대표로 옮기는 순간 UK 위반이 난다. 흡수되는 쪽의 `trends` 행과 그 `trend_metrics` 를 먼저 처리해야 하는데, 그건 지표 이력을 버리는 것이라 간단하지 않다.
+2번에 **유일성 충돌이 세 군데 있다.**
+
+| 테이블 | 충돌 | 처리 |
+| --- | --- | --- |
+| `trends` | `keyword_id` UK — 둘 다 트렌드였으면 위반 | 흡수되는 쪽의 행을 버린다. `description`·`summary`·`reason` 이 함께 사라진다 |
+| `keyword_metrics` | `(keyword_id, period)` — 같은 기간 행이 둘 | **버리지 않고 다음 회차 재계산에 맡긴다.** 병합이 반영된 원자료에서 값이 다시 나온다 |
+| `keyword_metric_history` | `(keyword_id, bucket_start)` — 같은 날짜 행이 둘 | 같음. 단 재계산 구간 W 밖의 버킷은 값이 합쳐지지 않고 계단이 남는다 ([07 §2](07-metrics-and-ranking-spec.md)) |
+
+**지표 쪽은 이관보다 재계산이 맞다.** 두 키워드의 언급량을 행 단위로 더하면 같은 문서를 두 번 세게 된다 — 병합된 두 표기가 같은 문서에 함께 나온 경우다. 원자료에서 다시 세면 그 문서가 1로 셈된다.
 
 **잘못 승격된 키워드는 남는다.** 이게 이 설계의 비용이다. 완화책은 승격 문턱을 높이는 것([§5](#5-승격))과, `keywords` 에 있는 것과 트렌드로 노출되는 것을 분리하는 것이다 — `trends` 행을 만들지 않으면 목록·상세에 나오지 않고 키워드 검색에만 걸린다.
 
@@ -78,7 +90,7 @@
 | 약어의 각 글자가 전개형 단어들의 첫 글자와 대응 | `MCP` ↔ `Model Context Protocol` ✓ |
 | 서로 다른 소스 2곳 이상 | 한 커뮤니티의 관용이 아님 |
 
-대표 표기는 **빈도가 높은 쪽**을 고른다. 대개 약어가 이긴다.
+대표 표기는 **빈도가 높은 쪽**을 고른다. 대개 약어가 우선한다.
 
 ### 표기 변형 흡수 (오타)
 
@@ -96,7 +108,7 @@
 | 문맥 분포 유사도 | 높다 | 중간 |
 | 임베딩 유사도 | 높다 | 높다 |
 
-**이 표가 05 와 [06](06-related-keyword-spec.md) 을 잇는 지점이다.** 임베딩 유사도만으로는 둘을 구분할 수 없고, NPMI 를 함께 봐야 갈린다. NPMI 계산은 06 이 하고, 05 는 그 값을 읽어 판정에 쓴다.
+**이 표가 05 와 [06](06-related-keyword-spec.md) 을 잇는 지점이다.** 임베딩 유사도만으로는 둘을 구분할 수 없고, NPMI 를 함께 봐야 나뉜다. NPMI 계산은 06 이 하고, 05 는 그 값을 읽어 판별에 쓴다.
 
 이 신호는 **자동 병합에 쓰지 않고 검수 큐로 보낸다.** 상관이지 증거가 아니기 때문이다.
 
@@ -150,23 +162,30 @@
 
 | 컬럼 | 값 |
 | --- | --- |
-| `domain` | enum 상수명. `development` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)) |
+| `domain` | enum 상수명. 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)) |
 | `name` | 대표 표기 (`surface`) |
 | `normalized_name` | 비교키 ([04 §4](04-keyword-extraction-spec.md)) |
-| `first_seen_at` | **최초 관측 시각.** 승격 시각이 아니다 |
 
-**`first_seen_at` 이 승격 시각이 아니라는 점이 중요하다.** 이 값은 [07 §5](07-metrics-and-ranking-spec.md) 의 `NEW` 판정 근거다. 승격 시각을 넣으면 며칠간 관측되다 승격된 키워드가 승격일에 `NEW` 로 떠서, "새로 뜨는 트렌드"가 실제보다 늦게 나타난다.
-
-값은 내부 후보 테이블(`pl_candidate`)이 갖고 있다 ([08 §3](08-storage-schema.md)). 승격 시점에 그 값을 그대로 옮긴다. **이미 있는 행이면 갱신하지 않는다** — 최초는 한 번뿐이다.
+컬럼이 셋뿐이다. **v2 에서 `first_seen_at` 이 없어졌다** ([erd](erd/erd-00-current.md)).
 
 ```sql
-INSERT INTO keywords (domain, name, normalized_name, first_seen_at)
-SELECT domain, name, normalized_name, first_seen_at FROM pl_stage_keywords
+INSERT INTO keywords (domain, name, normalized_name)
+SELECT domain, name, normalized_name FROM pl_stage_keywords
 ON CONFLICT (domain, normalized_name) DO UPDATE SET
   name = EXCLUDED.name          -- 대표 표기는 바뀔 수 있다
-                                -- first_seen_at 은 건드리지 않는다
 RETURNING id, domain, normalized_name;
 ```
+
+### `first_seen_at` 이 없어진 것이 승격 설계를 바꾸지 않는다
+
+그 컬럼은 `NEW` 판별의 근거였고, 승격 시점에 `pl_candidate` 의 최초 관측 시각을 옮겨 담는 자리였다. 지금 `NEW` 는 **언급량 이력으로 판별한다** ([07 §6](07-metrics-and-ranking-spec.md)).
+
+| | v1 | v2 |
+| --- | --- | --- |
+| `NEW` 의 근거 | `keywords.first_seen_at` | `pl_keyword_daily_stat` 의 직전 구간 언급량 |
+| 최초 관측 시각을 어디에 두나 | 승격 때 서비스 테이블로 옮긴다 | **`pl_candidate` 에만 둔다.** 옮기지 않는다 |
+
+**서비스 테이블로 옮기지 않는 편이 낫다.** 그 값은 승격 심사와 운영 조회에 쓰는 파이프라인 내부 정보인데, 서비스 테이블에 있으면 백엔드가 스키마를 다시 만들 때 함께 사라진다 ([08 §6](08-storage-schema.md)). 지금은 파이프라인이 소유한 테이블에만 있으므로 그 사고에 영향을 받지 않는다.
 
 `RETURNING` 으로 `id` 를 받아 내부 매핑 테이블에 둔다. `keyword_contents` 가 `keyword_id` 를 요구하기 때문이며, [03 §8](03-normalization-spec.md) 의 `contents.id` 처리와 같은 이유로 `DO NOTHING` 이 아니라 `DO UPDATE` 를 쓴다.
 
@@ -178,7 +197,7 @@ RETURNING id, domain, normalized_name;
 
 제약 없이 그냥 INSERT 하면 **매 배치마다 같은 키워드가 새 행으로 쌓인다.** `Kubernetes` 가 100개 행이 되고, 언급량이 100 갈래로 흩어지고, 사용자가 관심 키워드로 등록한 행과 트렌드가 붙은 행이 서로 다른 `id` 가 된다.
 
-**나중에 붙일 수 없다는 점이 핵심이다.** 중복이 쌓인 뒤에 UNIQUE 를 걸려면 먼저 청소해야 하는데, `keyword_contents` 는 3번 행을, `member_interest_keywords` 는 47번 행을, `trends` 는 88번 행을 가리키고 있는 상태에서 무엇이 진짜인지 판정할 수 없다. DB 가 초기 버전이라 대부분은 구현하면서 고쳐도 되지만([08 §6](08-storage-schema.md)) **이건 그 예외다.**
+**나중에 붙일 수 없다는 점이 핵심이다.** 중복이 쌓인 뒤에 UNIQUE 를 걸려면 먼저 청소해야 하는데, `keyword_contents` 는 3번 행을, `member_interest_keywords` 는 47번 행을, `trends` 는 88번 행을 가리키고 있는 상태에서 무엇이 진짜인지 판별할 수 없다. DB 가 초기 버전이라 대부분은 구현하면서 고쳐도 되지만([08 §6](08-storage-schema.md)) **이건 그 예외다.**
 
 **애플리케이션에서 SELECT 후 INSERT 로 우회하지 않는다.** 경쟁 조건이 있고, 무엇보다 제약이 없으면 한 번 어긋난 데이터를 나중에 정리할 수 없다.
 
@@ -190,13 +209,13 @@ RETURNING id, domain, normalized_name;
 
 **도메인이 다르면 분리된다.** `(domain, normalized_name)` 복합 UNIQUE 덕분에 개발의 `모델` 과 패션의 `모델` 은 별개 행이 된다 ([§5](#5-승격)). 단독 UNIQUE 로 걸면 이 분리가 깨진다.
 
-**같은 도메인 안의 동형이의어는 구분하지 못한다.** 개발 도메인의 `Swift`(언어)와 `Swift`(결제망) 같은 경우다. 문맥 클러스터링으로 나눌 수는 있지만, 판정이 불안정하고 `keywords` 스키마에 의미 구분을 표현할 자리가 없다.
+**같은 도메인 안의 동형이의어는 구분하지 못한다.** 개발 도메인의 `Swift`(언어)와 `Swift`(결제망) 같은 경우다. 문맥 클러스터링으로 나눌 수는 있지만, 판별이 불안정하고 `keywords` 스키마에 의미 구분을 표현할 자리가 없다.
 
 **이 묶음은 이걸 해결하지 않는다.** 한계로 인정하고 문서에 남긴다. 실제로 문제가 되는 사례가 관측되면 그때 다룬다.
 
 ## 7. 검수 큐
 
-층 2·3 이 자동 판정하지 못한 것들이 모인다. 내부 테이블이며 서비스 스키마가 아니다.
+층 2·3 이 자동 판별하지 못한 것들이 모인다. 내부 테이블이며 서비스 스키마가 아니다.
 
 | 항목 | |
 | --- | --- |
@@ -211,7 +230,7 @@ RETURNING id, domain, normalized_name;
 
 ### 검수를 안 하면 어떻게 되나
 
-큐가 비어 있어도 파이프라인은 정상 동작한다. 층 1·2 자동 병합만 적용되고, 층 3 후보는 병합되지 않은 채 각각 별개 키워드로 남는다. **의미적 동의어가 갈라져 있는 상태**이고, 그건 잘못 합쳐진 것보다 훨씬 낫다.
+큐가 비어 있어도 파이프라인은 정상 동작한다. 층 1·2 자동 병합만 적용되고, 층 3 후보는 병합되지 않은 채 각각 별개 키워드로 남는다. **의미적 동의어가 나뉘어져 있는 상태**이고, 그건 잘못 합쳐진 것보다 훨씬 낫다.
 
 검수는 품질 개선 작업이지 파이프라인의 필수 경로가 아니다. 이 성질을 유지하는 것이 중요하다 — 사람 손을 파이프라인의 의존성으로 만들면 아무도 안 볼 때 파이프라인이 멈춘다.
 

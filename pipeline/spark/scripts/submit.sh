@@ -27,9 +27,12 @@ jars=$(jar_list "$SPARK_DIR/jars")
 resolve_python "$PIPELINE_DIR"
 log4j=$(to_file_uri "$SPARK_DIR/conf/log4j2.properties")
 
+# Job 스크립트 경로도 URI 로 준다 (이유는 `_common.sh` 의 `to_app_uri`).
+job_file=$(to_app_uri "$SPARK_DIR/jobs/$job.py")
+
 cd "$PIPELINE_DIR"
 exec spark-submit \
   --jars "$jars" \
   --driver-java-options "-Dlog4j.configurationFile=$log4j" \
   ${SPARK_SUBMIT_OPTS_EXTRA:-} \
-  "$SPARK_DIR/jobs/$job.py" "$@"
+  "$job_file" "$@"

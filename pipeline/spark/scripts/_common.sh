@@ -11,6 +11,13 @@ spark_dir() {
 # 형식이라 어디서나 확실하다.
 #
 # Git Bash 의 /c/... 경로는 JVM 이 못 읽으므로 cygpath 가 있으면 거친다.
+#
+# 변환만으로는 부족하고 `file:///` 까지 붙여야 한다. `C:/Users/...` 를 그대로 주면
+# spark-submit 이 `C:` 를 **URI 스킴**으로 읽어 세션이 뜨기도 전에 죽는다:
+#
+#     org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme "C"
+#
+# 리눅스 경로(`/opt/...`)는 스킴이 없어 이 문제가 없으므로 그대로 둔다.
 jar_list() {
   local dir=$1 jar sep=""
   if ! ls "$dir"/*.jar >/dev/null 2>&1; then
@@ -19,7 +26,7 @@ jar_list() {
   fi
   for jar in "$dir"/*.jar; do
     if command -v cygpath >/dev/null 2>&1; then
-      jar=$(cygpath -m "$jar")
+      jar="file:///$(cygpath -m "$jar")"
     fi
     printf '%s%s' "$sep" "$jar"
     sep=","
@@ -63,5 +70,25 @@ to_file_uri() {
     echo "file:///$(cygpath -m "$path")"
   else
     echo "file://$path"
+  fi
+}
+
+# spark-submit 에 넘길 **앱 스크립트**(.py) 경로.
+#
+# Git Bash 는 POSIX 경로 인자를 네이티브 프로그램에 넘길 때 드라이브 표기로 자동 변환하는데,
+# spark-submit 은 그 앞 글자를 URI 스킴으로 읽어 `No FileSystem for scheme "C"` 로 죽는다.
+# `file:///` 로 시작하면 자동 변환도 걸리지 않는다.
+#
+# 리눅스에서는 손대지 않는다 — 경로 그대로가 로그와 오류 메시지에 읽기 쉽게 남는다.
+#
+# `to_file_uri` 를 직접 부르지 않고 이 함수를 두는 이유: 앱 경로를 넘기는 스크립트가 둘
+# (submit.sh · check-jars.sh) 이고, 한쪽만 고쳐 두면 나머지가 조용히 Git Bash 에서만
+# 죽는다. 실제로 그렇게 한 번 갈렸다.
+to_app_uri() {
+  local path=$1
+  if command -v cygpath >/dev/null 2>&1; then
+    to_file_uri "$path"
+  else
+    echo "$path"
   fi
 }

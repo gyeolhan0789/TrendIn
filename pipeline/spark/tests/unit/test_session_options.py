@@ -74,7 +74,7 @@ def test_추가_S3A_옵션은_코드를_고치지_않고_넣는다():
     assert options["spark.hadoop.fs.s3a.connection.maximum"] == "32"
 
 
-def test_checkpoint_는_Job_마다_갈린다():
+def test_checkpoint_는_Job_마다_나뉜다():
     config = make({"checkpoint": {"root": "/var/ckpt/"}})
 
     assert checkpoint_dir("ingest", config) == "/var/ckpt/ingest"
