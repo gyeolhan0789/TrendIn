@@ -177,6 +177,7 @@ Topic: `raw-file-ready` · message key: `source_id` · serialization: JSON
 | `status` | `success` 또는 `failed`. |
 | `record_count` | 배치는 jsonl 레코드 수, 기사 이벤트는 `1`, 요약 이벤트는 그 실행이 발급한 기사 수. 0 건도 정상 수집이면 `success` 로 발행한다. |
 | `checksum` | `sha256-` 접두. 소비 측이 원문 다운로드 후 대조한다. |
+| `format` | `jsonl` (배치) · `json` (기사) · `null` (실행 요약). **소비 측이 이벤트 모양을 가르는 키다** — `event_id` 를 파싱해 가르지 않는다. 값을 늘리면 소비 계약(`spark/docs/02-input-contract.md` #2 판정 표)을 같이 고친다. |
 | `failure_reason` | `status` 가 `failed` 일 때만 채운다. |
 
 `collected_at` 은 키워드의 최초 감지 시각을 되짚는 근거가 된다. 재처리 시 값이 갱신되면 실제보다 늦게 기록되므로 수집 기준 시각을 원본 그대로 보존한다. 키워드가 언제 화제였는지는 문서별 `published_at` 으로 집계하며, `collected_at` 은 파이프라인 운영 정보로만 쓴다.
