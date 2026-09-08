@@ -1,12 +1,12 @@
-"""이벤트 계약 판정 ([02 §2](../../../../spark/docs/02-input-contract.md)).
+"""이벤트 계약 판별 ([02 §2](../../../../spark/docs/02-input-contract.md)).
 
-**pyspark 를 import 하지 않는다.** 판정을 매핑 하나에 대한 순수 함수로 두는 이유는 두
+**pyspark 를 import 하지 않는다.** 판별을 매핑 하나에 대한 순수 함수로 두는 이유는 두
 가지다 — 완료 조건이 전부 "이 이벤트가 어디로 가는가" 라서 SparkSession 없이 검사할 수
 있어야 하고([09 §4](../../../../spark/docs/09-dev-and-test.md) 층 1), 계약이 바뀔 때
 고칠 자리가 한 곳이어야 한다.
 
-토픽 하나에 모양이 둘 흐른다 (`pipeline/docs/web-collect.md` #6). 분기는 소비 측 책임이고
-판정 기준은 `object_key` 의 유무다.
+토픽 하나에 형태가 둘 흐른다 (`pipeline/docs/web-collect.md` #6). 분기는 소비 측 책임이고
+판별 기준은 `object_key` 의 유무다.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
-# 아는 봉투 버전. 이보다 높으면 처리하지 않는다 (아래 `_check_schema_version`).
+# 아는 메시지 버전. 이보다 높으면 처리하지 않는다 (아래 `_check_schema_version`).
 KNOWN_SCHEMA_VERSION = 1
 
 # 이벤트 슬러그 → `keywords.domain` (백엔드 Java enum 상수명).
@@ -33,7 +33,7 @@ SUMMARY_STATUSES = frozenset({"success", "failed"})
 
 
 class EventShape(str, Enum):
-    """봉투의 두 모양. `object_key` 가 있으면 기사, 없으면 실행 요약이다."""
+    """메시지의 두 형태. `object_key` 가 있으면 기사, 없으면 실행 요약이다."""
 
     ARTICLE = "ARTICLE"
     SUMMARY = "SUMMARY"
@@ -58,7 +58,7 @@ class ErrorType(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
-    """판정 결과. 통과면 `shape` 가 있고, 실패면 `error_type` 과 사유가 있다.
+    """판별 결과. 통과면 `shape` 가 있고, 실패면 `error_type` 과 사유가 있다.
 
     둘을 한 타입에 담는 이유는 호출부가 분기를 한 번만 하게 하려는 것이다. 예외로
     올리지 않는 이유는 실패가 예외적 상황이 아니라 **정상적인 출력 경로**(DLQ)라서다.
@@ -88,7 +88,7 @@ class Verdict:
 def _blank(value: Any) -> bool:
     """`None` 과 빈 문자열을 같게 본다.
 
-    생산자는 빈 문자열을 내지 않지만(pydantic `NonEmptyStr`), 판정을 `is None` 으로만
+    생산자는 빈 문자열을 내지 않지만(pydantic `NonEmptyStr`), 판별을 `is None` 으로만
     쓰면 공백 하나가 유효한 키로 통과해 S3A 조회가 엉뚱한 곳을 친다. 넓게 막는 쪽이 싸다.
     """
     return value is None or (isinstance(value, str) and not value.strip())
@@ -99,9 +99,9 @@ def _missing(event: Mapping[str, Any], *fields: str) -> list[str]:
 
 
 def classify(event: Mapping[str, Any], *, corrupt_field: str = "_corrupt_record") -> Verdict:
-    """이벤트 하나가 어느 모양인지, 아니면 어떤 이유로 DLQ 인지 판정한다.
+    """이벤트 하나가 어느 형태인지, 아니면 어떤 이유로 DLQ 인지 판별한다.
 
-    순서가 의미를 갖는다 — 파싱 → 버전 → 공통 필드 → 모양 → 모양별 구조 → 도메인.
+    순서가 의미를 갖는다 — 파싱 → 버전 → 공통 필드 → 형태 → 형태별 구조 → 도메인.
     도메인을 맨 뒤에 두는 이유는 구조가 깨진 이벤트의 `domain` 을 보는 것이 무의미하고,
     구조 위반이 `UNKNOWN_DOMAIN` 으로 보고되면 생산자가 엉뚱한 곳을 보게 되기 때문이다.
     """
@@ -180,7 +180,7 @@ def _check_article(event: Mapping[str, Any]) -> Verdict | None:
 
     if _blank(event.get("checksum")):
         return Verdict.reject(
-            ErrorType.CONTRACT_VIOLATION, "checksum 이 없다 — 검증할 수 없는 원문은 받지 않는다"
+            ErrorType.CONTRACT_VIOLATION, "checksum 이 없다 — 검증할 수 없는 객체는 받지 않는다"
         )
     return None
 
@@ -188,7 +188,7 @@ def _check_article(event: Mapping[str, Any]) -> Verdict | None:
 def _check_summary(event: Mapping[str, Any]) -> Verdict | None:
     """실행 요약 이벤트의 구조. 통과면 `None`.
 
-    `object_key` 가 `null` 인 것은 **계약 위반이 아니라 이 모양의 식별 표지**다. 배치 계약
+    `object_key` 가 `null` 인 것은 **계약 위반이 아니라 이 형태의 식별 표지**다. 배치 계약
     시절의 "success 인데 object_key 가 null 이면 DLQ" 를 그대로 두면 요약 이벤트를 전부
     버린다.
     """
@@ -247,7 +247,7 @@ def verify_checksum(expected: str | None, data: bytes) -> Verdict | None:
     불일치한다. 생산자가 넣는 값은 `article.model_dump_json(exclude_none=True)` 의
     바이트 해시다 (`collect/flow.py:article_bytes`).
 
-    장부의 `content_sha256`(raw 의 해시)과 이름만 비슷한 다른 값이다 ([02 §0]).
+    수집 이력의 `content_sha256`(raw 의 해시)과 이름만 비슷한 다른 값이다 ([02 §0]).
     """
     if _blank(expected):
         return Verdict.reject(ErrorType.CONTRACT_VIOLATION, "checksum 이 없다")
@@ -292,7 +292,7 @@ def check_article(article: Mapping[str, Any], event: Mapping[str, Any]) -> Verdi
 def has_body(article: Mapping[str, Any]) -> bool:
     """본문이 있는지. 회원 전용(7.4%)과 `hn`(dev 전량)은 `body_text` 가 없다.
 
-    이벤트만으로는 판정할 수 없다 — `web-collect.md` #6 이 `body_withheld` 를 싣는다고
+    이벤트만으로는 판별할 수 없다 — `web-collect.md` #6 이 `body_withheld` 를 싣는다고
     적었지만 구현은 `members_only` 만 싣고, `hn` 은 그 값도 `false` 다. 그래서 객체를
     읽어 이 함수로 본다 ([02 §3], [03 §2]).
     """
@@ -303,7 +303,7 @@ def keywords_domain(event_domain: str) -> str:
     """이벤트 슬러그를 `keywords.domain` 값으로 바꾼다.
 
     `classify` 가 이미 허용 목록을 통과시킨 이벤트에만 부른다. 목록 밖이면 여기서 죽는 것이
-    맞다 — 조용히 슬러그를 그대로 넣으면 `dev` 와 `DEVELOP` 이 별개 분야로 갈라진다.
+    맞다 — 조용히 슬러그를 그대로 넣으면 `dev` 와 `DEVELOP` 이 별개 분야로 나뉜다.
     """
     try:
         return DOMAIN_VALUES[event_domain]

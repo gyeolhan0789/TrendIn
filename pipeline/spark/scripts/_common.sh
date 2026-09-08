@@ -11,6 +11,13 @@ spark_dir() {
 # 형식이라 어디서나 확실하다.
 #
 # Git Bash 의 /c/... 경로는 JVM 이 못 읽으므로 cygpath 가 있으면 거친다.
+#
+# 변환만으로는 부족하고 `file:///` 까지 붙여야 한다. `C:/Users/...` 를 그대로 주면
+# spark-submit 이 `C:` 를 **URI 스킴**으로 읽어 세션이 뜨기도 전에 죽는다:
+#
+#     org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme "C"
+#
+# 리눅스 경로(`/opt/...`)는 스킴이 없어 이 문제가 없으므로 그대로 둔다.
 jar_list() {
   local dir=$1 jar sep=""
   if ! ls "$dir"/*.jar >/dev/null 2>&1; then
@@ -19,7 +26,7 @@ jar_list() {
   fi
   for jar in "$dir"/*.jar; do
     if command -v cygpath >/dev/null 2>&1; then
-      jar=$(cygpath -m "$jar")
+      jar="file:///$(cygpath -m "$jar")"
     fi
     printf '%s%s' "$sep" "$jar"
     sep=","

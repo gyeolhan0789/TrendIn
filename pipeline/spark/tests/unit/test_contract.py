@@ -1,4 +1,4 @@
-"""이벤트 계약 판정. SparkSession 없이 검사한다 ([09 §4] 층 1).
+"""이벤트 계약 판별. SparkSession 없이 검사한다 ([09 §4] 층 1).
 
 완료 조건이 전부 "이 이벤트가 어디로 가는가" 라서 이 파일이 170 의 주 검증이다.
 통합 테스트(층 3)는 배선이 맞는지만 본다.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pathlib
 
 import pytest
 
@@ -23,7 +24,7 @@ from trendin.spark.io.contract import (
 )
 
 # --- 픽스처 --------------------------------------------------------------
-# 생산자 `collect/events.py` 의 `article_event()` · `run_summary_event()` 출력 모양을
+# 생산자 `collect/events.py` 의 `article_event()` · `run_summary_event()` 출력 형태를
 # 그대로 옮겼다. 필드를 빼거나 더하면 그쪽 구현과 어긋난 것이다.
 
 
@@ -83,7 +84,7 @@ def summary_event(**overrides):
     return event
 
 
-# --- 두 모양 분기 ---------------------------------------------------------
+# --- 두 형태 분기 ---------------------------------------------------------
 
 
 def test_object_key_가_있으면_기사_이벤트다():
@@ -102,8 +103,8 @@ def test_object_key_가_null_이면_요약_이벤트고_계약_위반이_아니�
 def test_object_key_가_공백뿐이면_기사로_보지_않는다(value):
     """공백을 유효한 키로 통과시키면 S3A 가 엉뚱한 경로를 친다.
 
-    요약으로 분기되고, 기사 봉투에는 `run_id` 가 없으니 계약 위반으로 떨어진다. 어느
-    쪽이든 **원문 조회로 가지 않는 것**이 이 테스트가 지키는 것이다.
+    요약으로 분기되고, 기사 메시지에는 `run_id` 가 없으니 계약 위반으로 떨어진다. 어느
+    쪽이든 **객체 조회로 가지 않는 것**이 이 테스트가 지키는 것이다.
     """
     verdict = classify(article_event(object_key=value))
 
@@ -184,7 +185,7 @@ def test_기사_이벤트가_success_가_아니면_계약_위반이다():
 
 
 def test_failed_요약_이벤트는_통과하고_요약으로_분류된다():
-    """원장에 SOURCE_FAILED 로 남기고 원문 조회를 건너뛰는 경로다."""
+    """처리 이력에 SOURCE_FAILED 로 남기고 객체 조회를 건너뛰는 경로다."""
     verdict = classify(summary_event(status="failed", record_count=0, failure_reason="태스크 실패"))
 
     assert verdict.ok
@@ -221,7 +222,7 @@ def test_요약_이벤트에_run_id_가_없으면_계약_위반이다():
 
 
 def test_event_id_가_없으면_계약_위반이다():
-    """멱등 판정 키다. 없으면 중복을 걸러낼 수 없다."""
+    """멱등 판별 키다. 없으면 중복을 걸러낼 수 없다."""
     verdict = classify(article_event(event_id=None))
 
     assert verdict.error_type is ErrorType.CONTRACT_VIOLATION
@@ -349,3 +350,47 @@ def test_허용_목록은_둘뿐이다():
 def test_목록_밖은_조용히_통과시키지_않는다():
     with pytest.raises(ValueError):
         keywords_domain("beauty")
+
+
+# --- 계약 fixture 대조 ([09 §4]) ------------------------------------------
+#
+# 위 `article_event()` · `summary_event()` 는 생산자 출력을 **손으로 옮긴** 것이다. 생산
+# 측이 `events.py` 와 fixture 를 고치고 여기를 안 고치면, 판별은 계속 통과하는데 실제로
+# 흐르는 메시지는 다른 모양이 된다. 그 어긋남은 층 3 이 서기 전까지 아무도 못 잡는다.
+#
+# fixture 는 생산 측이 `tests/common/test_contract_fixtures.py` 로 `events.py` 와 맞춰
+# 두므로, 여기서 fixture 를 대조하면 두 구현이 갈리는 순간 이 파일이 먼저 빨개진다.
+
+CONTRACT = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "contract"
+
+
+def load(name: str) -> dict:
+    return json.loads((CONTRACT / name).read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(
+    "name,shape",
+    [
+        ("article-event.json", EventShape.ARTICLE),
+        ("run-summary-success.json", EventShape.SUMMARY),
+        ("run-summary-failed.json", EventShape.SUMMARY),
+    ],
+)
+def test_계약_fixture_는_전부_통과하고_기대한_형태다(name, shape):
+    """실제로 흐르는 세 모양이다. 하나라도 거절되면 그 형태가 통째로 DLQ 로 간다."""
+    verdict = classify(load(name))
+
+    assert verdict.ok, verdict.detail
+    assert verdict.shape is shape
+
+
+@pytest.mark.parametrize(
+    "name,builder",
+    [
+        ("article-event.json", article_event),
+        ("run-summary-success.json", summary_event),
+    ],
+)
+def test_손으로_옮긴_형태가_fixture_와_같은_칸을_갖는다(name, builder):
+    """값이 아니라 **칸**을 본다. 값은 테스트마다 바꿔 쓰지만 칸이 갈리면 계약이 갈린 것이다."""
+    assert set(builder()) == set(load(name))

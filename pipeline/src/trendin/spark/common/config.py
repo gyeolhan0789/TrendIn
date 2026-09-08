@@ -63,7 +63,7 @@ ENV_BINDINGS: tuple[EnvBinding, ...] = (
 
 
 class ConfigError(RuntimeError):
-    """설정 파일이 없거나, 필수 값이 비어 있거나, 모양이 다르다."""
+    """설정 파일이 없거나, 필수 값이 비어 있거나, 형태가 다르다."""
 
 
 class Config(Mapping[str, Any]):
@@ -138,7 +138,7 @@ def load_config(
     conf_dir: Path | str | None = None,
     env: Mapping[str, str] | None = None,
 ) -> Config:
-    """`base.yaml` 위에 프로파일을, 그 위에 환경변수를 얹는다."""
+    """`base.yaml` 위에 프로파일을, 그 위에 환경변수를 덧붙인다."""
     environ = os.environ if env is None else env
     resolved = resolve_profile(profile, environ)
     directory = Path(conf_dir) if conf_dir is not None else DEFAULT_CONF_DIR

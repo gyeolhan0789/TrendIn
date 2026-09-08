@@ -43,7 +43,7 @@ def test_프로파일이_base_를_덮는다(conf_dir):
 
     assert config.get("kafka.bootstrap_servers") == "local:29092"
     # 프로파일이 안 적은 키는 base 에서 살아남는다. 이게 안 되면 프로파일마다
-    # 전체를 복사해야 하고, 그 복사본은 반드시 갈라진다.
+    # 전체를 복사해야 하고, 그 복사본은 반드시 나뉜다.
     assert config.get("kafka.group_id_prefix") == "trendin"
 
 
@@ -73,10 +73,10 @@ def test_세_층이_한_번에_섞인다(conf_dir):
         env={"KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:29092"},
     )
 
-    assert config.get("kafka.group_id_prefix") == "trendin"          # base 만 적었다
-    assert config.get("minio.endpoint") == "http://127.0.0.1:9000"   # 프로파일이 이겼다
+    assert config.get("kafka.group_id_prefix") == "trendin"  # base 만 적었다
+    assert config.get("minio.endpoint") == "http://127.0.0.1:9000"  # 프로파일이 이겼다
     assert config.get("kafka.bootstrap_servers") == "127.0.0.1:29092"  # 환경변수가 이겼다
-    assert config.get("minio.region") == "us-east-1"                 # 아무도 안 덮었다
+    assert config.get("minio.region") == "us-east-1"  # 아무도 안 덮었다
 
 
 def test_중첩_사전은_통째로_갈아끼우지_않는다(conf_dir):
@@ -203,7 +203,7 @@ def test_비밀은_로그용_사본에서_가려진다(conf_dir):
 
     assert masked["jdbc"]["password"] == "***"
     assert masked["minio"]["secret_key"] == "***"
-    assert masked["jdbc"]["user"] == "trendin"      # 비밀이 아니다
+    assert masked["jdbc"]["user"] == "trendin"  # 비밀이 아니다
     assert masked["minio"]["access_key"] == "spark"  # 계정 이름이지 비밀이 아니다
     assert config.get("jdbc.password") == "hunter2"  # 원본은 그대로다
     assert "hunter2" not in repr(config)

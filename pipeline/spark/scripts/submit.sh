@@ -27,9 +27,17 @@ jars=$(jar_list "$SPARK_DIR/jars")
 resolve_python "$PIPELINE_DIR"
 log4j=$(to_file_uri "$SPARK_DIR/conf/log4j2.properties")
 
+# Job 스크립트 경로도 URI 로 준다. Git Bash 는 POSIX 경로 인자를 네이티브 프로그램에
+# 넘길 때 드라이브 표기로 자동 변환하는데, spark-submit 은 그 앞 글자를 URI 스킴으로
+# 읽어 `No FileSystem for scheme "C"` 로 죽는다. file:/// 로 시작하면 변환도 안 걸린다.
+job_file="$SPARK_DIR/jobs/$job.py"
+if command -v cygpath >/dev/null 2>&1; then
+  job_file=$(to_file_uri "$job_file")
+fi
+
 cd "$PIPELINE_DIR"
 exec spark-submit \
   --jars "$jars" \
   --driver-java-options "-Dlog4j.configurationFile=$log4j" \
   ${SPARK_SUBMIT_OPTS_EXTRA:-} \
-  "$SPARK_DIR/jobs/$job.py" "$@"
+  "$job_file" "$@"

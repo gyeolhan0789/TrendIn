@@ -19,13 +19,21 @@ contract/
    └─ raw.xml                 raw_object_key 가 가리키는 실물
 ```
 
-`objects/` 아래 경로는 MinIO 의 `object_key` 와 **같은 모양**이다. 그래서 테스트가 버킷 루트만
+`objects/` 아래 경로는 MinIO 의 `object_key` 와 **같은 형태**이다. 그래서 테스트가 버킷 루트만
 바꿔 끼우면 실제 s3a 경로와 같은 코드로 읽힌다.
 
-**손으로 고치지 않는다.** `sha256(article.json)` 이 이벤트의 `checksum` 과 같아야 하고, 봉투의
+**손으로 고치지 않는다.** `sha256(article.json)` 이 이벤트의 `checksum` 과 같아야 하고, 메시지의
 값이 `article.json` 의 값과 같아야 한다. 크롤러 쪽 `pipeline/tests/common/test_contract_fixtures.py`
 가 그 둘을 검사하므로, 손으로 고치면 그쪽이 깨진다. 갱신 절차는
 [`spark-integration.md`](../../../docs/spark-integration.md) 의 "fixture 갱신" 절이다.
+
+`objects/` 아래 두 파일은 `pipeline/.gitattributes` 가 `-text` 로 묶어 뒀다. `core.autocrlf=true`
+인 Windows 작업자가 체크아웃해도 개행이 바뀌지 않는다 — 바뀌면 sha256 이 달라져 fixture 가
+거짓말을 하게 된다.
+
+**⚠️ 소비 측 단위 테스트는 아직 이 fixture 를 읽지 않는다.** `spark/tests/unit/test_contract.py`
+가 메시지 형태를 손으로 옮겨 뒀다. 둘이 나뉘어져도 지금은 아무도 못 잡으므로, `classify()` 를 여기
+3건에 돌리는 테스트를 하나 두는 편이 낫다.
 
 ## `corpus/` · `snapshots/`
 

@@ -1,10 +1,10 @@
-"""Kafka 봉투와 `article.json` 의 명시 스키마 ([02 §1·§3]).
+"""Kafka 메시지와 `article.json` 의 명시 스키마 ([02 §1·§3]).
 
 **추론하지 않는다.** `from_json` 에 스키마를 주지 않으면 필드가 하나 빠진 이벤트가 조용히
 `null` 로 들어와 하류에서 터진다. 여기가 그 스키마의 단일 출처다.
 
-판정은 이 모듈이 하지 않는다 — `contract.py` 가 한다. 스키마는 "어떤 칸이 있는가" 만
-정하고 "어떤 칸이 채워져 있어야 하는가" 는 계약이 정한다. 두 모양이 같은 봉투를 쓰기
+판별은 이 모듈이 하지 않는다 — `contract.py` 가 한다. 스키마는 "어떤 칸이 있는가" 만
+정하고 "어떤 칸이 채워져 있어야 하는가" 는 계약이 정한다. 두 형태가 같은 메시지를 쓰기
 때문에 스키마로 잠글 수 없다.
 """
 
@@ -23,14 +23,14 @@ from pyspark.sql.types import (
 CORRUPT_FIELD = "_corrupt_record"
 
 # `event_id` · `schema_version` 만 non-nullable 이다. 나머지가 전부 nullable 인 이유는
-# 기사 이벤트와 실행 요약 이벤트가 같은 봉투를 쓰면서 안 쓰는 칸을 null 로 두기 때문이다
+# 기사 이벤트와 실행 요약 이벤트가 같은 메시지를 쓰면서 안 쓰는 칸을 null 로 두기 때문이다
 # (`web-collect.md` #6). 여기서 잠그면 요약 이벤트가 파싱 단계에서 통째로 깨진다.
 EVENT_SCHEMA = StructType(
     [
         StructField("event_id", StringType(), False),
         StructField("schema_version", IntegerType(), False),
         StructField("bucket", StringType(), True),
-        # article.json 키. 요약 이벤트는 null 이고, 그것이 두 모양의 판정 기준이다.
+        # article.json 키. 요약 이벤트는 null 이고, 그것이 두 형태의 판별 기준이다.
         StructField("object_key", StringType(), True),
         # raw.{xml|html|json}. 회원 전용 기사와 요약 이벤트는 null. 우리는 읽지 않는다.
         StructField("raw_object_key", StringType(), True),
@@ -45,9 +45,9 @@ EVENT_SCHEMA = StructType(
         StructField("collected_at", StringType(), True),
         StructField("status", StringType(), True),
         StructField("record_count", LongType(), True),
-        # 늘 null. 생산자 장부가 객체 크기를 들고 있지 않아 크기 대조 검증은 없다.
+        # 늘 null. 생산자 수집 이력이 객체 크기를 들고 있지 않아 크기 대조 검증은 없다.
         StructField("size_bytes", LongType(), True),
-        # article.json 바이트의 해시. 장부의 content_sha256(raw 의 해시)과 다른 값이다.
+        # article.json 바이트의 해시. 수집 이력의 content_sha256(raw 의 해시)과 다른 값이다.
         StructField("checksum", StringType(), True),
         StructField("format", StringType(), True),
         StructField("compression", StringType(), True),

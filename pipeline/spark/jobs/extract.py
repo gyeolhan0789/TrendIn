@@ -28,12 +28,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--partitions",
         default=None,
-        help="다시 돌릴 curated 파티션 목록. 없으면 원장이 가리키는 새 파티션만 ([01 §3])",
+        help="다시 돌릴 curated 파티션 목록. 없으면 처리 이력이 가리키는 새 파티션만 ([01 §3])",
     )
 
 
 def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
-    log.info("extract 준비: partitions=%s", args.partitions or "(원장 기준)")
+    log.info("extract 준비: partitions=%s", args.partitions or "(처리 이력 기준)")
     # TODO(S15P21A102): curated 읽기 → 후보 생성 → 스코어링 → 정규화·승격 → 적재.
     #   [04] 추출 · [05] 레지스트리 · [08] 적재 전략.
     log.warning("extract 는 아직 비어 있다 — 뼈대만 돌고 끝난다")

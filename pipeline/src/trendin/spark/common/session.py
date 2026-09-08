@@ -35,7 +35,7 @@ def ensure_worker_python() -> str:
 
     worker 는 PATH 의 `python` 을 잡는데, 그게 .venv 의 것이라는 보장이 없다.
     `spark-submit` 을 가상환경 밖에서 부르거나 PATH 에 다른 파이썬이 앞서 있으면
-    갈린다. `sys.executable` 은 지금 이 코드를 돌리는 해석기라 항상 맞다.
+    나뉜다. `sys.executable` 은 지금 이 코드를 돌리는 해석기라 항상 맞다.
 
     이미 값이 있으면 건드리지 않는다 — 배포에서 일부러 다른 해석기를 가리키는 경우가 있다.
     """

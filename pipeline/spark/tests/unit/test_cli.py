@@ -29,7 +29,7 @@ def test_모르는_인자는_거부한다():
 
 
 # --- 진입점 세 개가 실제로 import 되는지 -----------------------------------
-# conftest.py 가 spark/jobs 를 경로에 얹는다. import 가 깨지면 spark-submit 도 깨진다.
+# conftest.py 가 spark/jobs 를 경로에 덧붙인다. import 가 깨지면 spark-submit 도 깨진다.
 
 
 def test_ingest_는_source_와_재처리_범위를_받는다():
@@ -58,10 +58,14 @@ def test_ingest_재처리_범위는_발행일이고_기본은_비어_있다():
 
     args = parser.parse_args(
         [
-            "--source", "objects",
-            "--domain", "fashion",
-            "--from", "2026-09-01",
-            "--to", "2026-09-03",
+            "--source",
+            "objects",
+            "--domain",
+            "fashion",
+            "--from",
+            "2026-09-01",
+            "--to",
+            "2026-09-03",
             "--force",
         ]
     )
