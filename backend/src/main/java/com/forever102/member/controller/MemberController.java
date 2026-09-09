@@ -3,12 +3,15 @@ package com.forever102.member.controller;
 import com.forever102.global.response.BaseResponse;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,5 +31,12 @@ public class MemberController {
             @Valid @RequestBody InterestKeywordRegisterRequest request
     ) {
         return BaseResponse.success(interestKeywordService.register(memberId, request));
+    }
+
+    @GetMapping("/recommended-keywords")
+    public BaseResponse<List<RecommendedKeywordResponse>> getRecommendedKeywords(
+            @AuthenticationPrincipal Long memberId
+    ) {
+        return BaseResponse.success(interestKeywordService.getRecommendedKeywords(memberId));
     }
 }

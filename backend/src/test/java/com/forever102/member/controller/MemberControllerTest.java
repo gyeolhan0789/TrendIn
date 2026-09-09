@@ -15,6 +15,7 @@ import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWit
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,7 +25,12 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.RecommendedKeywordResponse;
+import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
+import com.forever102.member.domain.Domain;
+import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,6 +137,53 @@ class MemberControllerTest {
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("{\"keywordId\":81}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    @Test
+    @DisplayName("인증된 회원의 추천 키워드를 반환하고 문서화한다")
+    void getsRecommendedKeywords() throws Exception {
+        // given
+        given(interestKeywordService.getRecommendedKeywords(MEMBER_ID)).willReturn(List.of(
+                new RecommendedKeywordResponse(82L, "Mary Jane Sneakers",
+                        new DomainResponse(Domain.FASHION, "패션"), new BigDecimal("91.50"))));
+
+        // when & then
+        mockMvc.perform(get("/members/me/recommended-keywords")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].keywordId").value(82))
+                .andExpect(jsonPath("$.data[0].keyword").value("Mary Jane Sneakers"))
+                .andExpect(jsonPath("$.data[0].domain.code").value("FASHION"))
+                .andExpect(jsonPath("$.data[0].domain.name").value("패션"))
+                .andExpect(jsonPath("$.data[0].relationScore").value(91.50))
+                .andDo(document("members-recommended-keywords",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("data[].keywordId").type(JsonFieldType.NUMBER).description("추천 키워드 ID"),
+                                fieldWithPath("data[].keyword").type(JsonFieldType.STRING).description("추천 키워드 이름"),
+                                fieldWithPath("data[].domain.code").type(JsonFieldType.STRING).description("분야 코드"),
+                                fieldWithPath("data[].domain.name").type(JsonFieldType.STRING).description("분야 이름"),
+                                fieldWithPath("data[].relationScore").type(JsonFieldType.NUMBER)
+                                        .description("관심 키워드와의 최고 연관도 점수"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+    }
+
+    @Test
+    @DisplayName("추천 키워드가 없으면 빈 배열을 반환한다")
+    void returnsEmptyRecommendedKeywords() throws Exception {
+        // given
+        given(interestKeywordService.getRecommendedKeywords(MEMBER_ID)).willReturn(List.of());
+
+        // when & then
+        mockMvc.perform(get("/members/me/recommended-keywords")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     private String bearerToken() {

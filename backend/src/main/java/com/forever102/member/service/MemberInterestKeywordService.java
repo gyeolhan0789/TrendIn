@@ -6,10 +6,13 @@ import com.forever102.member.domain.Member;
 import com.forever102.member.domain.MemberInterestKeyword;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.repository.MemberInterestKeywordRepository;
 import com.forever102.member.repository.MemberRepository;
 import com.forever102.trend.domain.Keyword;
 import com.forever102.trend.repository.KeywordRepository;
+import com.forever102.trend.repository.KeywordRelationRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,6 +27,7 @@ public class MemberInterestKeywordService {
     private final MemberRepository memberRepository;
     private final KeywordRepository keywordRepository;
     private final MemberInterestKeywordRepository interestKeywordRepository;
+    private final KeywordRelationRepository keywordRelationRepository;
 
     public InterestKeywordRegisterResponse register(Long memberId, InterestKeywordRegisterRequest request) {
         Long keywordId = request.keywordId();
@@ -37,6 +41,13 @@ public class MemberInterestKeywordService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.KEYWORD_NOT_FOUND));
 
         return InterestKeywordRegisterResponse.from(save(MemberInterestKeyword.register(member, keyword)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendedKeywordResponse> getRecommendedKeywords(Long memberId) {
+        return keywordRelationRepository.findRecommendedKeywords(memberId).stream()
+                .map(RecommendedKeywordResponse::from)
+                .toList();
     }
 
     private MemberInterestKeyword save(MemberInterestKeyword interestKeyword) {
