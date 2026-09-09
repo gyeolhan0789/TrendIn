@@ -12,16 +12,19 @@ export interface Trend {
 }
 
 export interface TrendDetail extends Trend {
+  firstDetectedAt?: string;
   updatedAt?: string;
 }
 
 export interface TrendAnalysis {
   trendId: string;
   description: string;
+  reason?: string;
 }
 
 export interface RelatedKeyword {
   keywordId?: string;
+  trendId?: string;
   keyword: string;
   relevance?: number;
 }
