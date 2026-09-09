@@ -1,0 +1,139 @@
+package com.forever102.member.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
+import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.prettyPrint;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.forever102.auth.jwt.JwtTokenProvider;
+import com.forever102.global.config.SecurityTestConfig;
+import com.forever102.global.exception.BusinessException;
+import com.forever102.global.exception.ErrorCode;
+import com.forever102.member.dto.InterestKeywordRegisterRequest;
+import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.service.MemberInterestKeywordService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.restdocs.test.autoconfigure.AutoConfigureRestDocs;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.restdocs.payload.JsonFieldType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+@WebMvcTest(MemberController.class)
+@Import(SecurityTestConfig.class)
+@AutoConfigureRestDocs
+class MemberControllerTest {
+
+    private static final String URL = "/members/me/interest-keywords";
+    private static final Long MEMBER_ID = 1L;
+    private static final Long KEYWORD_ID = 81L;
+
+    @Autowired MockMvc mockMvc;
+    @Autowired JwtTokenProvider jwtTokenProvider;
+    @MockitoBean MemberInterestKeywordService interestKeywordService;
+
+    @Test
+    @DisplayName("인증된 회원이 관심 키워드를 등록하면 201로 응답하고 문서화한다")
+    void registersInterestKeyword() throws Exception {
+        // given
+        given(interestKeywordService.register(any(Long.class), any(InterestKeywordRegisterRequest.class)))
+                .willReturn(new InterestKeywordRegisterResponse(10L, KEYWORD_ID, "Ballet Sneakers"));
+
+        // when & then
+        mockMvc.perform(post(URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"keywordId\":81}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.interestKeywordId").value(10))
+                .andExpect(jsonPath("$.data.keywordId").value(81))
+                .andExpect(jsonPath("$.data.keyword").value("Ballet Sneakers"))
+                .andDo(document("members-interest-keywords-register",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        requestFields(fieldWithPath("keywordId").type(JsonFieldType.NUMBER)
+                                .description("등록할 키워드 ID")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("data.interestKeywordId").type(JsonFieldType.NUMBER)
+                                        .description("관심 키워드 등록 ID"),
+                                fieldWithPath("data.keywordId").type(JsonFieldType.NUMBER).description("키워드 ID"),
+                                fieldWithPath("data.keyword").type(JsonFieldType.STRING).description("키워드 이름"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+    }
+
+    @Test
+    @DisplayName("이미 등록한 관심 키워드를 다시 요청하면 409로 응답한다")
+    void rejectsDuplicateInterestKeyword() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INTEREST_KEYWORD_ALREADY_EXISTS))
+                .given(interestKeywordService).register(any(Long.class), any(InterestKeywordRegisterRequest.class));
+
+        // when & then
+        mockMvc.perform(post(URL).header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"keywordId\":81}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("이미 등록된 관심 키워드입니다."));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 키워드를 등록하면 404로 응답한다")
+    void rejectsUnknownKeyword() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.KEYWORD_NOT_FOUND))
+                .given(interestKeywordService).register(any(Long.class), any(InterestKeywordRegisterRequest.class));
+
+        // when & then
+        mockMvc.perform(post(URL).header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"keywordId\":999}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 키워드입니다."));
+    }
+
+    @Test
+    @DisplayName("키워드 ID가 없으면 400으로 응답하고 서비스를 호출하지 않는다")
+    void rejectsMissingKeywordId() throws Exception {
+        // when
+        mockMvc.perform(post(URL).header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("키워드 ID는 필수입니다."));
+
+        // then
+        then(interestKeywordService).should(never()).register(any(), any());
+    }
+
+    @Test
+    @DisplayName("인증 토큰이 없으면 401로 응답한다")
+    void rejectsUnauthenticatedRequest() throws Exception {
+        // when & then
+        mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content("{\"keywordId\":81}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    private String bearerToken() {
+        return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
+    }
+}

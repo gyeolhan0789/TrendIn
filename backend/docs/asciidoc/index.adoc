@@ -161,6 +161,19 @@ operation::trends-related-keywords[snippets='http-request,request-headers,path-p
 
 연관 키워드가 없으면 200과 빈 `relatedKeywords`를 반환한다. 트렌드 자체가 없을 때만 404를 반환한다.
 
+[[members-interest-keywords-register]]
+=== 관심 키워드 등록
+
+`POST /members/me/interest-keywords`
+
+로그인한 회원이 기존 키워드를 관심 키워드로 등록한다. 같은 회원은 동일한 키워드를 한 번만 등록할 수 있다.
+
+==== 요청 및 응답
+
+operation::members-interest-keywords-register[snippets='http-request,request-headers,request-fields,http-response,response-fields']
+
+존재하지 않는 키워드는 404, 이미 등록한 키워드는 409를 반환한다.
+
 [[auth-login]]
 === 로그인
 
