@@ -4,6 +4,7 @@ import com.forever102.global.response.BaseResponse;
 import com.forever102.member.domain.Domain;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.TrendType;
+import com.forever102.trend.dto.TrendContentResponse;
 import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendListResponse;
@@ -52,5 +53,14 @@ public class TrendController {
             @RequestParam String period
     ) {
         return BaseResponse.success(trendHistoryService.getHistory(trendId, AnalysisPeriod.from(period)));
+    }
+
+    @GetMapping("/{trendId}/contents")
+    public BaseResponse<TrendContentResponse> getTrendContents(
+            @PathVariable @Positive Long trendId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Positive int size
+    ) {
+        return BaseResponse.success(trendService.getTrendContents(trendId, page, size));
     }
 }

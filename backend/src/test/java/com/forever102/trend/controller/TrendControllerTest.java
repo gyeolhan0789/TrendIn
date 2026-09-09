@@ -25,6 +25,8 @@ import com.forever102.member.domain.Domain;
 import com.forever102.trend.TrendFixture;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.TrendType;
+import com.forever102.trend.dto.TrendContentResponse;
+import com.forever102.trend.dto.TrendContentResponse.ContentItemResponse;
 import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendHistoryResponse.HistoryPointResponse;
@@ -279,6 +281,90 @@ class TrendControllerTest {
                                 fieldWithPath("data.history[].mentionCount").type(JsonFieldType.NUMBER).description("언급량"))));
     }
 
+    @Test
+    @WithMockUser
+    @DisplayName("트렌드 키워드의 관련 콘텐츠를 반환하고 문서화한다")
+    void returnsTrendContents() throws Exception {
+        var publishedAt = OffsetDateTime.parse("2026-08-30T10:00:00+09:00");
+        given(trendService.getTrendContents(101L, 0, 5))
+                .willReturn(new TrendContentResponse(List.of(
+                        new ContentItemResponse(301L, "발레코어 스니커즈가 뜬다", "Vogue Korea",
+                                "https://example.com/articles/301", publishedAt)),
+                        0, 5, false));
+
+        mockMvc.perform(get("/trends/{trendId}/contents", 101L)
+                        .queryParam("page", "0")
+                        .queryParam("size", "5")
+                        .header("Authorization", "Bearer example-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].contentId").value(301))
+                .andExpect(jsonPath("$.data.content[0].title").value("발레코어 스니커즈가 뜬다"))
+                .andExpect(jsonPath("$.data.content[0].source").value("Vogue Korea"))
+                .andExpect(jsonPath("$.data.content[0].url").value("https://example.com/articles/301"))
+                .andExpect(jsonPath("$.data.content[0].publishedAt")
+                        .value("2026-08-30T10:00:00+09:00"))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andDo(document("trends-contents",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName("Authorization").description("인증 토큰")),
+                        pathParameters(parameterWithName("trendId").description("조회할 트렌드 ID. 양의 정수")),
+                        queryParameters(
+                                parameterWithName("page").optional().description("페이지 번호. 기본 0"),
+                                parameterWithName("size").optional().description("페이지 크기. 기본 10")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL).description("성공 시 null"),
+                                fieldWithPath("data.content").type(JsonFieldType.ARRAY).description("관련 콘텐츠 목록"),
+                                fieldWithPath("data.content[].contentId").type(JsonFieldType.NUMBER).description("콘텐츠 ID"),
+                                fieldWithPath("data.content[].title").type(JsonFieldType.STRING).description("콘텐츠 제목"),
+                                fieldWithPath("data.content[].source").type(JsonFieldType.STRING).description("콘텐츠 출처"),
+                                fieldWithPath("data.content[].url").type(JsonFieldType.STRING).description("원문 URL"),
+                                fieldWithPath("data.content[].publishedAt").type(JsonFieldType.STRING).description("게시 시각"),
+                                fieldWithPath("data.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
+                                fieldWithPath("data.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 여부"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("관련 콘텐츠가 없으면 빈 목록을 반환한다")
+    void returnsEmptyTrendContents() throws Exception {
+        given(trendService.getTrendContents(101L, 0, 10))
+                .willReturn(new TrendContentResponse(List.of(), 0, 10, false));
+
+        mockMvc.perform(get("/trends/{trendId}/contents", 101L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isEmpty())
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").doesNotExist())
+                .andExpect(jsonPath("$.data.totalPages").doesNotExist());
+    }
+
+    @ParameterizedTest
+    @WithMockUser
+    @ValueSource(strings = {"page=-1", "size=0"})
+    @DisplayName("관련 콘텐츠 페이지 파라미터가 잘못되면 400을 반환한다")
+    void rejectsInvalidContentPagination(String invalid) throws Exception {
+        String[] pair = invalid.split("=");
+
+        mockMvc.perform(get("/trends/{trendId}/contents", 101L)
+                        .queryParam(pair[0], pair[1]))
+                .andExpect(status().isBadRequest());
+        then(trendService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("존재하지 않는 트렌드의 관련 콘텐츠 요청은 404를 반환한다")
+    void returnsNotFoundForTrendContents() throws Exception {
+        given(trendService.getTrendContents(999L, 0, 10))
+                .willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND));
+
+        mockMvc.perform(get("/trends/{trendId}/contents", 999L))
+                .andExpect(status().isNotFound());
+    }
+
     @ParameterizedTest
     @WithMockUser
     @ValueSource(strings = {"24H", "7D", "30D"})
@@ -332,6 +418,8 @@ class TrendControllerTest {
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "24H"))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "24H"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/trends/{trendId}/contents", 101L))
                 .andExpect(status().isUnauthorized());
     }
 }

@@ -10,8 +10,10 @@ import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.domain.Domain;
 import com.forever102.trend.TrendFixture;
 import com.forever102.trend.domain.AnalysisPeriod;
+import com.forever102.trend.domain.Content;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.domain.TrendType;
+import com.forever102.trend.repository.ContentRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
@@ -34,12 +36,13 @@ class TrendServiceTest {
 
     @Mock TrendRepository trendRepository;
     @Mock KeywordMetricRepository metricRepository;
+    @Mock ContentRepository contentRepository;
     TrendService trendService;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
-        trendService = new TrendService(trendRepository, metricRepository, clock);
+        trendService = new TrendService(trendRepository, metricRepository, contentRepository, clock);
     }
 
     @Test
@@ -124,5 +127,51 @@ class TrendServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.TREND_NOT_FOUND));
         then(metricRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("트렌드 키워드에 연결된 콘텐츠 페이지를 반환한다")
+    void returnsRelatedContents() {
+        Trend trend = TrendFixture.trend();
+        Content content = new Content("발레코어 스니커즈", "Vogue Korea",
+                "https://example.com/articles/1", "curated/fashion/1.parquet",
+                TrendFixture.END.minusHours(2), TrendFixture.END.minusHours(1));
+        org.springframework.test.util.ReflectionTestUtils.setField(content, "id", 301L);
+        var pageable = PageRequest.of(0, 20);
+        given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
+        given(contentRepository.findByKeywordId(81L, pageable))
+                .willReturn(new PageImpl<>(List.of(content), pageable, 1));
+
+        var response = trendService.getTrendContents(101L, 0, 20);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().contentId()).isEqualTo(301L);
+        assertThat(response.content().getFirst().source()).isEqualTo("Vogue Korea");
+        assertThat(response.hasNext()).isFalse();
+    }
+
+    @Test
+    @DisplayName("관련 콘텐츠가 없으면 빈 페이지를 반환한다")
+    void returnsEmptyRelatedContents() {
+        Trend trend = TrendFixture.trend();
+        var pageable = PageRequest.of(0, 20);
+        given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
+        given(contentRepository.findByKeywordId(81L, pageable)).willReturn(Page.empty(pageable));
+
+        var response = trendService.getTrendContents(101L, 0, 20);
+
+        assertThat(response.content()).isEmpty();
+        assertThat(response.hasNext()).isFalse();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 트렌드의 콘텐츠를 요청하면 조회 없이 404 예외를 발생시킨다")
+    void rejectsContentsForMissingTrend() {
+        given(trendRepository.findById(999L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> trendService.getTrendContents(999L, 0, 20))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.TREND_NOT_FOUND));
+        then(contentRepository).shouldHaveNoInteractions();
     }
 }

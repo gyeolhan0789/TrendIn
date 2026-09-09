@@ -8,8 +8,10 @@ import com.forever102.trend.domain.AnalysisWindow;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.domain.TrendType;
+import com.forever102.trend.dto.TrendContentResponse;
 import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendListResponse;
+import com.forever102.trend.repository.ContentRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
@@ -29,6 +31,7 @@ public class TrendService {
 
     private final TrendRepository trendRepository;
     private final KeywordMetricRepository keywordMetricRepository;
+    private final ContentRepository contentRepository;
     private final Clock trendClock;
 
     public TrendListResponse getTrends(
@@ -66,5 +69,12 @@ public class TrendService {
                         trend.getKeyword().getId(), period,
                         window.getRecentStart(), window.getRecentEnd()).orElse(null);
         return TrendDetailResponse.from(trend, metric, period);
+    }
+
+    public TrendContentResponse getTrendContents(Long trendId, int page, int size) {
+        Trend trend = trendRepository.findById(trendId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.TREND_NOT_FOUND));
+        return TrendContentResponse.from(contentRepository.findByKeywordId(
+                trend.getKeyword().getId(), PageRequest.of(page, size)));
     }
 }

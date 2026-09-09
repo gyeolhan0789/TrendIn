@@ -132,6 +132,20 @@ operation::trends-history[snippets='http-request,request-headers,path-parameters
 `mentionCount`는 `0`이다.
 트렌드 자체가 없을 때만 404를 반환한다.
 
+[[trends-contents]]
+=== 트렌드 관련 콘텐츠 조회
+
+`GET /trends/{trendId}/contents?page={page}&size={size}`
+
+트렌드의 키워드와 `keyword_contents`로 연결된 콘텐츠를 게시 시각 내림차순으로 조회한다.
+게시 시각이 같으면 콘텐츠 ID 내림차순으로 정렬한다. 페이지 번호의 기본값은 0, 페이지 크기의 기본값은 10이다.
+
+==== 요청 및 응답
+
+operation::trends-contents[snippets='http-request,request-headers,path-parameters,query-parameters,http-response,response-fields']
+
+관련 콘텐츠가 없으면 200과 빈 `content`를 반환한다. 트렌드 자체가 없을 때만 404를 반환한다.
+
 [[auth-login]]
 === 로그인
 
