@@ -22,7 +22,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest",
-  "ruff",
+  # 마이너를 막는다. ruff 는 마이너마다 규칙이 늘어서, 고정하지 않으면 아무도 코드를
+  # 안 고쳤는데 CI 린트가 빨개진다. 올릴 때는 이 줄을 고치고 걸린 것을 한 번에 고친다.
+  "ruff>=0.16.5,<0.17",
 ]
 
 [tool.setuptools.packages.find]
