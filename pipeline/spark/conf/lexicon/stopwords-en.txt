@@ -1,0 +1,31 @@
+# 영어 불용어 — 구간 경계이자 단독 후보 제외 ([04 §3·§5]).
+# 한 줄에 하나(공백으로 여럿 적어도 된다), `#` 뒤는 주석. 비교키로 대조한다.
+#
+# **씨앗이다.** 표준 불용어에서 시작하고, DF 상한에 걸린 후보를 검토해 여기로 승격한다 ([04 §5]).
+
+# 관사 · 대명사 · 지시
+a an the this that these those it its itself i me my mine myself we us our ours ourselves you your yours
+yourself yourselves he him his himself she her hers herself they them their theirs themselves who whom
+whose which what where when why how
+
+# 전치사 · 접속사
+of in on at to for from by with without about against between into through during before after above
+below up down out off over under again further then once and or but nor so yet if because as until while
+than although though whether either neither both each few more most other some such no not only own same
+too very just also even ever never always
+
+# 조동사 · be · have · do
+am is are was were be been being have has had having do does did doing will would shall should can could
+may might must ought need dare used
+
+# 흔한 동사 · 부사 (뉴스·기술 글에서 무정보)
+get gets got getting make makes made making use uses using used take takes took taking go goes went going
+come comes came coming see sees saw seen say says said know knows knew think thinks thought want wants
+wanted like likes let lets put puts set sets show shows showed shown ask asks asked try tries tried
+find finds found give gives gave work works worked call calls called keep keeps kept still already
+here there now new one two three first second last next much many any all every another way thing things
+something anything nothing everything someone anyone everyone people time year years day days week weeks
+month months today yesterday tomorrow
+
+# HN 제목 상투어
+ask show tell hn launch announcing introducing why via vs versus using

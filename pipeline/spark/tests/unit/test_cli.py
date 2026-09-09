@@ -77,11 +77,22 @@ def test_ingest_재처리_범위는_발행일이고_기본은_비어_있다():
     )
 
 
-def test_extract_는_partitions_를_받는다():
+def test_extract_는_실행_목록과_발행일_구간을_받는다():
     import extract
 
     parser = build_parser("extract", extract.add_arguments)
-    assert parser.parse_args([]).partitions is None
+    args = parser.parse_args([])
+    assert args.ingest_run_ids is None and args.date_from is None and args.force is False
+
+    args = parser.parse_args(
+        ["--domain", "fashion", "--from", "2026-09-01", "--to", "2026-09-07", "--force"]
+    )
+    assert (args.domain, args.date_from, args.date_to, args.force) == (
+        "fashion",
+        "2026-09-01",
+        "2026-09-07",
+        True,
+    )
 
 
 def test_aggregate_는_date_를_받는다():

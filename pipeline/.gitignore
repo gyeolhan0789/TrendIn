@@ -10,3 +10,10 @@ __pycache__/
 # Spark
 spark/.checkpoints/
 spark/jars/*.jar
+
+# 수집 스냅숏 원본 (2026-09-09 종단 실행에 쓴 fashion 373건 · MinIO 객체 트리, 57 MB).
+# 저장소에 넣지 않는다 — (a) 기사 본문 전문이라 spark/tests/fixtures/README.md 의 발췌·출처
+# 표기 결정(저작권법 제37조, 09 §4 불변식 3)을 무효로 만들고 (b) 745개 파일 67 MB 다.
+# 회귀에 필요한 것은 거기서 30건을 발췌한 spark/tests/fixtures/corpus/ 다.
+spark/trendin-collect-*/
+spark/trendin-collect-*.tar.gz

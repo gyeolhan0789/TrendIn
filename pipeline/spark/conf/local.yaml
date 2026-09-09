@@ -34,3 +34,17 @@ ingest:
   contents:
     # 로컬은 백엔드가 contents 를 만들기 전에도 돌려본다. 운영 기본은 base.yaml 의 true 다.
     required: false
+
+extract:
+  # **전부 잠정이다.** base.yaml 은 이 키들을 null 로 두어 운영에서 측정 없이 돌지 못하게 하고,
+  # 로컬은 S6 가 분포를 재는 데 쓸 값이 필요해 여기 채운다 ([10 §4] S6, 09 §7 항목 5).
+  # 근거 없는 숫자다 — 여기 값을 base.yaml 로 옮기는 것이 S6 의 산출물이다.
+  corpus_window_days: 30    # [10 §2] 5번의 "직전 30일" 을 그대로. 발행일 분포를 재고 정한다
+  df_min_ratio: 0.003       # 하루 700건 × 30일 ≈ 2만 문서에서 약 60건. 첫 실행(수백 건)에서는 1~2건
+  df_max_ratio: 0.3         # 코퍼스의 30% 를 넘으면 도메인 이름 수준의 무정보어로 본다
+  score_weights:
+    c_value: 0.3
+    bm25: 0.4
+    title: 0.3
+  per_document_top_k: 10    # [04 §9] 의 precision@10 과 같은 K
+  score_floor: 0.2

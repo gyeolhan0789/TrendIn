@@ -93,7 +93,50 @@ ingest:
       max_distance: 12
 
 extract:
-  thresholds: {}
+  # [04] 의 임계값. **`null` 인 키가 하나라도 있으면 Job 이 시작하지 않는다**
+  # (`extract/thresholds.py`). 실데이터의 문서 빈도 분포 · 문서 길이를 재기 전에 정한 숫자는
+  # 전부 다시 정하게 되고(09 §7 항목 5), 후보 표를 잡음으로 채운 뒤 지우고 다시 돌리는 것보다
+  # 시작을 거부하는 것이 싸다. local.yaml 이 S6 측정을 돌릴 잠정값을 채우고, S6 가 확정하면
+  # 여기로 옮기며 pl_config_history 에 초기값을 남긴다.
+  #
+  # 같은 도메인 최근 N 일 문서가 DF · BM25 의 말뭉치다 ([10 §2] 5번 — N 은 미확정).
+  corpus_window_days: null
+  # 구간 안 n-gram 길이 상한. 4 이상은 거의 항상 문장 조각이다 ([04 §3]).
+  ngram_max: 3
+  candidate:
+    min_chars: 2      # 비교키 문자 수 하한 ([04 §5] 2번)
+    max_chars: 40     # 상한. 이보다 길면 문장이다
+  # DF 하한·상한 — 절대값이 아니라 **코퍼스 문서 수에 대한 비율** ([04 §5] 5·6번).
+  df_min_ratio: null
+  df_max_ratio: null
+  bm25:
+    k1: 1.2           # 통상값. 측정 전에 바꾸지 않는다
+    b: 0.75
+  # 세 축의 가중합. 축은 문서 안에서 0~1 로 정규화된 뒤 더해진다 ([04 §6]).
+  score_weights:
+    c_value: null
+    bm25: null
+    title: null
+  # 선별 — 문서당 상위 K 이고 점수 하한 이상 ([04 §7]). 점수는 0~1 척도다.
+  per_document_top_k: null
+  score_floor: null
+  # 불용어 · 노이즈 · 형태소 분석기 사용자 사전 파일. submit.sh 가 pipeline/ 에서 실행하므로
+  # 거기 기준 상대 경로다.
+  lexicon_dir: "spark/conf/lexicon"
+  # 도메인별 차이 ([04 §8]). 같은 코드에 설정만 다르게 준다.
+  domains:
+    dev:
+      code_identifiers: true       # camelCase · snake_case · dotted 를 한 토큰으로
+      hashtag_weight: 1.0          # 해시태그 후보의 최종 점수에 곱한다. 1 이면 중립
+      # 형태소 분석기가 어절을 쪼갠 뒤 후보 표기를 어디까지 붙여 쓸지 ([04 §2]).
+      # core: 명사 핵만(`재해석한`→`해석`) · prefixed: 접두사+핵(`재해석`) ·
+      # word: 파생 접미사까지(`아이템들`). hn 은 영문 제목뿐이라 무관하다
+      surface_policy: prefixed
+    fashion:
+      code_identifiers: false      # 잡음만 는다
+      hashtag_weight: 1.5          # 사람이 직접 고른 표현이라 값지다 — **잠정**
+      # 2026-09-09 실측에서 셋을 다 돌려 비교하고 고른 값이다 ([04 §2] 의 표)
+      surface_policy: prefixed
 
 aggregate:
   # 서비스가 파는 기간 ([07 §4]). 값 규약은 백엔드와 합의 전이다 (09 §7 항목 3).
