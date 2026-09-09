@@ -31,8 +31,11 @@ import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendHistoryResponse.HistoryPointResponse;
 import com.forever102.trend.dto.TrendListResponse;
+import com.forever102.trend.dto.TrendRelatedKeywordResponse;
+import com.forever102.trend.dto.TrendRelatedKeywordResponse.RelatedKeywordResponse;
 import com.forever102.trend.service.TrendHistoryService;
 import com.forever102.trend.service.TrendService;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +67,7 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("최신 명세의 분야별 트렌드 목록을 반환하고 문서화한다")
     void returnsTrendList() throws Exception {
+        // given
         var trend = TrendFixture.trend();
         var metric = TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123);
         var result = new PageImpl<>(List.of(metric),
@@ -73,6 +77,7 @@ class TrendControllerTest {
                 .willReturn(TrendListResponse.from(result, Map.of(81L, trend),
                         TrendFixture.window(AnalysisPeriod.DAYS_7)));
 
+        // when & then
         mockMvc.perform(get("/trends")
                         .queryParam("domain", "FASHION")
                         .queryParam("type", "RISING")
@@ -130,10 +135,12 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("목록 조회의 page와 size를 생략하면 기본값을 사용한다")
     void usesDefaultPagination() throws Exception {
+        // when
         mockMvc.perform(get("/trends").queryParam("domain", "DEVELOP")
                         .queryParam("type", "CURRENT").queryParam("period", "24H"))
                 .andExpect(status().isOk());
 
+        // then
         then(trendService).should().getTrends(
                 Domain.DEVELOP, TrendType.CURRENT, AnalysisPeriod.HOURS_24, 0, 20);
     }
@@ -143,11 +150,13 @@ class TrendControllerTest {
     @ValueSource(strings = {"domain", "type", "period"})
     @DisplayName("목록 조회 필수 파라미터가 누락되면 400을 반환한다")
     void rejectsMissingListParameter(String omitted) throws Exception {
+        // given
         var request = get("/trends");
         if (!omitted.equals("domain")) request.queryParam("domain", "FASHION");
         if (!omitted.equals("type")) request.queryParam("type", "CURRENT");
         if (!omitted.equals("period")) request.queryParam("period", "7D");
 
+        // when & then
         mockMvc.perform(request).andExpect(status().isBadRequest());
         then(trendService).shouldHaveNoInteractions();
     }
@@ -157,6 +166,7 @@ class TrendControllerTest {
     @ValueSource(strings = {"domain=BEAUTY", "type=POPULAR", "period=1D", "page=-1", "size=0"})
     @DisplayName("목록 조회 파라미터가 잘못되면 400을 반환한다")
     void rejectsInvalidListParameter(String invalid) throws Exception {
+        // given
         String[] pair = invalid.split("=");
         var request = get("/trends")
                 .queryParam("domain", pair[0].equals("domain") ? pair[1] : "FASHION")
@@ -165,6 +175,7 @@ class TrendControllerTest {
                 .queryParam("page", pair[0].equals("page") ? pair[1] : "0")
                 .queryParam("size", pair[0].equals("size") ? pair[1] : "20");
 
+        // when & then
         mockMvc.perform(request).andExpect(status().isBadRequest());
         then(trendService).shouldHaveNoInteractions();
     }
@@ -172,6 +183,7 @@ class TrendControllerTest {
     @Test
     @DisplayName("인증 없이 목록을 요청하면 401을 반환한다")
     void blocksAnonymousTrendList() throws Exception {
+        // when & then
         mockMvc.perform(get("/trends").queryParam("domain", "FASHION")
                         .queryParam("type", "CURRENT").queryParam("period", "7D"))
                 .andExpect(status().isUnauthorized());
@@ -182,11 +194,13 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("최신 명세의 트렌드 상세 응답을 반환하고 문서화한다")
     void returnsTrendDetail() throws Exception {
+        // given
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_7))
                 .willReturn(TrendDetailResponse.from(trend,
                         TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123), AnalysisPeriod.DAYS_7));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "7D")
                         .header("Authorization", "Bearer example-token"))
                 .andExpect(status().isOk())
@@ -232,10 +246,12 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("요청 기간 지표가 없으면 지표 필드는 null이고 트렌드 정보는 유지한다")
     void returnsNullMetricFields() throws Exception {
+        // given
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_30))
                 .willReturn(TrendDetailResponse.from(trend, null, AnalysisPeriod.DAYS_30));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "30D"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.trendTypes[0]").value("RISING"))
@@ -248,6 +264,7 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("기간별 관심도 시계열을 bucketStart와 bucketEnd로 반환하고 문서화한다")
     void returnsTrendHistory() throws Exception {
+        // given
         var start = OffsetDateTime.parse("2026-08-01T00:00:00+09:00");
         var end = OffsetDateTime.parse("2026-08-31T00:00:00+09:00");
         given(trendHistoryService.getHistory(101L, AnalysisPeriod.DAYS_30))
@@ -255,6 +272,7 @@ class TrendControllerTest {
                         List.of(new HistoryPointResponse(start, start.plusDays(3), 120L),
                                 new HistoryPointResponse(start.plusDays(3), start.plusDays(6), 145L))));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "30D")
                         .header("Authorization", "Bearer example-token"))
                 .andExpect(status().isOk())
@@ -285,6 +303,7 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("트렌드 키워드의 관련 콘텐츠를 반환하고 문서화한다")
     void returnsTrendContents() throws Exception {
+        // given
         var publishedAt = OffsetDateTime.parse("2026-08-30T10:00:00+09:00");
         given(trendService.getTrendContents(101L, 0, 5))
                 .willReturn(new TrendContentResponse(List.of(
@@ -292,6 +311,7 @@ class TrendControllerTest {
                                 "https://example.com/articles/301", publishedAt)),
                         0, 5, false));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L)
                         .queryParam("page", "0")
                         .queryParam("size", "5")
@@ -329,9 +349,11 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("관련 콘텐츠가 없으면 빈 목록을 반환한다")
     void returnsEmptyTrendContents() throws Exception {
+        // given
         given(trendService.getTrendContents(101L, 0, 10))
                 .willReturn(new TrendContentResponse(List.of(), 0, 10, false));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isEmpty())
@@ -346,8 +368,10 @@ class TrendControllerTest {
     @ValueSource(strings = {"page=-1", "size=0"})
     @DisplayName("관련 콘텐츠 페이지 파라미터가 잘못되면 400을 반환한다")
     void rejectsInvalidContentPagination(String invalid) throws Exception {
+        // given
         String[] pair = invalid.split("=");
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L)
                         .queryParam(pair[0], pair[1]))
                 .andExpect(status().isBadRequest());
@@ -358,39 +382,131 @@ class TrendControllerTest {
     @WithMockUser
     @DisplayName("존재하지 않는 트렌드의 관련 콘텐츠 요청은 404를 반환한다")
     void returnsNotFoundForTrendContents() throws Exception {
+        // given
         given(trendService.getTrendContents(999L, 0, 10))
                 .willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND));
 
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 999L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("트렌드의 연관 키워드를 관계 점수순으로 반환하고 문서화한다")
+    void returnsRelatedKeywords() throws Exception {
+        // given
+        given(trendService.getRelatedKeywords(101L))
+                .willReturn(new TrendRelatedKeywordResponse(101L, List.of(
+                        new RelatedKeywordResponse(
+                                82L, "Mary Jane Sneakers", new BigDecimal("87.50")),
+                        new RelatedKeywordResponse(
+                                83L, "Retro Sneakers", new BigDecimal("72.00")))));
+
+        // when & then
+        mockMvc.perform(get("/trends/{trendId}/related-keywords", 101L)
+                        .header("Authorization", "Bearer example-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trendId").value(101))
+                .andExpect(jsonPath("$.data.relatedKeywords[0].keywordId").value(82))
+                .andExpect(jsonPath("$.data.relatedKeywords[0].keyword")
+                        .value("Mary Jane Sneakers"))
+                .andExpect(jsonPath("$.data.relatedKeywords[0].relationScore").value(87.5))
+                .andExpect(jsonPath("$.data.relatedKeywords[0].previousRelationScore")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.relatedKeywords[0].growthRate").doesNotExist())
+                .andExpect(jsonPath("$.data.relatedKeywords[0].relationStatus").doesNotExist())
+                .andDo(document("trends-related-keywords",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName("Authorization").description("인증 토큰")),
+                        pathParameters(parameterWithName("trendId")
+                                .description("조회할 트렌드 ID. 양의 정수")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 시 null"),
+                                fieldWithPath("data.trendId").type(JsonFieldType.NUMBER)
+                                        .description("트렌드 ID"),
+                                fieldWithPath("data.relatedKeywords").type(JsonFieldType.ARRAY)
+                                        .description("연관 키워드 목록"),
+                                fieldWithPath("data.relatedKeywords[].keywordId")
+                                        .type(JsonFieldType.NUMBER).description("연관 키워드 ID"),
+                                fieldWithPath("data.relatedKeywords[].keyword")
+                                        .type(JsonFieldType.STRING).description("연관 키워드"),
+                                fieldWithPath("data.relatedKeywords[].relationScore")
+                                        .type(JsonFieldType.NUMBER)
+                                        .description("0~100 범위의 관계 점수. 소수 둘째 자리까지 사용"))));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("연관 키워드가 없으면 빈 목록을 반환한다")
+    void returnsEmptyRelatedKeywords() throws Exception {
+        // given
+        given(trendService.getRelatedKeywords(101L))
+                .willReturn(new TrendRelatedKeywordResponse(101L, List.of()));
+
+        // when & then
+        mockMvc.perform(get("/trends/{trendId}/related-keywords", 101L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trendId").value(101))
+                .andExpect(jsonPath("$.data.relatedKeywords").isEmpty());
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("존재하지 않는 트렌드의 연관 키워드 요청은 404를 반환한다")
+    void returnsNotFoundForRelatedKeywords() throws Exception {
+        // given
+        given(trendService.getRelatedKeywords(999L))
+                .willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND));
+
+        // when & then
+        mockMvc.perform(get("/trends/{trendId}/related-keywords", 999L))
                 .andExpect(status().isNotFound());
     }
 
     @ParameterizedTest
     @WithMockUser
     @ValueSource(strings = {"24H", "7D", "30D"})
+    @DisplayName("허용된 기간 값으로 상세 조회를 요청하면 200을 반환한다")
     void acceptsAllowedPeriods(String period) throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", period))
                 .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser
-    void rejectsMissingPeriods() throws Exception {
+    @DisplayName("상세 조회의 기간이 누락되면 400을 반환한다")
+    void rejectsMissingDetailPeriod() throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L))
                 .andExpect(status().isBadRequest())
                 .andDo(document("trends-detail-invalid-period", preprocessResponse(prettyPrint()),
                         responseFields(
                                 fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("false"),
                                 fieldWithPath("message").type(JsonFieldType.STRING).description("오류 메시지"))));
-        mockMvc.perform(get("/trends/{trendId}/history", 101L)).andExpect(status().isBadRequest());
         then(trendService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("시계열 조회의 기간이 누락되면 400을 반환한다")
+    void rejectsMissingHistoryPeriod() throws Exception {
+        // when & then
+        mockMvc.perform(get("/trends/{trendId}/history", 101L))
+                .andExpect(status().isBadRequest());
         then(trendHistoryService).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest
     @WithMockUser
     @ValueSource(strings = {"0", "-1", "abc", "9223372036854775808"})
+    @DisplayName("유효하지 않은 트렌드 ID로 상세 조회를 요청하면 400을 반환한다")
     void rejectsInvalidTrendId(String trendId) throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", trendId).queryParam("period", "24H"))
                 .andExpect(status().isBadRequest())
                 .andDo(document("trends-detail-invalid-id", preprocessResponse(prettyPrint()),
@@ -402,9 +518,13 @@ class TrendControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("존재하지 않는 트렌드의 상세 조회는 404를 반환한다")
     void returnsNotFound() throws Exception {
+        // given
         given(trendService.getTrendDetail(999L, AnalysisPeriod.HOURS_24))
                 .willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND));
+
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 999L).queryParam("period", "24H"))
                 .andExpect(status().isNotFound())
                 .andDo(document("trends-detail-not-found", preprocessResponse(prettyPrint()),
@@ -414,12 +534,34 @@ class TrendControllerTest {
     }
 
     @Test
-    void blocksAnonymousRequests() throws Exception {
+    @DisplayName("인증 없이 트렌드 상세를 요청하면 401을 반환한다")
+    void blocksAnonymousTrendDetail() throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "24H"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("인증 없이 시계열을 요청하면 401을 반환한다")
+    void blocksAnonymousTrendHistory() throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/history", 101L).queryParam("period", "24H"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("인증 없이 관련 콘텐츠를 요청하면 401을 반환한다")
+    void blocksAnonymousTrendContents() throws Exception {
+        // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("인증 없이 연관 키워드를 요청하면 401을 반환한다")
+    void blocksAnonymousRelatedKeywords() throws Exception {
+        // when & then
+        mockMvc.perform(get("/trends/{trendId}/related-keywords", 101L))
                 .andExpect(status().isUnauthorized());
     }
 }

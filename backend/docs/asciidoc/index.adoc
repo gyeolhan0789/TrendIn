@@ -146,6 +146,21 @@ operation::trends-contents[snippets='http-request,request-headers,path-parameter
 
 관련 콘텐츠가 없으면 200과 빈 `content`를 반환한다. 트렌드 자체가 없을 때만 404를 반환한다.
 
+[[trends-related-keywords]]
+=== 트렌드 연관 키워드 조회
+
+`GET /trends/{trendId}/related-keywords`
+
+트렌드의 키워드를 source로 하는 `keyword_relations`의 연관 키워드를 관계 점수 내림차순으로 조회한다.
+관계 점수는 0~100 범위에서 소수 둘째 자리까지 사용한다.
+점수가 같으면 키워드 ID 오름차순으로 정렬하며 source와 target이 같은 자기 참조 관계는 제외한다.
+
+==== 요청 및 응답
+
+operation::trends-related-keywords[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
+
+연관 키워드가 없으면 200과 빈 `relatedKeywords`를 반환한다. 트렌드 자체가 없을 때만 404를 반환한다.
+
 [[auth-login]]
 === 로그인
 

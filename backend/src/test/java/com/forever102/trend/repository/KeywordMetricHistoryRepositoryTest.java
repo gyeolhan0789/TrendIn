@@ -21,6 +21,7 @@ class KeywordMetricHistoryRepositoryTest {
     @Test
     @DisplayName("키워드와 반개방 기간으로 시계열을 오름차순 조회한다")
     void findsRequestedBucketsInAscendingOrder() {
+        // given
         Keyword keyword = new Keyword("Ballet Sneakers", Domain.FASHION);
         Keyword other = new Keyword("Java", Domain.DEVELOP);
         entityManager.persist(keyword);
@@ -34,10 +35,12 @@ class KeywordMetricHistoryRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
+        // when
         var points = repository
                 .findByKeywordIdAndBucketStartGreaterThanEqualAndBucketStartLessThanOrderByBucketStartAsc(
                         keyword.getId(), start, start.plusDays(1));
 
+        // then
         assertThat(points).extracting(KeywordMetricHistory::getBucketStart)
                 .containsExactly(start, start.plusHours(1), start.plusHours(2));
         assertThat(points).extracting(KeywordMetricHistory::getMentionCount)

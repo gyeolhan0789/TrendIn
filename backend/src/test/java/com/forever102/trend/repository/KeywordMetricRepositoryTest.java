@@ -26,18 +26,21 @@ class KeywordMetricRepositoryTest {
     @Test
     @DisplayName("키워드와 요청 기간 및 완료 구간으로 지표를 조회한다")
     void loadsMetricForKeywordAndRequestedPeriod() {
+        // given
         Trend trend = persistTrend("Ballet Sneakers");
         KeywordMetric metric = TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123);
         entityManager.persist(metric);
         entityManager.flush();
         entityManager.clear();
 
+        // when
         KeywordMetric loaded = metricRepository
                 .findFirstByKeywordIdAndPeriodAndPeriodStartAndPeriodEndOrderByIdDesc(
                         trend.getKeyword().getId(), AnalysisPeriod.DAYS_7,
                         TrendFixture.END.minusDays(7), TrendFixture.END)
                 .orElseThrow();
 
+        // then
         assertThat(loaded.getMentionCount()).isEqualTo(430);
         assertThat(loaded.getGrowthAmount()).isEqualTo(307);
         assertThat(loaded.getGrowthRate()).isEqualByComparingTo(new BigDecimal("249.6"));

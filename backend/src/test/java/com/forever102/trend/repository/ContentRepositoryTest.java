@@ -22,6 +22,7 @@ class ContentRepositoryTest {
     @Test
     @DisplayName("키워드에 연결된 콘텐츠만 게시일 최신순으로 조회한다")
     void findsRelatedContentsByKeyword() {
+        // given
         Keyword keyword = new Keyword("Ballet Sneakers", Domain.FASHION);
         Keyword otherKeyword = new Keyword("AI Agent", Domain.DEVELOP);
         entityManager.persist(keyword);
@@ -38,8 +39,10 @@ class ContentRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
+        // when
         var result = contentRepository.findByKeywordId(keyword.getId(), PageRequest.of(0, 10));
 
+        // then
         assertThat(result.getContent()).extracting(Content::getTitle)
                 .containsExactly("newer", "older");
         assertThat(result.getTotalElements()).isEqualTo(2);
