@@ -18,6 +18,9 @@ import com.forever102.member.repository.MemberInterestKeywordRepository;
 import com.forever102.member.repository.MemberRepository;
 import com.forever102.trend.domain.Keyword;
 import com.forever102.trend.repository.KeywordRepository;
+import com.forever102.trend.repository.KeywordRelationRepository;
+import com.forever102.trend.repository.KeywordRelationRepository.RecommendedKeywordProjection;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
@@ -39,6 +42,7 @@ class MemberInterestKeywordServiceTest {
     @Mock MemberRepository memberRepository;
     @Mock KeywordRepository keywordRepository;
     @Mock MemberInterestKeywordRepository interestKeywordRepository;
+    @Mock KeywordRelationRepository keywordRelationRepository;
     @InjectMocks MemberInterestKeywordService interestKeywordService;
 
     @Test
@@ -131,6 +135,42 @@ class MemberInterestKeywordServiceTest {
         assertThatThrownBy(() -> interestKeywordService.register(
                 MEMBER_ID, new InterestKeywordRegisterRequest(KEYWORD_ID)))
                 .isSameAs(violation);
+    }
+
+    @Test
+    @DisplayName("관심 키워드와 연관된 추천 키워드를 응답으로 변환한다")
+    void getsRecommendedKeywords() {
+        // given
+        RecommendedKeywordProjection projection = org.mockito.Mockito.mock(RecommendedKeywordProjection.class);
+        given(projection.getKeywordId()).willReturn(82L);
+        given(projection.getKeyword()).willReturn("Mary Jane Sneakers");
+        given(projection.getDomain()).willReturn(Domain.FASHION);
+        given(projection.getRelationScore()).willReturn(new BigDecimal("91.50"));
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID)).willReturn(java.util.List.of(projection));
+
+        // when
+        var result = interestKeywordService.getRecommendedKeywords(MEMBER_ID);
+
+        // then
+        assertThat(result).singleElement().satisfies(keyword -> {
+            assertThat(keyword.keywordId()).isEqualTo(82L);
+            assertThat(keyword.keyword()).isEqualTo("Mary Jane Sneakers");
+            assertThat(keyword.domain().code()).isEqualTo(Domain.FASHION);
+            assertThat(keyword.relationScore()).isEqualByComparingTo("91.50");
+        });
+    }
+
+    @Test
+    @DisplayName("추천할 키워드가 없으면 빈 목록을 반환한다")
+    void returnsEmptyRecommendedKeywords() {
+        // given
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID)).willReturn(java.util.List.of());
+
+        // when
+        var result = interestKeywordService.getRecommendedKeywords(MEMBER_ID);
+
+        // then
+        assertThat(result).isEmpty();
     }
 
     private DataIntegrityViolationException uniqueConstraintViolation() {
