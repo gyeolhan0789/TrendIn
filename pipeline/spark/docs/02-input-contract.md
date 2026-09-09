@@ -12,6 +12,7 @@
 | MinIO 키 규칙 | `web-collect.md` #5.1, `src/trendin/common/collect/keys.py` |
 | `article.json` 스키마 | `web-collect.md` #5.3, `src/trendin/common/collect/article.py` |
 | 발행 순서·멱등·전달 보장 | `web-collect.md` #7 불변식 5·7·12 |
+| 발행 시점 · 요약 이벤트 생성 | `src/trendin/common/collect/dag_factory.py` 의 `publish` 태스크, `flow.publish_pending()` · `flow.publish_summaries()` |
 
 `data-pipeline-design.md` §5 는 **배치 파일 하나에 이벤트 하나**를 전제로 쓰였고, 실제 수집은 **기사 하나에 이벤트 하나**로 갔다 (`web-collect.md` #12 열린 질문 7, 2026-09-07 확정). 필드 이름은 팀 계약 그대로 쓰고 뜻만 기사 단위로 옮겼다. 두 문서가 어긋나는 자리에서는 **`web-collect.md` 와 구현이 우선한다** — 그쪽이 실제로 발행하는 쪽이다.
 
@@ -34,7 +35,24 @@
 
 근거는 `datastore/compose.yaml` 의 `KAFKA_TOPIC_RAW_FILE_READY`, `kafka_publisher.py` 의 `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY`, `conf/base.yaml` 의 `kafka.topics.raw_file_ready` 가 전부 같은 값을 가리키는 것이다.
 
-**⚠️ 소비 측(담당 3) 확인이 아직 열려 있다.** `web-collect.md` #12-4·#12-7 이 둘 다 *"강민수 확인 남음"* 으로 남아 있다. 이 문서가 곧 그 확인이며, 위 표대로 구현한다.
+**소비 측 확인은 이 문서다.** `web-collect.md` #12-4·#12-7 은 *유정균 확인 완료 (2026-09-07)* 로 닫혔고, 분기 규칙을 소비 계약에 적는 일은 `S15P21A102-206`(강민수) 으로 넘어왔다 — [§2](#2-이벤트-두-형태) 가 그 규칙이다. 함께 열려 있던 *"기사 이벤트의 `run_id` 를 채울지"*(`S15P21A102-205`) 는 **채우는 쪽**으로 끝났다 (아래).
+
+### 2026-09-09 대조 — 구현과 다시 맞췄다
+
+`dag_factory.py` · `flow.py` · `events.py` · `kafka_publisher.py` 와 소비 측 코드를 이 문서와 대조했다. 어긋났던 자리와 고친 방향:
+
+| 항목 | 이 문서의 옛 내용 | 구현 (2026-09-09) |
+| --- | --- | --- |
+| 기사 이벤트의 `run_id` | `null` — "기사는 실행에 속하지 않는다" | **그 기사를 발급한 실행** (`S15P21A102-204`, `events.article_event`). 수집한 실행이 아니다 — 저장만 되고 못 나간 행은 다음 실행이 내므로 둘이 갈리고, 그게 정상이다 |
+| 요약 `record_count` | 발행 구간 누적 | **그 실행이 발급한 건수.** 수집 이력의 `event_run_id` 로 센다 (`ledger.emitted_by_run`) |
+| `failed` 요약의 `record_count` | 늘 `0` | **0 이 아닐 수 있다** — 죽은 소스라도 이월분·죽기 전 저장분이 이번 발급에 딸려 나간다 ([§2](#요약-이벤트--처리-규칙)) |
+| `ARTICLE_SCHEMA` | `categories` · `extra` 없음 | `categories` 는 있다 (171). `extra` 만 없다 |
+| 수집 상태 → `pl_batch_stat` | 기록한다 | **아직 없다.** 요약 이벤트는 처리 이력(`pl_processing_ledger`)까지만 남는다 ([§4](#4-수집-상태)) |
+| 모드 A 를 부르는 Airflow DAG | 매 스케줄에 부른다 | **아직 없다.** `spark/scripts/submit.sh` 로 손으로 부른다 ([09 §5](09-dev-and-test.md)) |
+
+**요약 이벤트는 실제로 발행된다.** `fashion_collect` DAG 의 마지막 태스크 `publish` 가 매 정시에 `flow.publish_pending()` 으로 그 도메인의 밀린 기사 이벤트를 전부 낸 뒤, `flow.publish_summaries()` 로 소스 7 개마다 하나씩 낸다 — 0 건이어도, 소스 태스크가 죽었어도 (`trigger_rule=ALL_DONE`). 죽은 소스는 XCom 을 남기지 않으므로 "소스 목록 − 돌아온 소스" 가 `status: failed` 가 된다 (`flow.source_statuses`). `dev_collect` 는 `source_keys` 가 비어 있어 기사도 요약도 하나도 내지 않는다.
+
+**`../../docs/spark-integration.md` 가 이 지점에서 낡았다.** §3 필드 표와 §9 검사 항목이 기사 이벤트의 `run_id` 를 `null` 로 적고 있고, §2 가 이 문서의 consumer group 을 `spark-ingest` 로 인용하며, §11 의 "02 가 낡았다" 표는 전부 반영된 항목이다. `events.py` · `scripts/verify-spark-integration.py` 는 이미 `run_id` 가 있는 쪽이고, 이 문서는 `trendin-spark-ingest` 접두어다. 그 문서는 담당 1 소유라 여기서 고치지 않고 요청으로 남긴다.
 
 ### 검증 해시 — 경로가 둘이고 둘 다 `article.json` 을 가리킨다
 
@@ -87,7 +105,7 @@ EVENT_SCHEMA = StructType([
     StructField("domain",         StringType(),  True),
     StructField("source_id",      StringType(),  True),
     StructField("article_id",     StringType(),  True),   # 요약은 null
-    StructField("run_id",         StringType(),  True),   # 기사는 null
+    StructField("run_id",         StringType(),  True),   # 기사는 그 기사를 발급한 실행. 요약은 그 실행
     StructField("url",            StringType(),  True),   # 요약은 null
     StructField("title",          StringType(),  True),   # 요약은 null
     StructField("published_at",   StringType(),  True),   # 요약은 null
@@ -134,7 +152,8 @@ EVENT_SCHEMA = StructType([
 | **판별** | `object_key` 가 있다 | **`object_key` 가 `null` 이다** |
 | 언제 | MinIO `stat` 으로 저장을 확인한 뒤, 기사마다 하나 | 소스별 수집이 끝난 뒤, 소스·실행마다 하나 |
 | `event_id` | `{source_id}-{article_id}` | `{source_id}-{run_id}` |
-| `run_id` | `null` — 기사는 실행에 속하지 않는다 | 있다 |
+| `run_id` | **그 기사를 발급한 실행.** 수집한 실행이 아닐 수 있다 (이월분) | 그 실행 |
+| `collected_at` | 그 기사를 받은 시각 (KST). 다시 내도 안 바뀐다 | logical date (KST). 재시도해도 같다 |
 | `status` | 늘 `success` | `success` \| `failed` |
 | `record_count` | 늘 `1` | 그 실행에서 발행한 기사 수 |
 | `checksum` | `sha256-…` (article.json) | `null` |
@@ -157,16 +176,19 @@ EVENT_SCHEMA = StructType([
 | `status` | `record_count` | 처리 |
 | --- | --- | --- |
 | `success` | ≥ 0 | 처리 이력에 `COMPLETED`. 그 소스·실행이 정상 종료했다는 기록만 남긴다 |
-| `success` | < 0 | **계약 위반.** DLQ — 발행 건수가 음수일 수 없다 |
-| `failed` | `0` | 처리 이력에 `SOURCE_FAILED` + `failure_reason` |
-| `failed` | > 0 | **계약 위반.** DLQ — `flow.source_statuses()` 는 죽은 소스에만 `failed` 를 붙이고 그때 건수가 0 이다 |
+| `failed` | ≥ 0 | 처리 이력에 `SOURCE_FAILED` + `failure_reason`. **건수가 0 이 아니어도 정상이다** (아래) |
+| 둘 다 | < 0 | **계약 위반.** DLQ — 발행 건수가 음수일 수 없다 |
 | 그 외 `status` | — | **계약 위반.** DLQ — `run_summary_event()` 가 `success` \| `failed` 만 허용한다 |
 | `run_id` 가 비었다 | — | **계약 위반.** DLQ — 요약 이벤트의 `event_id` 가 `{source}-{run_id}` 라 `run_id` 없이는 실행을 특정할 수 없다 |
 | `record_count` 가 없다 | — | **계약 위반.** DLQ — 0 과 "안 왔다" 를 구분해야 한다 |
 | `failed` 인데 `failure_reason` 이 비었다 | — | **계약 위반.** DLQ — 팀 발행 규약 5 |
 
-판별 순서는 `contract._check_summary()` 가 기준이다. `status` → `run_id` → `record_count` →
-(`failed` 면) 건수 0 확인·`failure_reason` 순이고, 먼저 걸린 사유 하나만 보고한다.
+판별 순서는 `contract._check_summary()` 가 기준이다. `status` → `run_id` → `record_count` 존재 →
+음수 → (`failed` 면) `failure_reason` 순이고, 먼저 걸린 사유 하나만 보고한다.
+
+**`failed` 인데 `record_count > 0` 은 계약 위반이 아니다.** `publish` 태스크는 소스 성패와 무관하게 그 도메인의 밀린 기사를 **전부** 낸다 (`flow.publish_pending`). 그래서 소스 태스크가 죽어도 (a) 지난 실행에서 저장만 되고 못 나간 이월분, (b) 이번 실행에서 403·429 를 맞고 멈추기 전에 저장한 기사가 이번 `run_id` 로 나가고, `ledger.emitted_by_run` 이 그 수를 그 소스의 `record_count` 로 센다. 죽은 소스의 건수를 0 으로 못 박으면 이 두 경우가 전부 DLQ 로 가고, 그 실행의 `SOURCE_FAILED` 기록이 사라진다 — 실패를 기록하려고 만든 이벤트가 실패했을 때 버려지는 꼴이다.
+
+`contract._check_summary()` 가 한동안 `failed` + `record_count != 0` 을 `CONTRACT_VIOLATION` 으로 보냈다 — 2026-09-09 대조에서 잡아 고쳤다. 소스가 부분 실패하지 않은 동안은 드러나지 않았을 결함이다.
 
 **요약 이벤트를 버리지 않는 이유** — 실패를 기록하지 않으면 "수집이 실패한 날" 과 "그날 아무 일도 없던 날" 을 구분할 수 없다. 기사 이벤트만 보면 둘 다 "아무것도 안 옴" 으로 똑같이 보인다. 이게 생산자가 요약 이벤트를 따로 내는 이유이기도 하다.
 
@@ -232,6 +254,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | --- | --- | --- |
 | 객체 존재 | 읽기 실패 | **DLQ** (`OBJECT_NOT_FOUND`). 불변식 5 가 보장하는 것이라 생산자 버그거나 보존 기간 경과다 |
 | checksum | `article.json` **바이트**의 `sha256` 을 이벤트 `checksum`(`sha256-` 접두 제거)과 대조 | **DLQ** (`CHECKSUM_MISMATCH`) |
+| 시각 | `article.json` 의 `published_at` · `collected_at` 이 **오프셋 있는 ISO-8601** 로 읽히는지 | **DLQ** (`ARTICLE_CONTRACT_VIOLATION`). 있기만 한 값을 통과시키면 `published_date` 없는 파티션에 쓰인다 ([03 §3](03-normalization-spec.md)) |
 
 ### 객체 메타데이터
 
@@ -244,7 +267,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 
 **평시(모드 A)에는 읽지 않는다.** 메시지의 `checksum` 이 같은 값이고, 메타데이터를 읽으려면 `HEAD` 요청이 하나 더 붙는다. 쓰는 곳은 [§6](#6-재처리) 모드 B — 메시지가 없을 때의 유일한 대조 기준이다.
 
-**`run-id` 는 없다.** 기사는 실행에 속하지 않으므로 넣지 않기로 확정됐다 — 메시지의 `run_id: null` 과 같은 이유다.
+**`run-id` 는 없다.** 객체는 기사의 것이고 발급 실행의 것이 아니다 — 같은 기사를 다시 발급해도 객체는 그대로다. 메시지의 `run_id` 는 그 기사를 **발급한** 실행이라 객체에 붙일 값이 아니고, 그래서 [§6](#6-재처리) 모드 B 는 그 값을 재구성하지 않는다.
 
 **content-type 에 charset 이 없다.** raw 는 `application/xml` · `text/html` · `application/json` 이다. 소스가 EUC-KR 로 줄 수 있어 utf-8 을 단정하지 않기로 했다. `article.json` 은 생산자가 만들어 항상 utf-8 이고 그건 JSON 규격이 명시한다 — 즉 **`article.json` 은 utf-8 로 디코드해도 안전하고 raw 는 그렇지 않다.** 우리는 `article.json` 만 읽으므로 문제되지 않는다.
 
@@ -275,9 +298,9 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | `categories` | | 목록 소스는 어느 섹션에서 봤는지가 들어온다. 없으면 `[]` |
 | `members_only` | | 이벤트의 같은 이름 값과 일치한다 |
 
-**⚠️ `ARTICLE_SCHEMA` 는 아직 `categories` 와 `extra` 를 안 받는다.** `src/trendin/spark/io/schema.py` 의 `ARTICLE_SCHEMA` 에 그 두 칸이 없어서, 지금 파싱하면 값이 있어도 버려진다. 일부러다 — `extra` 는 `dict[str, Any]` 라 값 타입이 섞여 있어(`hn` 은 `score` 가 int, `by` 가 str) `MapType` 으로 받으면 한쪽이 깨지고, `categories` 는 [03 §1](03-normalization-spec.md) 의 표준 문서가 쓰기 시작하는 `S15P21A102-171` 에서 `ArrayType(StringType())` 으로 더한다. `170` 은 검증이 일이고 그 두 칸을 쓰는 곳이 없다.
+**`ARTICLE_SCHEMA` 는 `extra` 를 안 받는다.** `src/trendin/spark/io/schema.py` 의 `ARTICLE_SCHEMA` 에 그 칸이 없어서 값이 있어도 버려진다. 일부러다 — `extra` 는 `dict[str, Any]` 라 값 타입이 섞여 있어(`hn` 은 `score` 가 int, `by` 가 str) `MapType` 으로 받으면 한쪽이 깨진다. 필요해지는 [04](04-keyword-extraction-spec.md) 에서 소스별 struct 로 좁혀 받는다. `categories` 는 `S15P21A102-171` 에서 `ArrayType(StringType())` 으로 더했고 [03 §1](03-normalization-spec.md) 의 표준 문서가 쓴다.
 
-검증은 **필수 필드 존재**까지만 한다. 없으면 DLQ (`ARTICLE_CONTRACT_VIOLATION`). 불변식 9 가 *"필수 필드가 하나라도 비면 그 기사는 저장하지 않는다"* 를 생산자 쪽에서 이미 걸지만, 이벤트가 다른 파일을 가리키는 경우는 checksum 이 잡고 못 잡는 나머지를 이게 잡는다.
+검증은 **필수 필드 존재**와 **시각 두 칸의 형식**까지다. 없거나 못 읽으면 DLQ (`ARTICLE_CONTRACT_VIOLATION`). 불변식 9 가 *"필수 필드가 하나라도 비면 그 기사는 저장하지 않는다"* 를 생산자 쪽에서 이미 걸지만, 이벤트가 다른 파일을 가리키는 경우는 checksum 이 잡고 못 잡는 나머지를 이게 잡는다.
 
 ### ⚠️ 본문이 없는 기사가 정상적으로 들어온다
 
@@ -298,7 +321,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 
 ## 4. 수집 상태
 
-`ingest` 는 수집 상태를 `pl_batch_stat` 에 기록한다 ([08 §3](08-storage-schema.md)).
+`ingest` 는 수집 상태를 `pl_batch_stat` 에 기록한다 ([08 §3](08-storage-schema.md)) — 가 이 절의 설계고, **2026-09-09 현재 그 집계는 아직 없다.** 지금 남는 것은 처리 이력(`pl_processing_ledger`)의 요약 이벤트 행까지다 — `event_shape = SUMMARY`, `status` 가 `COMPLETED` | `SOURCE_FAILED`, 그리고 `source_id` · `run_id` · `record_count` · `collected_at` (`ingest/routing.py`, `ingest/batch.ledger_rows`). `(일자, 소스)` 로 접는 인덱스(`pl_processing_ledger_collected_idx`)는 미리 걸어 뒀다. 그 행을 `pl_batch_stat` 의 지표 계열로 접는 것이 후속 작업이다 ([10 §5](10-delivery-plan.md)). 아래는 그 집계의 규격이다.
 
 ### 무엇을 무엇으로 세나
 
@@ -307,7 +330,7 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 | 수집 건수 | **기사 이벤트 수.** `collected_at` 의 KST date 로 묶어 센다 |
 | 성패 | **요약 이벤트.** `(date, source)` 별로 접는다 |
 
-건수를 요약 이벤트의 `record_count` 합이 아니라 기사 이벤트 수로 세는 이유는, 요약의 `record_count` 는 **발행 구간** 누적이라 이월분을 포함한다 — 지난 실행에서 저장만 되고 못 나간 기사가 이번 요약에 잡힌다. 기사 이벤트를 직접 세면 `collected_at` 기준으로 정확히 나뉜다.
+건수를 요약 이벤트의 `record_count` 합이 아니라 기사 이벤트 수로 세는 이유는, 요약의 `record_count` 는 **그 실행이 발급한 건수**(수집 이력의 `event_run_id` 로 센다)라 이월분을 포함한다 — 지난 실행에서 저장만 되고 못 나간 기사가 이번 요약에 잡힌다. 같은 이유로 `failed` 요약에도 0 이 아닌 건수가 붙을 수 있다 ([§2](#요약-이벤트--처리-규칙)). 기사 이벤트를 직접 세면 `collected_at` 기준으로 정확히 나뉜다.
 
 ### `(date, source)` 상태 판별
 
@@ -406,7 +429,7 @@ DLQ 메시지 스키마 (토픽 쪽은 제안. 담당 2와 확정 필요):
 
 ### 모드 A — `--source kafka` (평시)
 
-checkpoint 기반. Airflow 가 매 스케줄에 이 모드로 부른다. 설명은 [01 §1](01-architecture.md).
+checkpoint 기반. Airflow 가 매 스케줄에 이 모드로 부르는 것이 설계다 — **그 DAG 은 아직 없다** ([09 §5](09-dev-and-test.md)). 지금은 `spark/scripts/submit.sh ingest` 로 손으로 부른다. 설명은 [01 §1](01-architecture.md).
 
 ### 모드 B — `--source objects` (백필·복구)
 
@@ -425,7 +448,7 @@ spark-submit ingest.py \
 1. Kafka 를 읽지 않는다. checkpoint 를 건드리지 않는다.
 2. MinIO `raw-data` 에서 `{domain}/*/*/{yyyy}/{mm}/{dd}/*/article.json` 프리픽스를 훑는다. `--from`·`--to` 는 **발행일** 범위다 — 키의 날짜가 발행일이기 때문이다.
 3. 객체 키에서 이벤트를 재구성한다. `article_id` 는 키의 마지막 디렉터리, `event_id` 는 `{source}-{article_id}` 규칙으로 만든다. 나머지 필드는 `article.json` 안에 있다.
-4. 이후는 모드 A 와 같은 코드 경로.
+4. 이후는 모드 A 와 같은 코드 경로. 단 **봉투 계약 판별(`classify`)은 타지 않는다** — 재구성한 봉투에 `url`·`published_at` 이 없어 전부 `CONTRACT_VIOLATION` 이 되기 때문이다. 검증은 객체 쪽(존재 · checksum · 필수 필드 · 도메인 허용 목록)에 그대로 남는다 (`ingest/backfill.py`).
 5. `--force` 가 있으면 처리 이력의 `COMPLETED` 를 무시하고 다시 처리한다.
 
 **이 모드가 성립하는 이유** — 불변식 5 가 *"이벤트는 MinIO 에 raw·article.json 이 있음을 `stat` 으로 확인한 뒤에만 낸다"* 를 보장하므로, 객체가 있는 것은 곧 이벤트가 나갔던 것이다. 그리고 `article.json` 은 자기 완결적이라(불변식 9 가 필수 필드를 보장) 메시지를 재구성하는 데 다른 파일이 필요하지 않다.

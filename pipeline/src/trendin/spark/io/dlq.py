@@ -104,8 +104,14 @@ class TableDlqSink:
         log.info("DLQ 스키마 확인: %s", TABLE)
 
     def write(self, rejected: "DataFrame") -> None:
-        jdbc.append(rejected.select(*COLUMNS), STAGE_TABLE, self._config)
-        jdbc.execute(self._config, MERGE_SQL)
+        """한 트랜잭션으로 스테이징 → MERGE ([08 §4])."""
+        jdbc.stage_and_merge(
+            self._config,
+            stage_table=STAGE_TABLE,
+            columns=COLUMNS,
+            frame=rejected,
+            merge_sql=MERGE_SQL,
+        )
 
 
 def build_dlq_sink(config: Config, *, job: str) -> DlqSink:

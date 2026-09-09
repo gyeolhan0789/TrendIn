@@ -206,7 +206,7 @@ def test_정상_배치는_전부_처리_이력으로_가고_DLQ_는_비어_있�
     assert dlq.written == []
     # 기사는 객체 단계를 목표로 하고 요약은 계약 단계가 마지막 단계다 ([02 §2·§3]).
     stages = {row["event_id"]: row["stage"] for row in ledger.recorded}
-    assert stages["vogue-854414"] == "object"
+    assert stages["vogue-854414"] == "normalize"
     assert stages["vogue-20260903T100000"] == "contract"
     assert stages["wkorea-20260903T100000"] == "contract"
     assert {row["job"] for row in ledger.recorded} == {"ingest"}
@@ -239,7 +239,7 @@ def test_거절된_메시지는_DLQ_와_처리_이력_양쪽에_남는다(spark,
 
 
 def test_처리_이력에_있는_이벤트는_두_번째부터_걸린다(spark):
-    ledger, dlq = FakeLedger(known={("vogue-854414", "object")}), FakeDlq()
+    ledger, dlq = FakeLedger(known={("vogue-854414", "normalize")}), FakeDlq()
     batch = from_events(spark, [fixture("article-event.json"), fixture("run-summary-success.json")])
 
     result = process_batch(batch, job="ingest", ledger=ledger, dlq=dlq)
@@ -252,7 +252,7 @@ def test_처리_이력에_있는_이벤트는_두_번째부터_걸린다(spark):
 
 def test_force_는_처리_이력을_무시한다(spark):
     """`--force` 재처리 ([02 §6])."""
-    ledger, dlq = FakeLedger(known={("vogue-854414", "object")}), FakeDlq()
+    ledger, dlq = FakeLedger(known={("vogue-854414", "normalize")}), FakeDlq()
     batch = from_events(spark, [fixture("article-event.json")])
 
     result = process_batch(batch, job="ingest", ledger=ledger, dlq=dlq, force=True)
@@ -263,7 +263,7 @@ def test_force_는_처리_이력을_무시한다(spark):
 
 def test_전부_걸리면_아무것도_쓰지_않는다(spark):
     """빈 DataFrame 을 JDBC 로 보내면 스테이징만 건드리고 MERGE 가 헛돈다."""
-    ledger, dlq = FakeLedger(known={("vogue-854414", "object")}), FakeDlq()
+    ledger, dlq = FakeLedger(known={("vogue-854414", "normalize")}), FakeDlq()
     batch = from_events(spark, [fixture("article-event.json")])
 
     result = process_batch(batch, job="ingest", ledger=ledger, dlq=dlq)
@@ -329,7 +329,7 @@ def test_객체_단계_실패는_FAILED_로_내려_DLQ_와_처리_이력에_남�
     assert (result.articles, result.rejected) == (0, 1)
     assert [row["error_type"] for row in dlq.written] == [error_type]
     row = ledger.recorded[0]
-    assert (row["status"], row["stage"], row["error_type"]) == ("FAILED", "object", error_type)
+    assert (row["status"], row["stage"], row["error_type"]) == ("FAILED", "normalize", error_type)
 
 
 def test_객체_단계를_통과하면_COMPLETED_그대로다(spark):
@@ -341,10 +341,10 @@ def test_객체_단계를_통과하면_COMPLETED_그대로다(spark):
 
     assert result.articles == 1
     row = ledger.recorded[0]
-    assert (row["status"], row["stage"], row["error_type"]) == ("COMPLETED", "object", None)
+    assert (row["status"], row["stage"], row["error_type"]) == ("COMPLETED", "normalize", None)
 
 
-def test_계약_단계까지만_적힌_기사는_객체_단계에서_다시_처리된다(spark):
+def test_계약_단계까지만_적힌_기사는_정제_단계에서_다시_처리된다(spark):
     """단계를 더할 때 손으로 옮길 것이 없어야 한다.
 
     `event_id` 만 대조했다면 이 행이 객체 검증을 통째로 건너뛰고, **아무 증상도 없었다.**
@@ -358,11 +358,11 @@ def test_계약_단계까지만_적힌_기사는_객체_단계에서_다시_처�
     )
 
     assert result.articles == 1
-    assert ledger.recorded[0]["stage"] == "object"
+    assert ledger.recorded[0]["stage"] == "normalize"
 
 
-def test_객체_단계까지_적힌_기사는_걸러진다(spark):
-    ledger = FakeLedger(known={("vogue-854414", "object")})
+def test_정제_단계까지_적힌_기사는_걸러진다(spark):
+    ledger = FakeLedger(known={("vogue-854414", "normalize")})
     dlq = FakeDlq()
     batch = from_events(spark, [fixture("article-event.json")])
 

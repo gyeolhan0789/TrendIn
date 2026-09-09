@@ -75,7 +75,7 @@ flowchart LR
 
 | 안 하는 것 | 누가 하나 |
 | --- | --- |
-| 외부 사이트 수집, MinIO 객체 업로드(`raw` · `article.json`), 수집 수집 이력(`collected_article`), 이벤트 발행 | 담당 1 (Collector) |
+| 외부 사이트 수집, MinIO 객체 업로드(`raw` · `article.json`), 수집 이력(`collected_article`), 이벤트 발행 (`dag_factory.py` 의 `publish` 태스크) | 담당 1 (Collector) |
 | Kafka 토픽 운영, 이벤트 발행, DLQ 토픽 관리 | 담당 2 |
 | 서비스 테이블 DDL 소유, 마이그레이션 | 백엔드 |
 | 조회 API, 페이징, 인증 | 백엔드 |
@@ -117,7 +117,7 @@ Airflow 는 수집이 언제 끝났는지 이미 안다. 트리거 목적만 보
 
 | 항목 | 결정 | 근거 |
 | --- | --- | --- |
-| 실행 모델 | `Trigger.AvailableNow` 마이크로배치. Airflow 가 `spark-submit` 으로 깨우고 Job 은 스스로 종료 | [01 §1](01-architecture.md) |
+| 실행 모델 | `Trigger.AvailableNow` 마이크로배치. Airflow 가 `spark-submit` 으로 깨우고 Job 은 스스로 종료. **그 DAG 은 아직 없다** — 지금은 `submit.sh` 로 손으로 부른다 | [01 §1](01-architecture.md) · [09 §5](09-dev-and-test.md) |
 | Job 분해 | `ingest` / `extract` / `aggregate` 세 개 | [01 §2](01-architecture.md) |
 | 구현 언어 | PySpark | 팀 스택이 Python, 한국어 형태소 분석기가 Python |
 | 키워드 추출 | 통계·자동 발견 중심. 사전 화이트리스트를 쓰지 않는다 | [04](04-keyword-extraction-spec.md) |

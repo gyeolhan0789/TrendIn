@@ -23,7 +23,7 @@ MinIO `curated` 에 Parquet 으로 쓰는 형태다. 서비스 `contents` 와는
 | `summary` | string | 소스가 준 요약. 본문이 없을 때의 유일한 텍스트 | `summary` |
 | `lang` | string | `ko` / `en` / `mixed` / `unknown` | 판별 결과 |
 | `author` | string | 저자 식별자. 스팸 억제용 | `author` |
-| `categories` | array&lt;string&gt; | 소스가 준 섹션. 목록 소스는 발견한 섹션이 들어온다. **⚠️ `ARTICLE_SCHEMA` 에 아직 이 칸이 없다** — 이 컬럼을 채우려면 `spark/io/schema.py` 에 `ArrayType(StringType())` 을 먼저 더해야 한다 ([02 §3](02-input-contract.md)) | `categories` |
+| `categories` | array&lt;string&gt; | 소스가 준 섹션. 목록 소스는 발견한 섹션이 들어온다. `ARTICLE_SCHEMA` 가 `ArrayType(StringType())` 으로 받는다 — 171 에서 더했다 ([02 §3](02-input-contract.md)) | `categories` |
 | `members_only` | boolean | 회원 전용이라 본문이 없음 | `members_only` |
 | `published_at` | timestamp | 소스가 준 시각. **원본 보존** | `published_at` |
 | `published_date` | date | `published_at` 의 KST date. 파티션 키 | 계산 |
@@ -34,7 +34,7 @@ MinIO `curated` 에 Parquet 으로 쓰는 형태다. 서비스 `contents` 와는
 
 `body_code` 를 따로 두는 이유는 [§4](#4-텍스트-정제) 에 있다.
 
-**`ingest_run_id` 가 생산자의 `run_id` 를 대체한다.** 기사 이벤트에는 `run_id` 가 `null` 이므로(`web-collect.md` #6) 출처 배치를 적을 자리가 없다. 대신 이 Job 의 실행 식별자를 넣는다. 근거와 대가는 [01 §3](01-architecture.md).
+**`ingest_run_id` 는 생산자의 `run_id` 가 아니다.** 기사 이벤트의 `run_id` 는 그 기사를 **발급한** 수집 실행이고(`web-collect.md` #6), 재처리 단위는 이 Job 의 실행이라 여기에는 이 Job 의 실행 식별자를 넣는다. 근거와 대가는 [01 §3](01-architecture.md).
 
 **`route` 를 남기는 이유** — 같은 소스가 경로에 따라 본문 위치가 다르다. `harpersbazaar` 는 `listing` 이라 기사 페이지 HTML 을 파싱한 결과이고, 두산 4곳은 `rss` 라 피드 `content:encoded` 전문이다. 정제 품질이 갈리면 이 컬럼으로 구분해 재본다.
 
@@ -67,7 +67,7 @@ MinIO `curated` 에 Parquet 으로 쓰는 형태다. 서비스 `contents` 와는
 | --- | --- |
 | 정상 | 그대로 보존. 소스가 준 오프셋 포함 |
 | 미래 시각 | 수집 시각보다 미래면 `collected_at` 으로 대체하고 경고 |
-| 시각이 없음 | **발생하지 않는다.** 생기면 [02 §3](02-input-contract.md) 의 `ARTICLE_CONTRACT_VIOLATION` 으로 DLQ 에서 잡힌다 |
+| 시각이 없음 · 못 읽음 · 오프셋 없음 | **발생하지 않는다.** 셋 다 [02 §3](02-input-contract.md) 의 `ARTICLE_CONTRACT_VIOLATION` 으로 DLQ 에서 잡힌다 — 있기만 한 값(`"invalid-date"`)도 막는다. 계약 판별과 정제가 같은 파서(`io/contract.parse_offset_datetime`)를 써서 판별은 통과하고 정제는 `None` 을 내는 값이 없다. 정제에 그 값이 오면 `INVALID_PUBLISHED_AT` 으로 버린다 ([§6](#6-필터)) — `published_date` 없는 파티션(`__HIVE_DEFAULT_PARTITION__`)을 만들지 않기 위한 마지막 방어선이다 |
 
 **타임존이 없는 값도 오지 않는다.** `Article._needs_offset` 이 오프셋 없는 시각을 생산자 쪽에서 거부한다. 그리고 생산자 수집 이력은 `timestamptz` 라 오프셋 표기를 버리는데, `published_at_offset` 컬럼에 따로 남겨 발행 시점에 되살린다 (`ledger.restore_offset`). 즉 **한국 매체의 `+09:00` 이 `+00:00` 으로 바뀌어 오지 않는다.**
 
@@ -162,6 +162,7 @@ SimHash 를 쓰는 이유는 단일 노드에서 MinHash + LSH 를 돌리는 것
 | 본문 길이가 하한 미만 | 제외 | 키워드를 뽑을 것이 없다 |
 | 빈 본문 (정제 후) | 제외 | 정제가 다 걷어낸 경우 |
 | `lang = unknown` | 제외 | 토크나이저를 고를 수 없다 |
+| `published_date` 가 없다 | 제외 (`INVALID_PUBLISHED_AT`) | 날짜 파티션 키가 없다. 계약 판별이 먼저 막으므로 여기 오면 배선이 깨진 것이다 ([§3](#3-published_at-처리)) |
 | 링크만 있고 텍스트가 없음 | 제외 | 정제 후 본문이 비는 경우 |
 | 같은 `author` 가 한 실행에서 상한 초과 | **제외하지 않고 표시** | [07 §7](07-metrics-and-ranking-spec.md) 에서 기여 상한으로 처리 |
 
@@ -175,7 +176,9 @@ SimHash 를 쓰는 이유는 단일 노드에서 MinHash + LSH 를 돌리는 것
 
 ## 7. 버린 것과 고친 것을 센다
 
-**필터로 사라진 문서를 조용히 넘기지 않는다.** 실행마다 내부 처리 이력에 기록한다.
+**필터로 사라진 문서를 조용히 넘기지 않는다.** 실행마다 `pl_batch_stat` 에 기록한다 ([08 §3](08-storage-schema.md)).
+
+**세는 것은 배치마다, 쓰는 것은 실행 끝에 한 번이다** (`io/stats.RunStats`). `Trigger.AvailableNow` 가 배치를 여럿 내면 전부 같은 `ingest_run_id` 라, 배치마다 upsert 하면 뒤 배치가 앞 배치를 덮는다. 건수는 누적하고 비율·분포는 끝에 누적 원자료에서 다시 계산한다. 쓸 때는 그 실행의 옛 행을 지우고 다시 넣는다 — 재처리에서 사라진 `(지표, 차원)` 행이 옛 값으로 남지 않게. `curated` · `contents` 쓰기가 전부 끝난 뒤이므로, 쓰기가 죽은 실행의 통계는 남지 않는다 (2026-09-09 리뷰).
 
 | 항목 | 왜 |
 | --- | --- |

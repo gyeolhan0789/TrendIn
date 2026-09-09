@@ -25,13 +25,19 @@ FAILED = "FAILED"
 
 # 이 Job 이 이벤트를 어디까지 끌고 갔는지.
 #
-# **`COMPLETED` 가 "정제·적재까지 끝났다" 를 뜻하지 않는다.** 단계가 늘 때마다 값이 늘고,
-# `ledger.filter_new()` 는 `(event_id, stage)` 로 대조한다. 그래서 옛 단계까지만 적힌 행은
-# 새 단계에서 다시 처리되고 그 자리에서 갱신된다 — 단계를 더할 때 손으로 옮길 것이 없다.
+# **단계가 늘 때마다 값이 늘고** `ledger.filter_new()` 는 `(event_id, stage)` 로 대조한다.
+# 그래서 옛 단계까지만 적힌 행은 새 단계에서 다시 처리되고 그 자리에서 갱신된다 — 단계를
+# 더할 때 손으로 옮길 것이 없다. 171 에서 `normalize` 가 늘면서 170 이 `object` 까지 적어
+# 둔 기사들이 실제로 그 경로를 탄다.
+#
+# ⚠️ **승격은 그 이벤트가 다시 흐를 때만 일어난다** ([08 §3]). Kafka 는 checkpoint 가 이미
+# 지난 오프셋을 다시 주지 않으므로, 단계가 늘기 전에 소비를 마친 이벤트는 저절로 올라가지
+# 않는다. 그 구간까지 올리려면 `--source objects` 로 다시 흘려야 한다 ([02 §6]).
 #
 # 요약 이벤트는 객체가 없어 `contract` 가 마지막 단계다 ([02 §2]).
 STAGE_CONTRACT = "contract"
 STAGE_OBJECT = "object"
+STAGE_NORMALIZE = "normalize"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,9 +61,14 @@ def decide(event: Mapping[str, Any]) -> Decision:
     한 번에 정하는 이유는 Spark 에서 행마다 파이썬을 왕복하기 때문이다. 판별과 상태를 따로
     부르면 왕복이 두 배가 되고, 무엇보다 두 곳이 갈릴 수 있다.
 
-    단계를 **미리** 정하는 것이 핵심이다. 메시지 판별을 통과한 기사 이벤트는 객체 검증에서
-    통과하든 걸리든 `object` 에서 끝나므로, 처리 이력 대조를 그 단계로 할 수 있다. 나중에
-    정하면 대조 시점에 값이 없어서 `filter_new` 가 단계를 구분하지 못한다.
+    단계를 **미리** 정하는 것이 핵심이다. 메시지 판별을 통과한 기사 이벤트는 뒤에서 무슨 일이
+    있어도 `normalize` 에서 끝나므로 — 객체 검증에 걸려도, 정제에서 필터로 버려져도 —
+    처리 이력 대조를 그 단계로 할 수 있다. 나중에 정하면 대조 시점에 값이 없어서 `filter_new`
+    가 단계를 구분하지 못한다.
+
+    **걸린 기사도 `normalize` 로 적는 이유** — 단계는 "이 Job 이 그 이벤트를 어디까지 끌고
+    가려 했나" 다. 실제로 어디서 멈췄는지는 `status` 와 `detail` 이 들고 있다. 도달한 곳을
+    적으면 재실행이 이미 거절한 이벤트를 매번 다시 처리하게 된다.
     """
     verdict = classify(event)
     if not verdict.ok:
@@ -72,4 +83,4 @@ def decide(event: Mapping[str, Any]) -> Decision:
             # ([02 §2]) — 그래야 "그날 아무 일도 없던 것" 과 구분된다.
             return Decision(shape, None, "", SOURCE_FAILED, STAGE_CONTRACT)
         return Decision(shape, None, "", COMPLETED, STAGE_CONTRACT)
-    return Decision(shape, None, "", COMPLETED, STAGE_OBJECT)
+    return Decision(shape, None, "", COMPLETED, STAGE_NORMALIZE)

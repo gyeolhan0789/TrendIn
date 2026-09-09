@@ -2,8 +2,12 @@
 
 Kafka 이벤트를 받아 MinIO 객체을 처리하고, 서비스가 조회하는 PostgreSQL 테이블을 채운다.
 
-`ingest` 는 **Kafka 소비 → 계약 판별 → MinIO 객체 조회·checksum 대조 → 처리 이력 → DLQ** 까지
-돈다. 정제·`curated` 쓰기·`contents` 적재는 아직 없고, `extract`·`aggregate` 는 뼈대뿐이다.
+`ingest` 는 **Kafka 소비 → 계약 판별 → MinIO 객체 조회·checksum 대조 → 정제 → 중복 제거 →
+`curated` Parquet → `contents` upsert → 처리 이력·DLQ·배치 통계** 까지 돈다. 백필
+(`--source objects`)도 있다. `extract`·`aggregate` 는 뼈대뿐이다.
+
+**두 가지가 아직 막혀 있다** — MinIO `curated` 버킷 쓰기 권한이 없고([아래](#minio--curated-버킷과-쓰기-권한이-없다)),
+백엔드에 `contents` 테이블이 없다. 둘 다 코드는 완성이고 권한·스키마가 붙으면 그대로 돈다.
 착수 조건은 [`docs/09-dev-and-test.md` §7](docs/09-dev-and-test.md), 스토리 분해와 진행 상태는 [`docs/10-delivery-plan.md`](docs/10-delivery-plan.md).
 
 ## 무엇을 하나
@@ -121,8 +125,12 @@ spark-submit \
 호스트 `.venv` 로 돌릴 때만 해당한다. `--jars` 를 쓰는 순간 Hadoop 이 `winutils.exe` 를 찾고,
 없으면 SparkContext 기동이 `HADOOP_HOME and hadoop.home.dir are unset` 으로 **실패한다.**
 jar 없이 도는 뼈대 실행은 멀쩡하지만, Kafka·MinIO·JDBC 를 쓰는 순간부터 막힌다.
-2026-09-08 에 실제로 확인했다 — `pytest spark/tests` (층 1·2)는 전부 통과하는데
-`submit.sh` 는 세션이 뜨기 전에 죽는다.
+2026-09-08 에 실제로 확인했다 — `submit.sh` 는 세션이 뜨기 전에 죽는다.
+
+**층 2 테스트도 파일을 쓰는 것만 막힌다.** `pytest spark/tests` 는 통과하지만 `curated`
+Parquet 을 실제로 쓰는 다섯 건은 건너뛴다 (`conftest.py` 의 `writable_spark` 픽스처가 세션당
+한 번 재 보고 건너뛴다). 리눅스 CI·컨테이너에서는 그대로 돈다 — **건너뛰는 것이지 없는
+것이 아니다.**
 
 경로 문제는 스크립트가 이미 처리한다. jar 목록·log4j·앱 스크립트 경로를 `file:///` URI 로
 바꿔 넘긴다 — 안 그러면 spark-submit 이 드라이브 문자를 URI 스킴으로 읽어

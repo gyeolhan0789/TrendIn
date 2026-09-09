@@ -84,7 +84,7 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | --- | --- | --- |
 | `pl_processing_ledger` | `(event_id, job)` 별 상태·건수·시각 | 전부 |
 | `pl_processing_error` | DLQ 미러. `error_type`, 원본 이벤트 | ingest |
-| `pl_batch_stat` | 실행별 정제 통계 + **`(일자, 소스)` 별 수집 상태** ([02 §4](02-input-contract.md)) | ingest |
+| `pl_batch_stat` | 실행별 정제 통계. **`(일자, 소스)` 별 수집 상태**는 여기 얹을 예정이고 아직 없다 — 지금은 `pl_processing_ledger` 의 요약 이벤트 행이 원자료다 ([02 §4](02-input-contract.md)) | ingest |
 | `pl_content_id_map` | `url_hash` → `contents.id` | ingest |
 | `pl_keyword_id_map` | `(domain, normalized_key)` → `keywords.id` | extract |
 | `pl_candidate` | 후보 마스터. 대표 표기, **최초 관측 시각**, 승격 상태 | extract |
@@ -119,7 +119,7 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | 컬럼 | 무엇 |
 | --- | --- |
 | `event_shape` | `ARTICLE` \| `SUMMARY`. 위 표대로 `event_id` 형식만으로는 안 나뉜다 |
-| `stage` | **이 Job 이 이벤트를 어디까지 끌고 갔는지.** `contract`(메시지 판별) · `object`(객체 조회·검증) |
+| `stage` | **이 Job 이 이벤트를 어디까지 끌고 갔는지.** `contract`(메시지 판별) · `object`(객체 조회·검증) · `normalize`(정제·적재, 171) |
 
 `Ledger.filter_new()` 는 `event_id` 만이 아니라 **`(event_id, stage)`** 로 대조한다. 판별이 도달할 단계를 미리 정해 주므로(`ingest/routing.decide`) 대조 시점에 그 값이 이미 있다.
 
@@ -127,7 +127,7 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | --- | --- |
 | 메시지에서 거절 | `contract` — 객체까지 가지 않는다 |
 | 요약 이벤트 | `contract` — 조회할 객체가 없다 |
-| 메시지를 통과한 기사 | `object` — 객체 검증에서 통과하든 걸리든 거기서 끝난다 |
+| 메시지를 통과한 기사 | `normalize` — 객체 검증에서 걸려도, 정제에서 필터로 버려져도 거기서 끝난다 (`ingest/routing.decide`). 170 까지는 `object` 였다 |
 
 **단계를 더할 때 손으로 옮길 것이 없다.** 객체 검증이 붙기 전에 `contract` 까지만 적힌 기사 이벤트는 이제 `object` 를 목표로 오므로 대조에 걸리지 않고, 다시 처리되어 같은 행이 `object` 로 갱신된다(PK 가 `(event_id, job)` 이라 행은 늘지 않는다). 2026-09-08 에 실제로 확인했다. **`event_id` 만 봤다면 그 행들이 새 단계를 통째로 건너뛰었고, 아무 증상도 없었다.**
 
@@ -182,19 +182,27 @@ v2 스키마에는 `first_seen_at` 이 없다. `NEW` 판별이 **언급량 이�
 **Spark JDBC 는 upsert 를 못 한다.** `mode="append"` 는 순수 INSERT 라 충돌하면 배치가 죽는다.
 
 ```
-1. Spark  →  JDBC append  →  pl_stage_*        (순수 INSERT, 빠름)
-2. 서버   →  BEGIN
-              INSERT ON CONFLICT / DELETE+INSERT
-              TRUNCATE pl_stage_*
-             COMMIT
-3. 필요하면 매핑 테이블을 JDBC 로 되읽는다
+1. 드라이버  →  행을 collect() 해 psycopg2 로  BEGIN
+                                              TRUNCATE pl_stage_*
+                                              INSERT pl_stage_*            (execute_values)
+                                              INSERT ON CONFLICT / DELETE+INSERT
+                                              TRUNCATE pl_stage_*
+                                             COMMIT
+2. 필요하면 매핑 테이블을 Spark JDBC 로 되읽는다
 ```
+
+**스테이징 INSERT 도 드라이버가 같은 연결에서 한다** (`io/jdbc.stage_and_merge`). 처음 설계는 1 을
+Spark JDBC `append` 로 두었는데, 그러면 그 INSERT 가 **자기 연결에서 파티션마다 커밋**하는 별개
+트랜잭션이라 MERGE 가 죽었을 때 스테이징 행이 남아 다음 실행의 MERGE 에 섞였다 (2026-09-09 리뷰).
+[00 §3](00-overview.md) 규모(배치당 수백 행)에서는 드라이버로 모으는 것이 맞고, 행이 수만 단위가
+되면 Spark JDBC 로 돌아가되 실행별 토큰으로 스테이징을 격리한다. timestamp 는 오프셋 붙은
+문자열로 내려 세션 시간대에 의존하지 않는다.
 
 ### 왜 `foreachPartition` 이 아닌가
 
 | | 스테이징 | foreachPartition |
 | --- | --- | --- |
-| 원자성 | **한 트랜잭션.** 전부 반영되거나 전부 아님 | 파티션별 커밋. 중간 실패 시 절반만 반영 |
+| 원자성 | **한 트랜잭션.** 스테이징 INSERT 부터 MERGE 까지 같은 연결. 전부 반영되거나 전부 아님 | 파티션별 커밋. 중간 실패 시 절반만 반영 |
 | 커넥션 | 드라이버 1개 | executor 수만큼 동시 접속 |
 | 범위 삭제 | 같은 트랜잭션 안에서 가능 | 별도 처리 필요 |
 | `RETURNING` 회수 | 매핑 테이블 경유로 자연스럽다 | executor 로 흩어져 모으기 어렵다 |

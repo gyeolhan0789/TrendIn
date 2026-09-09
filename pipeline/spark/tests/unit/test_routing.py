@@ -16,7 +16,7 @@ from trendin.spark.ingest.routing import (
     FAILED,
     SOURCE_FAILED,
     STAGE_CONTRACT,
-    STAGE_OBJECT,
+    STAGE_NORMALIZE,
     decide,
 )
 
@@ -39,8 +39,10 @@ def test_기사_이벤트는_COMPLETED_다():
     assert decision.shape == "ARTICLE"
     assert decision.status == COMPLETED
     assert not decision.rejected
-    # 메시지를 통과한 기사는 객체 검증까지 간다 — 통과하든 걸리든 거기서 끝난다.
-    assert decision.stage == STAGE_OBJECT
+    # 메시지를 통과한 기사는 정제까지 간다 — 객체 검증에 걸려도, 필터로 버려져도 거기서
+    # 끝난다. 171 에서 `object` 에서 올라갔고, 그래서 170 이 `object` 까지 적어 둔 기사들이
+    # 이 배포에서 다시 처리된다 ([08 §3] 의 단계 승격).
+    assert decision.stage == STAGE_NORMALIZE
 
 
 def test_성공_요약은_COMPLETED_다():

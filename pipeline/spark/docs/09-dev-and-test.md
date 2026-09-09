@@ -273,7 +273,7 @@ compose 를 띄우고 실제 경로를 한 번 훑는다. 수는 적게, 시나�
 | 미지의 `schema_version` | DLQ 로 가는지 |
 | `object_key` 는 있는데 객체가 없음 | `OBJECT_NOT_FOUND` 로 DLQ 에 가는지 |
 | 허용 목록 밖 `domain` | `UNKNOWN_DOMAIN` 으로 DLQ 에 가는지. **`dev` 는 통과하고 `development` 는 걸리는지** ([01 §6](01-architecture.md)) |
-| `status: failed` 요약 이벤트 | 처리 이력 + `pl_batch_stat` 에 기록되고 객체 조회를 건너뛰는지 ([02 §4](02-input-contract.md)) |
+| `status: failed` 요약 이벤트 | 처리 이력에 `SOURCE_FAILED` 로 기록되고 객체 조회를 건너뛰는지. `pl_batch_stat` 의 `(일자, 소스)` 집계는 아직 없다 ([02 §4](02-input-contract.md)) |
 | **`members_only: true` 기사** | 본문 없이 제목만으로 통과하는지 ([03 §2](03-normalization-spec.md)) |
 | **`route: api` 기사 (`hn`)** | 같음. 본문 필터에 걸려 사라지지 않는지 |
 | checkpoint 유지 재실행 | **아무것도 다시 처리하지 않는지** |
@@ -341,10 +341,12 @@ tests/fixtures/
 
 **수집 DAG 과 같은 DAG 에 두지 않는다.** 수집은 시간 주기(fashion 1시간, `hn` 30분)이고 처리는 그보다 드물게 돌린다. 근거는 [01 §2](01-architecture.md).
 
+**⚠️ 2026-09-09 현재 처리 DAG 은 없다.** `dags/` 에는 수집 DAG 둘(`fashion_collect` · `dev_collect` — `dag_factory.build_collect_dag` 가 만든다) 과 예제만 있고, Spark Job 은 `spark/scripts/submit.sh` 로 손으로 부른다. 아래는 그 DAG 을 붙일 때의 모양이다 ([10 §5](10-delivery-plan.md) 후속).
+
 ```python
 # 수집 — 도메인당 DAG. 담당 1 소유
-fashion_collect   (1시간 주기)
-dev_collect       (30분 주기)
+fashion_collect   (매시 정각. ensure_schema >> collect_one[×7] >> publish)
+dev_collect       (30분. 소스가 비어 있어 publish 만 돈다 — 낼 것이 없다)
 
 # 처리 — 별도 DAG. 자기 스케줄로 돈다
 ingest >> extract >> aggregate
@@ -358,7 +360,7 @@ ingest >> extract >> aggregate
 
 **`trigger_rule=ALL_DONE` 이 필요 없어졌다.** 수집 태스크와 의존 관계가 없기 때문이다. 배치 계약 시절에는 `ingest` 가 수집의 downstream 이라 "소스 하나가 실패해도 돌아야 한다" 를 `trigger_rule` 로 표현했는데, 지금은 실패가 요약 이벤트로 토픽에 들어오고 `ingest` 는 그걸 데이터로 읽는다.
 
-**대가는 관측성이다.** Airflow 그래프만 봐서는 "수집이 끝났는데 처리가 안 됐다" 를 알 수 없다. 두 DAG 이 남남이라 화면에 선이 없다. 그래서 `pl_batch_stat` 의 `(일자, 소스)` 상태([02 §4](02-input-contract.md))가 유일한 연결 지점이다 — 그 표를 보지 않으면 결손을 못 찾는다.
+**대가는 관측성이다.** Airflow 그래프만 봐서는 "수집이 끝났는데 처리가 안 됐다" 를 알 수 없다. 두 DAG 이 남남이라 화면에 선이 없다. 그래서 수집 상태([02 §4](02-input-contract.md) — 지금은 `pl_processing_ledger` 의 요약 이벤트 행, 집계가 붙으면 `pl_batch_stat`)가 유일한 연결 지점이다 — 그 표를 보지 않으면 결손을 못 찾는다.
 
 **XCom 에는 ID 와 건수만 넣는다** (규약 4번). 처리 결과는 `pl_processing_ledger` 를 거친다.
 

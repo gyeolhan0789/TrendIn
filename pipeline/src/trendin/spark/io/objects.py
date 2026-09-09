@@ -10,6 +10,10 @@
 거치지 않는다** — 받아서 해싱하고 검증한 뒤 판별만 남기고 버리므로 배치가 가벼워진다.
 
 S3A 설정(`common/session.py`)은 그대로 둔다. `curated` 쓰기가 그 경로를 쓴다 ([01 §3]).
+
+**목록 조회는 드라이버에서 한다** (`list_prefixes` · `list_keys` · `head_metadata`).
+`--source objects` 백필이 쓰는 경로이고([02 §6] 모드 B), 조회 결과가 곧 처리할 이벤트
+목록이라 executor 로 흩어질 것이 없다.
 """
 
 from __future__ import annotations
@@ -92,6 +96,109 @@ def client(store: StoreConfig) -> Any:
         )
         _client_key = key
     return _client
+
+
+# 메타데이터 키 (`web-collect.md` #5.1, S15P21A102-158 확정). boto3 는 `x-amz-meta-` 접두어를
+# 떼고 소문자로 준다.
+META_CHECKSUM = "content-sha256"
+META_COLLECTED_AT = "collected-at"
+
+
+def _listing(store: StoreConfig, bucket: str, prefix: str, *, delimiter: str = ""):
+    """`list_objects_v2` 페이지 목록. 버킷이 없으면 `BucketNotFound`.
+
+    **`fetch` 와 같은 규약을 지킨다** — 버킷은 인프라이므로 없으면 예외다. 백필에서 이걸
+    삼키면 더 나쁘다: 목록이 비어 "그 범위에 기사가 없다" 로 보이고, `--source objects` 가
+    **아무것도 하지 않은 채 정상 종료한다.** 사람이 범위를 정해 부른 복구 작업이 조용히
+    빈손으로 끝나는 것이라, 복구가 안 됐다는 사실조차 남지 않는다.
+
+    `GET` 이라 응답 본문이 있어서 `NoSuchBucket` 코드가 그대로 온다 — `head_object` 와
+    다른 점이고, 그래서 버킷 검증을 이 자리에서 할 수 있다 (`head_metadata` 참조).
+    """
+    from botocore.exceptions import ClientError
+
+    paginator = client(store).get_paginator("list_objects_v2")
+    arguments = {"Bucket": bucket, "Prefix": prefix}
+    if delimiter:
+        arguments["Delimiter"] = delimiter
+    try:
+        # 페이지네이터는 지연 평가다. 여기서 목록으로 만들어 예외를 이 자리로 끌어온다 —
+        # 안 그러면 호출부의 `for` 안에서 터져 이 함수의 규약이 뜻을 잃는다.
+        return list(paginator.paginate(**arguments))
+    except ClientError as exc:
+        if str(exc.response.get("Error", {}).get("Code", "")) == _NO_SUCH_BUCKET:
+            raise BucketNotFound(
+                f"버킷이 없다: {bucket} (endpoint={store.endpoint}). "
+                "minio.endpoint 가 맞는 MinIO 를 가리키는지, 버킷 이름이 맞는지 본다."
+            ) from exc
+        raise
+
+
+def list_prefixes(store: StoreConfig, bucket: str, prefix: str) -> list[str]:
+    """`prefix` 바로 아래의 "디렉터리" 목록. 끝에 `/` 가 붙은 채로 준다.
+
+    `Delimiter="/"` 로 한 단계만 본다. 전체를 훑어 경로를 잘라내는 것보다 훨씬 싸다 —
+    `raw-data` 는 연 25만 객체 규모라([00 §3]) 전량 나열은 백필마다 수십만 건을 받는다.
+
+    소스와 `route` 를 이렇게 알아내는 이유는 **키의 날짜가 소스·route 뒤에 오기** 때문이다
+    (`{domain}/{source}/{route}/{yyyy}/{mm}/{dd}/...`, `collect/keys.py`). 날짜로 바로
+    프리픽스를 만들 수 없어서, 앞의 두 단을 먼저 알아내야 날짜까지 좁힌 프리픽스가 나온다.
+    """
+    found: list[str] = []
+    for page in _listing(store, bucket, prefix, delimiter="/"):
+        found.extend(item["Prefix"] for item in page.get("CommonPrefixes", []))
+    return found
+
+
+def list_keys(store: StoreConfig, bucket: str, prefix: str) -> list[str]:
+    """`prefix` 아래의 객체 키 전부. 하위 디렉터리까지 내려간다.
+
+    버킷이 없으면 `BucketNotFound` — 이유는 `_listing` 에 있다.
+    """
+    found: list[str] = []
+    for page in _listing(store, bucket, prefix):
+        found.extend(item["Key"] for item in page.get("Contents", []))
+    return found
+
+
+def head_metadata(store: StoreConfig, bucket: str, key: str) -> dict[str, str] | None:
+    """객체의 사용자 메타데이터. 객체가 없으면 `None`, 있고 메타데이터가 없으면 빈 사전.
+
+    **`None` 과 빈 사전을 가른다.** 없는 객체와 "메타데이터 규약이 확정되기 전에 올라간
+    객체" 는 다르게 처리해야 한다 ([02 §6]) — 후자는 checksum 검증을 건너뛰고 재처리하고,
+    전자는 애초에 목록에 없다.
+
+    **⚠️ `HEAD` 는 버킷 부재와 키 부재를 가려 주지 못한다.** `HEAD` 응답에는 본문이 없어서
+    S3 의 XML 에러 코드가 오지 않고, botocore 가 `Error.Code` 를 상태 코드 문자열(`"404"`)로
+    채운다. 그래서 `fetch` 처럼 `NoSuchBucket` 으로 갈라낼 수 없다.
+
+    **그래도 안전한 이유는 호출 순서다.** 이 함수를 부르는 곳은 백필뿐이고
+    (`ingest/backfill.list_articles`), 그 앞에서 `list_prefixes`·`list_keys` 가 이미 같은
+    버킷을 훑는다. 목록 조회는 `GET` 이라 `NoSuchBucket` 이 그대로 오므로 버킷 부재는
+    **거기서** `BucketNotFound` 로 걸린다. 여기 도달했다는 것은 버킷이 있다는 뜻이고,
+    남은 404 는 "목록을 만든 뒤 보관 기간이 지나 사라진 객체" 다.
+
+    그 순서가 깨지면(목록 없이 이 함수를 먼저 부르면) 버킷 부재가 다시 키 부재로 보인다.
+    b277af9 가 없앤 바로 그 경로이므로, 새 호출부를 만들 때 목록을 먼저 타는지 확인한다.
+    """
+    from botocore.exceptions import ClientError
+
+    try:
+        response = client(store).head_object(Bucket=bucket, Key=key)
+    except ClientError as exc:
+        code = str(exc.response.get("Error", {}).get("Code", ""))
+        status = str(exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", ""))
+        # 코드를 상태보다 **먼저** 본다 (`_NO_SUCH_BUCKET` 주석). `HEAD` 에서는 대개 코드가
+        # `"404"` 로 오지만, 오는 경우에 삼키면 b277af9 가 없앤 경로가 되살아난다.
+        if code == _NO_SUCH_BUCKET:
+            raise BucketNotFound(
+                f"버킷이 없다: {bucket} (endpoint={store.endpoint})"
+            ) from exc
+        if code in _NOT_FOUND or status in _NOT_FOUND:
+            return None
+        raise
+    metadata = response.get("Metadata") or {}
+    return {str(name).lower(): str(value) for name, value in metadata.items()}
 
 
 def fetch(store: StoreConfig, bucket: str, key: str) -> bytes | None:
