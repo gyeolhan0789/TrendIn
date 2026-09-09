@@ -5,8 +5,9 @@ checkpoint(중복 차단 1)만으로는 부족하다. checkpoint 는 파일이�
 at-least-once 라 같은 `event_id` 가 실제로 두 번 나오는 자리도 있다 ([02 §1]).
 
 **쓰기는 스테이징 + 서버사이드 MERGE 다** ([08 §4]). Spark 의 JDBC 는 순수 INSERT 라
-같은 `event_id` 를 다시 쓰면 배치가 죽는다. 스테이징에 넣고 드라이버가 한 트랜잭션으로
-병합하면 전부 반영되거나 전부 아니다.
+같은 `event_id` 를 다시 쓰면 배치가 죽는다. 행을 드라이버로 모아 **같은 연결에서** 스테이징에
+넣고 병합하면(`jdbc.stage_and_merge`) 전부 반영되거나 전부 아니다 — Spark JDBC 로 스테이징에
+쓰면 그 INSERT 가 별도 트랜잭션이라 MERGE 가 죽었을 때 스테이징 행이 남았다.
 
 **동시에 두 개가 돌면 안 된다.** 스테이징 테이블을 공유하므로 `ingest` DAG 은
 `max_active_runs=1` 이어야 한다. 겹치면 한쪽의 행이 다른 쪽 트랜잭션에 딸려 들어간다.
@@ -162,7 +163,11 @@ class Ledger:
         return events.join(known, on=["event_id", "stage"], how="left_anti")
 
     def record(self, rows: "DataFrame") -> None:
-        """스테이징에 넣고 서버에서 병합한다. 빈 배치면 아무것도 하지 않는다."""
-        staged = rows.select(*COLUMNS)
-        jdbc.append(staged, STAGE_TABLE, self._config)
-        jdbc.execute(self._config, MERGE_SQL)
+        """스테이징에 넣고 서버에서 병합한다 — 한 트랜잭션. 빈 배치면 아무것도 하지 않는다."""
+        jdbc.stage_and_merge(
+            self._config,
+            stage_table=STAGE_TABLE,
+            columns=COLUMNS,
+            frame=rows,
+            merge_sql=MERGE_SQL,
+        )

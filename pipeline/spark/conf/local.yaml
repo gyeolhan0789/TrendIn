@@ -29,3 +29,8 @@ jdbc:
 checkpoint:
   # 저장소 안. spark/.gitignore 가 뺀다. 지우는 절차는 [02 §6].
   root: "spark/.checkpoints"
+
+ingest:
+  contents:
+    # 로컬은 백엔드가 contents 를 만들기 전에도 돌려본다. 운영 기본은 base.yaml 의 true 다.
+    required: false

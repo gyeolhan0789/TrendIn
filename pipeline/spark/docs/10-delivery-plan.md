@@ -50,7 +50,7 @@
 | --- | --- | --- | --- | --- | --- |
 | S1 | 실행 환경 및 프로젝트 골격 | — | [01](01-architecture.md) · [09](09-dev-and-test.md) | `jobs/` · `conf/` · `versions.sh` · `scripts/` | **완료** |
 | S2 | Kafka 이벤트 소비 및 MinIO 원문 검증 | `ingest` 전반 | [02](02-input-contract.md) | `io/` · `ingest/` · `pl_processing_ledger` · `pl_processing_error` | **구현 완료** (`ms/S15P21A102-170`, MR 대기) · 통합 테스트 [후속](#후속으로-뺀-것) |
-| S3 | 원문 정제 및 콘텐츠 적재 | `ingest` 후반 | [03](03-normalization-spec.md) | `normalize/` · `curated` Parquet · `contents` · `pl_content_id_map` | 미착수 |
+| S3 | 원문 정제 및 콘텐츠 적재 | `ingest` 후반 | [03](03-normalization-spec.md) | `normalize/` · `curated` Parquet · `contents` · `pl_content_id_map` | **구현 완료** (`ms/S15P21A102-171`, MR 대기) · `curated` 쓰기 검증 [후속](#후속으로-뺀-것) |
 | S4 | 키워드 후보 추출 및 스코어링 | `extract` 전반 | [04](04-keyword-extraction-spec.md) | `extract/` · `pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` | 미착수 |
 | S5 | 키워드 정규화·통합 및 승격 | `extract` 후반 | [05](05-keyword-registry-spec.md) | `registry/` · `keywords` · `keyword_contents` · `pl_merge_log` · `pl_review_queue` | 미착수 (**차단**) |
 | S6 | 추출 품질 측정 및 임계값 확정 | `extract` 검증 | [04 §9](04-keyword-extraction-spec.md) · [09 §4](09-dev-and-test.md) | `fixtures/corpus/` · `fixtures/snapshots/` · `conf/base.yaml` 임계값 · `pl_config_history` | 미착수 (**S3 선행**) |
@@ -99,15 +99,51 @@
 
 소스별 원문을 표준 문서로 접고, 씻고, 중복·쓰레기를 걸러 `curated` Parquet 에 쓴다. `contents` 에 메타데이터를 upsert 하고 `id` 를 회수한다. 백필 경로도 여기서 완성한다.
 
-| 완료 조건 | 근거 |
+| 완료 조건 | 근거 | 상태 |
+| --- | --- | --- |
+| 소스별 어댑터가 표준 문서 스키마를 채운다 | [03 §1](03-normalization-spec.md) | ✅ `normalize/adapters/` — `media` · `hackernews`, `route` 로 고른다 |
+| 중복 제거 3단계가 동작하고, 근사 중복은 지우지 않고 `dup_of` 로 표시된다 | [03 §6](03-normalization-spec.md) | ✅ `normalize/dedup.py` — `tests/spark/test_normalize_batch.py` |
+| `curated` Parquet 이 `domain/published_date/source/ingest_run_id` 파티션으로 쓰인다 | [01 §3](01-architecture.md) | ⚠️ 코드 완료 · **실제 쓰기 미검증** ([후속](#후속으로-뺀-것)) |
+| 같은 배치를 두 번 돌려도 `contents` 행 수가 늘지 않고 `(url_hash → id)` 매핑이 남는다 | [08 §3](08-storage-schema.md) `pl_content_id_map` | ⚠️ 코드 완료 · **`contents` 테이블이 없다** ([아래](#-차단--contents-테이블이-없다)) |
+| 버린 건수와 미래 시각 보정 건수가 `pl_batch_stat` 에 남는다 | [03 §7](03-normalization-spec.md) | ✅ `io/stats.py` — [03 §7] 목록 여섯 전부 |
+| `--source objects --from --to` 로 Kafka 없이 지정 구간이 재처리된다 | [02 §6](02-input-contract.md) | ✅ `ingest/backfill.py` — `tests/unit/test_backfill.py` |
+| 정제 순수 함수 단위 테스트 (빈 문자열 · NULL 시각 · 미래 시각) | [03 §3](03-normalization-spec.md) · [09 §4](09-dev-and-test.md) | ✅ 층 1 179건 추가 (전체 329 통과 · 5 건너뜀) |
+
+**⚠️ 완료 조건 문구를 하나 고쳤다** — "`published_at` 대체 건수" 가 아니라 **미래 시각 보정
+건수**다. [03 §7] 이 "`published_at` 대체 건수는 세지 않는다 — 대체가 일어나지 않는다" 로
+못 박았다. 값이 없는 기사는 생산자가 저장하지 않으므로(불변식 9) 0 이 나올 것이 확실한 지표이고,
+실제로 발생하는 것은 **미래 시각을 `collected_at` 으로 되돌린** 건수다.
+
+**파티션 이름도 고쳤다** — `run_id` 가 아니라 `ingest_run_id` 다. 기사 이벤트의 생산자
+`run_id` 는 그 기사를 발급한 수집 실행이라 재처리 단위가 아니고([02 §2]), 이 Job 자신의 실행 식별자를 쓴다 ([01 §3]).
+
+### 🚫 차단 — `contents` 테이블이 없다
+
+**S3 를 구현하면서 발견했다.** 백엔드에 `Content` 엔티티가 없다 —
+`backend/.../trend/domain/` 에는 `keywords` · `trends` · `keyword_metrics` ·
+`keyword_metric_history` 만 있고, [erd](erd/erd-00-current.md) 가 정의한 `contents` ·
+`keyword_contents` 는 둘 다 없다. `keywords` 에도 `normalized_name` 이 없다.
+
+**백엔드가 v2 ERD 로 옮겨오는 중이다.** `hg/S15P21A102-207`(dev `278b4ff`)이 v1 의
+`trend_metrics` · `trend_history_points` 를 **`keyword_metrics` · `keyword_metric_history`**
+로 갈아치웠다 — [erd §5](erd/erd-00-current.md) 가 요구한 그 변경이고, [다음 에픽](#다음-에픽으로-넘기는-것)
+이 쓸 두 표가 그래서 이미 있다. 남은 것이 `contents` · `keyword_contents` 와
+`keywords.normalized_name` 이다.
+
+| | |
 | --- | --- |
-| 소스별 어댑터가 표준 문서 스키마를 채운다 | [03 §1](03-normalization-spec.md) |
-| 중복 제거 3단계가 동작하고, 근사 중복은 지우지 않고 `dup_of` 로 표시된다 | [03 §6](03-normalization-spec.md) |
-| `curated` Parquet 이 `domain/published_date/source/run_id` 파티션으로 쓰인다 | [01 §3](01-architecture.md) |
-| 같은 배치를 두 번 돌려도 `contents` 행 수가 늘지 않고 `(url_hash → id)` 매핑이 남는다 | [08 §3](08-storage-schema.md) `pl_content_id_map` |
-| 버린 건수와 `published_at` 대체 건수가 `pl_batch_stat` 에 남는다 | [03 §7](03-normalization-spec.md) |
-| `--source objects --from --to` 로 Kafka 없이 지정 구간이 재처리된다 | [02 §6](02-input-contract.md) |
-| 정제 순수 함수 단위 테스트 (빈 문자열 · NULL 시각 · 미래 시각) | [03 §3](03-normalization-spec.md) · [09 §4](09-dev-and-test.md) |
+| 누가 | 백엔드 |
+| 언제까지 | **S4 종료 전.** 그때 `keyword_contents` 가 이 표의 `id` 를 참조한다 |
+| 없으면 | `curated` 에는 쓰이고 `contents` 는 빈다. `extract` 가 `pl_content_id_map` 에서 아무것도 못 찾는다 |
+
+**Spark 가 만들지 않는다.** 서비스 테이블은 백엔드 소유고 Spark 에 DDL 권한이 없다
+([08 §1]). 만들어도 `ddl-auto: create` 가 다음 재배포에 다른 형태로 다시 만든다.
+
+**조용히 건너뛰지 않는다.** `ContentsSink.service_table_ready()` 가 시작할 때 확인하고,
+없으면 시작하지 않는다 — 기본이 fail-closed 다 (`ingest.contents.required`, base.yaml `true`).
+로컬(local.yaml)만 `false` 이고, 그 밖에서 풀려면 `--allow-missing-contents` 를 명시한다. 그때는 크게 남기고 `curated` 까지만 쓴다 —
+운영에서는 그 플래그를 켠다. 건너뛴 배치의 증상이 "키워드는 나오는데 관련 콘텐츠가 비어
+있다" 로 [04] 에서야 나타나기 때문이다.
 
 **어댑터는 fashion 7 매체 + `hn` 이다** ([§2](#2-에픽-스토리-문구와-현행-설계의-차이) 8번). 실질적으로는 어댑터가 둘 — fashion 쪽은 Collector 가 이미 공통 `article.json` 으로 접어 주므로 소스별 분기가 거의 없고, `hn` 은 본문이 없어 경로가 갈린다 ([03 §2](03-normalization-spec.md)).
 
@@ -183,7 +219,7 @@ UNIQUE 는 **나중에 붙일 수 없다.** 중복 행이 쌓인 뒤에는 무�
 ```mermaid
 flowchart TD
     S1["S1 골격<br/>완료"] --> S2["S2 소비·검증<br/>구현 완료"]
-    S2 --> S3["S3 정제·적재"]
+    S2 --> S3["S3 정제·적재<br/>구현 완료"]
     S3 --> S4["S4 후보 추출"]
     S3 --> S6["S6 품질·임계값"]
     S4 --> S6
@@ -195,8 +231,12 @@ flowchart TD
     B3["curated 버킷 쓰기 권한"] -.차단.-> S3
     B4["dev 본문 부재 결론"] -.차단.-> S4
 
+    B5["contents 테이블 부재"] -.차단.-> S3
+
     style S1 fill:#d4edda
     style S2 fill:#d4edda
+    style S3 fill:#d4edda
+    style B5 fill:#f8d7da
     style B1 fill:#f8d7da
     style B2 fill:#f8d7da
     style B3 fill:#f8d7da
@@ -207,14 +247,21 @@ flowchart TD
 
 | 대상 | 필요한 것 | 누구 | 언제까지 |
 | --- | --- | --- | --- |
-| S3 | MinIO `curated` 버킷 + Spark 쓰기 권한 | 담당 2 | **S2 종료 전** |
+| S3 | MinIO `curated` 버킷 + Spark 쓰기 권한 | 담당 2 | **지금.** S3 코드가 이미 그 버킷에 쓴다 |
+| S3 · S4 | `contents` 테이블 ([위](#-차단--contents-테이블이-없다)) | 백엔드 | S4 종료 전 |
 | S4 | dev 도메인 본문 부재 결론 ([00 §7](00-overview.md) 한계 19) | 기획 · 담당 1 | S3 진행 중 |
 | S5 | `ddl-auto: create` → `update` | 백엔드 | **지금.** 늦을수록 잃는 데이터가 는다 |
 | S5 | `keywords (domain, normalized_name)` UNIQUE | 백엔드 | S4 종료 전 |
 
 **세 번째가 가장 급하다.** 나머지는 늦으면 착수가 밀리는 것이지만, 이건 늦는 동안 이미 쌓인 데이터가 재배포마다 사라진다. 사용자의 관심 키워드도 함께 간다.
 
-**S2 를 닫으면서 S3 의 선행을 같이 요청한다.** 버킷 권한은 요청부터 반영까지 걸리는 시간이 있고, S2 종료 시점에 요청하면 그만큼 S3 가 논다.
+**버킷 권한이 이제 실제로 막고 있다.** S2 를 닫을 때는 "S3 가 논다" 였지만, 지금은 S3 코드가
+완성된 채 그 권한 하나로 종단 검증이 안 되는 상태다. `datastore/minio-init/init.sh` 의
+`spark-read` 정책에 `curated` 쓰기를 더하면 된다 — 그 파일은 담당 2 소관이라 손대지 않았다.
+
+**`contents` 부재가 그다음이다.** 이건 S3 만의 문제가 아니라 S4·S5 가 전부 그 위에 얹힌다 —
+`keyword_contents` 가 `contents.id` 를 참조하므로, 표가 늦게 생기면 그 사이 쌓인
+`pl_content_id_map` 이 전부 끊어진 참조가 된다.
 
 ### 후속으로 뺀 것
 
@@ -224,8 +271,11 @@ flowchart TD
 | --- | --- | --- |
 | S2 — checkpoint 유지 재실행 통합 테스트 | compose 를 띄우는 층 3 이 필요한데 S2 만을 위해 세우기에는 배선이 크다 ([09 §4](09-dev-and-test.md)) | **S3 와 함께.** 종단 시나리오가 같은 자리를 쓴다 |
 | S2 — DLQ 토픽 싱크 | 토픽이 아직 없다. 담당 2 소관 ([02 §5](02-input-contract.md)) | 토픽이 생기면. 싱크 인터페이스에 구현 하나를 더한다 |
+| S3 — `curated` Parquet 실제 쓰기 검증 | **개발 호스트(Windows)에서 Spark 가 파일을 쓰지 못한다** — `winutils.exe` 가 없으면 `HADOOP_HOME ... unset` 으로 죽는다. 로컬은 컨테이너 밖 `.venv` 구성이라([09 §2]) 이 제약을 받는다 | 리눅스 CI·컨테이너에서. 테스트는 이미 쓰여 있고 그 호스트에서 바로 돈다 |
+| S2 — `(일자, 소스)` 수집 상태를 `pl_batch_stat` 에 접기 | 요약 이벤트는 처리 이력까지만 남는다. 접는 질의가 쓸 인덱스만 준비돼 있다 ([02 §4](02-input-contract.md)) | [07 §2](07-metrics-and-ranking-spec.md) 가 읽기 전에 |
+| S1 — 처리 DAG (`ingest >> extract >> aggregate`) | `dags/` 에 수집 DAG 만 있다. Job 은 `submit.sh` 로 손으로 부른다 ([09 §5](09-dev-and-test.md)) | `curated` 쓰기 권한이 붙어 종단 검증이 되면 |
 
-둘 다 **인터페이스는 이미 자리를 잡아 뒀다.** 나중에 붙이는 것이 코드 구조를 바꾸지 않는다는 뜻이고, 그래서 뒤로 미뤄도 되는 종류다 — [§5 의 차단 항목](#지금-막고-있는-것)과는 성격이 다르다.
+전부 **인터페이스는 이미 자리를 잡아 뒀다.** 나중에 붙이는 것이 코드 구조를 바꾸지 않는다는 뜻이고, 그래서 뒤로 미뤄도 되는 종류다 — [§5 의 차단 항목](#지금-막고-있는-것)과는 성격이 다르다.
 
 ### 다음 에픽으로 넘기는 것
 

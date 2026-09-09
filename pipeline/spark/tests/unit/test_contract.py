@@ -197,8 +197,18 @@ def test_record_count_0_인_success_요약은_정상이다():
     assert classify(summary_event(record_count=0)).ok
 
 
-def test_failed_인데_건수가_0_이_아니면_계약_위반이다():
+def test_failed_인데_건수가_0_이_아니어도_정상이다():
+    """생산자는 죽은 소스의 이월분·죽기 전 저장분도 그 실행 몫으로 세어 낸다 ([02 §2]).
+    0 을 강요하면 429 를 맞는 첫날 그 소스의 요약이 DLQ 로 가고 `SOURCE_FAILED` 기록이 사라진다.
+    """
     verdict = classify(summary_event(status="failed", record_count=3, failure_reason="x"))
+
+    assert verdict.ok
+    assert verdict.shape is EventShape.SUMMARY
+
+
+def test_failed_요약도_건수가_음수면_계약_위반이다():
+    verdict = classify(summary_event(status="failed", record_count=-1, failure_reason="x"))
 
     assert verdict.error_type is ErrorType.CONTRACT_VIOLATION
 
@@ -394,3 +404,30 @@ def test_계약_fixture_는_전부_통과하고_기대한_형태다(name, shape)
 def test_손으로_옮긴_형태가_fixture_와_같은_칸을_갖는다(name, builder):
     """값이 아니라 **칸**을 본다. 값은 테스트마다 바꿔 쓰지만 칸이 갈리면 계약이 갈린 것이다."""
     assert set(builder()) == set(load(name))
+
+
+# --- 시각은 있기만 하면 안 된다 (리뷰 P1 — null 파티션) --------------------------
+
+
+@pytest.mark.parametrize("value", ["invalid-date", "2026-09-03", "2026-09-03T10:00:00"])
+def test_published_at_이_오프셋_있는_ISO_시각이_아니면_ARTICLE_CONTRACT_VIOLATION(value):
+    """`"invalid-date"` 를 통과시키면 정제가 `published_at=None` 을 내고 `published_date` 없는
+    파티션에 쓰인다. 오프셋 없는 값은 KST 날짜를 정할 수 없어 같은 결과다.
+    """
+    verdict = check_article(article_json(published_at=value), article_event())
+
+    assert verdict.error_type is ErrorType.ARTICLE_CONTRACT_VIOLATION
+    assert "published_at" in verdict.detail
+
+
+def test_collected_at_도_같은_검사를_받는다():
+    """미래 시각 보정([03 §3])의 기준이라 못 읽으면 보정이 조용히 꺼진다."""
+    verdict = check_article(article_json(collected_at="어제"), article_event())
+
+    assert verdict.error_type is ErrorType.ARTICLE_CONTRACT_VIOLATION
+    assert "collected_at" in verdict.detail
+
+
+def test_Z_접미_UTC_는_오프셋_있는_시각이다():
+    """`article.json` 의 `collected_at` 이 `Z` 로 온다 (`spark-integration.md` §5)."""
+    assert check_article(article_json(collected_at="2026-09-03T02:10:00Z"), article_event()) is None

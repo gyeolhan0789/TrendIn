@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 from pyspark.sql.types import (
+    ArrayType,
     BooleanType,
     IntegerType,
     LongType,
@@ -37,7 +38,8 @@ EVENT_SCHEMA = StructType(
         StructField("domain", StringType(), True),
         StructField("source_id", StringType(), True),
         StructField("article_id", StringType(), True),
-        # 기사는 null — "기사는 실행에 속하지 않는다".
+        # 기사는 그 기사를 발급한 수집 실행, 요약은 그 실행 (`web-collect.md` #6, S15P21A102-204).
+        # 수집한 실행이 아닐 수 있다 — 저장만 되고 못 나간 행은 다음 실행이 낸다.
         StructField("run_id", StringType(), True),
         StructField("url", StringType(), True),
         StructField("title", StringType(), True),
@@ -82,11 +84,9 @@ ARTICLE_SCHEMA = StructType(
         # 회원 전용(7.4%)과 hn(dev 전량)에는 없다 ([03 §2]).
         StructField("body_text", StringType(), True),
         StructField("author", StringType(), True),
+        # 목록 소스가 발견한 섹션 슬러그. [03 §1] 의 표준 문서가 이 값을 쓴다.
+        StructField("categories", ArrayType(StringType()), True),
         StructField("members_only", BooleanType(), True),
         StructField(CORRUPT_FIELD, StringType(), True),
     ]
 )
-
-# `categories` 는 array<string> 인데 위 스키마에 없다 — 목록 소스가 발견한 섹션 슬러그가
-# 들어오고 [03 §1] 의 표준 문서가 그 값을 쓴다. 171 에서 더한다. 170 이 검증하는 필수
-# 필드에 없고, 배열 하나 때문에 스키마를 넓히면 지금 안 쓰는 칸이 는다.

@@ -97,3 +97,14 @@ def test_세_진입점의_JOB_이름이_checkpoint_경로가_된다():
     import ingest
 
     assert {ingest.JOB, extract.JOB, aggregate.JOB} == {"ingest", "extract", "aggregate"}
+
+
+def test_ingest_는_contents_부재_허용_플래그를_받고_기본은_꺼져_있다():
+    """기본은 설정(`ingest.contents.required`)이 정하고, 플래그는 그 값을 푸는 쪽으로만 덮는다."""
+    import ingest
+
+    parser = build_parser("ingest", ingest.add_arguments)
+    assert parser.parse_args([]).allow_missing_contents is False
+    assert parser.parse_args(["--allow-missing-contents"]).allow_missing_contents is True
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--require-contents"])

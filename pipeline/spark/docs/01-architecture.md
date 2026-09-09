@@ -18,6 +18,8 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 
 코드는 상시 Structured Streaming 과 거의 같다. `readStream.format("kafka")` 를 그대로 쓰고 트리거만 다르다.
 
+**⚠️ 2026-09-09 현재 이 Job 을 부르는 Airflow DAG 은 없다.** `dags/` 에는 수집 DAG(`fashion_collect` · `dev_collect`) 과 예제만 있다. Job 은 `spark/scripts/submit.sh ingest --profile local` 로 손으로 부르고, DAG 배선은 [09 §5](09-dev-and-test.md) 의 모양으로 후속이다 ([10 §5](10-delivery-plan.md)).
+
 ### 이 선택의 이점
 
 - **오프셋 관리를 직접 짜지 않는다.** checkpoint 디렉터리를 그대로 쓰므로 "어디까지 읽었나"는 Spark 가 관리한다. 순수 배치로 갔다면 이 코드를 직접 써야 했고, 그게 가장 흔한 버그 원천이다.
@@ -34,7 +36,7 @@ Airflow 가 `spark-submit` 으로 Job 을 깨우고, Job 은 Kafka 에 그때까
 
 ### 지연
 
-수집 완료부터 서비스 반영까지의 지연은 **Airflow 스케줄 간격 + Job 실행 시간**이다. 일 1회 수집이면 최대 하루. 이게 허용되는 이유는 서비스가 파는 것이 `24H`/`7D`/`30D` 트렌드이지 실시간 피드가 아니기 때문이다. 실시간성이 요구사항으로 올라오면 이 결정을 다시 본다.
+수집 완료부터 서비스 반영까지의 지연은 **`ingest` 스케줄 간격 + Job 실행 시간**이다. 수집은 시간 단위지만 `ingest` 는 그보다 드물게 돈다 ([§2](#airflow-dag-배치)) — 일 1회로 두면 최대 하루. 이게 허용되는 이유는 서비스가 파는 것이 `24H`/`7D`/`30D` 트렌드이지 실시간 피드가 아니기 때문이다. 실시간성이 요구사항으로 올라오면 이 결정을 다시 본다.
 
 ## 2. Job 분해
 
@@ -80,15 +82,16 @@ flowchart TD
 
 ### Airflow DAG 배치
 
-수집 DAG 은 **도메인당 하나**이고, 소스별 태스크가 그 안에서 동적으로 매핑된다 (`web-collect.md` #13).
+수집 DAG 은 **도메인당 하나**이고, 소스별 태스크가 그 안에서 동적으로 매핑된다 (`web-collect.md` #13, `src/trendin/common/collect/dag_factory.py`). 각 수집 DAG 의 마지막 태스크 `publish` 가 기사 이벤트와 소스별 요약 이벤트를 낸다.
 
 ```
-fashion_collect (7소스, 1시간 주기) ─┐
-                                     ├→ ingest → extract → aggregate
-dev_collect (hn, 30분 주기)        ─┘   ← 소스 비어 있음 (어댑터 대기)
+fashion_collect (7소스, 매시 정각)      ensure_schema >> collect_one[×7] >> publish(ALL_DONE) ─┐
+dev_collect     (30분, 소스 비어 있음)  ensure_schema >> publish                               ─┤ Kafka raw-file-ready
+                                                                                                ↓
+                                        ingest >> extract >> aggregate   ← 별도 DAG, 자기 스케줄 (아직 없다)
 ```
 
-`ingest` 는 수집 태스크들의 downstream 이되 `trigger_rule=ALL_DONE` 을 쓴다. 소스 하나가 실패해도 나머지를 처리해야 하고, 실패한 소스도 요약 이벤트의 `status: "failed"` 로 Kafka 에 들어오기 때문이다 ([02 §2](02-input-contract.md)). `pipeline/README.md` DAG 규약 8번과 같은 이유다.
+`ALL_DONE` 은 **수집 DAG 의 `publish` 태스크**에 있다 — 소스 하나가 죽어도 살아남은 소스의 기사와 죽은 소스의 `status: "failed"` 요약을 내야 하기 때문이다 (`pipeline/README.md` DAG 규약 8번). `ingest` 쪽에는 그 규칙이 필요 없다 — 실패가 이벤트로 토픽에 들어오고 `ingest` 는 그걸 데이터로 읽는다 ([02 §2](02-input-contract.md)).
 
 **⚠️ 수집 주기와 `ingest` 주기가 다르다.** 수집은 시간 단위인데 `ingest` 는 일 1회를 전제로 쓰여 있다 ([§1](#1-실행-모델--triggeravailablenow) 의 지연 절). 즉 수집 태스크의 downstream 으로 그냥 걸면 `ingest` 도 하루 24~48 번 돈다. 둘 중 하나를 정해야 한다.
 
@@ -125,16 +128,21 @@ curated/
 
 ### `ingest_run_id` 는 생산자의 `run_id` 가 아니다
 
-**기사 이벤트에는 `run_id` 가 `null` 이다** — "기사는 실행에 속하지 않는다" 가 생산자 계약이다 ([02 §2](02-input-contract.md)). 그래서 배치 계약 시절에 쓰던 `run_id` 파티션을 그대로 둘 수 없다.
+기사 이벤트에도 `run_id` 가 있다 — **그 기사를 발급한 수집 실행**이다 (`S15P21A102-204`, [02 §2](02-input-contract.md)). 그 값을 이 파티션에 쓰지 않는다. 이유가 둘이다.
 
-대신 **이 Spark Job 자신의 실행 식별자**를 쓴다. Airflow logical date 파생 `yyyyMMddTHHmmss` (KST) 로, 생산자의 `run_id` 와 형식은 같고 뜻이 다르다.
+- **재처리 단위가 아니다.** `--force` 가 지우고 다시 쓰는 것은 "이 Job 이 한 번 돌아 쓴 것" 이다. 생산자 실행으로 자르면 한 번의 `ingest` 가 여러 생산자 실행분을 받아 파티션이 흩어지고, 모드 B 재처리(`--source objects`)에는 그 값이 아예 없다 — 객체에 `run-id` 가 없다 ([02 §3](02-input-contract.md)).
+- **기사와 실행의 관계가 약하다.** 저장만 되고 못 나간 기사는 다음 실행이 내므로, 이벤트의 `run_id` 는 "언제 받았나" 가 아니라 "어느 발급에 딸려 나갔나" 다.
+
+대신 **이 Spark Job 자신의 실행 식별자**를 쓴다. `--run-id` 로 받고 없으면 지금 시각(KST) — Airflow 가 붙으면 logical date 를 넘기는 자리다 (`spark/jobs/ingest.py`). 생산자의 `run_id` 와 형식(`yyyyMMddTHHmmss`)은 같고 뜻이 다르다.
 
 | | 뜻 | 어디서 |
 | --- | --- | --- |
-| 생산자 `run_id` | 수집기가 한 번 돈 것 | 요약 이벤트에만 있다 |
+| 생산자 `run_id` | 수집기가 한 번 돈 것. 기사 이벤트에서는 그 기사를 **발급한** 실행 | 두 형태 모두 (`events.py`) |
 | `ingest_run_id` | `ingest` 가 한 번 돈 것 | Spark 가 만든다 |
 
 **파티션 4단을 유지하는 이유** — 재처리 단위가 필요하다. `--force` 로 다시 돌릴 때 "그 실행이 쓴 것" 을 통째로 지우고 다시 쓸 수 있어야 한다 ([02 §6](02-input-contract.md)). 4단을 없애고 `domain/published_date/source` 로만 자르면 재처리가 그 날짜·소스의 **모든** 실행분을 함께 덮어쓰게 되고, 범위 밖 문서가 딸려 사라진다.
+
+**한 실행 안에서는 첫 배치만 `overwrite` 다.** `Trigger.AvailableNow` 가 배치를 여럿 내면 전부 같은 `ingest_run_id` 파티션에 쓰는데, 배치마다 `overwrite`(dynamic) 하면 배치 2 가 배치 1 의 문서를 지운다 (2026-09-09 리뷰). 그래서 실행 안 첫 쓰기만 `overwrite` 로 그 실행의 옛 파티션을 갈아치우고 뒤 배치는 `append` 한다 (`normalize/curated.write`). 남는 한계 하나 — `--force` 재실행의 첫 배치가 건드리지 않은 파티션은 옛 실행분이 남는다. 지금은 `maxOffsetsPerTrigger` 가 없어 실행당 배치가 하나라 드러나지 않고, 그 옵션을 켤 때 실행 시작에 그 `ingest_run_id` 파티션을 미리 지우는 단계를 더한다.
 
 **대가는 작은 파일이다.** 실행마다 파티션이 하나 생기므로, `ingest` 를 하루 여러 번 돌리면 같은 날짜·소스 밑에 파티션이 여럿 쌓인다. [00 §3](00-overview.md) 규모(하루 700건, 소스 8개 — `hn` 이 붙기 전이라 지금은 7개)에서 파티션당 수십 건이라 감당되지만, `ingest` 를 시간 주기로 돌리기로 하면 이 결정을 다시 봐야 한다.
 

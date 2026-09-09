@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any, Mapping
 
@@ -96,6 +97,28 @@ def _blank(value: Any) -> bool:
 
 def _missing(event: Mapping[str, Any], *fields: str) -> list[str]:
     return [f for f in fields if _blank(event.get(f))]
+
+
+def parse_offset_datetime(raw: Any) -> datetime | None:
+    """ISO-8601 문자열을 `datetime` 으로. 못 읽으면 `None`.
+
+    **오프셋이 없는 값은 UTC 로 보지 않고 그대로 오프셋 없이 둔다.** 조용히 UTC 로 가정하면
+    한국 매체 기사가 9시간 앞으로 밀려 엉뚱한 날짜 파티션에 쌓이고, 그 오류는 날짜 경계 근처
+    기사에서만 나타나 눈에 띄지 않는다. 오프셋 유무는 부른 쪽(`check_article`,
+    `normalize/documents._to_kst_date`)이 본다.
+
+    계약 판별과 정제가 **같은 파서**를 쓰는 것이 이 함수가 여기 있는 이유다 — 둘이 갈리면
+    판별은 통과시키고 정제는 `None` 을 내는 값이 생기고, 그 문서는 `published_date` 가 없는
+    파티션(`__HIVE_DEFAULT_PARTITION__`)에 쓰인다.
+    """
+    if isinstance(raw, datetime):
+        return raw
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return datetime.fromisoformat(raw.strip())
+    except ValueError:
+        return None
 
 
 def classify(event: Mapping[str, Any], *, corrupt_field: str = "_corrupt_record") -> Verdict:
@@ -206,19 +229,16 @@ def _check_summary(event: Mapping[str, Any]) -> Verdict | None:
     if count is None:
         return Verdict.reject(ErrorType.CONTRACT_VIOLATION, "요약 이벤트에 record_count 가 없다")
 
-    if status == "failed":
-        # 생산자 `source_statuses()` 는 죽은 소스에만 failed 를 붙이고 그때 건수가 0 이다.
-        # 0 이 아니면 "실패했는데 뭔가 저장됐다" 는 모순이라 상태를 믿을 수 없다.
-        if count != 0:
-            return Verdict.reject(
-                ErrorType.CONTRACT_VIOLATION, f"failed 인데 record_count 가 0 이 아니다: {count}"
-            )
-        if _blank(event.get("failure_reason")):
-            return Verdict.reject(
-                ErrorType.CONTRACT_VIOLATION, "failed 인데 failure_reason 이 없다"
-            )
-    elif count < 0:
+    if count < 0:
         return Verdict.reject(ErrorType.CONTRACT_VIOLATION, f"record_count 가 음수다: {count}")
+
+    # `failed` 인데 `record_count > 0` 은 계약 위반이 **아니다** ([02 §2]). 생산자 `publish` 는
+    # 소스 성패와 무관하게 그 도메인의 밀린 기사를 전부 내고(`flow.publish_pending`), 그 수를
+    # `event_run_id` 로 세어 요약에 싣는다. 그래서 죽은 소스라도 지난 실행의 이월분이나 403·429
+    # 를 맞기 전에 저장한 기사가 이번 실행 몫으로 잡힌다. 여기서 0 을 강요하면 그 요약이 DLQ 로
+    # 가고 `SOURCE_FAILED` 기록이 사라진다 — 실패를 기록하려고 만든 이벤트가 실패했을 때 버려진다.
+    if status == "failed" and _blank(event.get("failure_reason")):
+        return Verdict.reject(ErrorType.CONTRACT_VIOLATION, "failed 인데 failure_reason 이 없다")
     return None
 
 
@@ -276,6 +296,18 @@ def check_article(article: Mapping[str, Any], event: Mapping[str, Any]) -> Verdi
         return Verdict.reject(
             ErrorType.ARTICLE_CONTRACT_VIOLATION, f"article.json 에 필수 필드가 없다: {missing}"
         )
+
+    # 있기만 하면 안 된다 — **읽을 수 있고 오프셋이 있어야** 한다. `"invalid-date"` 를 통과시키면
+    # 정제가 `published_at=None` 을 내고 `published_date` 없는 파티션에 쓰인다. `collected_at`
+    # 도 같은 이유다 — 미래 시각 보정([03 §3])의 기준이라 없으면 보정이 조용히 꺼진다.
+    for field in ("published_at", "collected_at"):
+        moment = parse_offset_datetime(article.get(field))
+        if moment is None or moment.tzinfo is None:
+            return Verdict.reject(
+                ErrorType.ARTICLE_CONTRACT_VIOLATION,
+                f"article.json 의 {field} 가 오프셋 있는 ISO-8601 시각이 아니다: "
+                f"{article.get(field)!r}",
+            )
 
     for field in ("domain", "source", "article_id"):
         # 이벤트의 소스 필드명은 `source_id`, article.json 은 `source` 다.
