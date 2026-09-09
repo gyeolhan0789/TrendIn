@@ -45,8 +45,10 @@ class TrendListRepositoryTest {
     @Test
     @DisplayName("CURRENT는 유형 포함 여부와 분야를 필터링하고 언급량 순으로 조회한다")
     void findsCurrentTrends() {
+        // when
         var result = find(TrendType.CURRENT);
 
+        // then
         assertThat(result.getContent()).extracting(metric -> metric.getKeyword().getId())
                 .containsExactly(second.getKeyword().getId(), first.getKeyword().getId());
     }
@@ -54,8 +56,10 @@ class TrendListRepositoryTest {
     @Test
     @DisplayName("NEW는 유형 포함 여부를 필터링하고 갱신 시각 순으로 조회한다")
     void findsNewTrends() {
+        // when
         var result = find(TrendType.NEW);
 
+        // then
         assertThat(result.getContent()).extracting(metric -> metric.getKeyword().getId())
                 .containsExactly(second.getKeyword().getId(), first.getKeyword().getId());
     }
@@ -63,8 +67,10 @@ class TrendListRepositoryTest {
     @Test
     @DisplayName("RISING은 유형 포함 여부를 필터링하고 증가율 순으로 조회한다")
     void findsRisingTrends() {
+        // when
         var result = find(TrendType.RISING);
 
+        // then
         assertThat(result.getContent()).extracting(metric -> metric.getKeyword().getId())
                 .containsExactly(risingOnly.getKeyword().getId(),
                         first.getKeyword().getId(), second.getKeyword().getId());

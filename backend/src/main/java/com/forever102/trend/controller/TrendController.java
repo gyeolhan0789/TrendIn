@@ -8,6 +8,7 @@ import com.forever102.trend.dto.TrendContentResponse;
 import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendListResponse;
+import com.forever102.trend.dto.TrendRelatedKeywordResponse;
 import com.forever102.trend.service.TrendHistoryService;
 import com.forever102.trend.service.TrendService;
 import jakarta.validation.constraints.Min;
@@ -62,5 +63,12 @@ public class TrendController {
             @RequestParam(defaultValue = "10") @Positive int size
     ) {
         return BaseResponse.success(trendService.getTrendContents(trendId, page, size));
+    }
+
+    @GetMapping("/{trendId}/related-keywords")
+    public BaseResponse<TrendRelatedKeywordResponse> getRelatedKeywords(
+            @PathVariable @Positive Long trendId
+    ) {
+        return BaseResponse.success(trendService.getRelatedKeywords(trendId));
     }
 }
