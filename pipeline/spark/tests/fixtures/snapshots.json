@@ -1,0 +1,1293 @@
+{
+  "fashion-allure-353915.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 90,
+      "doc_len": 111,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 4
+      },
+      "keys_digest": "7a8363b14b22de6b",
+      "top": [
+        "가방 | 가방 | TERM | n1 tf3 t0",
+        "로맨스 | 로맨스 | TERM | n1 tf3 t0",
+        "가을 | 가을 | TERM | n1 tf2 t1",
+        "관능 | 관능 | TERM | n1 tf2 t0",
+        "레이스 | 레이스 | TERM | n1 tf2 t0",
+        "로에베 | 로에베 | TERM | n1 tf2 t0",
+        "무드 | 무드 | TERM | n1 tf2 t0",
+        "블랙 | 블랙 | TERM | n1 tf2 t0",
+        "빈티지 | 빈티지 | TERM | n1 tf2 t0",
+        "자연 | 자연 | TERM | n1 tf2 t0",
+        "정리 | 정리 | TERM | n1 tf2 t0",
+        "bags | BAGS | ACRONYM | n1 tf1 t0",
+        "balenciaga | Balenciaga | TERM | n1 tf1 t0",
+        "chanel | Chanel | TERM | n1 tf1 t0",
+        "dior | Dior | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 631,
+      "body_head": "고딕 로맨스부터 빈티지와 새 컬러까지, 한눈에 정리하는 2026 F/W 패션 트렌드 11가지.\nGOTHIC ROMANCE\n이번 시즌 로맨스에는 어둠이 깃들었다. 블랙 레이스와 시어 소재, 코르셋, 러플 같은 빅토리안",
+      "body_lines": 11,
+      "lang": "ko",
+      "summary_chars": 260,
+      "title": "Part 1. 올 가을 기억해야 할 패션 키워드 11"
+    },
+    "source": {
+      "article_id": "353915",
+      "domain": "fashion",
+      "published_date": "2026-09-04",
+      "route": "rss",
+      "source_id": "allure",
+      "url": "https://www.allurekorea.com/2026/09/04/part-1-%ec%98%ac-%ea%b0%80%ec%9d%84-%ea%b8%b0%ec%96%b5%ed%95%b4%ec%95%bc-%ed%95%a0-%ed%8c%a8%ec%85%98-%ed%82%a4%ec%9b%8c%eb%93%9c-11"
+    }
+  },
+  "fashion-allure-353917.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 92,
+      "doc_len": 110,
+      "dropped": {
+        "SHAPE": 4
+      },
+      "keys_digest": "762eab8b376537bb",
+      "top": [
+        "부츠 | 부츠 | TERM | n1 tf3 t0",
+        "chloe | CHLOE | ACRONYM | n1 tf2 t0",
+        "라벤더 | 라벤더 | TERM | n1 tf2 t0",
+        "사이하이 | 사이하이 | TERM | n1 tf2 t0",
+        "사이하이 부츠 | 사이하이 부츠 | NGRAM | n2 tf2 t0",
+        "실루엣 | 실루엣 | TERM | n1 tf2 t0",
+        "완성 | 완성 | TERM | n1 tf2 t0",
+        "자유 | 자유 | TERM | n1 tf2 t0",
+        "존재감 | 존재감 | TERM | n1 tf2 t0",
+        "체크 | 체크 | TERM | n1 tf2 t0",
+        "팬츠 | 팬츠 | TERM | n1 tf2 t0",
+        "핑크 | 핑크 | TERM | n1 tf2 t0",
+        "acne | ACNE | ACRONYM | n1 tf1 t0",
+        "acne studios | ACNE STUDIOS | NGRAM | n2 tf1 t0",
+        "balenciaga | Balenciaga | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 686,
+      "body_head": "고딕 로맨스부터 빈티지와 새 컬러까지, 한눈에 정리하는 2026 F/W 패션 트렌드 11가지.\nPALE PINK & LAVENDER\n묵직한 F/W 팔레트 사이로 페일 핑크와 라벤더가 스며들었다. 알라이아와 아크네 스",
+      "body_lines": 15,
+      "lang": "mixed",
+      "summary_chars": 271,
+      "title": "Part 2. 올 가을 기억해야 할 패션 키워드 11"
+    },
+    "source": {
+      "article_id": "353917",
+      "domain": "fashion",
+      "published_date": "2026-09-05",
+      "route": "rss",
+      "source_id": "allure",
+      "url": "https://www.allurekorea.com/2026/09/05/part-2-%ec%98%ac-%ea%b0%80%ec%9d%84-%ea%b8%b0%ec%96%b5%ed%95%b4%ec%95%bc-%ed%95%a0-%ed%8c%a8%ec%85%98-%ed%82%a4%ec%9b%8c%eb%93%9c-11"
+    }
+  },
+  "fashion-allure-354567.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 62,
+      "doc_len": 110,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 3
+      },
+      "keys_digest": "90d739261a2e2091",
+      "top": [
+        "레드 | 레드 | TERM | n1 tf9 t0",
+        "블루 | 블루 | TERM | n1 tf9 t0",
+        "가을 | 가을 | TERM | n1 tf6 t1",
+        "조합 | 조합 | TERM | n1 tf5 t0",
+        "퍼플 | 퍼플 | TERM | n1 tf4 t0",
+        "니트 | 니트 | TERM | n1 tf3 t0",
+        "miu | Miu | TERM | n1 tf2 t0",
+        "prada | Prada | TERM | n1 tf2 t0",
+        "가방 | 가방 | TERM | n1 tf2 t0",
+        "데님 | 데님 | TERM | n1 tf2 t0",
+        "매치 | 매치 | TERM | n1 tf2 t0",
+        "버건디 | 버건디 | TERM | n1 tf2 t0",
+        "사용 | 사용 | TERM | n1 tf2 t0",
+        "셔츠 | 셔츠 | TERM | n1 tf2 t0",
+        "유행 | 유행 | TERM | n1 tf2 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 719,
+      "body_head": "올가을 유행 컬러는 따로 입지 마세요! 서로의 매력을 살리는 컬러 조합\n퍼플 , 이번 가을 가장 감각적인 조합\n@lara_bsmnn\n퍼플과 레드는 얼핏 보면 과감해 보이지만, 올가을 패션 전문가들이 특히 주목하는 조",
+      "body_lines": 11,
+      "lang": "ko",
+      "summary_chars": 225,
+      "title": "가을에 유행할 ‘퍼스널 컬러’는 바로 이 컬러 칩입니다"
+    },
+    "source": {
+      "article_id": "354567",
+      "domain": "fashion",
+      "published_date": "2026-09-03",
+      "route": "rss",
+      "source_id": "allure",
+      "url": "https://www.allurekorea.com/2026/09/03/%ea%b0%80%ec%9d%84%ec%97%90-%ec%9c%a0%ed%96%89%ed%95%a0-%ed%8d%bc%ec%8a%a4%eb%84%90-%ec%bb%ac%eb%9f%ac%eb%8a%94-%eb%b0%94%eb%a1%9c-%ec%9d%b4-%ec%bb%ac%eb%9f%ac-%ec%b9%a9%ec%9e%85%eb%8b%88%eb%8b%a4"
+    }
+  },
+  "fashion-cosmopolitan-1887708.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 148,
+      "doc_len": 124,
+      "dropped": {
+        "SHAPE": 5
+      },
+      "keys_digest": "05a8aef2ad9b90c7",
+      "top": [
+        "descente | Descente. | TERM | n1 tf8 t0",
+        "러닝 | 러닝 | TERM | n1 tf5 t1",
+        "스니커즈 | 스니커즈 | TERM | n1 tf5 t0",
+        "델타프로 | 델타프로 | TERM | n1 tf4 t0",
+        "브라톱 | 브라톱 | TERM | n1 tf4 t0",
+        "양말 | 양말 | TERM | n1 tf4 t0",
+        "레깅스 | 레깅스 | TERM | n1 tf3 t0",
+        "브라톱 10 | 브라톱 10 | VERSIONED | n2 tf3 t0",
+        "쇼트 | 쇼트 | TERM | n1 tf3 t0",
+        "러닝 델타프로 | 러닝 델타프로 | NGRAM | n2 tf2 t0",
+        "레깅스 12 | 레깅스 12 | VERSIONED | n2 tf2 t0",
+        "롱 브라톱 | 롱 브라톱 | NGRAM | n2 tf2 t0",
+        "롱 브라톱 10 | 롱 브라톱 10 | VERSIONED | n3 tf2 t0",
+        "미디엄서포트 | 미디엄서포트 | TERM | n1 tf2 t0",
+        "미디엄서포트 롱 | 미디엄서포트 롱 | NGRAM | n2 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 693,
+      "body_head": "소프트 앤 리브드 크롭 톱 10만9천원, 쇼트 타이츠 10만9천원 모두 Descente.\n소프트 터치 트레이닝 후드 집업 17만9천원, 미디엄서포트 롱 브라톱 10만9천원, 트레이닝팬츠 12만9천원 모두 Descen",
+      "body_lines": 8,
+      "lang": "ko",
+      "summary_chars": 30,
+      "title": "육상 김민지가 러닝할 때 입는 옷은? 데상트 화보 대공개"
+    },
+    "source": {
+      "article_id": "1887708",
+      "domain": "fashion",
+      "published_date": "2025-09-13",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1887708"
+    }
+  },
+  "fashion-cosmopolitan-1892435.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 126,
+      "doc_len": 142,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 8
+      },
+      "keys_digest": "1302b30f2074ff86",
+      "top": [
+        "와이드 | 와이드 | TERM | n1 tf8 t1",
+        "와이드 팬츠 | 와이드 팬츠 | NGRAM | n2 tf6 t1",
+        "팬츠 | 팬츠 | TERM | n1 tf6 t1",
+        "getty | Getty | TERM | n1 tf3 t0",
+        "getty images | Getty Images | NGRAM | n2 tf3 t0",
+        "images | Images | TERM | n1 tf3 t0",
+        "데님 | 데님 | TERM | n1 tf3 t0",
+        "매치 | 매치 | TERM | n1 tf3 t0",
+        "스타일링 | 스타일링 | TERM | n1 tf3 t0",
+        "조합 | 조합 | TERM | n1 tf3 t0",
+        "autumn | Autumn | TERM | n1 tf2 t0",
+        "winter | Winter | TERM | n1 tf2 t0",
+        "winter 2025 | Winter 2025 | VERSIONED | n2 tf2 t0",
+        "가능 | 가능 | TERM | n1 tf2 t0",
+        "겨울 | 겨울 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 918,
+      "body_head": "10초 안에 기사 읽기\n「\n2025 F/W에서 확인된 와이드 팬츠 스타일링 포인트\n」\n「\n스트리트 스타일러들이 증명한 실전 코디 조합들\n」\n「\n겨울까지 확장 가능한 와이드 데님 레이어링 아이디어\n」\n와이드 팬츠는 언",
+      "body_lines": 18,
+      "lang": "ko",
+      "summary_chars": 27,
+      "title": "와이드 팬츠, 앞으로 10년 더 유행할 예정. 더 잘 입는 방법 8"
+    },
+    "source": {
+      "article_id": "1892435",
+      "domain": "fashion",
+      "published_date": "2025-11-27",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1892435"
+    }
+  },
+  "fashion-cosmopolitan-1893297.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 97,
+      "doc_len": 115,
+      "dropped": {
+        "SHAPE": 3
+      },
+      "keys_digest": "ee6f0e8e178c9b22",
+      "top": [
+        "주얼리 | 주얼리 | TERM | n1 tf8 t2",
+        "겨울 | 겨울 | TERM | n1 tf4 t1",
+        "반클리프 | 반클리프 | TERM | n1 tf4 t0",
+        "반클리프 아펠 | 반클리프 아펠 | NGRAM | n2 tf4 t0",
+        "스노우 | 스노우 | TERM | n1 tf4 t0",
+        "아펠 | 아펠 | TERM | n1 tf4 t0",
+        "눈송이 | 눈송이 | TERM | n1 tf3 t0",
+        "쇼파드 | 쇼파드 | TERM | n1 tf3 t0",
+        "스노우 플레이크 | 스노우 플레이크 | NGRAM | n2 tf3 t0",
+        "플레이크 | 플레이크 | TERM | n1 tf3 t0",
+        "결정 | 결정 | TERM | n1 tf2 t0",
+        "네크리스 | 네크리스 | TERM | n1 tf2 t0",
+        "눈꽃 | 눈꽃 | TERM | n1 tf2 t0",
+        "다이아몬드 | 다이아몬드 | TERM | n1 tf2 t0",
+        "반클리프 아펠 주얼리 | 반클리프 아펠 주얼리 | NGRAM | n3 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 631,
+      "body_head": "10초 안에 보는 요약 기사\n겨울의 빛을 담은 눈송이·얼음 영감 주얼리 3선\n다이아 세팅으로 눈꽃을 구현한 ‘스노우 플레이크’의 우아함\n얼음 조각을 닮은 미니멀한 ‘아이스 큐브’의 모던 매력\n열면 눈송이가 숨겨진 '",
+      "body_lines": 12,
+      "lang": "ko",
+      "summary_chars": 52,
+      "title": "주얼리 속에 숨겨진 비밀이 있다? 겨울에 더 빛나는 주얼리 끝판왕 컬렉션 3"
+    },
+    "source": {
+      "article_id": "1893297",
+      "domain": "fashion",
+      "published_date": "2025-12-11",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1893297"
+    }
+  },
+  "fashion-cosmopolitan-1896897.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 2,
+      "doc_len": 4,
+      "dropped": {
+        "SHAPE": 1
+      },
+      "keys_digest": "69bf71e4ef0265cb",
+      "top": [
+        "넥라인 | 넥라인 | TERM | n1 tf1 t1",
+        "목걸이 | 목걸이 | TERM | n1 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "summary",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 60,
+      "title": "목걸이 잘못하면 촌스럽습니다, 넥라인별 피해야 할 스타일"
+    },
+    "source": {
+      "article_id": "1896897",
+      "domain": "fashion",
+      "published_date": "2026-02-10",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1896897"
+    }
+  },
+  "fashion-cosmopolitan-1897378.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 113,
+      "doc_len": 140,
+      "dropped": {
+        "SHAPE": 5
+      },
+      "keys_digest": "bf4fcdfb6d52abae",
+      "top": [
+        "백팩 | 백팩 | TERM | n1 tf5 t0",
+        "가방 | 가방 | TERM | n1 tf4 t1",
+        "일상 | 일상 | TERM | n1 tf4 t0",
+        "자연 | 자연 | TERM | n1 tf3 t0",
+        "spring | Spring | TERM | n1 tf2 t0",
+        "summer | Summer | TERM | n1 tf2 t0",
+        "summer 2026 | Summer 2026 | VERSIONED | n2 tf2 t0",
+        "계절 | 계절 | TERM | n1 tf2 t0",
+        "데일리 | 데일리 | TERM | n1 tf2 t0",
+        "상황 | 상황 | TERM | n1 tf2 t0",
+        "스타일링 | 스타일링 | TERM | n1 tf2 t0",
+        "역할 | 역할 | TERM | n1 tf2 t0",
+        "준비 | 준비 | TERM | n1 tf2 t0",
+        "중요 | 중요 | TERM | n1 tf2 t0",
+        "지금 | 지금 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 1005,
+      "body_head": "10초 안에 보는 요약 기사\n새 학기와 새로운 계절을 맞아 다시 주목받는 백팩 트렌드 포착\n데일리부터 미니, 비즈니스, 트래블까지 상황별 백팩 셀렉션 제안\n일상과 라이프스타일에 맞춰 활용하는 에디터의 백팩 스타일링 ",
+      "body_lines": 13,
+      "lang": "ko",
+      "summary_chars": 114,
+      "title": "출근할 때도, 여행 갈 때도 요즘 다들 토트백 대신 '이 가방' 듭니다"
+    },
+    "source": {
+      "article_id": "1897378",
+      "domain": "fashion",
+      "published_date": "2026-02-20",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1897378"
+    }
+  },
+  "fashion-cosmopolitan-1907987.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 103,
+      "doc_len": 160,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 6
+      },
+      "keys_digest": "6f9d22d07590b0f2",
+      "top": [
+        "부츠 | 부츠 | TERM | n1 tf17 t1",
+        "미들 | 미들 | TERM | n1 tf8 t0",
+        "미들 부츠 | 미들 부츠 | NGRAM | n2 tf8 t0",
+        "가을 | 가을 | TERM | n1 tf6 t0",
+        "인스타그램 | 인스타그램 | TERM | n1 tf5 t0",
+        "스웨이드 | 스웨이드 | TERM | n1 tf4 t0",
+        "스커트 | 스커트 | TERM | n1 tf4 t0",
+        "전소미 | 전소미 | TERM | n1 tf4 t0",
+        "제니 | 제니 | TERM | n1 tf4 t0",
+        "활용 | 활용 | TERM | n1 tf4 t0",
+        "쇼츠 | 쇼츠 | TERM | n1 tf3 t0",
+        "스웨이드 부츠 | 스웨이드 부츠 | NGRAM | n2 tf3 t0",
+        "스타일링 | 스타일링 | TERM | n1 tf3 t0",
+        "윈터 | 윈터 | TERM | n1 tf3 t0",
+        "깃털 | 깃털 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 971,
+      "body_head": "인스타그램 @yezyizhere\n10초 안에 보는 요약 기사\n올가을 주목해야 할 미들 부츠 트렌드\n제니·전소미·윈터·예지의 미들 부츠 스타일링\n스웨이드부터 워커까지 미들 부츠 활용법\n가을이 오면 가장 먼저 꺼내고 싶",
+      "body_lines": 21,
+      "lang": "ko",
+      "summary_chars": 89,
+      "title": "요즘 패피들은 롱부츠 대신 ‘이 부츠’를 신습니다"
+    },
+    "source": {
+      "article_id": "1907987",
+      "domain": "fashion",
+      "published_date": "2026-08-15",
+      "route": "listing",
+      "source_id": "cosmopolitan",
+      "url": "https://www.cosmopolitan.co.kr/article/1907987"
+    }
+  },
+  "fashion-gqkorea-394718.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 99,
+      "doc_len": 126,
+      "dropped": {
+        "SHAPE": 3
+      },
+      "keys_digest": "2b5f551c4186940b",
+      "top": [
+        "아크테릭스 | 아크테릭스 | TERM | n1 tf10 t1",
+        "아웃도어 | 아웃도어 | TERM | n1 tf6 t0",
+        "시스템 | 시스템 | TERM | n1 tf4 t1",
+        "시작 | 시작 | TERM | n1 tf3 t0",
+        "제로 | 제로 | TERM | n1 tf3 t1",
+        "혁신 | 혁신 | TERM | n1 tf3 t0",
+        "system | System | TERM | n1 tf2 t1",
+        "미래 | 미래 | TERM | n1 tf2 t0",
+        "산업 | 산업 | TERM | n1 tf2 t0",
+        "시스템 제로 | 시스템 제로 | NGRAM | n2 tf2 t1",
+        "시점 | 시점 | TERM | n1 tf2 t0",
+        "알렉스 | 알렉스 | TERM | n1 tf2 t0",
+        "챕터 | 챕터 | TERM | n1 tf2 t1",
+        "친환경 | 친환경 | TERM | n1 tf2 t1",
+        "3차원 | 3차원 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 773,
+      "body_head": "하나의 아웃도어 의류를 만들고, 소비하고, 재생하기까지. 아크테릭스의 친환경 순환 시스템은 산업이 환경에 미치는 영향을 제로(0)라는 숫자에 근접하게 한다. ‘스페로 SV’ 재킷은 그 시작이다.\n십수 년 전 아웃도어",
+      "body_lines": 3,
+      "lang": "ko",
+      "summary_chars": 263,
+      "title": "친환경을 위한 아크테릭스의 새로운 챕터, 시스템 제로(System 0)"
+    },
+    "source": {
+      "article_id": "394718",
+      "domain": "fashion",
+      "published_date": "2026-09-04",
+      "route": "rss",
+      "source_id": "gqkorea",
+      "url": "https://www.gqkorea.co.kr/2026/09/04/%ec%b9%9c%ed%99%98%ea%b2%bd%ec%9d%84-%ec%9c%84%ed%95%9c-%ec%95%84%ed%81%ac%ed%85%8c%eb%a6%ad%ec%8a%a4%ec%9d%98-%ec%83%88%eb%a1%9c%ec%9a%b4-%ec%b1%95%ed%84%b0-%ec%8b%9c%ec%8a%a4%ed%85%9c-%ec%a0%9c"
+    }
+  },
+  "fashion-gqkorea-397697.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 94,
+      "doc_len": 133,
+      "dropped": {
+        "SHAPE": 5
+      },
+      "keys_digest": "eb4d45edd6132b4e",
+      "top": [
+        "자스민 | 자스민 | TERM | n1 tf10 t1",
+        "퍼퓸 | 퍼퓸 | TERM | n1 tf6 t1",
+        "드 퍼퓸 | 드 퍼퓸 | NGRAM | n2 tf5 t1",
+        "쟈스망 | 쟈스망 | TERM | n1 tf5 t1",
+        "쟝주 | 쟝주 | TERM | n1 tf5 t1",
+        "에스프리 | 에스프리 | TERM | n1 tf4 t1",
+        "에스프리 드 | 에스프리 드 | NGRAM | n2 tf4 t1",
+        "에스프리 드 퍼퓸 | 에스프리 드 퍼퓸 | NGRAM | n3 tf4 t1",
+        "쟝주 에스프리 | 쟝주 에스프리 | NGRAM | n2 tf4 t1",
+        "쟝주 에스프리 드 | 쟝주 에스프리 드 | NGRAM | n3 tf4 t1",
+        "디올 | 디올 | TERM | n1 tf3 t1",
+        "라 콜렉시옹 | 라 콜렉시옹 | NGRAM | n2 tf3 t1",
+        "라 콜렉시옹 프리베 | 라 콜렉시옹 프리베 | NGRAM | n3 tf3 t1",
+        "콜렉시옹 | 콜렉시옹 | TERM | n1 tf3 t1",
+        "콜렉시옹 프리베 | 콜렉시옹 프리베 | NGRAM | n2 tf3 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 712,
+      "body_head": "직접 경험해본 디올 뷰티의 ‘NEW 라 콜렉시옹 프리베 쟈스망 데 쟝주 에스프리 드 퍼퓸’. 해 질 무렵의 열기를 머금은 자스민은 달콤했고, 대담했으며, 생각보다 오랜 잔향을 남겼다.\n크리스챤 디올 뷰티의 ‘쟈스망 ",
+      "body_lines": 3,
+      "lang": "ko",
+      "summary_chars": 221,
+      "title": "자스민이 가장 짙어지는 시간, 디올의 ‘NEW 라 콜렉시옹 프리베 쟈스망 데 쟝주 에스프리 드 퍼퓸’"
+    },
+    "source": {
+      "article_id": "397697",
+      "domain": "fashion",
+      "published_date": "2026-09-03",
+      "route": "rss",
+      "source_id": "gqkorea",
+      "url": "https://www.gqkorea.co.kr/2026/09/03/%ec%9e%90%ec%8a%a4%eb%af%bc%ec%9d%b4-%ea%b0%80%ec%9e%a5-%ec%a7%99%ec%96%b4%ec%a7%80%eb%8a%94-%ec%8b%9c%ea%b0%84-%eb%94%94%ec%98%ac%ec%9d%98-new-%eb%9d%bc-%ec%bd%9c%eb%a0%89%ec%8b%9c%ec%98%b9"
+    }
+  },
+  "fashion-gqkorea-398310.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 97,
+      "doc_len": 126,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 5
+      },
+      "keys_digest": "a2d23f397385d94d",
+      "top": [
+        "모발 | 모발 | TERM | n1 tf6 t0",
+        "머리 | 머리 | TERM | n1 tf5 t1",
+        "하루 | 하루 | TERM | n1 tf4 t1",
+        "두피 | 두피 | TERM | n1 tf3 t0",
+        "머리카락 | 머리카락 | TERM | n1 tf3 t0",
+        "샴푸 | 샴푸 | TERM | n1 tf3 t0",
+        "탈모 | 탈모 | TERM | n1 tf3 t0",
+        "드 마르코 | 드 마르코 | NGRAM | n2 tf2 t0",
+        "마르코 | 마르코 | TERM | n1 tf2 t0",
+        "모근 | 모근 | TERM | n1 tf2 t0",
+        "윤기 | 윤기 | TERM | n1 tf2 t0",
+        "정수리 | 정수리 | TERM | n1 tf2 t0",
+        "la | LA | ACRONYM | n1 tf1 t0",
+        "건강 | 건강 | TERM | n1 tf1 t0",
+        "경향 | 경향 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 909,
+      "body_head": "남자, 여자, 그리고 고양이의 공통점. 바로 매일 빗질해야 한다는 것. 올바른 빗질 횟수부터 방법까지, 빗질의 정석 8가지를 소개한다.\n머리를 빗어야 하는 이유\n장점이 많은 빗질. 첫 번째는 머리 엉킴을 풀어주는 것",
+      "body_lines": 12,
+      "lang": "ko",
+      "summary_chars": 228,
+      "title": "하루 2번 머리를 ‘이렇게’ 빗으면 귀티 난다, 전문가 꿀팁"
+    },
+    "source": {
+      "article_id": "398310",
+      "domain": "fashion",
+      "published_date": "2026-09-07",
+      "route": "rss",
+      "source_id": "gqkorea",
+      "url": "https://www.gqkorea.co.kr/2026/09/07/%ed%95%98%eb%a3%a8-2%eb%b2%88-%eb%a8%b8%eb%a6%ac%eb%a5%bc-%ec%9d%b4%eb%a0%87%ea%b2%8c-%eb%b9%97%ec%9c%bc%eb%a9%b4-%ea%b7%80%ed%8b%b0-%eb%82%9c%eb%8b%a4-%ec%a0%84%eb%ac%b8%ea%b0%80-%ea%bf%80"
+    }
+  },
+  "fashion-gqkorea-398573.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 126,
+      "doc_len": 130,
+      "dropped": {
+        "NOISE": 1,
+        "SHAPE": 7
+      },
+      "keys_digest": "81495ac685830b78",
+      "top": [
+        "남자 | 남자 | TERM | n1 tf3 t1",
+        "옷차림 | 옷차림 | TERM | n1 tf3 t0",
+        "블레이저 | 블레이저 | TERM | n1 tf2 t0",
+        "스타일스 | 스타일스 | TERM | n1 tf2 t0",
+        "에이셉 라키 | 에이셉 라키 | TERM | n1 tf2 t0",
+        "엘로디 | 엘로디 | TERM | n1 tf2 t0",
+        "제이콥 | 제이콥 | TERM | n1 tf2 t0",
+        "제이콥 엘로디 | 제이콥 엘로디 | NGRAM | n2 tf2 t0",
+        "조합 | 조합 | TERM | n1 tf2 t0",
+        "질감 | 질감 | TERM | n1 tf2 t0",
+        "핀스트라이프 | 핀스트라이프 | TERM | n1 tf2 t0",
+        "해리 | 해리 | TERM | n1 tf2 t0",
+        "해리 스타일스 | 해리 스타일스 | NGRAM | n2 tf2 t0",
+        "헤링본 | 헤링본 | TERM | n1 tf2 t0",
+        "j.뮤저헤링본 | J.뮤저헤링본 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 801,
+      "body_head": "에이셉 라키와 해리 스타일스, 제이콥 엘로디를 비롯한 스타들이 다음 옷차림을 위한 풍부한 영감을 선사한다.\n셀럽도 사람이다. 대본 리딩과 촬영 세트 교체 사이에 셀럽들도 우리처럼 볼일을 보러 다닌다. 우리와 다른 점",
+      "body_lines": 10,
+      "lang": "ko",
+      "summary_chars": 226,
+      "title": "이번 주에 따라 입고 싶은, 올가을 남자 스타일링 8"
+    },
+    "source": {
+      "article_id": "398573",
+      "domain": "fashion",
+      "published_date": "2026-09-08",
+      "route": "rss",
+      "source_id": "gqkorea",
+      "url": "https://www.gqkorea.co.kr/2026/09/08/%ec%9d%b4%eb%b2%88-%ec%a3%bc%ec%97%90-%eb%94%b0%eb%9d%bc-%ec%9e%85%ea%b3%a0-%ec%8b%b6%ec%9d%80-%ec%98%ac%ea%b0%80%ec%9d%84-%eb%82%a8%ec%9e%90-%ec%8a%a4%ed%83%80%ec%9d%bc%eb%a7%81-8"
+    }
+  },
+  "fashion-harpersbazaar-1890871.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 112,
+      "doc_len": 173,
+      "dropped": {
+        "SHAPE": 5
+      },
+      "keys_digest": "421ddfec8f0ce72c",
+      "top": [
+        "플리스 | 플리스 | TERM | n1 tf18 t1",
+        "겨울 | 겨울 | TERM | n1 tf7 t0",
+        "미우미우 | 미우미우 | TERM | n1 tf5 t1",
+        "가을 | 가을 | TERM | n1 tf4 t0",
+        "샌디 | 샌디 | TERM | n1 tf4 t1",
+        "미우미우 2025 | 미우미우 2025 | VERSIONED | n2 tf3 t0",
+        "방식 | 방식 | TERM | n1 tf3 t0",
+        "스커트 | 스커트 | TERM | n1 tf3 t0",
+        "거리 | 거리 | TERM | n1 tf2 t0",
+        "런웨이 | 런웨이 | TERM | n1 tf2 t0",
+        "매력 | 매력 | TERM | n1 tf2 t0",
+        "아우터 | 아우터 | TERM | n1 tf2 t1",
+        "요즘 | 요즘 | TERM | n1 tf2 t0",
+        "재킷 | 재킷 | TERM | n1 tf2 t0",
+        "코트 | 코트 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 934,
+      "body_head": "10초만에 보는 요약 기사\n2025년 겨울 플리스 트렌드의 특징\n런웨이와 거리에서 변화한 플리스 스타일링 방식\n다양한 플리스 아이템 추천\n초겨울의 디폴트, 플리스\n거친 듯 포근하고, 투박한 듯 세련된 플리스의 매력!",
+      "body_lines": 15,
+      "lang": "ko",
+      "summary_chars": 37,
+      "title": "올겨울 아우터는 '플리스'! 미우미우와 샌디 리앙이 보여준 새로운 스타일 트렌드"
+    },
+    "source": {
+      "article_id": "1890871",
+      "domain": "fashion",
+      "published_date": "2025-11-05",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1890871"
+    }
+  },
+  "fashion-harpersbazaar-1892058.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 65,
+      "doc_len": 102,
+      "dropped": {},
+      "keys_digest": "86f07ebdd2bfaa51",
+      "top": [
+        "홀리데이 | 홀리데이 | TERM | n1 tf5 t1",
+        "룰루레몬 | 룰루레몬 | TERM | n1 tf3 t0",
+        "마음 | 마음 | TERM | n1 tf3 t0",
+        "기능 | 기능 | TERM | n1 tf2 t0",
+        "보온 | 보온 | TERM | n1 tf2 t0",
+        "사랑 | 사랑 | TERM | n1 tf2 t0",
+        "선물 | 선물 | TERM | n1 tf2 t1",
+        "선물 아이디어 | 선물 아이디어 | NGRAM | n2 tf2 t1",
+        "아이디어 | 아이디어 | TERM | n1 tf2 t1",
+        "액세서리 | 액세서리 | TERM | n1 tf2 t0",
+        "일상 | 일상 | TERM | n1 tf2 t0",
+        "특별 | 특별 | TERM | n1 tf2 t1",
+        "합리 | 합리 | TERM | n1 tf2 t0",
+        "accessories | Accessories | TERM | n1 tf1 t0",
+        "가족 | 가족 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 669,
+      "body_head": "거리에 반짝이는 조명이 켜지고 캐롤이 울리며 설레는 홀리데이 시즌이 시작됐다. 올해 나와 함께한 소중한 이들의 얼굴을 떠올려본다. 나의 일상과 성장에 함께해준 친구, 연인, 가족... 따뜻한 마음을 전하기 좋은 이맘",
+      "body_lines": 14,
+      "lang": "ko",
+      "summary_chars": 42,
+      "title": "소중한 당신의 안녕을 위해, 특별한 홀리데이 선물 아이디어"
+    },
+    "source": {
+      "article_id": "1892058",
+      "domain": "fashion",
+      "published_date": "2025-11-27",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1892058"
+    }
+  },
+  "fashion-harpersbazaar-1892629.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 53,
+      "doc_len": 45,
+      "dropped": {
+        "SHAPE": 3
+      },
+      "keys_digest": "9e910941739cfb2f",
+      "top": [
+        "pxg | PXG. | ACRONYM | n1 tf3 t1",
+        "골프 | 골프 | TERM | n1 tf2 t0",
+        "자신감 | 자신감 | TERM | n1 tf2 t1",
+        "필드 | 필드 | TERM | n1 tf2 t1",
+        "a라인 | A라인 | TERM | n1 tf1 t0",
+        "a라인 랩스커트 | A라인 랩스커트 | NGRAM | n2 tf1 t0",
+        "골프 슈즈 | 골프 슈즈 | NGRAM | n2 tf1 t0",
+        "골프 웨어 | 골프 웨어 | NGRAM | n2 tf1 t0",
+        "넥 스웨터 | 넥 스웨터 | NGRAM | n2 tf1 t0",
+        "뉴 하이 | 뉴 하이 | NGRAM | n2 tf1 t0",
+        "뉴 하이 넥 | 뉴 하이 넥 | NGRAM | n3 tf1 t0",
+        "니삭스 | 니삭스 | TERM | n1 tf1 t0",
+        "다운 | 다운 | TERM | n1 tf1 t0",
+        "디테일 | 디테일 | TERM | n1 tf1 t0",
+        "랩스커트 | 랩스커트 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 204,
+      "body_head": "필드 위, 자신감을 더해줄 골프 웨어. 푸퍼 다운 베스트는 73만9천원, 윈드프루프 뉴 하이 넥 스웨터는 59만9천원, A라인 랩스커트는 49만9천원, 퍼 이어머프 모자는 19만9천원, 화이트 퍼 디테일의 오버 니삭",
+      "body_lines": 2,
+      "lang": "ko",
+      "summary_chars": 43,
+      "title": "필드 위 자신감, PXG"
+    },
+    "source": {
+      "article_id": "1892629",
+      "domain": "fashion",
+      "published_date": "2025-12-11",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1892629"
+    }
+  },
+  "fashion-harpersbazaar-1893074.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 90,
+      "doc_len": 128,
+      "dropped": {
+        "SHAPE": 8
+      },
+      "keys_digest": "4f4089a53197b2f1",
+      "top": [
+        "공기 | 공기 | TERM | n1 tf6 t0",
+        "레이어 | 레이어 | TERM | n1 tf5 t1",
+        "메쉬 | 메쉬 | TERM | n1 tf5 t1",
+        "베이스 | 베이스 | TERM | n1 tf5 t1",
+        "베이스 레이어 | 베이스 레이어 | NGRAM | n2 tf5 t1",
+        "망사 | 망사 | TERM | n1 tf4 t0",
+        "메쉬 베이스 | 메쉬 베이스 | NGRAM | n2 tf4 t1",
+        "메쉬 베이스 레이어 | 메쉬 베이스 레이어 | NGRAM | n3 tf4 t1",
+        "겨울 | 겨울 | TERM | n1 tf3 t1",
+        "구조 | 구조 | TERM | n1 tf3 t0",
+        "보온 | 보온 | TERM | n1 tf3 t1",
+        "한겨울 | 한겨울 | TERM | n1 tf3 t0",
+        "base | base | TERM | n1 tf2 t0",
+        "base layer | base layer | NGRAM | n2 tf2 t0",
+        "layer | layer | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 771,
+      "body_head": "10초 안에 보는 요약 기사\n한겨울 메쉬 베이스 레이어, 보온과 쾌적함을 높인다.\n주요 브랜드 및 제품 추천과 세탁 관리법 소개!\n러닝, 등산, 사이클에 적합한 다양한 제품과 사이즈 선택법\n패딩을 한 겹 더 살까 말",
+      "body_lines": 9,
+      "lang": "ko",
+      "summary_chars": 43,
+      "title": "겨울 러닝 보온의 정답은? 메쉬 베이스 레이어가 체온을 지키는 이유"
+    },
+    "source": {
+      "article_id": "1893074",
+      "domain": "fashion",
+      "published_date": "2025-12-09",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1893074"
+    }
+  },
+  "fashion-harpersbazaar-1895820.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 10,
+      "doc_len": 7,
+      "dropped": {},
+      "keys_digest": "1412d43c8db6c2b2",
+      "top": [
+        "메달리스트 | 메달리스트 | TERM | n1 tf1 t1",
+        "복싱 | 복싱 | TERM | n1 tf1 t1",
+        "여자 | 여자 | TERM | n1 tf1 t1",
+        "여자 복싱 | 여자 복싱 | NGRAM | n2 tf1 t1",
+        "올림픽 | 올림픽 | TERM | n1 tf1 t1",
+        "올림픽 메달리스트 | 올림픽 메달리스트 | NGRAM | n2 tf1 t1",
+        "임애지 | 임애지 | TERM | n1 tf1 t1",
+        "한국 | 한국 | TERM | n1 tf1 t1",
+        "한국 여자 | 한국 여자 | NGRAM | n2 tf1 t1",
+        "한국 여자 복싱 | 한국 여자 복싱 | NGRAM | n3 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "summary",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 28,
+      "title": "한국 여자 복싱 최초의 올림픽 메달리스트, 임애지"
+    },
+    "source": {
+      "article_id": "1895820",
+      "domain": "fashion",
+      "published_date": "2026-01-27",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1895820"
+    }
+  },
+  "fashion-harpersbazaar-1895823.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 9,
+      "doc_len": 8,
+      "dropped": {},
+      "keys_digest": "a190c30a8ae70bb6",
+      "top": [
+        "opbf | OPBF | ACRONYM | n1 tf1 t1",
+        "opbf 챔피언 | OPBF 챔피언 | NGRAM | n2 tf1 t1",
+        "wbo | WBO | ACRONYM | n1 tf1 t1",
+        "wbo 아시아 | WBO 아시아 | NGRAM | n2 tf1 t1",
+        "아시아 | 아시아 | TERM | n1 tf1 t1",
+        "윤덕노 | 윤덕노 | TERM | n1 tf1 t1",
+        "챔피언 | 챔피언 | TERM | n1 tf1 t1",
+        "태평양 | 태평양 | TERM | n1 tf1 t1",
+        "한국 | 한국 | TERM | n1 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "summary",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 31,
+      "title": "한국 최초 WBO 아시아-태평양, OPBF 챔피언, 윤덕노"
+    },
+    "source": {
+      "article_id": "1895823",
+      "domain": "fashion",
+      "published_date": "2026-01-24",
+      "route": "listing",
+      "source_id": "harpersbazaar",
+      "url": "https://www.harpersbazaar.co.kr/article/1895823"
+    }
+  },
+  "fashion-marieclaire-558420.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 107,
+      "doc_len": 143,
+      "dropped": {
+        "SHAPE": 1
+      },
+      "keys_digest": "783a1aae776815ba",
+      "top": [
+        "비통 | 비통 | TERM | n1 tf9 t1",
+        "루이 | 루이 | TERM | n1 tf8 t1",
+        "루이 비통 | 루이 비통 | NGRAM | n2 tf8 t1",
+        "시간 | 시간 | TERM | n1 tf7 t1",
+        "모노그램 | 모노그램 | TERM | n1 tf5 t0",
+        "트렁크 | 트렁크 | TERM | n1 tf4 t0",
+        "가방 | 가방 | TERM | n1 tf3 t0",
+        "리페어 | 리페어 | TERM | n1 tf3 t0",
+        "물건 | 물건 | TERM | n1 tf3 t0",
+        "수선 | 수선 | TERM | n1 tf3 t0",
+        "스피디 | 스피디 | TERM | n1 tf3 t0",
+        "워크숍 | 워크숍 | TERM | n1 tf3 t0",
+        "케어 | 케어 | TERM | n1 tf3 t0",
+        "관리 | 관리 | TERM | n1 tf2 t0",
+        "루이 비통 케어 | 루이 비통 케어 | NGRAM | n3 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 913,
+      "body_head": "장인의 손길을 거쳐 또 다른 시간을 준비하는 가방들. 루이 비통 케어 & 리페어 워크숍에서 마주한, 물건의 수명을 이어가는 또 하나의 순환 방식에 대하여.\n내가 취직한 후 엄마에게 처음으로 드린 선물은 루이 비통의 ",
+      "body_lines": 2,
+      "lang": "ko",
+      "summary_chars": 208,
+      "title": "시간의 세월을 고치고 이어가는 루이 비통의 순환 방식"
+    },
+    "source": {
+      "article_id": "558420",
+      "domain": "fashion",
+      "published_date": "2026-09-02",
+      "route": "rss",
+      "source_id": "marieclaire",
+      "url": "https://www.marieclairekorea.com/fashion/2026/09/louis-vuitton-44"
+    }
+  },
+  "fashion-marieclaire-559187.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 51,
+      "doc_len": 69,
+      "dropped": {
+        "SHAPE": 4
+      },
+      "keys_digest": "fd56642c10115893",
+      "top": [
+        "레이스 | 레이스 | TERM | n1 tf3 t0",
+        "드레스 | 드레스 | TERM | n1 tf2 t0",
+        "리본 | 리본 | TERM | n1 tf2 t0",
+        "매력 | 매력 | TERM | n1 tf2 t0",
+        "반전 | 반전 | TERM | n1 tf2 t0",
+        "볼륨 | 볼륨 | TERM | n1 tf2 t0",
+        "스커트 | 스커트 | TERM | n1 tf2 t0",
+        "완성 | 완성 | TERM | n1 tf2 t0",
+        "장식 | 장식 | TERM | n1 tf2 t0",
+        "inside | inside | TERM | n1 tf1 t1",
+        "mc | MC | ACRONYM | n1 tf1 t1",
+        "mc inside | MC inside | NGRAM | n2 tf1 t1",
+        "가을 | 가을 | TERM | n1 tf1 t0",
+        "곡선 | 곡선 | TERM | n1 tf1 t0",
+        "구조 | 구조 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 413,
+      "body_head": "2026 F/W 시즌에는 런웨이를 스쳐 지나간 뒤에야 비로소 완성되는 룩이 눈에 띈다. 에르뎀은 자카드 플로럴 드레스 뒤로 검은 리본을 길게 늘어뜨려 우아한 뒷모습을 완성했고, 세실리에 반센은 스포티한 블루종 뒤로 ",
+      "body_lines": 1,
+      "lang": "ko",
+      "summary_chars": 240,
+      "title": "MC inside | 예술적 뒤태"
+    },
+    "source": {
+      "article_id": "559187",
+      "domain": "fashion",
+      "published_date": "2026-09-02",
+      "route": "rss",
+      "source_id": "marieclaire",
+      "url": "https://www.marieclairekorea.com/fashion/2026/09/mc-inside-21"
+    }
+  },
+  "fashion-marieclaire-559199.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 100,
+      "doc_len": 111,
+      "dropped": {
+        "SHAPE": 2
+      },
+      "keys_digest": "8a6850c7f316c1ef",
+      "top": [
+        "캠페인 | 캠페인 | TERM | n1 tf4 t0",
+        "막스마라 | 막스마라 | TERM | n1 tf3 t0",
+        "시선 | 시선 | TERM | n1 tf3 t0",
+        "장면 | 장면 | TERM | n1 tf3 t0",
+        "포착 | 포착 | TERM | n1 tf3 t0",
+        "mara | MARA | ACRONYM | n1 tf2 t0",
+        "miu | MIU | ACRONYM | n1 tf2 t0",
+        "영화 | 영화 | TERM | n1 tf2 t0",
+        "일상 | 일상 | TERM | n1 tf2 t0",
+        "특별 | 특별 | TERM | n1 tf2 t0",
+        "barry | Barry | TERM | n1 tf1 t0",
+        "barry jenkins | Barry Jenkins | NGRAM | n2 tf1 t0",
+        "ghertner | Ghertner | TERM | n1 tf1 t0",
+        "inside | inside | TERM | n1 tf1 t1",
+        "jenkins | Jenkins | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 641,
+      "body_head": "패션 하우스가 감각적으로 그려낸 2026 F/W 캠페인의 새로운 장면들.\nMARA MARA\n막스마라는 내면의 자신감과 정제된 우아함을 지닌 현대 여성의 모습을 절제된 시선으로 포착했다. 존재감 넘치는 실루엣과 흔들림",
+      "body_lines": 7,
+      "lang": "ko",
+      "summary_chars": 256,
+      "title": "MC inside | 패션 미리 보기"
+    },
+    "source": {
+      "article_id": "559199",
+      "domain": "fashion",
+      "published_date": "2026-09-02",
+      "route": "rss",
+      "source_id": "marieclaire",
+      "url": "https://www.marieclairekorea.com/fashion/2026/09/mc-inside-22"
+    }
+  },
+  "fashion-vogue-854781.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 65,
+      "doc_len": 94,
+      "dropped": {
+        "SHAPE": 3
+      },
+      "keys_digest": "b2f027641c674e76",
+      "top": [
+        "여왕 | 여왕 | TERM | n1 tf7 t1",
+        "브로치 | 브로치 | TERM | n1 tf6 t1",
+        "엘리자베스 | 엘리자베스 | TERM | n1 tf5 t1",
+        "비밀 | 비밀 | TERM | n1 tf4 t1",
+        "왼쪽 | 왼쪽 | TERM | n1 tf3 t0",
+        "메시지 | 메시지 | TERM | n1 tf2 t1",
+        "비밀 메시지 | 비밀 메시지 | NGRAM | n2 tf2 t1",
+        "비밀 언어 | 비밀 언어 | NGRAM | n2 tf2 t0",
+        "암호 | 암호 | TERM | n1 tf2 t1",
+        "언어 | 언어 | TERM | n1 tf2 t0",
+        "일부 | 일부 | TERM | n1 tf2 t0",
+        "트럼프 | 트럼프 | TERM | n1 tf2 t0",
+        "활용 | 활용 | TERM | n1 tf2 t0",
+        "royal | Royal | TERM | n1 tf1 t0",
+        "가치 | 가치 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 587,
+      "body_head": "엘리자베스 2세 여왕은 이것을 100개나 가지고 있었으며, 비밀 메시지를 보낼 때 활용했다. 역사상 가장 화려한 암호, 브로치의 비밀 언어를 해독하는 법.\n2018년 도널드 트럼프가 윈저성에서 엘리자베스 2세 여왕을",
+      "body_lines": 2,
+      "lang": "ko",
+      "summary_chars": 234,
+      "title": "엘리자베스 2세 여왕의 비밀 메시지 ‘브로치 암호’"
+    },
+    "source": {
+      "article_id": "854781",
+      "domain": "fashion",
+      "published_date": "2026-09-05",
+      "route": "rss",
+      "source_id": "vogue",
+      "url": "https://www.vogue.co.kr/2026/09/05/%ec%97%98%eb%a6%ac%ec%9e%90%eb%b2%a0%ec%8a%a4-%ec%97%ac%ec%99%95%ec%9d%98-%eb%b9%84%eb%b0%80-%eb%a9%94%ec%8b%9c%ec%a7%80-%eb%b8%8c%eb%a1%9c%ec%b9%98-%ec%95%94%ed%98%b8"
+    }
+  },
+  "fashion-vogue-854787.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 5,
+      "doc_len": 6,
+      "dropped": {
+        "SHAPE": 1
+      },
+      "keys_digest": "2def367e52343c9a",
+      "top": [
+        "까르띠에 | 까르띠에 | TERM | n1 tf1 t1",
+        "르 쾨르 | 르 쾨르 | NGRAM | n2 tf1 t1",
+        "쾨르 | 쾨르 | TERM | n1 tf1 t1",
+        "팔레트 | 팔레트 | TERM | n1 tf1 t1",
+        "피에르 | 피에르 | TERM | n1 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "title",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 0,
+      "title": "르 쾨르 데 피에르로 펼친 까르띠에의 팔레트"
+    },
+    "source": {
+      "article_id": "854787",
+      "domain": "fashion",
+      "published_date": "2026-09-07",
+      "route": "rss",
+      "source_id": "vogue",
+      "url": "https://www.vogue.co.kr/2026/09/07/%eb%a5%b4-%ec%be%a8%eb%a5%b4-%eb%8d%b0-%ed%94%bc%ec%97%90%eb%a5%b4%eb%a1%9c-%ed%8e%bc%ec%b9%9c-%ea%b9%8c%eb%a5%b4%eb%9d%a0%ec%97%90%ec%9d%98-%ed%8c%94%eb%a0%88%ed%8a%b8"
+    }
+  },
+  "fashion-vogue-854842.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 4,
+      "doc_len": 4,
+      "dropped": {},
+      "keys_digest": "23ea51931e228e5c",
+      "top": [
+        "꽃물결 | 꽃물결 | TERM | n1 tf1 t1",
+        "디올 | 디올 | TERM | n1 tf1 t1",
+        "선사 | 선사 | TERM | n1 tf1 t1",
+        "황홀 | 황홀 | TERM | n1 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "title",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 0,
+      "title": "디올이 선사하는 황홀한 꽃물결"
+    },
+    "source": {
+      "article_id": "854842",
+      "domain": "fashion",
+      "published_date": "2026-09-07",
+      "route": "rss",
+      "source_id": "vogue",
+      "url": "https://www.vogue.co.kr/2026/09/07/%eb%94%94%ec%98%ac%ec%9d%b4-%ec%84%a0%ec%82%ac%ed%95%98%eb%8a%94-%ed%99%a9%ed%99%80%ed%95%9c-%ea%bd%83%eb%ac%bc%ea%b2%b0"
+    }
+  },
+  "fashion-vogue-854860.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 3,
+      "doc_len": 4,
+      "dropped": {
+        "SHAPE": 1
+      },
+      "keys_digest": "aef6cfffd3e39145",
+      "top": [
+        "나비 | 나비 | TERM | n1 tf1 t1",
+        "정원 | 정원 | TERM | n1 tf1 t1",
+        "티파니앤코 | 티파니앤코 | TERM | n1 tf1 t1"
+      ]
+    },
+    "normalize": {
+      "basis": "title",
+      "body_chars": 0,
+      "body_head": "",
+      "body_lines": 0,
+      "lang": "ko",
+      "summary_chars": 0,
+      "title": "새와 나비가 날아드는 티파니앤코의 정원"
+    },
+    "source": {
+      "article_id": "854860",
+      "domain": "fashion",
+      "published_date": "2026-09-08",
+      "route": "rss",
+      "source_id": "vogue",
+      "url": "https://www.vogue.co.kr/2026/09/08/%ec%83%88%ec%99%80-%eb%82%98%eb%b9%84%ea%b0%80-%eb%82%a0%ec%95%84%eb%93%9c%eb%8a%94-%ed%8b%b0%ed%8c%8c%eb%8b%88%ec%95%a4%ec%bd%94%ec%9d%98-%ec%a0%95%ec%9b%90"
+    }
+  },
+  "fashion-wkorea-450438.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 92,
+      "doc_len": 115,
+      "dropped": {
+        "SHAPE": 7
+      },
+      "keys_digest": "abe58f944f8b9b1c",
+      "top": [
+        "스커트 | 스커트 | TERM | n1 tf16 t2",
+        "볼륨 | 볼륨 | TERM | n1 tf5 t1",
+        "볼륨 스커트 | 볼륨 스커트 | NGRAM | n2 tf5 t1",
+        "후디 | 후디 | TERM | n1 tf4 t0",
+        "가을 | 가을 | TERM | n1 tf3 t1",
+        "니트 | 니트 | TERM | n1 tf3 t0",
+        "맥시 | 맥시 | TERM | n1 tf3 t0",
+        "반팔 | 반팔 | TERM | n1 tf3 t0",
+        "상의 | 상의 | TERM | n1 tf3 t0",
+        "치마 | 치마 | TERM | n1 tf3 t0",
+        "핑크 | 핑크 | TERM | n1 tf3 t0",
+        "맥시 스커트 | 맥시 스커트 | NGRAM | n2 tf2 t0",
+        "미디 | 미디 | TERM | n1 tf2 t0",
+        "반팔 티 | 반팔 티 | NGRAM | n2 tf2 t0",
+        "버블 | 버블 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 842,
+      "body_head": "선선해지면 가장 먼저 입고 싶어지는 볼륨 스커트!\n아침저녁은 제법 선선해졌지만 낮에는 아직 반팔이 편합니다. 그렇다고 여름 내내 입던 차림을 그대로 반복하긴 조금 심심하고요. 이럴 때 필요한 것이 볼륨 스커트입니다.",
+      "body_lines": 9,
+      "lang": "ko",
+      "summary_chars": 232,
+      "title": "올가을엔 얌전한 스커트보다 볼륨 스커트"
+    },
+    "source": {
+      "article_id": "450438",
+      "domain": "fashion",
+      "published_date": "2026-09-07",
+      "route": "rss",
+      "source_id": "wkorea",
+      "url": "https://www.wkorea.com/2026/09/07/%ec%98%ac%ea%b0%80%ec%9d%84%ec%97%94-%ec%96%8c%ec%a0%84%ed%95%9c-%ec%8a%a4%ec%bb%a4%ed%8a%b8%eb%b3%b4%eb%8b%a4-%eb%b3%bc%eb%a5%a8-%ec%8a%a4%ec%bb%a4%ed%8a%b8"
+    }
+  },
+  "fashion-wkorea-450454.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 33,
+      "doc_len": 46,
+      "dropped": {
+        "SHAPE": 2
+      },
+      "keys_digest": "bb065a0a6526371d",
+      "top": [
+        "셀린 디옹 | 셀린 디옹 | TERM | n1 tf4 t1",
+        "디바 | 디바 | TERM | n1 tf3 t0",
+        "공연 | 공연 | TERM | n1 tf2 t0",
+        "파리 | 파리 | TERM | n1 tf2 t0",
+        "person | Person | TERM | n1 tf1 t0",
+        "person syndrome | Person Syndrome | NGRAM | n2 tf1 t0",
+        "sps | SPS | ACRONYM | n1 tf1 t0",
+        "stiff | Stiff | TERM | n1 tf1 t0",
+        "syndrome | Syndrome | TERM | n1 tf1 t0",
+        "가운데 | 가운데 | TERM | n1 tf1 t0",
+        "강직인간증후군 | 강직인간증후군 | TERM | n1 tf1 t0",
+        "경신 | 경신 | TERM | n1 tf1 t1",
+        "기대 | 기대 | TERM | n1 tf1 t0",
+        "당장 | 당장 | TERM | n1 tf1 t0",
+        "등장 | 등장 | TERM | n1 tf1 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 299,
+      "body_head": "셀린 디옹의 패션 전성기는 지금?\n디바 중의 디바, 셀린 디옹이 오는 9월 12일부터 10월 17일까지 파리에서 복귀 공연을 펼칩니다. 오랜 시간 그를 괴롭혀온 희귀질환 강직인간증후군(Stiff-Person Synd",
+      "body_lines": 3,
+      "lang": "ko",
+      "summary_chars": 258,
+      "title": "요즘 매일 리즈 경신하는 58세 셀린 디옹"
+    },
+    "source": {
+      "article_id": "450454",
+      "domain": "fashion",
+      "published_date": "2026-09-06",
+      "route": "rss",
+      "source_id": "wkorea",
+      "url": "https://www.wkorea.com/2026/09/06/%ec%9a%94%ec%a6%98-%eb%a7%a4%ec%9d%bc-%eb%a6%ac%ec%a6%88-%ea%b2%bd%ec%8b%a0%ed%95%98%eb%8a%94-58%ec%84%b8-%ec%85%80%eb%a6%b0-%eb%94%94%ec%98%b9"
+    }
+  },
+  "fashion-wkorea-450650.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 73,
+      "doc_len": 106,
+      "dropped": {
+        "SHAPE": 3
+      },
+      "keys_digest": "eb0355aaa329ab8b",
+      "top": [
+        "메시카 | 메시카 | TERM | n1 tf7 t1",
+        "가치 | 가치 | TERM | n1 tf5 t1",
+        "다이아몬드 | 다이아몬드 | TERM | n1 tf4 t0",
+        "주얼리 | 주얼리 | TERM | n1 tf3 t0",
+        "투명도 | 투명도 | TERM | n1 tf3 t0",
+        "messika | Messika | TERM | n1 tf2 t0",
+        "가치 기준 | 가치 기준 | NGRAM | n2 tf2 t0",
+        "기준 | 기준 | TERM | n1 tf2 t0",
+        "발견 | 발견 | TERM | n1 tf2 t0",
+        "보츠와나 | 보츠와나 | TERM | n1 tf2 t0",
+        "블루 | 블루 | TERM | n1 tf2 t0",
+        "블루 다이아몬드 | 블루 다이아몬드 | TERM | n1 tf2 t0",
+        "여정 | 여정 | TERM | n1 tf2 t0",
+        "오카방고 | 오카방고 | TERM | n1 tf2 t0",
+        "오카방고 블루 | 오카방고 블루 | NGRAM | n2 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 688,
+      "body_head": "보츠와나에서 파리까지, 메시카와 오카방고 블루(Okavango Blue)가 이어가는 특별한 여정.\n다이아몬드의 가치는 무엇으로 결정될까. 크기와 투명도, 희소한 색상만으로 그 가치를 온전히 설명할 수 있을까. 현대에",
+      "body_lines": 2,
+      "lang": "ko",
+      "summary_chars": 261,
+      "title": "메시카가 보여주는 푸른빛의 가치"
+    },
+    "source": {
+      "article_id": "450650",
+      "domain": "fashion",
+      "published_date": "2026-09-06",
+      "route": "rss",
+      "source_id": "wkorea",
+      "url": "https://www.wkorea.com/2026/09/06/%eb%a9%94%ec%8b%9c%ec%b9%b4%ea%b0%80-%eb%b3%b4%ec%97%ac%ec%a3%bc%eb%8a%94-%ed%91%b8%eb%a5%b8%eb%b9%9b%ec%9d%98-%ea%b0%80%ec%b9%98"
+    }
+  },
+  "fashion-wkorea-450659.json": {
+    "extract": {
+      "abbreviations": [],
+      "candidates": 100,
+      "doc_len": 170,
+      "dropped": {
+        "SHAPE": 5
+      },
+      "keys_digest": "47d05df788f7b1fb",
+      "top": [
+        "크리스 | 크리스 | TERM | n1 tf11 t1",
+        "아틀리에 | 아틀리에 | TERM | n1 tf9 t0",
+        "샘플 | 샘플 | TERM | n1 tf4 t0",
+        "시작 | 시작 | TERM | n1 tf4 t1",
+        "완성 | 완성 | TERM | n1 tf4 t0",
+        "크리믈러 | 크리믈러 | TERM | n1 tf4 t0",
+        "크리스 아틀리에 | 크리스 아틀리에 | NGRAM | n2 tf4 t0",
+        "건축 | 건축 | TERM | n1 tf3 t0",
+        "과정 | 과정 | TERM | n1 tf3 t0",
+        "원단 | 원단 | TERM | n1 tf3 t0",
+        "자수 | 자수 | TERM | n1 tf3 t0",
+        "제작 | 제작 | TERM | n1 tf3 t0",
+        "고향 | 고향 | TERM | n1 tf2 t0",
+        "관계 | 관계 | TERM | n1 tf2 t0",
+        "구조 | 구조 | TERM | n1 tf2 t0"
+      ]
+    },
+    "normalize": {
+      "basis": "body",
+      "body_chars": 992,
+      "body_head": "알버트 크리믈러의 고향 장크트갈렌을 걸으며 발견한 건축과 예술, 그리고 아크리스(Akris)의 미학.\n아크리스 아틀리에의 제작 과정과 아틀리에의 의상 샘플.\n아크리스 아틀리에의 제작 과정과 아틀리에의 의상 샘플.\n아",
+      "body_lines": 8,
+      "lang": "ko",
+      "summary_chars": 262,
+      "title": "아크리스의 형태가 시작되는 곳"
+    },
+    "source": {
+      "article_id": "450659",
+      "domain": "fashion",
+      "published_date": "2026-09-06",
+      "route": "rss",
+      "source_id": "wkorea",
+      "url": "https://www.wkorea.com/2026/09/06/%ec%95%84%ed%81%ac%eb%a6%ac%ec%8a%a4%ec%9d%98-%ed%98%95%ed%83%9c%ea%b0%80-%ec%8b%9c%ec%9e%91%eb%90%98%eb%8a%94-%ea%b3%b3"
+    }
+  }
+}

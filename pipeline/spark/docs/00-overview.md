@@ -121,6 +121,7 @@ Airflow 는 수집이 언제 끝났는지 이미 안다. 트리거 목적만 보
 | Job 분해 | `ingest` / `extract` / `aggregate` 세 개 | [01 §2](01-architecture.md) |
 | 구현 언어 | PySpark | 팀 스택이 Python, 한국어 형태소 분석기가 Python |
 | 키워드 추출 | 통계·자동 발견 중심. 사전 화이트리스트를 쓰지 않는다 | [04](04-keyword-extraction-spec.md) |
+| 한국어 토큰화 | **형태소 분석기**(`kiwipiepy`)로 명사구만 뽑는다. 규칙 기반 조사·어미 표에서 2026-09-09 갈아탔다 | [04 §2](04-keyword-extraction-spec.md) |
 | 의미 유사도 | 경량 임베딩까지. **LLM API 는 쓰지 않는다** | 아래 |
 | 중간 저장소 | 정제 본문을 MinIO `curated` 에 Parquet 으로 둔다. `contents.body_object_key` 가 가리킨다 | [01 §3](01-architecture.md) |
 | 서비스 스키마 | Spark 는 값만 넣는다. DDL 권한 없음 | [08 §1](08-storage-schema.md) |
@@ -250,7 +251,7 @@ DB 는 초기 버전이라 구현하면서 고칠 수 있고, **그게 옳은 �
 
 | # | 항목 | 막히는 것 |
 | --- | --- | --- |
-| 15 | **실제 수집 데이터 샘플** | 04~07 의 임계값을 정할 근거가 없다. **추측으로 정하면 전부 다시 하게 된다.** fashion 수집기는 구현돼 있다(`src/trendin/fashion/collect/`). **계약 샘플은 받았다** — `tests/fixtures/contract/` 에 이벤트 3건과 그 객체 2개가 있고 파싱·검증 코드를 짜기엔 충분하다. 하지만 임계값에 필요한 것은 **분포**라 `tests/fixtures/corpus/` 가 채워져야 한다 ([09 §7](09-dev-and-test.md) 항목 5) |
+| 15 | **실제 수집 데이터 샘플** | 04~07 의 임계값을 정할 근거가 없다. **추측으로 정하면 전부 다시 하게 된다.** fashion 수집기는 구현돼 있다(`src/trendin/fashion/collect/`). **계약 샘플은 받았다** — `tests/fixtures/contract/` 에 이벤트 3건과 그 객체 2개가 있고 파싱·검증 코드를 짜기엔 충분하다. 하지만 임계값에 필요한 것은 **분포**라 `tests/fixtures/corpus.json` 이 채워져야 한다 ([09 §7](09-dev-and-test.md) 항목 5) |
 | 16 | Kafka · MinIO 로컬 환경 | 통합 테스트 ([09 §4](09-dev-and-test.md)). `datastore/compose.yaml` 로 뜬다 |
 | 17 | Spark 버전 정합 검증 | [01 §7](01-architecture.md) — **끝났다** |
 | 18 | `contents.source` 값 규약 | 이벤트의 `source_id`(`vogue`·`hn` 등 소스 키)를 그대로 넣을지 표시명(`보그`)으로 바꿀지 |

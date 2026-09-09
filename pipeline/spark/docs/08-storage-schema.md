@@ -87,9 +87,10 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | `pl_batch_stat` | 실행별 정제 통계. **`(일자, 소스)` 별 수집 상태**는 여기 얹을 예정이고 아직 없다 — 지금은 `pl_processing_ledger` 의 요약 이벤트 행이 원자료다 ([02 §4](02-input-contract.md)) | ingest |
 | `pl_content_id_map` | `url_hash` → `contents.id` | ingest |
 | `pl_keyword_id_map` | `(domain, normalized_key)` → `keywords.id` | extract |
-| `pl_candidate` | 후보 마스터. 대표 표기, **최초 관측 시각**, 승격 상태 | extract |
-| `pl_document_candidate` | 문서 × 후보 점수 ([04 §7](04-keyword-extraction-spec.md)) | extract |
+| `pl_candidate` | 후보 마스터. 대표 표기, **최초·최근 관측일**(`first_seen_date` · `last_seen_date`, 발행일 기준), 승격 상태, `keyword_id` | extract |
+| `pl_document_candidate` | 문서 × 후보 점수 ([04 §7](04-keyword-extraction-spec.md)). `tf` · `df` · `c_value` · `bm25` · `score` · `rank` · **`selected`**(상위 K) · `stat_date` · `is_dup` | extract |
 | `pl_keyword_daily_stat` | **키워드·후보별 일별 원자료** | extract |
+| `pl_abbreviation_observation` | `전개형 (약어)` 관측 — 문서 × 쌍. [05 §3](05-keyword-registry-spec.md) 통합의 결정적 증거. `initials_match` 가 첫 글자 대응 여부 | extract |
 | `pl_alias` | 별칭 → 대표. 근거 층, 신뢰도 | extract |
 | `pl_merge_log` | 병합 이력 ([05 §8](05-keyword-registry-spec.md)) | extract |
 | `pl_trend_type_log` | **회차별 유형 판별 이력.** `(keyword_id, period, 회차)` → 유형 ([07 §6](07-metrics-and-ranking-spec.md)) | aggregate |
@@ -110,9 +111,31 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 
 `SOURCE_FAILED` 는 기사 이벤트에 나올 수 없다 — 기사 이벤트의 `status` 는 늘 `success` 다(불변식 5). 나오면 [02 §2](02-input-contract.md) 의 계약 위반 분기가 먼저 DLQ 로 보낸다.
 
-### DDL 은 `io/ledger.py` 가 들고 있다
+### DDL 은 각 `io/*.py` 가 들고 있다
 
-`pl_*` 는 파이프라인 내부 테이블이라 우리가 만든다. 서비스 테이블은 백엔드 소유고 Spark 에 DDL 권한이 없다([§1](#1-두-층)) — 그 경계를 넘지 않는다. Job 이 스트림을 걸기 전에 `ensure_schema()` 로 멱등하게 적용한다.
+`pl_*` 는 파이프라인 내부 테이블이라 우리가 만든다. 서비스 테이블은 백엔드 소유고 Spark 에 DDL 권한이 없다([§1](#1-두-층)) — 그 경계를 넘지 않는다. Job 이 시작할 때 `ensure_schema()` 로 멱등하게 적용한다.
+
+| 모듈 | 테이블 |
+| --- | --- |
+| `io/ledger.py` | `pl_processing_ledger` |
+| `io/dlq.py` | `pl_processing_error` |
+| `io/stats.py` | `pl_batch_stat` |
+| `io/contents.py` | `pl_content_id_map` · `pl_stage_contents` |
+| `io/candidates.py` | `pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` · `pl_abbreviation_observation` (+ 스테이징 셋) |
+
+### `extract` 의 네 표는 한 트랜잭션으로 쓴다
+
+`io/candidates.CandidateSink.write` 가 스테이징 셋을 같은 연결에서 채우고 MERGE 까지 간다 ([§4](#4-쓰는-방법--스테이징--서버사이드-merge)). 순서가 중요하다.
+
+1. 영향받는 `(domain, stat_date)` 를 **지우기 전에** 모은다 — 처리한 문서의 옛 행이 가리키던 날짜 ∪ 새 행의 날짜.
+2. 처리한 문서(`pl_stage_extracted_document`, 후보가 0 개인 문서 포함)의 옛 `pl_document_candidate` 행을 지우고 새 행을 넣는다.
+3. `pl_candidate` upsert. `first_seen_date` 는 `LEAST` 로 지킨다 — 재실행이 앞당기지도 늦추지도 않는다.
+4. 영향받은 날짜의 `pl_keyword_daily_stat` 을 **저장된 `pl_document_candidate` 전체에서 다시 센다.** 한 `stat_date` 의 문서가 여러 `ingest_run_id` 에 흩어져 오므로([07 §2](07-metrics-and-ranking-spec.md)) 이번 배치의 행만으로는 그 날의 값을 알 수 없다. `keyword_id` 는 [05] 가 채우는 칸이라 건드리지 않고, 그 날짜에서 사라진 후보의 행은 지운다.
+5. `pl_abbreviation_observation` upsert.
+
+**⚠️ 2번의 결과 — `pl_document_candidate` 에는 실행 하나만 남는다.** 같은 문서를 두 번 처리하면 먼저 실행의 행이 지워지므로 `extract_run_id` 로 두 실행이 공존하지 않는다. **의도한 설계다** — 재실행이 행을 쌓으면 DF 가 두 배가 되고 `pl_keyword_daily_stat` 재집계(4번)가 같은 문서를 여러 번 센다. 대가는 전후 비교를 이 표로 할 수 없는 것이고, 그래서 `spark/scripts/evaluate-extract.py` 가 실행 직후에 행을 파일로 뜬다 ([09 §4](09-dev-and-test.md) 검수 절). `extract_run_id` 컬럼은 "이 행을 누가 썼나" 를 말하는 것이고 "실행별 이력" 이 아니다.
+
+**`doc_count` 는 필터를 통과한 후보 전부를 센다** — 상위 K 만이 아니다 ([04 §7](04-keyword-extraction-spec.md) "내부 후보 통계에 남길 것 = 필터를 통과한 전부"). 승격 심사([05 §5](05-keyword-registry-spec.md))가 그 누적 관측을 보고, `keyword_contents` 와 동시출현([06](06-related-keyword-spec.md))은 `selected` 로 좁힌다. `is_dup` 문서는 `doc_count` · `source_count` · `author_count` 에서 빼고 `doc_count_with_dup` 에만 들어간다.
 
 컬럼 중 이름만으로 안 읽히는 둘:
 

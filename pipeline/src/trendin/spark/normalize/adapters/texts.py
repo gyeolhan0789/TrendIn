@@ -20,6 +20,7 @@ from trendin.spark.normalize.adapters.protocol import (
     BASIS_TITLE,
     DocumentTexts,
 )
+from trendin.spark.normalize.boilerplate import strip_boilerplate
 from trendin.spark.normalize.text import clean_text, clean_title, split_code
 
 
@@ -39,8 +40,12 @@ def build_texts(article: Mapping[str, Any]) -> DocumentTexts:
     raw_body = article.get("body_text")
     had_raw_body = isinstance(raw_body, str) and bool(raw_body.strip())
     stripped, code = split_code(raw_body)
-    body = clean_text(stripped)
-    summary = clean_text(article.get("summary"))
+    # 단계 8 — 마크업이 아니라 "기사 본문이 아닌 텍스트" 를 걷는다 ([03 §4]).
+    # 단계 7 뒤라야 줄 단위로 볼 수 있어서 `clean_text` 를 감싼다.
+    body = strip_boilerplate(clean_text(stripped))
+    # 요약은 피드가 준 발췌라 위젯·크레딧이 섞이지 않는다. 그래도 같은 규칙을 태우는 것은
+    # 본문이 비어 요약이 본문 대용이 될 때(아래 `basis`) 같은 품질이어야 하기 때문이다.
+    summary = strip_boilerplate(clean_text(article.get("summary")))
 
     if body:
         basis, length = BASIS_BODY, len(body)

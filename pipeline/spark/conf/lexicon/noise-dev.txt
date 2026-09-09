@@ -1,0 +1,24 @@
+# dev 노이즈 사전 — 코드 잔재 ([04 §5] 4번, [04 §8]). 파일 확장자 · HTTP 상태 · 흔한 변수명 ·
+# 스택트레이스 조각. 불용어와 다른 점은 "문장 속 단어" 가 아니라 "코드에서 새어 나온 것" 이라는
+# 성격이고, n-gram 의 **모든** 토큰이 여기 있을 때만 버린다 (`extract/filters.py`).
+
+# 파일 확장자
+txt md json yaml yml xml csv tsv log tmp bak zip tar gz
+js ts jsx tsx py rb go rs java kt swift php cs cpp hpp h c cc
+html htm css scss sass less svg png jpg jpeg gif ico webp
+exe dll so dylib bin sh bat ps1 lock toml ini cfg conf env
+
+# HTTP 상태 · 메서드
+200 201 204 301 302 304 400 401 403 404 405 409 422 429 500 502 503 504
+get post put patch delete head options
+
+# 흔한 변수명 · 자리표시자
+foo bar baz qux tmp temp test tests example examples sample dummy placeholder lorem ipsum
+var val let const fn func def class self this null nil none undefined true false
+arg args kwargs param params ret result res req resp err error e ex exc obj item elem el idx
+i j k n m x y z a b c
+
+# 스택트레이스 · 로그 조각
+traceback exception stacktrace stack trace at line file module
+todo fixme xxx hack note
+localhost 127.0.0.1 0.0.0.0 http https www com org net io dev

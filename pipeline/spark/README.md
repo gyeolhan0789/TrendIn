@@ -59,6 +59,7 @@ cd pipeline
 spark/scripts/fetch-jars.sh
 
 # 3. 이미지 두 단계 — 팀 공용 이미지 → JRE·pyspark 를 얹은 파생 이미지
+#    pyproject.toml 의 의존성이 바뀌면 반드시 다시 돌린다 (한국어 형태소 분석기 등)
 spark/scripts/build-image.sh
 
 # 4. 띄운다
@@ -177,9 +178,20 @@ src/trendin/spark/    로직. jobs 가 import 한다
 ├─ common/    설정 · 로깅 · 세션
 ├─ io/        contract.py(판별) · schema.py(스키마) · kafka.py(소비)
 │             objects.py(MinIO 조회) · ledger.py(처리 이력) · dlq.py(DLQ) · jdbc.py(앱 DB)
+│             contents.py(contents 적재) · stats.py(pl_batch_stat) · candidates.py(후보 표 넷)
 ├─ ingest/    routing.py(판별→상태·단계) · objects.py(객체 검증) · batch.py(배치 배선)
-├─ normalize/ extract/ registry/ metrics/    아직 비어 있다
+│             normalize.py(정제·적재 단계) · backfill.py(--source objects)
+├─ normalize/ [03] documents · text · urls · lang · filters · dedup · simhash · curated · adapters/
+├─ extract/   [04] morphology(ko 형태소 분석기) · tokenize(ko 분석·en 규칙) · candidates
+│             keys · lexicon · filters · scoring
+│             document(UDF 본체) · batch(Spark 배선) · source(curated 읽기) · thresholds
+├─ registry/ metrics/    아직 비어 있다 ([05] · [06] [07])
 ```
+
+불용어·노이즈는 `conf/lexicon/stopwords-*.txt` · `noise-*.txt` 다 (`extract/lexicon.py`).
+같은 디렉터리의 `userdict-{domain}.txt` 는 **한국어 형태소 분석기 사용자 사전**이고
+(`extract/morphology.py`) 형식이 다르다 — 한 줄에 하나, `표기` 또는 `표기 품사`, 원표기 그대로.
+옛 `protected-*.txt`(조사 규칙이 자르면 안 되는 어절)는 2026-09-09 에 없어졌다 ([04 §2](docs/04-keyword-extraction-spec.md)).
 
 로직을 `src/trendin/` 아래 두는 이유는 [09 §1](docs/09-dev-and-test.md) 에 있다 —
 `pipeline/Dockerfile` 이 이미 editable 설치를 하고 `compose.yaml` 이 바인드 마운트한다.

@@ -191,9 +191,9 @@ Job 마다 따로 두는 이유는 하나를 재실행하려고 checkpoint 를 �
 
 컨테이너에서 볼륨을 쓰는 이유는, 컨테이너를 다시 만들 때 checkpoint 가 함께 사라지면 토픽을 처음부터 다시 읽기 때문이다. 배선은 [09 §2](09-dev-and-test.md).
 
-## 5. 경량 임베딩 모델 — executor 에서 다루는 법
+## 5. 무거운 객체 — executor 에서 다루는 법
 
-[05](05-keyword-registry-spec.md) 와 [06](06-related-keyword-spec.md) 이 문장 임베딩을 쓴다. PySpark UDF 에서 모델을 다루는 방식이 성능을 가른다.
+[05](05-keyword-registry-spec.md) 와 [06](06-related-keyword-spec.md) 이 문장 임베딩을 쓰고, [04 §2](04-keyword-extraction-spec.md) 의 한국어 형태소 분석기가 이미 같은 처지다. PySpark UDF 에서 이런 객체를 다루는 방식이 성능을 가른다.
 
 **하면 안 되는 것** — UDF 안에서 매 호출마다 모델을 로드하는 것. row 당 수백 MB 로딩이 일어나 Job 이 사실상 멈춘다. 파이썬 클로저로 모델 객체를 잡아 드라이버에서 executor 로 직렬화하는 것도 안 된다. 모델은 대개 pickle 이 안 되고, 되더라도 태스크마다 전송된다.
 
@@ -210,6 +210,19 @@ def _get_model():
 ```
 
 그리고 `mapInPandas` 또는 `pandas_udf` 로 **배치 단위 추론**을 한다. row 단위 UDF 는 파이썬 왕복 비용이 추론 비용을 넘는다.
+
+### 형태소 분석기가 이 패턴의 첫 사례다 (2026-09-09)
+
+`extract/morphology.py` 의 `analyzer_for` 가 위 그림 그대로다. **위 두 금지 사항이 추측이 아니라 실측이라는 것**이 확인됐다 — Kiwi 객체는 `pickle.dumps` 가 `TypeError` 로 죽고(클로저 직렬화 불가), 문서마다 만들면 초기화 0.8초가 문서 수만큼 곱해진다.
+
+| 그때 정한 것 | 형태소 분석기에서 |
+| --- | --- |
+| 모델 객체를 클로저로 보내지 않는다 | 클로저에는 `AnalyzerSpec`(사용자 사전 튜플)만 담는다. **작고 해시 가능해야** 캐시 키가 된다 |
+| 모듈 수준 lazy singleton | `_CACHE: dict[AnalyzerSpec, Analyzer]` — spec 별로 하나. 워커 프로세스가 태스크 사이에 살아남으므로(`spark.python.worker.reuse` 기본 참) 워커당 한 번 만들어진다 |
+| 이미지에 포함, 런타임에 받지 않는다 | `kiwipiepy_model` 이 pip 의존성이라 이미지에 들어간다 (약 110 MB) |
+| 배치 단위 추론 | **안 했다.** 분석기는 1,600자 문서 120건/초라 row 단위 UDF 로 충분하고, 문서 × 후보 규모에서 파이썬 왕복 비용이 배치 시작 비용에 묻힌다 ([04 §1](04-keyword-extraction-spec.md)). 임베딩은 사정이 다르므로 그때 `pandas_udf` 로 간다 |
+
+**클로저에 무엇이 들어가는지를 층 1 테스트가 지킨다** — `test_extract_tokenize.py::test_분석기_설정은_pickle_되고_분석기는_안_된다` 가 `pickle.dumps` 한 줄로 배선 실수를 잡는다. 층 2 까지 가야 드러나는 종류의 실수인데 층 1 에서 잡힌다.
 
 | 항목 | 결정 |
 | --- | --- |
@@ -336,7 +349,14 @@ v2 ERD 의 타입 표기가 **`trend_type_array`** 다 ([erd](erd/erd-00-current
 | `kafka-clients` · `commons-pool2` | 위 두 개의 compile 의존성. 번들에 없다 | 3.9.1 · 2.12.0 |
 | `hadoop-aws` + **`software.amazon.awssdk:bundle`** | Spark 가 번들한 Hadoop 버전과 맞아야 한다 | 3.4.1 + 2.24.6 |
 | `postgresql` JDBC | 비교적 자유롭다 | 42.7.13 |
-| 형태소 분석기 · 임베딩 모델 | Airflow constraints 에 없으므로 최신이 잡힌다 (`pipeline/README.md` 의존성 절) | 미착수 |
+| **형태소 분석기** `kiwipiepy` | Airflow constraints 에 없으므로 최신이 잡힌다. jar 가 아니라 pip 패키지라 위 정합과 무관하다 | **0.23.2** (모델 0.23.0) |
+| 임베딩 모델 | 같음 | 미착수 ([05](05-keyword-registry-spec.md)·[06](06-related-keyword-spec.md)) |
+
+**형태소 분석기는 `pipeline/pyproject.toml` 에 있다** — jar 가 아니라 pip 의존성이라
+`versions.sh` 가 아니라 그쪽이 단일 출처다. **의존성을 바꿨으면 이미지를 다시 빌드해야
+한다** (`spark/scripts/build-image.sh`) — Job 이 컨테이너 안에서 도므로 호스트 `.venv` 만
+고치면 실행이 안 된다. 모델이 약 110 MB 라 이미지 한 겹이 그만큼 커진다
+([04 §2](04-keyword-extraction-spec.md)).
 
 **이 절은 원래 "Spark 버전을 확정하지 않는다" 였다.** 실제 실행으로 확인해 [09 §2](09-dev-and-test.md) 에 고정했고, 위 표는 그 요약이다. 값의 단일 출처는 `spark/versions.sh` 다 — 문서가 아니라 그 파일을 고친다.
 

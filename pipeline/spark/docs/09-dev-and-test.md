@@ -15,15 +15,18 @@ pipeline/
 │  │  ├─ extract.py
 │  │  └─ aggregate.py
 │  ├─ conf/
-│  │  ├─ base.yaml             임계값 기본값
-│  │  ├─ local.yaml            로컬 오버라이드 (호스트 포트)
+│  │  ├─ base.yaml             임계값 기본값 (측정 필요한 값은 null — Job 이 거부한다)
+│  │  ├─ local.yaml            로컬 오버라이드 (호스트 포트 · extract 잠정 임계값)
 │  │  ├─ dev.yaml              데이터 EC2 오버라이드 (서비스 이름)
-│  │  └─ log4j2.properties     JVM 로그
+│  │  ├─ log4j2.properties     JVM 로그
+│  │  └─ lexicon/              불용어 · 노이즈 (`extract/lexicon.py`)
+│  │                          + 형태소 분석기 사용자 사전 (`extract/morphology.py`)
 │  ├─ versions.sh              Spark · jar 버전의 단일 출처
 │  ├─ Dockerfile               팀 공용 이미지 + JRE + pyspark
 │  ├─ compose.dev.yaml         로컬 오버레이 (호스트 .venv 용)
 │  ├─ compose.spark.yaml       배포 오버레이 (컨테이너 안 실행)
 │  ├─ scripts/                 dev-setup · fetch-jars · build-image · submit · check-jars
+│  │                          update-snapshots(회귀 스냅샷) · evaluate-extract(전후 비교)
 │  ├─ sql/                     서버사이드 MERGE 문 ([08 §4])
 │  ├─ jars/                    런타임 jar (git 제외)
 │  └─ tests/
@@ -32,22 +35,29 @@ pipeline/
 │     ├─ integration/          compose 필요
 │     └─ fixtures/
 │        ├─ contract/          입력 계약 샘플 — 이벤트 3건 + 그 객체 2개
-│        ├─ corpus/            고정 샘플 문서 (아직 비어 있다)
-│        └─ snapshots/         추출 결과 스냅샷 (아직 비어 있다)
+│        ├─ corpus.json        고정 샘플 문서 30건 (실데이터 발췌·익명화)
+│        ├─ snapshots.json     각 문서의 정제 + 문서 안 추출 결과
+│        └─ review/            수동 검수 산출물 (precision@10 · 전후 비교)
 │
 ├─ src/trendin/spark/          로직 (jobs 가 import 한다)
 │  ├─ io/                      contract.py(계약 판별) · schema.py(스키마)
 │  │                          kafka.py(소비) · objects.py(MinIO 객체 조회)
 │  │                          ledger.py(처리 이력) · dlq.py(DLQ) · jdbc.py(앱 DB)
+│  │                          contents.py(contents) · stats.py(pl_batch_stat)
+│  │                          candidates.py(pl_document_candidate · pl_candidate ·
+│  │                                        pl_keyword_daily_stat · pl_abbreviation_observation)
 │  ├─ ingest/                  routing.py(판별→상태·단계) · objects.py(객체 검증)
-│  │                          batch.py(배치 배선)
-│  ├─ normalize/               [03]
-│  │  ├─ base.py
-│  │  └─ adapters/
-│  ├─ extract/                 [04]
+│  │                          batch.py(배치 배선) · normalize.py(정제·적재) · backfill.py
+│  ├─ normalize/               [03] documents · text · urls · lang · filters · dedup · simhash
+│  │                          boilerplate(단계 8) · schema · curated(Parquet 쓰기)
+│  │  └─ adapters/             protocol · media(7 매체) · hackernews · texts(본문 정제)
+│  ├─ extract/                 [04] morphology(ko 형태소 분석기 · 사용자 사전)
+│  │                          tokenize(ko 형태소 분석 · en 규칙) · candidates · keys
+│  │                          lexicon · filters · scoring · document(UDF 본체)
+│  │                          batch(Spark 배선) · source(curated 읽기) · thresholds(설정)
 │  ├─ registry/                [05]
 │  ├─ metrics/                 [06] [07]
-│  └─ common/                  설정 · 로깅 · 시각
+│  └─ common/                  cli · config · logging · session · run_id
 │
 └─ dags/dev/ · dags/fashion/   Spark 태스크를 붙이는 DAG
 ```
@@ -226,7 +236,7 @@ conf/base.yaml  ←  conf/{profile}.yaml  ←  환경변수
 | 대상 | 문서 |
 | --- | --- |
 | URL 정규화, HTML 제거, 코드 블록 분리, 언어 판별 | [03](03-normalization-spec.md) |
-| 토큰화, 후보 생성, 비교키, C-value | [04](04-keyword-extraction-spec.md) |
+| 토큰화(**한국어 형태소 분석** · 표기 정책 · 사용자 사전 · 영문 식별자·버전·약어 보존), 후보 생성(명사 연속 · n-gram · 포함 관계 · 약어-전개형 쌍), 비교키, 필터(형태·길이·불용어·노이즈 · DF 비율 경계), C-value · BM25 · 정규화 · 결합 · 선별, 문서 하나의 UDF 본체, 설정 거부 | [04](04-keyword-extraction-spec.md). 구현 `extract/*`, 테스트 `tests/unit/test_extract_*.py` |
 | 결정적 병합 규칙, 약어 대응 판별, 승격 조건 | [05](05-keyword-registry-spec.md) |
 | NPMI, 점수 사상, 상위 N 절단 | [06](06-related-keyword-spec.md) |
 | 구간 경계(반열린 구간·기준일 D), 성장률(0 분모 포함), 동점 정렬, **유형 판별 세 개** | [07](07-metrics-and-ranking-spec.md) |
@@ -238,6 +248,10 @@ conf/base.yaml  ←  conf/{profile}.yaml  ←  환경변수
 | 도메인 값 검증 | [01 §6](01-architecture.md). `contract.DOMAIN_VALUES` |
 
 **이렇게 짜려면 로직이 DataFrame 에 묶여 있으면 안 된다.** 스칼라 입출력 함수로 쓰고 UDF 로 감싼다. 이게 `src/trendin/spark/` 를 `jobs/` 와 분리한 실질적인 이유다.
+
+**⚠️ 층 1 이 "의존성 없음" 은 아니다.** 한국어 토큰화는 형태소 분석기(kiwipiepy)를 쓰므로 그 패키지가 필요하다. 층 1 의 조건은 **pyspark 를 import 하지 않는 것**이고, 분석기를 고를 때 **Windows·Linux 휠이 둘 다 있는 것**을 조건으로 둔 이유가 이 층을 지키기 위해서다 — 호스트에서 토큰화를 고치고 바로 재는 것이 안 되면 이 층 구분이 무너진다 ([04 §2](04-keyword-extraction-spec.md), `extract/morphology.py` 의 후보 비교표).
+
+**분석기 객체는 pickle 되지 않는다.** UDF 클로저에는 설정(`AnalyzerSpec`)만 담고 분석기는 executor 프로세스에서 만들어 캐시한다 (`extract/morphology.analyzer_for`). 층 1 테스트가 그 회귀를 지킨다 — 층 2 까지 가야 잡히는 종류의 배선 실수인데, `pickle.dumps` 한 줄로 층 1 에서 잡을 수 있다.
 
 `pipeline/tests/` 가 이미 같은 패턴이다 — 태스크 함수를 Airflow 없이 테스트한다.
 
@@ -251,6 +265,7 @@ DataFrame 을 실제로 다루는 부분. `local[2]` SparkSession 을 세션 스
 | --- | --- |
 | **메시지 파싱** | 칸이 제대로 펴지는지, 깨진 메시지의 원본이 `_corrupt_record` 에 남는지 |
 | **배치 라우팅** | 거절된 메시지가 DLQ·처리 이력 양쪽에 남는지, 처리 이력이 두 번째를 거르는지, **객체 검증이 기사 이벤트만 타는지**, 단계가 승격되는지 (`tests/spark/test_ingest_batch.py`) |
+| **후보 추출 배선** | UDF 가 후보를 펴는지, DF 가 코퍼스 전체에서 세어지는지, 대표 표기가 코퍼스에서 뽑히는지, 문서 안 정규화·순위·선별이 [04 §7](04-keyword-extraction-spec.md) 대로인지, 적재 프레임의 칸이 `io/candidates.py` 와 같은지, 대상·코퍼스 선정 (`tests/spark/test_extract_batch.py`) |
 | 집계·조인·윈도우 SQL | 결과 행이 맞는지 |
 | 중복 제거 | 대표 선택이 결정적인지 |
 | 파티션 쓰기 | 경로가 규약대로 나오는지 |
@@ -310,9 +325,23 @@ Spark 밖에서도 같은 것을 본다 — `pipeline/scripts/verify-spark-integ
 ```
 tests/fixtures/
 ├─ contract/    입력 계약 샘플 (이미 있다 — 스냅샷용이 아니다)
-├─ corpus/      article.json 30건 (실제 수집분에서 발췌)
-└─ snapshots/   각 문서의 추출 결과
+├─ corpus.json     article.json 30건 (실제 수집분에서 발췌·익명화)
+├─ snapshots.json  각 문서의 정제 + 문서 안 추출 결과
+└─ review/      수동 검수 산출물 — 사람이 매긴다 (아래 [§4 검수](#검수--사람이-매기는-것))
 ```
+
+**2026-09-09 에 채웠다.** 수집 스냅숏(fashion 373건)에서 30건을 발췌했다. 갱신은
+`spark/scripts/update-snapshots.py`, 회귀는 `tests/unit/test_extract_snapshots.py` 다.
+자세한 것은 [`tests/fixtures/README.md`](../tests/fixtures/README.md).
+
+**문서마다 파일을 두지 않고 파일 하나에 30건을 담는다.** 문서별 파일로 두면 픽스처만
+60개가 되어 변경 목록의 절반을 넘고, 정작 읽어야 할 구현·테스트가 묻힌다. 키를 이름으로
+정렬해 담으므로 한 파일 안의 diff 가 지역적이고, 눈으로 보는 데 지장이 없다.
+
+**고정하는 범위는 문서 하나 안에서 결정되는 것까지다** — 정제 · 토큰화 · 구간 · n-gram ·
+비교키 · 문서 안 필터. DF · 대표 표기 · C-value · BM25 · 점수 · 순위는 코퍼스 전체를 봐야
+나오고 S6 가 임계값을 확정하면 바뀌므로 **넣지 않았다.** 고정하면 임계값을 만질 때마다
+30건이 통째로 흔들려 스냅샷이 경보가 아니라 잡음이 된다.
 
 `contract/` 는 성격이 다르다 — 추출 결과의 회귀를 잡는 것이 아니라 **입력 계약이 어떻게 생겼는지**를 고정한다. 생산 측이 `pipeline/tests/common/test_contract_fixtures.py` 로 그 파일들이 `events.py` · `keys.py` 와 어긋나지 않는지 지킨다.
 
@@ -322,16 +351,53 @@ tests/fixtures/
 
 코퍼스는 **입력의 형태가 갈리는 축을 모두 덮게** 고른다. 30건은 눈으로 diff 를 볼 수 있는 상한이다.
 
-| 축 | 반드시 포함 |
-| --- | --- |
-| `route` | `rss`(피드 전문) · `listing`(기사 페이지 파싱) · `api`(본문 없음) |
-| 본문 유무 | 있음 · `members_only` 로 없음 · `hn` 으로 없음 |
-| 도메인 | `fashion` · `dev` |
-| 언어 | `ko` 주류. `en` 은 `hn` 제목 |
+| 축 | 반드시 포함 | 2026-09-09 실제 |
+| --- | --- | --- |
+| `route` | `rss`(피드 전문) · `listing`(기사 페이지 파싱) · `api`(본문 없음) | `rss` 16 · `listing` 14 · **`api` 0** |
+| 본문 유무 | 있음 · `members_only` 로 없음 · `hn` 으로 없음 | 있음 24 · 없음 6 (회원 전용 3 · 피드 본문 빈 것 3) |
+| 도메인 | `fashion` · `dev` | fashion 30 · **dev 0** |
+| 언어 | `ko` 주류. `en` 은 `hn` 제목 | `ko`·`mixed` 30 · **`en` 0** |
+
+**⚠️ `api` · `dev` · `en` 축은 비어 있다.** `hn` 어댑터가 `S15P21A102-165` 대기라 dev
+도메인 수집분이 0건이다. `test_extract_snapshots.py::test_축을_덮는다` 가 그 어댑터가 붙는
+순간 빨개지도록 조건을 적어 뒀다 — **비어 있다는 사실이 테스트로 지켜진다.**
 
 **`en`·`mixed` 표본이 얇을 것이다.** 소스 셋이 국내 매체 7곳과 `hn` 이라 한국어 본문과 영어 제목으로 나뉜다. 배치 계약 시절 상정한 "영어 본문 다수" 는 오지 않는다. [03 §5](03-normalization-spec.md) 의 언어 판별 임계값을 이 분포로 정해야 한다.
 
 **⚠️ 본문을 저장소에 커밋할 때 주의한다.** 코퍼스는 매체 본문이고, 불변식 3 이 *"본문과 리드는 내부 저장소에만 둔다"* 고 명시했다. 이 저장소는 팀 내부지만 공개 저장소로 옮겨질 수 있다. 회원 전용 기사의 본문은 애초에 오지 않으므로 문제가 아니고(그게 불변식 2), **일반 기사 본문은 발췌 길이를 짧게 자르고 출처(URL·매체·발행일)를 함께 둔다** — 저작권법 제37조.
+
+### 검수 — 사람이 매기는 것
+
+스냅샷과 성격이 다르다. **스냅샷은 재현성을, 검수는 품질을 본다** — 스냅샷은 결과가 바뀌면
+빨개지고, 검수는 결과가 바뀌는 것이 전제이고 바뀐 방향을 묻는다. 그래서 검수는 CI 에 없고
+사람이 부른다 ([04 §9](04-keyword-extraction-spec.md)).
+
+```
+tests/fixtures/review/
+└─ morphology-vs-rules-2026-09-09.md      전후 비교 (형태소 분석기 교체)
+```
+
+**한 검수에 파일 하나다.** 전후를 나란히 담으므로 "전" 실행의 시트를 따로 둘 필요가
+없다 — §3 의 문서별 표가 두 실행을 한 줄에 놓는다.
+
+**절반은 기계가 낸다.** `spark/scripts/evaluate-extract.py` 가 두 실행을 같은 잣대로 재서
+마크다운 보고서를 만든다 — 조사 잔재 · 서술어 활용형 · 숫자·가격 · 토큰화 오류는 **후보
+표기만 보고** 판정되므로 기계가 세고, 사람 눈이 필요한 것(패션 신호 / 스타일 수식어 /
+무정보어)만 표로 내어 채운다. **잣대가 양쪽에 같이 걸리는 것**이 전후 비교의 전제다.
+
+**⚠️ 실행 직후에 `--dump` 로 떠 둬야 한다.** `pl_document_candidate` 는 처리한 문서의 옛
+행을 지우고 넣으므로(`io/candidates.py`) 같은 코퍼스를 두 번 돌리면 먼저 실행이 없어진다.
+`extract_run_id` 로 두 실행이 공존하지 않는다.
+
+```sh
+spark/scripts/submit.sh extract --profile local --from ... --to ...
+.venv/Scripts/python.exe spark/scripts/evaluate-extract.py --dump runs/before.jsonl.gz
+# ... 코드를 바꾸고 다시 돌린 뒤
+.venv/Scripts/python.exe spark/scripts/evaluate-extract.py --dump runs/after.jsonl.gz
+.venv/Scripts/python.exe spark/scripts/evaluate-extract.py     --before runs/before.jsonl.gz --after runs/after.jsonl.gz --out review/....md
+```
+
+뜬 파일은 저장소에 넣지 않는다 — 검수 결과인 마크다운만 남긴다.
 
 ### 안 하는 것
 
@@ -402,12 +468,18 @@ Spark 태스크는 `crawler_pool` 을 쓰지 않는다. 외부 사이트를 치�
 
 | # | 필요한 것 | 없으면 |
 | --- | --- | --- |
-| 5 | **실제 수집 데이터 샘플** | 04~07 의 임계값을 정할 근거가 없다. **추측으로 정하면 전부 다시 하게 된다.** fashion 수집기는 구현돼 있다(`src/trendin/fashion/collect/`, `hn` 은 `S15P21A102-165` 대기). 계약 샘플은 `tests/fixtures/contract/` 로 받았지만 그건 **형태**이고, 임계값에 필요한 것은 **분포**다 — `corpus/` 30건이 채워져야 한다 |
+| 5 | ~~**실제 수집 데이터 샘플**~~ | **2026-09-09 절반 해소.** fashion 373건을 수집해 종단 실행했고 `corpus.json` 30건도 채웠다 ([10 §5.1](10-delivery-plan.md)). **남은 것은 코퍼스의 기간 편향이다** — 373건 중 289건(77%)이 2026-08~09 이라 DF 분포가 기울어 있고, 그 값으로 임계값을 확정하면 안 된다. dev 도메인은 여전히 0건이다 (아래 5b) |
 | 5b | **dev 도메인 본문 부재 결론** | `hn` 은 제목만 온다 ([00 §7](00-overview.md) 한계 19). 제목 한 줄로 동시출현·NPMI 를 계산할지, `hn` 댓글을 받을지, dev 는 빈도만 쓸지가 안 정해지면 [04](04-keyword-extraction-spec.md)·[06](06-related-keyword-spec.md) 의 설계가 바뀐다 |
 | ~~6~~ | ~~Kafka · MinIO 로컬 환경~~ | 해소됐다 — `datastore/compose.yaml` (S15P21A102-156·157) |
 | ~~7~~ | ~~Spark 버전 정합 검증~~ | 해소됐다 — [§2 확정된 버전](#확정된-버전) |
 
 **5번이 가장 중요하다.** [04](04-keyword-extraction-spec.md)~[07](07-metrics-and-ranking-spec.md) 의 임계값을 이 문서들이 숫자로 명시하지 않은 것이 그래서다. 실제 데이터의 문서 빈도 분포·문서 길이·발행일 지연을 재기 전에 정한 숫자는 전부 다시 정하게 된다.
+
+**⚠️ 2026-09-09 실행이 5번을 닫지 않았다.** 데이터를 받았지만 **기간 편향**이 남아
+`base.yaml` 로 값을 옮길 수 없다 (373건 중 77%가 두 달치다). 그래서 그 실행은 임계값 확정이
+아니라 **전후 비교**로만 썼다 — 토큰화를 형태소 분석기로 갈아탄 판단이 그 방식으로 내려졌다
+([04 §2](04-keyword-extraction-spec.md)). 같은 코퍼스에서 같은 임계값으로 두 번 재면
+편향이 양쪽에 똑같이 걸려 상쇄된다. **절대값을 정하는 데는 못 쓰고 차이를 재는 데는 쓴다.**
 
 **5b 는 5번보다 먼저 답이 나와야 한다.** 데이터를 재도 "dev 에 본문이 없다" 는 사실은 안 바뀌고, 그 상태로 임계값을 재면 도메인 하나의 분포만 재는 것이 된다.
 
