@@ -22,12 +22,15 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "saved_trends",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_saved_trends_member_trend",
+                name = SavedTrend.UNIQUE_MEMBER_TREND_CONSTRAINT,
                 columnNames = {"member_id", "trend_id"})
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SavedTrend {
+
+    public static final String UNIQUE_MEMBER_TREND_CONSTRAINT =
+            "uk_saved_trends_member_trend";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
