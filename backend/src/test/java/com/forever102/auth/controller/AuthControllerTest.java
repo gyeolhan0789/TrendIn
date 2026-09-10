@@ -1,10 +1,14 @@
 package com.forever102.auth.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
+import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
+import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
@@ -18,10 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
+import com.forever102.auth.dto.LogoutRequest;
 import com.forever102.auth.dto.ReissueRequest;
 import com.forever102.auth.dto.ReissueResponse;
 import com.forever102.auth.dto.SignUpRequest;
 import com.forever102.auth.dto.SignUpResponse;
+import com.forever102.auth.jwt.JwtTokenProvider;
 import com.forever102.auth.service.AuthService;
 import com.forever102.global.config.SecurityTestConfig;
 import com.forever102.global.exception.BusinessException;
@@ -32,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.restdocs.test.autoconfigure.AutoConfigureRestDocs;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -66,8 +73,24 @@ class AuthControllerTest {
             }
             """;
 
+    private static final String LOGOUT_URL = "/auth/logout";
+    private static final Long MEMBER_ID = 1L;
+    private static final String VALID_LOGOUT_REQUEST = """
+            {
+              "refreshToken": "example-refresh-token"
+            }
+            """;
+    private static final String BLANK_REFRESH_TOKEN_REQUEST = """
+            {
+              "refreshToken": "  "
+            }
+            """;
+
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
     private AuthService authService;
@@ -553,5 +576,144 @@ class AuthControllerTest {
 
         // then
         then(authService).should(never()).reissue(any(ReissueRequest.class));
+    }
+
+    @Test
+    @DisplayName("인증된 회원이 현재 세션의 리프레시 토큰으로 요청하면 200으로 응답한다")
+    void logoutReturnsOk() throws Exception {
+        // when & then
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGOUT_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.message").value(nullValue()))
+                .andDo(document("auth-logout",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestHeaders(
+                                headerWithName(HttpHeaders.AUTHORIZATION)
+                                        .description("Bearer 액세스 토큰. 필수.")
+                        ),
+                        requestFields(
+                                fieldWithPath("refreshToken").type(JsonFieldType.STRING)
+                                        .description("현재 로그인 세션의 리프레시 토큰. 필수. 액세스 토큰과 같은 회원의 것이어야 한다.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.NULL)
+                                        .description("반환 데이터 없음. 항상 null"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("로그아웃에 성공하면 인증된 회원 식별자로 서비스를 호출한다")
+    void logoutPassesAuthenticatedMemberId() throws Exception {
+        // when
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGOUT_REQUEST))
+                .andExpect(status().isOk());
+
+        // then
+        then(authService).should().logout(eq(MEMBER_ID), any(LogoutRequest.class));
+    }
+
+    @Test
+    @DisplayName("현재 세션과 일치하지 않는 리프레시 토큰이면 401로 응답한다")
+    void logoutReturnsUnauthorizedForMismatchedRefreshToken() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INVALID_TOKEN))
+                .given(authService).logout(any(Long.class), any(LogoutRequest.class));
+
+        // when & then
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGOUT_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다."))
+                .andDo(document("auth-logout-invalid-token",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("액세스 토큰이 없으면 401로 응답하고 서비스를 호출하지 않는다")
+    void logoutRequiresAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(post(LOGOUT_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_LOGOUT_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
+                .andDo(document("auth-logout-unauthorized",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )
+                ));
+        then(authService).should(never()).logout(any(), any(LogoutRequest.class));
+    }
+
+    @Test
+    @DisplayName("리프레시 토큰이 비어 있으면 400으로 응답한다")
+    void logoutRejectsBlankRefreshToken() throws Exception {
+        // given
+        String request = BLANK_REFRESH_TOKEN_REQUEST;
+
+        // when & then
+        mockMvc.perform(post(LOGOUT_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("리프레시 토큰은 필수입니다."))
+                .andDo(document("auth-logout-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("로그아웃 요청 검증에 실패하면 서비스를 호출하지 않는다")
+    void logoutDoesNotCallServiceWhenInvalid() throws Exception {
+        // when
+        mockMvc.perform(post(LOGOUT_URL)
+                .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"));
+
+        // then
+        then(authService).should(never()).logout(any(), any(LogoutRequest.class));
+    }
+
+    private String bearerToken() {
+        return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
     }
 }

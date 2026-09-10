@@ -251,6 +251,29 @@ class JwtTokenProviderTest {
                 .extracting(exception -> ((BusinessException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
     }
+
+    @Test
+    @DisplayName("오류 코드를 지정하면 리프레시 토큰 검증 실패를 그 코드로 알린다")
+    void parsesRefreshTokenWithCallerSuppliedErrorCode() {
+        // given
+        String accessToken = jwtTokenProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        assertThatThrownBy(() -> jwtTokenProvider.parseRefreshToken(accessToken, ErrorCode.INVALID_TOKEN))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    @DisplayName("오류 코드를 지정해도 유효한 리프레시 토큰은 회원 식별자를 돌려준다")
+    void parsesValidRefreshTokenWithCallerSuppliedErrorCode() {
+        // given
+        String refreshToken = jwtTokenProvider.issue(MEMBER_ID).refreshToken();
+
+        // when & then
+        assertThat(jwtTokenProvider.parseRefreshToken(refreshToken, ErrorCode.INVALID_TOKEN)).isEqualTo(MEMBER_ID);
+    }
     private Claims parse(String token) {
         SecretKey key = new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
