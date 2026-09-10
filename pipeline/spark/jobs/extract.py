@@ -12,8 +12,13 @@ spark/scripts/submit.sh extract --profile local --domain fashion \\
 (`pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` ·
 `pl_abbreviation_observation`).
 
-**아직 안 하는 것** — [05] 정규화·통합·승격. `keywords` · `keyword_contents` 는 건드리지 않는다.
-**서비스 테이블을 전혀 건드리지 않는다** ([08 §1]) — 그래서 백엔드 선행 조건 없이 돈다 ([10 §4] S4).
+**후반은 [05] 전부** — 층 1·2 자동 병합, 검수 큐, 승격 심사, `keywords` · `keyword_contents`
+적재 (`registry/`, `io/keywords.py`).
+
+**🚫 승격만 백엔드에 막혀 있다.** `keywords (domain, normalized_name)` UNIQUE 가 없으면
+([09 §7] 항목 2) `--allow-missing-keyword-unique` 로 승격을 건너뛰고 나머지를 돈다 — 병합 ·
+검수 큐 · 이력은 전부 `pl_` 이라 선행 조건이 없다. 기본은 fail-closed 다
+(`extract.registry.required`, base.yaml `true`).
 
 **무엇을 처리하나** — 기본은 `curated` 에 있는데 이 Job 의 처리 이력에 없는 `ingest_run_id`
 파티션 전부다 ([01 §3], `extract/source.py`). `--from/--to` 를 주면 그 발행일 구간을 통째로 다시
@@ -41,7 +46,11 @@ from trendin.spark.io import ledger as ledger_io
 from trendin.spark.io import stats as stats_io
 from trendin.spark.io.candidates import CandidateSink
 from trendin.spark.io.contract import DOMAIN_VALUES
+from trendin.spark.io.keywords import KeywordSink, RegistrySink
 from trendin.spark.io.ledger import Ledger
+from trendin.spark.registry import batch as registry_batch
+from trendin.spark.registry.thresholds import SECTION as REGISTRY_SECTION
+from trendin.spark.registry.thresholds import RegistryThresholds
 
 log = get_logger("extract")
 
@@ -79,6 +88,15 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="처리 이력에 있는 ingest_run_id 도 다시 처리한다",
     )
     parser.add_argument(
+        "--allow-missing-keyword-unique",
+        dest="allow_missing_unique",
+        action="store_true",
+        help=(
+            "keywords (domain, normalized_name) UNIQUE 가 없어도 시작한다 — **승격만** "
+            "건너뛴다 ([09 §7] 항목 2). 병합·검수 큐·이력은 그대로 돈다"
+        ),
+    )
+    parser.add_argument(
         "--run-id",
         dest="run_id",
         default=None,
@@ -92,7 +110,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     """단계 호출만 한다. 로직은 `trendin.spark.extract.*` 와 `io/*` 에 둔다."""
     # 임계값이 비어 있으면 여기서 죽는다 — 세션은 떴지만 아무것도 읽기 전이다.
+    # [05] 의 문턱도 함께 본다. 후반에서 죽으면 전반이 이미 적재를 끝낸 상태가 된다.
     thresholds = ExtractThresholds.from_config(config)
+    registry_thresholds = RegistryThresholds.from_config(config)
     run_id = args.run_id or default_run_id()
     date_from, date_to = _parse_date(args.date_from), _parse_date(args.date_to)
     if (date_from or date_to) and args.ingest_run_ids:
@@ -100,10 +120,13 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
 
     ledger = Ledger(config, job=JOB)
     sink = CandidateSink(config)
+    registry = RegistrySink(config)
     stats = stats_io.BatchStats(config, job=JOB)
     ledger.ensure_schema()
     sink.ensure_schema()
+    registry.ensure_schema()
     stats.ensure_schema()
+    keywords = _keyword_sink(config, allow_missing_unique=args.allow_missing_unique)
 
     curated = source.read_curated(spark, config)
     domains = [args.domain] if args.domain else sorted(DOMAIN_VALUES)
@@ -127,10 +150,52 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
                 force=args.force,
             )
         )
+        # [05] — 전반이 새 문서를 처리하지 않았어도 돈다. 검수 승인이 반영되는 자리가
+        # 여기이고([05 §7] "다음 실행부터 적용된다"), 그것은 이번 배치의 문서와 무관하다.
+        run_stats.extend(
+            registry_batch.registry_batch(
+                domain=domain,
+                domain_enum=DOMAIN_VALUES[domain],
+                thresholds=registry_thresholds,
+                registry=registry,
+                keywords=keywords,
+                extract_run_id=run_id,
+            ).stats
+        )
 
     # 마지막이다 — 적재와 처리 이력이 끝난 뒤라, 쓰기가 죽은 실행의 통계는 남지 않는다.
     stats.replace(run_stats, ingest_run_id=run_id)
     log.info("extract 끝: run_id=%s", run_id)
+
+
+def _keyword_sink(config: Config, *, allow_missing_unique: bool) -> KeywordSink | None:
+    """승격을 할 수 있는지 보고, 못 하면 `None`.
+
+    **조용히 건너뛰지 않는다.** 없는 채로 돌면 병합·검수 큐는 채워지는데 `keywords` 가
+    비어, 증상이 "트렌드가 하나도 안 나온다" 로 화면에서야 나타난다 —
+    `ingest.contents.required` 와 같은 이유로 기본이 fail-closed 다 ([05 §5], [09 §7] 항목 2).
+    """
+    sink = KeywordSink(config)
+    required = bool(config.get(f"{REGISTRY_SECTION}.required", True))
+    missing: list[str] = []
+    if not sink.service_tables_ready():
+        missing.append("keywords · keyword_contents 테이블")
+    elif not sink.unique_constraint_ready():
+        missing.append("keywords (domain, normalized_name) UNIQUE")
+    if not missing:
+        return sink
+    reason = " · ".join(missing)
+    if required and not allow_missing_unique:
+        raise ConfigError(
+            f"승격 선행 조건이 없다: {reason} ([09 §7] 항목 2). 백엔드가 적용하기 전에 "
+            "돌리려면 --allow-missing-keyword-unique 를 명시한다 — 그때는 승격만 건너뛴다"
+        )
+    log.warning(
+        "🚫 승격을 건너뛴다 — %s 가 없다 ([09 §7] 항목 2). 병합·검수 큐·이력은 그대로 "
+        "돌지만 keywords 와 keyword_contents 는 비어 있다",
+        reason,
+    )
+    return None
 
 
 def _run_domain(

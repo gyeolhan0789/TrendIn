@@ -233,6 +233,19 @@ def _get_model():
 
 문서 본문이 아니라 **키워드 표기에만** 임베딩을 거는 것이 핵심이다. 문서 수십만 건을 인코딩하면 단일 노드에서 감당이 안 되지만, 고유 키워드 수천 개는 몇 초다.
 
+### ⚠️ 임베딩은 executor 가 아니라 드라이버에서 배치로 돈다 (2026-09-09)
+
+위 "배치 단위 추론" 을 `mapInPandas`·`pandas_udf` 가 아니라 드라이버에서 한 번에 하도록 짰다 (`registry/embedding.py`). **바로 위 줄이 그 근거다** — 대상이 문서가 아니라 사용자에게 보이게 될 표기라 수백~수천이고, 그 규모를 executor 로 흩으면 워커마다 모델을 한 번씩(110 MB~수백 MB) 올리는 비용이 계산보다 크다.
+
+| | |
+| --- | --- |
+| 지켜지는 것 | 모델은 여전히 **모듈 수준 lazy singleton** 이고(`provider_for`), 클로저에 담기는 것은 `EmbeddingSpec` 뿐이다. 계산된 벡터는 `pl_embedding_cache` 에 남는다 |
+| 부수 효과 | `pandas` · `pyarrow` 를 이미지에 넣지 않아도 된다 (지금 둘 다 없다) |
+| 옮길 때 | `provider_for(spec)` 를 `mapInPandas` 안에서 부르면 그대로 executor 당 1회 로드가 된다. **바뀌는 것은 부르는 자리 하나다** |
+| 무엇이 그 성질을 지키나 | 층 1 테스트 — spec 은 `pickle` 되고 제공자는 spec 안에 없다 (`test_registry_embedding.py`) |
+
+**형태소 분석기와 결론이 갈린 이유**는 규모가 아니라 **대상**이다. 분석기는 문서마다 돌아야 해서 executor 에 있어야 하고, 임베딩은 코퍼스 전체에서 접힌 표기 목록에 한 번 돌면 끝난다.
+
 ## 6. `domain` 값 규약
 
 `keywords.domain` 과 `member_domains.domain` 은 **varchar** 이고, 백엔드의 Java enum `Domain` 을 문자열로 저장한 것이다. 분야 테이블도 FK 도 없다.
