@@ -10,6 +10,7 @@ import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useRelatedKeywords } from '../../features/trend/hooks/useRelatedKeywords';
 import { useRelatedContents } from '../../features/trend/hooks/useRelatedContents';
 import { useSaveTrend } from '../../features/savedTrend/hooks/useSaveTrend';
+import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 
 const periodLabels: Record<string, string> = { '24h': '24시간', '7d': '7일', '30d': '30일' };
 const chartShape = [18, 21, 25, 23, 31, 29, 38, 35, 47, 44, 58, 67, 74, 88];
@@ -184,7 +185,7 @@ export function TrendDetailPage() {
             {keywordsQuery.isLoading && <Skeleton count={1} />}
             {keywordsQuery.isError && <ErrorState onRetry={() => keywordsQuery.refetch()} />}
             {relatedKeywords.length === 0 && !keywordsQuery.isLoading && !keywordsQuery.isError && <EmptyState />}
-            {relatedKeywords.length > 0 && <div className="detail-keyword-list">{relatedKeywords.map((keyword) => <Link className={`detail-keyword${getKeywordStrength(keyword.relevance)}`} to={{ pathname: `/trends/${keyword.trendId ?? keyword.keywordId ?? encodeURIComponent(keyword.keyword)}`, search: detailSearch }} key={keyword.trendId ?? keyword.keywordId ?? keyword.keyword}><b>{keyword.keyword}</b><em>+{Math.max(1, Math.round((keyword.relevance ?? 0) * 100))}%</em></Link>)}</div>}
+            {relatedKeywords.length > 0 && <div className="detail-keyword-list">{relatedKeywords.map((keyword) => <span className={`detail-keyword${getKeywordStrength(keyword.relevance)}`} key={keyword.trendId ?? keyword.keywordId ?? keyword.keyword}><Link to={{ pathname: `/trends/${keyword.trendId ?? keyword.keywordId ?? encodeURIComponent(keyword.keyword)}`, search: detailSearch }}><b>{keyword.keyword}</b></Link><AddInterestKeywordButton keyword={keyword.keyword} trendId={keyword.trendId} /></span>)}</div>}
           </section>
 
           <section className="detail-timeline">

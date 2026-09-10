@@ -3,6 +3,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { PageContainer } from '../../components/layout/PageContainer';
+import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 import { useCollect } from '../../features/savedTrend/collect/collectContext';
 import { useCollectHandlers } from '../../features/savedTrend/collect/useCollectHandlers';
 import { useNewTrends } from '../../features/trend/hooks/useNewTrends';
@@ -116,7 +117,12 @@ function FreshCard({ trend }: { trend: Trend }) {
 
 function RelatedChip({ trend }: { trend: Trend }) {
   const collectHandlers = useCollectHandlers(trend);
-  return <Link className="home-chip home-chip--collectable" to={`/trends/${trend.trendId}`} {...collectHandlers}>{trend.keyword}</Link>;
+  return (
+    <span className="home-chip home-chip--collectable">
+      <Link to={`/trends/${trend.trendId}`} {...collectHandlers}>{trend.keyword}</Link>
+      <AddInterestKeywordButton keyword={trend.keyword} trendId={trend.trendId} />
+    </span>
+  );
 }
 
 function DiscoverySection({ newTrends, risingTrends, relatedTrends, category }: { newTrends: Trend[]; risingTrends: Trend[]; relatedTrends: Trend[]; category: string }) {
@@ -135,10 +141,10 @@ function DiscoverySection({ newTrends, risingTrends, relatedTrends, category }: 
       </div>
       <div>
         <div className="home-discovery-heading home-discovery-heading--lined"><h2>{relatedTrends[0]?.keyword ?? category} <span>관련 키워드</span></h2></div>
-        {/* 실제 트렌드로 연결되는 키워드만 담을 수 있고, 나머지는 안내용 텍스트로 둡니다. */}
+        {/* 저장 보드에 담는 건 실제 트렌드로 연결되는 키워드만 되고, 나머지는 이름으로만 관심 키워드에 등록됩니다. */}
         <div className="home-keyword-cloud">
           {relatedTrends.slice(0, 9).map((trend) => <RelatedChip key={trend.trendId} trend={trend} />)}
-          {fallbackKeywords.slice(0, Math.max(0, 9 - relatedTrends.length)).map((keyword) => <span className="home-chip" key={keyword}>{keyword}</span>)}
+          {fallbackKeywords.slice(0, Math.max(0, 9 - relatedTrends.length)).map((keyword) => <span className="home-chip" key={keyword}><span>{keyword}</span><AddInterestKeywordButton keyword={keyword} /></span>)}
         </div>
       </div>
     </section>
