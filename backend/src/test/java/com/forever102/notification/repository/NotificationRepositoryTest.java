@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class NotificationRepositoryTest {
@@ -98,6 +100,53 @@ class NotificationRepositoryTest {
 
         // then
         assertThat(result).containsExactly(existing);
+    }
+
+    @Test
+    @DisplayName("로그인한 회원의 알림만 최신순으로 조회한다")
+    void findsMemberNotificationsInLatestOrder() {
+        // given
+        Member member = persistMember("member@example.com");
+        Member other = persistMember("other@example.com");
+        Trend trend = persistTrend(persistKeyword("Ballet Sneakers"));
+        Notification first = notificationRepository.saveAndFlush(
+                notification(member, trend, "TREND_ENTRY:1:first"));
+        Notification second = notificationRepository.saveAndFlush(
+                notification(member, trend, "TREND_ENTRY:1:second"));
+        notificationRepository.saveAndFlush(notification(other, trend, "TREND_ENTRY:2:first"));
+        entityManager.clear();
+
+        // when
+        var result = notificationRepository.findAllByMemberIdOrderByCreatedAtDescIdDesc(
+                member.getId(), PageRequest.of(0, 20));
+
+        // then
+        assertThat(result.getContent()).extracting(Notification::getId)
+                .containsExactly(second.getId(), first.getId());
+        assertThat(result.getContent()).allSatisfy(notification ->
+                assertThat(notification.getMember().getId()).isEqualTo(member.getId()));
+    }
+
+    @Test
+    @DisplayName("회원의 읽지 않은 알림만 집계한다")
+    void countsOnlyUnreadMemberNotifications() {
+        // given
+        Member member = persistMember("member@example.com");
+        Member other = persistMember("other@example.com");
+        Trend trend = persistTrend(persistKeyword("Ballet Sneakers"));
+        Notification read = notificationRepository.saveAndFlush(
+                notification(member, trend, "TREND_ENTRY:1:read"));
+        ReflectionTestUtils.setField(read, "read", true);
+        notificationRepository.saveAndFlush(notification(member, trend, "TREND_ENTRY:1:unread"));
+        notificationRepository.saveAndFlush(notification(other, trend, "TREND_ENTRY:2:unread"));
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        long count = notificationRepository.countByMemberIdAndReadFalse(member.getId());
+
+        // then
+        assertThat(count).isOne();
     }
 
     private Notification notification(Member member, Trend trend, String dedupKey) {

@@ -44,6 +44,11 @@ import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
 import com.forever102.member.domain.Domain;
+import com.forever102.notification.domain.NotificationType;
+import com.forever102.notification.dto.NotificationListResponse;
+import com.forever102.notification.dto.NotificationListResponse.NotificationResponse;
+import com.forever102.notification.dto.UnreadNotificationCountResponse;
+import com.forever102.notification.service.NotificationQueryService;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
@@ -78,6 +83,115 @@ class MemberControllerTest {
     @MockitoBean MemberInterestKeywordService interestKeywordService;
     @MockitoBean MemberService memberService;
     @MockitoBean SavedTrendService savedTrendService;
+    @MockitoBean NotificationQueryService notificationQueryService;
+
+    @Test
+    @DisplayName("로그인한 회원의 알림을 최신순 페이지로 조회하고 문서화한다")
+    void getsNotifications() throws Exception {
+        // given
+        OffsetDateTime createdAt = OffsetDateTime.parse("2026-09-11T00:00:00+09:00");
+        NotificationListResponse response = new NotificationListResponse(List.of(
+                new NotificationResponse(30L, 101L, NotificationType.TREND_CHANGE,
+                        "관심 키워드 '발레코어'가 급상승 트렌드에 포함되었어요.",
+                        false, createdAt)), 0, 20, false);
+        given(notificationQueryService.getNotifications(MEMBER_ID, 0, 20)).willReturn(response);
+
+        // when & then
+        mockMvc.perform(get("/members/me/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .queryParam("page", "0")
+                        .queryParam("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].notificationId").value(30))
+                .andExpect(jsonPath("$.data.content[0].trendId").value(101))
+                .andExpect(jsonPath("$.data.content[0].notificationType").value("TREND_CHANGE"))
+                .andExpect(jsonPath("$.data.content[0].message")
+                        .value("관심 키워드 '발레코어'가 급상승 트렌드에 포함되었어요."))
+                .andExpect(jsonPath("$.data.content[0].isRead").value(false))
+                .andExpect(jsonPath("$.data.content[0].createdAt")
+                        .value("2026-09-11T00:00:00+09:00"))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andDo(document("members-notifications-list",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        queryParameters(
+                                parameterWithName("page").optional()
+                                        .description("페이지 번호. 0부터 시작하며 기본값은 0"),
+                                parameterWithName("size").optional()
+                                        .description("페이지 크기. 기본값은 20")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.content[].notificationId").type(JsonFieldType.NUMBER)
+                                        .description("알림 식별자"),
+                                fieldWithPath("data.content[].trendId").type(JsonFieldType.NUMBER)
+                                        .description("알림 대상 트렌드 식별자"),
+                                fieldWithPath("data.content[].notificationType").type(JsonFieldType.STRING)
+                                        .description("알림 유형"),
+                                fieldWithPath("data.content[].message").type(JsonFieldType.STRING)
+                                        .description("알림 메시지"),
+                                fieldWithPath("data.content[].isRead").type(JsonFieldType.BOOLEAN)
+                                        .description("읽음 여부"),
+                                fieldWithPath("data.content[].createdAt").type(JsonFieldType.STRING)
+                                        .description("알림 생성 시각"),
+                                fieldWithPath("data.page").type(JsonFieldType.NUMBER)
+                                        .description("현재 페이지 번호"),
+                                fieldWithPath("data.size").type(JsonFieldType.NUMBER)
+                                        .description("페이지 크기"),
+                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN)
+                                        .description("다음 페이지 존재 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("로그인한 회원의 읽지 않은 알림 개수를 조회하고 문서화한다")
+    void getsUnreadNotificationCount() throws Exception {
+        // given
+        given(notificationQueryService.getUnreadCount(MEMBER_ID))
+                .willReturn(new UnreadNotificationCountResponse(3L));
+
+        // when & then
+        mockMvc.perform(get("/members/me/notifications/unread-count")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.unreadCount").value(3))
+                .andDo(document("members-notifications-unread-count",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.unreadCount").type(JsonFieldType.NUMBER)
+                                        .description("읽지 않은 알림 개수"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("알림 목록의 page와 size를 생략하면 기본값으로 조회한다")
+    void getsNotificationsWithDefaultPagination() throws Exception {
+        // given
+        given(notificationQueryService.getNotifications(MEMBER_ID, 0, 20))
+                .willReturn(new NotificationListResponse(List.of(), 0, 20, false));
+
+        // when
+        mockMvc.perform(get("/members/me/notifications")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isEmpty());
+
+        // then
+        then(notificationQueryService).should().getNotifications(MEMBER_ID, 0, 20);
+    }
 
     @Test
     @DisplayName("저장한 트렌드를 선택한 기간과 최신 저장순 페이지로 조회하고 문서화한다")
