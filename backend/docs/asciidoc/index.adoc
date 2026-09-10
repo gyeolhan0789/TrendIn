@@ -187,6 +187,28 @@ operation::members-interest-keywords-register[snippets='http-request,request-hea
 
 operation::members-recommended-keywords[snippets='http-request,request-headers,http-response,response-fields']
 
+[[keywords]]
+== Keywords
+
+[[keywords-search]]
+=== 키워드 검색
+
+`GET /keywords/search?query={query}&domain={domain}&page={page}&size={size}`
+
+키워드명을 대소문자 구분 없이 부분 일치로 검색한다. 정확히 일치하는 키워드를 먼저 반환하고,
+그 다음에는 키워드 ID 오름차순으로 정렬한다. `domain`은 선택 사항이며 `DEVELOP`, `FASHION`을 지원한다.
+페이지 번호의 기본값은 0, 페이지 크기의 기본값은 20이다.
+예를 들어 `ai`, `AI`, `Ai`는 동일하게 검색하며, `ai`로 검색하면 `AI Agent`, `AI Coding`이 포함될 수 있다.
+한영 별칭이나 동의어 확장은 적용하지 않는다.
+
+==== 요청 및 응답
+
+operation::keywords-search[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+검색 대상은 현재 트렌드 여부와 관계없는 전체 `keywords`다. 현재 트렌드인 키워드는 트렌드 ID와 유형,
+`Asia/Seoul` 기준 완료된 최근 24시간 지표의 증가율을 함께 반환한다. 트렌드가 아니면 `trendId`와
+`growthRate`는 `null`, `trendTypes`는 빈 배열이다. 검색 결과가 없으면 200과 빈 `content`를 반환한다.
+
 [[auth-login]]
 === 로그인
 
