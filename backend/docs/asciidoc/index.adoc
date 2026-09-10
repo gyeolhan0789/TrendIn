@@ -276,6 +276,22 @@ operation::members-interest-keywords-delete[snippets='http-request,request-heade
 
 operation::members-recommended-keywords[snippets='http-request,request-headers,http-response,response-fields']
 
+[[members-saved-trends]]
+=== 저장한 트렌드 목록 조회
+
+`GET /members/me/saved-trends?period={period}&page={page}&size={size}`
+
+로그인한 회원이 저장한 트렌드를 최신 저장순으로 조회한다. `period`는 `24H`, `7D`, `30D`를
+지원하며 기본값은 `24H`다. 페이지 번호의 기본값은 0, 페이지 크기의 기본값은 20이다.
+
+==== 요청 및 응답
+
+operation::members-saved-trends[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+저장 이후 현재 트렌드 유형에서 제외된 항목도 목록에 유지되며 이때 `trendTypes`는 빈 배열이다.
+요청한 완료 기간의 `keyword_metrics`가 없으면 해당 항목의 `mentionCount`와 `growthRate`는 `null`이다.
+저장한 트렌드가 없으면 200과 빈 `content`를 반환한다.
+
 [[keywords]]
 == Keywords
 

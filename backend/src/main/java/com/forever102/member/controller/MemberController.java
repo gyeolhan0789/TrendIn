@@ -8,8 +8,12 @@ import com.forever102.member.dto.MemberInfoResponse;
 import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.RecommendedKeywordResponse;
+import com.forever102.member.dto.SavedTrendListResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
+import com.forever102.member.service.SavedTrendService;
+import com.forever102.trend.domain.AnalysisPeriod;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
@@ -34,6 +38,7 @@ public class MemberController {
 
     private final MemberService memberService;
     private final MemberInterestKeywordService interestKeywordService;
+    private final SavedTrendService savedTrendService;
 
     @GetMapping
     public BaseResponse<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal Long memberId) {
@@ -79,5 +84,16 @@ public class MemberController {
     ) {
         interestKeywordService.delete(memberId, interestKeywordId);
         return BaseResponse.success(null);
+    }
+
+    @GetMapping("/saved-trends")
+    public BaseResponse<SavedTrendListResponse> getSavedTrends(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(defaultValue = "24H") String period,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Positive int size
+    ) {
+        return BaseResponse.success(savedTrendService.getSavedTrends(
+                memberId, AnalysisPeriod.from(period), page, size));
     }
 }
