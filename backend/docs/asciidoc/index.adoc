@@ -174,6 +174,34 @@ operation::members-interest-keywords-register[snippets='http-request,request-hea
 
 존재하지 않는 키워드는 404, 이미 등록한 키워드는 409를 반환한다.
 
+[[members-interest-keywords-list]]
+=== 관심 키워드 조회
+
+`GET /members/me/interest-keywords?domain={domain}`
+
+로그인한 회원이 등록한 관심 키워드를 등록 ID 오름차순으로 조회한다.
+`domain`은 선택 사항이며 `DEVELOP`, `FASHION` 코드를 지원한다.
+
+==== 요청 및 응답
+
+operation::members-interest-keywords-list[snippets='http-request,request-headers,query-parameters,http-response,response-fields']
+
+등록된 관심 키워드가 없거나 선택한 분야에 해당하는 항목이 없으면 200과 빈 배열을 반환한다.
+
+[[members-interest-keywords-delete]]
+=== 관심 키워드 삭제
+
+`DELETE /members/me/interest-keywords/{interestKeywordId}`
+
+로그인한 회원이 직접 등록한 관심 키워드를 삭제한다.
+
+==== 요청 및 응답
+
+operation::members-interest-keywords-delete[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
+
+삭제 성공 시 200과 공통 성공 응답을 반환한다. 관심 키워드 등록 ID가 존재하지 않거나
+다른 회원의 등록 ID이면 동일하게 404를 반환한다.
+
 [[members-recommended-keywords]]
 === 관심 키워드 기반 추천 키워드 조회
 
