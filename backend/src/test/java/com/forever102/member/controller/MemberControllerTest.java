@@ -30,9 +30,11 @@ import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
+import com.forever102.member.dto.MemberInfoResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
+import com.forever102.member.service.MemberService;
 import com.forever102.member.domain.Domain;
 import java.math.BigDecimal;
 import java.util.List;
@@ -54,12 +56,14 @@ import org.springframework.test.web.servlet.MockMvc;
 class MemberControllerTest {
 
     private static final String URL = "/members/me/interest-keywords";
+    private static final String ME_URL = "/members/me";
     private static final Long MEMBER_ID = 1L;
     private static final Long KEYWORD_ID = 81L;
 
     @Autowired MockMvc mockMvc;
     @Autowired JwtTokenProvider jwtTokenProvider;
     @MockitoBean MemberInterestKeywordService interestKeywordService;
+    @MockitoBean MemberService memberService;
 
     @Test
     @DisplayName("인증된 회원이 관심 키워드를 등록하면 201로 응답하고 문서화한다")
@@ -276,6 +280,108 @@ class MemberControllerTest {
                 .andExpect(jsonPath("$.message").value("존재하지 않는 관심 키워드입니다."));
     }
 
+
+    @Test
+    @DisplayName("인증된 회원이 본인 정보를 조회하면 200으로 응답하고 문서화한다")
+    void returnsMyInfo() throws Exception {
+        // given
+        given(memberService.getMyInfo(MEMBER_ID))
+                .willReturn(new MemberInfoResponse(MEMBER_ID, "test@example.com", "trenduser", false));
+
+        // when & then
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.memberId").value(1))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.nickname").value("trenduser"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-me",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.memberId").type(JsonFieldType.NUMBER)
+                                        .description("회원 식별자. 액세스 토큰이 가리키는 본인의 ID"),
+                                fieldWithPath("data.email").type(JsonFieldType.STRING)
+                                        .description("가입 이메일"),
+                                fieldWithPath("data.nickname").type(JsonFieldType.STRING)
+                                        .description("닉네임"),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. false면 관심 분야 선택 화면으로 보낸다."),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("토큰의 회원 식별자로 서비스를 호출한다")
+    void passesAuthenticatedMemberId() throws Exception {
+        // given
+        given(memberService.getMyInfo(MEMBER_ID))
+                .willReturn(new MemberInfoResponse(MEMBER_ID, "test@example.com", "trenduser", false));
+
+        // when
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk());
+
+        // then
+        then(memberService).should().getMyInfo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("액세스 토큰이 없으면 401로 응답하고 서비스를 호출하지 않는다")
+    void requiresAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(get(ME_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
+                .andDo(document("members-me-unauthorized",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+        then(memberService).should(never()).getMyInfo(any());
+    }
+
+    @Test
+    @DisplayName("위조된 액세스 토큰이면 401로 응답한다")
+    void rejectsForgedAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("유효하지 않은 토큰입니다."));
+        then(memberService).should(never()).getMyInfo(any());
+    }
+
+    @Test
+    @DisplayName("토큰의 회원이 남아 있지 않으면 404로 응답한다")
+    void returnsNotFoundForMissingMember() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND))
+                .given(memberService).getMyInfo(MEMBER_ID);
+
+        // when & then
+        mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("존재하지 않는 회원입니다."))
+                .andDo(document("members-me-not-found",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+    }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
     }
