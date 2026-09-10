@@ -12,5 +12,9 @@ export const queryKeys = {
   savedTrends: {
     all: ['savedTrends'] as const,
   },
+  myPage: {
+    profile: ['myPage', 'profile'] as const,
+    keywordCatalog: ['myPage', 'keywordCatalog'] as const,
+  },
 };
 
