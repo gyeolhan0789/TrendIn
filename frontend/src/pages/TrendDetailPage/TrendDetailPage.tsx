@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HomePage } from '../HomePage/HomePage';
+import { SavedTrendPage } from '../SavedTrendPage/SavedTrendPage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
@@ -49,7 +50,9 @@ export function TrendDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const period = searchParams.get('period') ?? '24h';
-  const homePath = `/${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+  // 저장 페이지에서 열었을 때는 목록 위에 드로어를 띄우고, 닫으면 다시 목록으로 돌아갑니다.
+  const fromSaved = searchParams.get('from') === 'saved';
+  const homePath = fromSaved ? '/saved' : `/${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
   const drawerRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
@@ -129,7 +132,7 @@ export function TrendDetailPage() {
       <div className="detail-page detail-page--drawer">
         <div className="detail-page-inner">
           <nav className="detail-nav" aria-label="상세페이지 메뉴">
-            <Link className="detail-back" to={homePath} aria-label="홈으로 돌아가기">←</Link>
+            <Link className="detail-back" to={homePath} aria-label={fromSaved ? '저장한 트렌드로 돌아가기' : '홈으로 돌아가기'}>←</Link>
             <button type="button" className={`detail-save${isSaved ? ' is-saved' : ''}`} onClick={handleSave} aria-label={isSaved ? '저장됨' : '트렌드 저장'} title={isSaved ? '저장됨' : '트렌드 저장'} aria-pressed={isSaved} disabled={isSaved || saveMutation.isPending}>{isSaved ? '★' : '☆'}</button>
           </nav>
 
@@ -155,7 +158,7 @@ export function TrendDetailPage() {
           <section className="detail-chart-card" aria-label={`${trend.keyword} 언급량 차트`}>
             <span className="detail-card-label">언급량 그래프</span>
             <div className="detail-chart detail-chart--reference" role="img" aria-label={`${trend.keyword} 상대 언급 지수`}>
-              {chartBars.map((bar, index) => <div className="detail-bar-track" key={bar.day ?? index} tabIndex={0} aria-label={`${bar.day ?? '날짜 정보 없음'} ${bar.value.toLocaleString()}건`}><span className={bar.color} style={{ height: `${bar.height}%`, background: getChartBarGradient(index) }}><b className="detail-bar-tooltip"><span>{bar.value.toLocaleString()}건</span><small>{bar.day ?? '날짜 정보 없음'}</small></b></span></div>)}
+              {chartBars.map((bar, index) => <div className="detail-bar-track" key={bar.day ?? index} tabIndex={0} aria-label={`${bar.day ?? '날짜 정보 없음'} ${bar.value.toLocaleString()}건`}><span className={bar.color} style={{ height: `${bar.height}%`, background: getChartBarGradient(index), animationDelay: `${0.48 + index * 0.055}s` }}><b className="detail-bar-tooltip"><span>{bar.value.toLocaleString()}건</span><small>{bar.day ?? '날짜 정보 없음'}</small></b></span></div>)}
             </div>
             <div className="chart-axis chart-axis--reference"><span>{chartBars[0]?.day}</span><span>{chartBars.at(-1)?.day}</span></div>
           </section>
@@ -190,7 +193,6 @@ export function TrendDetailPage() {
             {timeline.length > 0 && <div className="timeline-list">{timeline.map((content, index) => <div className="timeline-event" key={content.contentId}><span className={`timeline-dot${index === 0 ? ' is-important' : ''}`} /><time>{formatMonthDay(content.publishedAt) ?? '게시일 미정'}</time><div><p>{content.title}</p><a href={content.url} target="_blank" rel="noreferrer">{content.source ?? '원본 소스'} ↗</a></div></div>)}</div>}
           </section>
 
-          <footer className="detail-footer">이 분석은 공개 데이터 기반 자동 수집 · TrendIn. — demo dataset</footer>
         </div>
       </div>
     );
@@ -198,7 +200,7 @@ export function TrendDetailPage() {
 
   return (
     <>
-      <div className="drawer-background" aria-hidden="true"><HomePage /></div>
+      <div className="drawer-background" aria-hidden="true">{fromSaved ? <SavedTrendPage /> : <HomePage />}</div>
       <div className={`modal-backdrop${isClosing ? ' is-closing' : ''}`} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
         <aside ref={drawerRef} className={`detail-drawer${isClosing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-label="트렌드 상세" tabIndex={-1}>
           <div className="detail-drawer-content">{drawerContent}</div>
