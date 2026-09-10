@@ -4,9 +4,11 @@ import com.forever102.global.response.BaseResponse;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
+import com.forever102.member.dto.MemberInfoResponse;
 import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
+import com.forever102.member.service.MemberService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
@@ -28,7 +30,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MemberController {
 
+    private final MemberService memberService;
     private final MemberInterestKeywordService interestKeywordService;
+
+    @GetMapping
+    public BaseResponse<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal Long memberId) {
+        return BaseResponse.success(memberService.getMyInfo(memberId));
+    }
 
     @PostMapping("/interest-keywords")
     @ResponseStatus(HttpStatus.CREATED)
