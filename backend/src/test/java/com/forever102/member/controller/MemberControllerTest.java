@@ -36,10 +36,16 @@ import com.forever102.member.dto.MemberInfoResponse;
 import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
+import com.forever102.member.dto.SavedTrendListResponse;
+import com.forever102.member.dto.SavedTrendListResponse.SavedTrendResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
+import com.forever102.member.service.SavedTrendService;
 import com.forever102.member.domain.Domain;
+import com.forever102.trend.domain.AnalysisPeriod;
+import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -69,6 +75,117 @@ class MemberControllerTest {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @MockitoBean MemberInterestKeywordService interestKeywordService;
     @MockitoBean MemberService memberService;
+    @MockitoBean SavedTrendService savedTrendService;
+
+    @Test
+    @DisplayName("저장한 트렌드를 선택한 기간과 최신 저장순 페이지로 조회하고 문서화한다")
+    void getsSavedTrends() throws Exception {
+        // given
+        OffsetDateTime savedAt = OffsetDateTime.parse("2026-08-31T09:00:00+09:00");
+        SavedTrendListResponse response = new SavedTrendListResponse(List.of(
+                new SavedTrendResponse(15L, 101L, 81L, "Ballet Sneakers",
+                        new SavedTrendListResponse.DomainResponse(Domain.FASHION, "패션"),
+                        List.of(TrendType.RISING),
+                        "발레 슈즈 디자인을 접목한 스니커즈가 주목받고 있습니다.",
+                        430L, new BigDecimal("249.6"), savedAt)),
+                0, 20, false);
+        given(savedTrendService.getSavedTrends(MEMBER_ID, AnalysisPeriod.DAYS_7, 0, 20))
+                .willReturn(response);
+
+        // when & then
+        mockMvc.perform(get("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .queryParam("period", "7D")
+                        .queryParam("page", "0")
+                        .queryParam("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].savedTrendId").value(15))
+                .andExpect(jsonPath("$.data.content[0].trendId").value(101))
+                .andExpect(jsonPath("$.data.content[0].keywordId").value(81))
+                .andExpect(jsonPath("$.data.content[0].keyword").value("Ballet Sneakers"))
+                .andExpect(jsonPath("$.data.content[0].domain.code").value("FASHION"))
+                .andExpect(jsonPath("$.data.content[0].domain.name").value("패션"))
+                .andExpect(jsonPath("$.data.content[0].trendTypes[0]").value("RISING"))
+                .andExpect(jsonPath("$.data.content[0].mentionCount").value(430))
+                .andExpect(jsonPath("$.data.content[0].growthRate").value(249.6))
+                .andExpect(jsonPath("$.data.content[0].savedAt")
+                        .value("2026-08-31T09:00:00+09:00"))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andDo(document("members-saved-trends",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        queryParameters(
+                                parameterWithName("period").optional()
+                                        .description("지표 기간: 24H, 7D, 30D. 기본값 24H"),
+                                parameterWithName("page").optional()
+                                        .description("페이지 번호. 0부터 시작하며 기본값 0"),
+                                parameterWithName("size").optional()
+                                        .description("페이지 크기. 기본값 20")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("data.content[].savedTrendId").type(JsonFieldType.NUMBER)
+                                        .description("저장 트렌드 ID"),
+                                fieldWithPath("data.content[].trendId").type(JsonFieldType.NUMBER)
+                                        .description("트렌드 ID"),
+                                fieldWithPath("data.content[].keywordId").type(JsonFieldType.NUMBER)
+                                        .description("키워드 ID"),
+                                fieldWithPath("data.content[].keyword").type(JsonFieldType.STRING)
+                                        .description("키워드 이름"),
+                                fieldWithPath("data.content[].domain.code").type(JsonFieldType.STRING)
+                                        .description("분야 코드"),
+                                fieldWithPath("data.content[].domain.name").type(JsonFieldType.STRING)
+                                        .description("분야 이름"),
+                                fieldWithPath("data.content[].trendTypes").type(JsonFieldType.ARRAY)
+                                        .description("현재 트렌드 유형. 현재 유형이 없으면 빈 배열"),
+                                fieldWithPath("data.content[].description").type(JsonFieldType.STRING)
+                                        .description("트렌드 설명"),
+                                fieldWithPath("data.content[].mentionCount").type(JsonFieldType.NUMBER)
+                                        .optional().description("선택 기간 언급량. 지표가 없으면 null"),
+                                fieldWithPath("data.content[].growthRate").type(JsonFieldType.NUMBER)
+                                        .optional().description("선택 기간 증가율. 계산할 수 없거나 지표가 없으면 null"),
+                                fieldWithPath("data.content[].savedAt").type(JsonFieldType.STRING)
+                                        .description("저장 시각"),
+                                fieldWithPath("data.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
+                                fieldWithPath("data.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
+                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 여부"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+    }
+
+    @Test
+    @DisplayName("기간을 생략하면 저장한 트렌드를 24H 기준으로 조회한다")
+    void getsSavedTrendsWithDefaultPeriod() throws Exception {
+        // given
+        given(savedTrendService.getSavedTrends(MEMBER_ID, AnalysisPeriod.HOURS_24, 0, 20))
+                .willReturn(new SavedTrendListResponse(List.of(), 0, 20, false));
+
+        // when
+        mockMvc.perform(get("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").isEmpty());
+
+        // then
+        then(savedTrendService).should()
+                .getSavedTrends(MEMBER_ID, AnalysisPeriod.HOURS_24, 0, 20);
+    }
+
+    @Test
+    @DisplayName("저장한 트렌드 조회 기간이 올바르지 않으면 400으로 응답한다")
+    void rejectsInvalidSavedTrendPeriod() throws Exception {
+        // when & then
+        mockMvc.perform(get("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .queryParam("period", "1Y"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."));
+
+        then(savedTrendService).should(never()).getSavedTrends(any(), any(), any(Integer.class), any(Integer.class));
+    }
 
     @Test
     @DisplayName("인증된 회원이 관심 키워드를 등록하면 201로 응답하고 문서화한다")
