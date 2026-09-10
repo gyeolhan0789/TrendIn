@@ -2,6 +2,7 @@ package com.forever102.auth.service;
 
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
+import com.forever102.auth.dto.LogoutRequest;
 import com.forever102.auth.dto.ReissueRequest;
 import com.forever102.auth.dto.ReissueResponse;
 import com.forever102.auth.dto.SignUpRequest;
@@ -58,22 +59,37 @@ public class AuthService {
     /**
      * 유효한 리프레시 토큰을 새 토큰 한 쌍으로 교환한다.
      * 리프레시 토큰도 함께 회전시켜 방금 사용한 토큰은 즉시 무효가 된다.
+     * 검증과 교체를 원자적으로 처리하므로, 같은 토큰으로 동시에 들어온 재발급·로그아웃 중 하나만 성공한다.
      */
     @Transactional(readOnly = true)
     public ReissueResponse reissue(ReissueRequest request) {
         Long memberId = jwtTokenProvider.parseRefreshToken(request.refreshToken());
-        if (!refreshTokenRepository.matches(memberId, request.refreshToken())) {
-            // 서명은 유효하지만 이미 회전됐거나 만료된 토큰이다.
-            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN));
 
+        // 교체할 새 토큰이 있어야 한 번의 왕복으로 검증까지 끝낼 수 있어 발급을 먼저 한다.
         AuthTokens tokens = jwtTokenProvider.issue(memberId);
-        refreshTokenRepository.save(memberId, tokens.refreshToken(), tokens.refreshTokenTtl());
+        if (!refreshTokenRepository.rotate(
+                memberId, request.refreshToken(), tokens.refreshToken(), tokens.refreshTokenTtl())) {
+            // 서명은 유효하지만 이미 회전됐거나 로그아웃으로 사라진 토큰이다. 발급한 토큰은 저장하지 않고 버린다.
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
 
         return ReissueResponse.of(tokens, member);
+    }
+
+    /**
+     * 현재 세션을 종료한다. 저장된 리프레시 토큰을 지워 이후 재발급을 막는다.
+     * 액세스 토큰은 상태를 두지 않으므로 남은 유효 기간(최대 15분) 동안은 그대로 동작한다.
+     */
+    @Transactional(readOnly = true)
+    public void logout(Long memberId, LogoutRequest request) {
+        Long tokenMemberId = jwtTokenProvider.parseRefreshToken(request.refreshToken(), ErrorCode.INVALID_TOKEN);
+        if (!tokenMemberId.equals(memberId)
+                || !refreshTokenRepository.deleteIfMatches(memberId, request.refreshToken())) {
+            // 다른 회원의 토큰이거나, 이미 회전·삭제되어 현재 세션과 일치하지 않는 토큰이다.
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
     }
 
     private boolean matches(String rawPassword, String passwordHash) {

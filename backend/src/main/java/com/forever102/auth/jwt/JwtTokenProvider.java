@@ -70,6 +70,14 @@ public class JwtTokenProvider {
                 ErrorCode.INVALID_REFRESH_TOKEN, ErrorCode.INVALID_REFRESH_TOKEN);
     }
 
+    /**
+     * 검증 실패 시 사용할 오류를 호출하는 쪽에서 정한다.
+     * 같은 실패라도 API마다 명세된 오류 코드가 다를 때 쓴다.
+     */
+    public Long parseRefreshToken(String token, ErrorCode errorCode) {
+        return parseToken(token, REFRESH_TOKEN_TYPE, errorCode, errorCode);
+    }
+
     private Long parseToken(String token, String expectedType, ErrorCode expiredCode, ErrorCode invalidCode) {
         Claims claims = parseClaims(token, expiredCode, invalidCode);
         if (!expectedType.equals(claims.get(TOKEN_TYPE_CLAIM, String.class))) {

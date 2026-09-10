@@ -11,6 +11,7 @@ import static org.mockito.Mockito.never;
 
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
+import com.forever102.auth.dto.LogoutRequest;
 import com.forever102.auth.dto.ReissueRequest;
 import com.forever102.auth.dto.ReissueResponse;
 import com.forever102.auth.dto.SignUpRequest;
@@ -286,7 +287,7 @@ class AuthServiceTest {
 
         // then
         then(refreshTokenRepository).should()
-                .save(MEMBER_ID, "new-refresh-token", Duration.ofSeconds(1_209_600L));
+                .rotate(MEMBER_ID, REFRESH_TOKEN, "new-refresh-token", Duration.ofSeconds(1_209_600L));
     }
 
     @Test
@@ -305,11 +306,10 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("저장된 토큰과 다르면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    @DisplayName("교체 시점에 저장된 토큰과 다르면 INVALID_REFRESH_TOKEN 예외가 발생한다")
     void reissueRejectsRotatedRefreshToken() {
         // given
-        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
-        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(false);
+        givenRotateFails();
 
         // when & then
         assertThatThrownBy(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)))
@@ -318,43 +318,138 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("토큰 검증에 실패하면 회원을 조회하거나 토큰을 발급하지 않는다")
-    void reissueDoesNotIssueTokensWhenValidationFails() {
+    @DisplayName("검증과 교체를 한 번의 호출로 처리해 따로 조회하거나 저장하지 않는다")
+    void reissueValidatesAndRotatesAtomically() {
         // given
-        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
-        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(false);
+        givenStoredRefreshToken();
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(REISSUED_TOKENS);
+
+        // when
+        authService.reissue(new ReissueRequest(REFRESH_TOKEN));
+
+        // then
+        then(refreshTokenRepository).should()
+                .rotate(MEMBER_ID, REFRESH_TOKEN, "new-refresh-token", Duration.ofSeconds(1_209_600L));
+        then(refreshTokenRepository).should(never()).save(any(), any(), any());
+        then(refreshTokenRepository).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("교체에 실패하면 발급한 토큰을 저장하지 않는다")
+    void reissueDoesNotStoreTokensWhenRotationFails() {
+        // given
+        givenRotateFails();
 
         // when
         catchThrowable(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)));
 
         // then
-        then(memberRepository).should(never()).findById(any());
-        then(jwtTokenProvider).should(never()).issue(any());
         then(refreshTokenRepository).should(never()).save(any(), any(), any());
     }
 
     @Test
-    @DisplayName("탈퇴 등으로 회원이 없으면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    @DisplayName("탈퇴 등으로 회원이 없으면 교체를 시도하지 않고 INVALID_REFRESH_TOKEN 예외가 발생한다")
     void reissueRejectsMissingMember() {
         // given
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
-        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> authService.reissue(new ReissueRequest(REFRESH_TOKEN)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFRESH_TOKEN);
+        then(refreshTokenRepository).shouldHaveNoInteractions();
     }
 
     private Member givenStoredRefreshToken() {
         Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
         ReflectionTestUtils.setField(member, "id", MEMBER_ID);
         given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
-        given(refreshTokenRepository.matches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
         given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(refreshTokenRepository.rotate(
+                MEMBER_ID, REFRESH_TOKEN, "new-refresh-token", Duration.ofSeconds(1_209_600L)))
+                .willReturn(true);
         return member;
     }
+
+    private void givenRotateFails() {
+        Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
+        ReflectionTestUtils.setField(member, "id", MEMBER_ID);
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(MEMBER_ID);
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
+        given(jwtTokenProvider.issue(MEMBER_ID)).willReturn(REISSUED_TOKENS);
+        given(refreshTokenRepository.rotate(
+                MEMBER_ID, REFRESH_TOKEN, "new-refresh-token", Duration.ofSeconds(1_209_600L)))
+                .willReturn(false);
+    }
+
+    @Test
+    @DisplayName("현재 세션의 리프레시 토큰이면 저장된 토큰을 삭제한다")
+    void logoutDeletesStoredRefreshToken() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN, ErrorCode.INVALID_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.deleteIfMatches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
+
+        // when
+        authService.logout(MEMBER_ID, new LogoutRequest(REFRESH_TOKEN));
+
+        // then
+        then(refreshTokenRepository).should().deleteIfMatches(MEMBER_ID, REFRESH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("검증과 삭제를 한 번의 호출로 처리해 따로 조회하지 않는다")
+    void logoutValidatesAndDeletesAtomically() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN, ErrorCode.INVALID_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.deleteIfMatches(MEMBER_ID, REFRESH_TOKEN)).willReturn(true);
+
+        // when
+        authService.logout(MEMBER_ID, new LogoutRequest(REFRESH_TOKEN));
+
+        // then
+        then(refreshTokenRepository).should().deleteIfMatches(MEMBER_ID, REFRESH_TOKEN);
+        then(refreshTokenRepository).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("다른 회원의 리프레시 토큰이면 INVALID_TOKEN 예외가 발생한다")
+    void logoutRejectsRefreshTokenOfAnotherMember() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN, ErrorCode.INVALID_TOKEN)).willReturn(2L);
+
+        // when & then
+        assertThatThrownBy(() -> authService.logout(MEMBER_ID, new LogoutRequest(REFRESH_TOKEN)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    @DisplayName("다른 회원의 토큰이면 Redis를 조회하지 않는다")
+    void logoutDoesNotTouchRedisForAnotherMembersToken() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN, ErrorCode.INVALID_TOKEN)).willReturn(2L);
+
+        // when
+        catchThrowable(() -> authService.logout(MEMBER_ID, new LogoutRequest(REFRESH_TOKEN)));
+
+        // then
+        then(refreshTokenRepository).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("이미 로그아웃되었거나 재발급으로 회전된 토큰이면 INVALID_TOKEN 예외가 발생한다")
+    void logoutRejectsAlreadyLoggedOutSession() {
+        // given
+        given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN, ErrorCode.INVALID_TOKEN)).willReturn(MEMBER_ID);
+        given(refreshTokenRepository.deleteIfMatches(MEMBER_ID, REFRESH_TOKEN)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.logout(MEMBER_ID, new LogoutRequest(REFRESH_TOKEN)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_TOKEN);
+    }
+
     private Member givenRegisteredMember() {
         Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
         ReflectionTestUtils.setField(member, "id", MEMBER_ID);

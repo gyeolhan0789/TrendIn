@@ -1,0 +1,14 @@
+package com.forever102.auth.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public record LogoutRequest(
+
+        @NotBlank(message = "리프레시 토큰은 필수입니다.")
+        String refreshToken
+) {
+
+    public LogoutRequest {
+        refreshToken = refreshToken == null ? null : refreshToken.strip();
+    }
+}
