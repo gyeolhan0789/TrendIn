@@ -1,27 +1,21 @@
-# TrendIn CI — 데이터 EC2 관련 코드(datastore/, pipeline/)를 MR 에서 스스로 검증한다.
-# 백엔드·프론트 job 은 아직 없다.
-# 컨테이너를 띄워야 하는 검증(datastore/scripts/verify.sh)은 CI 가 아니라 CD 단계에서 부른다.
-# 결정 근거: Jira S15P21A102-182
+# TrendIn 데이터 CI/CD
+# MR에서 datastore/·pipeline/을 검증하고, dev 머지 시 데이터 EC2에 배포한다.
+# 컨테이너 기반 검증은 배포 잡에서 수행한다. (S15P21A102-182, S15P21A102-183)
 
 stages:
   - verify
+  - deploy
 
-# MR 파이프라인과 기본 브랜치(dev) 파이프라인만 돈다. 같은 커밋에 두 벌이 겹치는 것을 막는다.
-#
-# MR 쪽에 changes 를 붙인 이유는 **빈 파이프라인을 안 만들기 위해서**다. 여기서 모든 MR 을
-# 통과시키고 job 쪽에서만 걸러내면, backend/ 만 고친 MR 은 job 이 전부 제외되고 job 이
-# 하나도 없는 파이프라인은 생성 자체가 오류가 된다("No stages / jobs for this pipeline").
-# 남의 MR 을 막지 않겠다는 의도가 정확히 반대 결과를 낸다.
-# 그래서 이 목록은 **아래 job 들이 보는 경로의 합집합**이어야 한다. job 을 더하는 사람은
-# 자기 job 의 rules 와 이 목록 두 곳에 같은 경로를 적는다.
-#
-# dev 쪽에는 changes 를 걸지 않는다. 기준선은 무엇을 고쳤든 항상 확인한다.
+# 관련 파일을 변경한 MR과 dev 파이프라인만 생성한다.
+# dev는 변경 경로와 관계없이 기준선을 검증한다.
+# 이 목록은 MR에서 도는 잡이 보는 경로의 합집합이다. 배포 잡은 dev 전용이라 넣지 않는다.
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
         - datastore/**/*
         - pipeline/**/*
+        - scripts/check-destructive-settings.sh
         - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - when: never
@@ -29,7 +23,7 @@ workflow:
 default:
   interruptible: true
 
-# 해당 디렉터리를 건드린 MR 에서만 돈다. dev 에서는 항상 돌아 기준선을 지킨다.
+# MR에서는 해당 영역 변경 시, dev에서는 항상 실행한다.
 .datastore-rules:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -46,15 +40,9 @@ default:
         - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# compose 해석만 한다. 도커 데몬은 필요 없다.
-#
-# `${VAR:?...}` 로 요구되는 값(MinIO 계정·키)은 비밀값이라 CI 에 두지 않는다. 해석만
-# 확인하면 되므로 이름을 compose.yaml 에서 뽑아 더미로 채운다. 필수 변수가 늘어도 이
-# job 을 고칠 필요가 없다 — 목록을 여기 적으면 그게 두 번째 사본이 되고, 변수를 새로
-# 넣은 사람은 CI 도 고쳐야 한다는 것을 모른다.
-#
-# `.env.example` 을 `--env-file` 로 넘기는 안은 안 된다. 그 파일은 비밀값 칸을 빈 값으로
-# 두는데 compose 의 `:?` 는 빈 값도 오류로 본다.
+# Docker 데몬 없이 compose 구문만 검증한다.
+# `${VAR:?}` 변수는 compose.yaml에서 찾아 더미 값으로 채운다.
+# `:?`는 빈 값도 거부해서 .env.example은 쓸 수 없다.
 datastore:compose:
   stage: verify
   extends: .datastore-rules
@@ -67,7 +55,26 @@ datastore:compose:
       done
       docker compose -f compose.yaml config --quiet
 
-# 수집 계층. 정식 이미지 위에서 돈다. airflow 는 constraints 로 이미 깔려 있으니 다시 풀지 않는다.
+# 배포되면 되돌릴 수 없는 설정 다섯 개를 target 브랜치와 비교한다.
+# dev에서는 비교 대상이 자기 자신이라 MR에서만 돈다.
+datastore:guard:
+  stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - datastore/compose.yaml
+        - scripts/check-destructive-settings.sh
+  # 값을 정규식이 아니라 `docker compose config` 가 푼 결과에서 읽는다. 데몬은 필요 없다.
+  image: docker:28-cli
+  variables:
+    # Allow-destructive 를 target 브랜치까지 거슬러 읽어야 한다.
+    GIT_DEPTH: "0"
+  before_script:
+    - apk add --no-cache git jq >/dev/null
+  script:
+    - scripts/check-destructive-settings.sh
+
+# Airflow 이미지에서 수집 계층의 린트와 테스트를 실행한다.
 pipeline:verify:
   stage: verify
   extends: .pipeline-rules
@@ -76,34 +83,22 @@ pipeline:verify:
     entrypoint: [""]
   variables:
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
-    # 한글 테스트 이름이 로그에서 깨지지 않게 한다. 컨테이너 기본 로케일이 POSIX 다.
+    # 한글 테스트 이름을 UTF-8로 출력한다.
     PYTHONIOENCODING: "utf-8"
-    # 패키지를 설치하지 않고 import 경로만 얹는다. 편집 설치(-e .)는 클론 디렉터리에
-    # egg-info 를 쓰는데, 러너가 root 로 클론하고 이 이미지는 uid 50000 으로 돌아서
-    # 권한으로 막힐 수 있다. 테스트가 필요한 것은 import 경로뿐이다.
+    # 설치 대신 소스 경로를 추가한다. `-e .`는 uid 50000으로 도는 이 이미지에서 권한에 막힌다.
     PYTHONPATH: "$CI_PROJECT_DIR/pipeline/src"
   script:
     - cd pipeline
-    # ruff 버전은 pyproject.toml 에서 읽는다. 고정하지 않으면 마이너 릴리스가 새 규칙을
-    # 들고 와서 아무도 코드를 안 고쳤는데 게이트가 빨개진다. 그렇게 한 번 되면 CI 를 끈다.
+    # pyproject.toml에 고정된 ruff 버전을 사용한다. 안 고정하면 새 릴리스의 규칙에 린트가 깨진다.
     - RUFF_SPEC=$(sed -n 's/.*"\(ruff[^"]*\)".*/\1/p' pyproject.toml | head -1)
-    # 통째로 작은따옴표로 싼다. 따옴표 없이 두면 YAML 이 줄 안의 ": " 를 키와 값의
-    # 구분자로 읽어 이 항목만 문자열이 아니라 매핑이 된다. 그러면 GitLab 이 파일을
-    # 아예 거부한다 — "script config should be a string or a nested array of strings".
+    # 따옴표로 감싸 YAML의 `: ` 오해석을 막는다.
     - 'echo "ruff spec: ${RUFF_SPEC}"'
     - pip install --no-cache-dir pytest "${RUFF_SPEC}"
     - ruff check .
-    # 경로를 직접 준다. pyproject 의 testpaths 는 spark/tests 까지 포함하는데 그쪽은
-    # pyspark 와 JVM 이 필요해서 다음 job 이 맡는다.
-    # DAG import 오류 검사(tests/test_dag_import.py) 가 여기에 들어 있다.
+    # Spark 테스트는 별도 잡에서 맡는다. DAG import 검사는 여기 들어 있다.
     - pytest tests
 
-# Spark 계층. 층 1(순수 함수)과 층 2(local[2] 세션)를 돌린다.
-# Kafka · MinIO · PostgreSQL 은 쓰지 않으므로 jar 를 받을 필요가 없다 — pyspark 와 JRE 뿐이다.
-#
-# 층 1 은 원래 Spark 없이 돌아야 하는데(09-dev-and-test.md 4절) 지금
-# spark/tests/unit/test_cli.py 가 spark/jobs/aggregate.py 를 import 하면서 pyspark 를
-# 끌어온다. 그래서 이 job 이 층 1 까지 함께 맡는다. 그 결합을 푸는 것은 별건이다.
+# Spark 세션이 필요한 테스트를 실행한다. 외부 서비스와 jar는 사용하지 않는다.
 pipeline:verify-spark:
   stage: verify
   extends: .pipeline-rules
@@ -114,7 +109,7 @@ pipeline:verify-spark:
     PYTHONPATH: "$CI_PROJECT_DIR/pipeline/src"
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
   cache:
-    # pyspark 휠이 크다. 버전이 바뀔 때만 다시 받는다.
+    # Spark 버전이 바뀔 때만 큰 의존성을 다시 받는다.
     key:
       files:
         - pipeline/spark/versions.sh
@@ -123,14 +118,38 @@ pipeline:verify-spark:
   before_script:
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends openjdk-17-jre-headless
     - cd pipeline
-    # 버전의 단일 출처. 이 파일에 4.0.4 를 적지 않는다.
+    # Spark 버전은 versions.sh에서 관리한다.
     - . spark/versions.sh
     - echo "pyspark ${SPARK_VERSION}"
-    # pyyaml 을 여기서만 따로 깐다. src/trendin/spark/common/config.py 가 설정을 yaml 로
-    # 읽는데, 그 의존성이 pyproject.toml 에 없고 Airflow 가 딸려오게 두고 있다. 다른
-    # 실행 환경은 전부 정식 Airflow 이미지 위라 이미 들어 있어서 안 보였고, 맨 python
-    # 이미지를 쓰는 이 잡에서만 드러난다. 근본 해결은 pyproject 에 이름을 적는 것이지만
-    # 그건 패키지 쪽 변경이라 여기서는 잡을 돌게만 한다.
-    - pip install pytest pyyaml "pyspark==${SPARK_VERSION}"
+    # 전체 프로젝트 대신 Spark 테스트에 필요한 의존성만 설치한다.
+    # 이 줄은 사본이다 — spark/tests에 새 import를 넣으면 여기도 고친다. pyyaml은 pyproject.toml에 없다.
+    - pip install pytest pyyaml boto3 kiwipiepy "pyspark==${SPARK_VERSION}"
   script:
     - pytest spark/tests
+
+# 데이터 EC2(J15A102A)에 Kafka·MinIO·Airflow·Spark를 배포한다.
+# 러너와 서버 설정: docs/deploy-data-ec2.md (S15P21A102-183)
+deploy:data-ec2:
+  stage: deploy
+  # 호스트 Docker에 접근할 수 있는 shell 러너를 사용한다. 태그를 빼면 docker 러너가 집어가 배포가 안 된다.
+  tags:
+    - data-ec2
+  # dev에서 배포 대상이 변경된 경우에만 실행한다.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - datastore/**/*
+        - pipeline/**/*
+        - scripts/deploy-data-ec2.sh
+        - .gitlab-ci.yml
+  # 배포를 직렬화한다.
+  resource_group: data-ec2
+  # 취소로 이미지와 컨테이너 버전이 어긋나지 않게 한다.
+  interruptible: false
+  environment:
+    name: data-ec2
+  variables:
+    # 배포에는 최신 이력만 필요하다.
+    GIT_DEPTH: "1"
+  script:
+    - scripts/deploy-data-ec2.sh
