@@ -3,6 +3,8 @@ package com.forever102.trend.repository;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.KeywordMetric;
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +16,12 @@ public interface KeywordMetricRepository extends JpaRepository<KeywordMetric, Lo
 
     Optional<KeywordMetric> findFirstByKeywordIdAndPeriodAndPeriodStartAndPeriodEndOrderByIdDesc(
             Long keywordId, AnalysisPeriod period, OffsetDateTime periodStart, OffsetDateTime periodEnd);
+
+    List<KeywordMetric> findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
+            Collection<Long> keywordIds,
+            AnalysisPeriod period,
+            OffsetDateTime periodStart,
+            OffsetDateTime periodEnd);
 
     @Query(value = """
             select metric.*
