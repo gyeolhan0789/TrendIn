@@ -38,6 +38,8 @@ import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
 import com.forever102.member.dto.SavedTrendListResponse;
 import com.forever102.member.dto.SavedTrendListResponse.SavedTrendResponse;
+import com.forever102.member.dto.SavedTrendRegisterRequest;
+import com.forever102.member.dto.SavedTrendRegisterResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
@@ -185,6 +187,129 @@ class MemberControllerTest {
                 .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."));
 
         then(savedTrendService).should(never()).getSavedTrends(any(), any(), any(Integer.class), any(Integer.class));
+    }
+
+    @Test
+    @DisplayName("인증된 회원이 트렌드를 저장하면 201로 응답하고 문서화한다")
+    void registersSavedTrend() throws Exception {
+        // given
+        OffsetDateTime savedAt = OffsetDateTime.parse("2026-08-31T09:00:00+09:00");
+        given(savedTrendService.register(eq(MEMBER_ID), any(SavedTrendRegisterRequest.class)))
+                .willReturn(new SavedTrendRegisterResponse(15L, 101L, savedAt));
+
+        // when & then
+        mockMvc.perform(post("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"trendId\":101}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.savedTrendId").value(15))
+                .andExpect(jsonPath("$.data.trendId").value(101))
+                .andExpect(jsonPath("$.data.savedAt")
+                        .value("2026-08-31T09:00:00+09:00"))
+                .andDo(document("members-saved-trends-register",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        requestFields(fieldWithPath("trendId").type(JsonFieldType.NUMBER)
+                                .description("저장할 트렌드 ID")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.savedTrendId").type(JsonFieldType.NUMBER)
+                                        .description("저장 트렌드 ID"),
+                                fieldWithPath("data.trendId").type(JsonFieldType.NUMBER)
+                                        .description("트렌드 ID"),
+                                fieldWithPath("data.savedAt").type(JsonFieldType.STRING)
+                                        .description("저장 시각"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+    }
+
+    @Test
+    @DisplayName("동일한 트렌드를 다시 저장하면 409로 응답한다")
+    void rejectsDuplicateSavedTrend() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.SAVED_TREND_ALREADY_EXISTS))
+                .given(savedTrendService).register(eq(MEMBER_ID), any(SavedTrendRegisterRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"trendId\":101}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("이미 저장한 트렌드입니다."));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 트렌드를 저장하면 404로 응답한다")
+    void rejectsUnknownTrendSave() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.TREND_NOT_FOUND))
+                .given(savedTrendService).register(eq(MEMBER_ID), any(SavedTrendRegisterRequest.class));
+
+        // when & then
+        mockMvc.perform(post("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"trendId\":999}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 트렌드입니다."));
+    }
+
+    @Test
+    @DisplayName("트렌드 ID 없이 저장을 요청하면 400으로 응답한다")
+    void rejectsMissingSavedTrendId() throws Exception {
+        // when & then
+        mockMvc.perform(post("/members/me/saved-trends")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("트렌드 ID는 필수입니다."));
+        then(savedTrendService).should(never()).register(any(), any());
+    }
+
+    @Test
+    @DisplayName("로그인한 회원이 본인의 저장 트렌드를 해제하고 문서화한다")
+    void deletesSavedTrend() throws Exception {
+        // when & then
+        mockMvc.perform(delete("/members/me/saved-trends/{savedTrendId}", 15L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-saved-trends-delete",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        pathParameters(parameterWithName("savedTrendId")
+                                .description("해제할 저장 트렌드 ID")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.NULL)
+                                        .description("저장 해제 성공 시 null"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+        then(savedTrendService).should().delete(MEMBER_ID, 15L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않거나 본인 소유가 아닌 저장 트렌드 해제는 404로 응답한다")
+    void rejectsUnknownSavedTrendDeletion() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.SAVED_TREND_NOT_FOUND))
+                .given(savedTrendService).delete(MEMBER_ID, 15L);
+
+        // when & then
+        mockMvc.perform(delete("/members/me/saved-trends/{savedTrendId}", 15L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 저장 트렌드입니다."));
     }
 
     @Test

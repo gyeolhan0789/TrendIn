@@ -1,6 +1,7 @@
 package com.forever102.member.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.forever102.member.domain.Domain;
 import com.forever102.member.domain.Member;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @DataJpaTest
 class SavedTrendRepositoryTest {
@@ -48,6 +50,38 @@ class SavedTrendRepositoryTest {
             assertThat(Hibernate.isInitialized(savedTrend.getTrend())).isTrue();
             assertThat(Hibernate.isInitialized(savedTrend.getTrend().getKeyword())).isTrue();
         });
+    }
+
+    @Test
+    @DisplayName("같은 회원은 동일한 트렌드를 중복 저장할 수 없다")
+    void rejectsDuplicateSavedTrend() {
+        // given
+        Member member = persistMember("member@example.com");
+        Trend trend = persistTrend("Kubernetes");
+        savedTrendRepository.saveAndFlush(SavedTrend.save(member, trend));
+
+        // when & then
+        assertThatThrownBy(() -> savedTrendRepository.saveAndFlush(SavedTrend.save(member, trend)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("저장 트렌드 ID와 회원 ID가 모두 일치하는 관계만 조회한다")
+    void findsSavedTrendOnlyForOwner() {
+        // given
+        Member owner = persistMember("owner@example.com");
+        Member other = persistMember("other@example.com");
+        SavedTrend savedTrend = savedTrendRepository.saveAndFlush(
+                SavedTrend.save(owner, persistTrend("Kubernetes")));
+        entityManager.clear();
+
+        // when
+        var owned = savedTrendRepository.findByIdAndMemberId(savedTrend.getId(), owner.getId());
+        var unowned = savedTrendRepository.findByIdAndMemberId(savedTrend.getId(), other.getId());
+
+        // then
+        assertThat(owned).isPresent();
+        assertThat(unowned).isEmpty();
     }
 
     private Member persistMember(String email) {

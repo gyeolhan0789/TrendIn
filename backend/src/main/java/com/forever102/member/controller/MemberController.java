@@ -9,6 +9,8 @@ import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.SavedTrendListResponse;
+import com.forever102.member.dto.SavedTrendRegisterRequest;
+import com.forever102.member.dto.SavedTrendRegisterResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
@@ -95,5 +97,23 @@ public class MemberController {
     ) {
         return BaseResponse.success(savedTrendService.getSavedTrends(
                 memberId, AnalysisPeriod.from(period), page, size));
+    }
+
+    @PostMapping("/saved-trends")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BaseResponse<SavedTrendRegisterResponse> registerSavedTrend(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody SavedTrendRegisterRequest request
+    ) {
+        return BaseResponse.success(savedTrendService.register(memberId, request));
+    }
+
+    @DeleteMapping("/saved-trends/{savedTrendId}")
+    public BaseResponse<Void> deleteSavedTrend(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable @Positive Long savedTrendId
+    ) {
+        savedTrendService.delete(memberId, savedTrendId);
+        return BaseResponse.success(null);
     }
 }
