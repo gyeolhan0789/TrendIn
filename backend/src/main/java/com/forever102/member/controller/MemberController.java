@@ -5,6 +5,7 @@ import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
 import com.forever102.member.dto.MemberInfoResponse;
+import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
@@ -15,6 +16,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,6 +38,14 @@ public class MemberController {
     @GetMapping
     public BaseResponse<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal Long memberId) {
         return BaseResponse.success(memberService.getMyInfo(memberId));
+    }
+
+    @PatchMapping
+    public BaseResponse<MemberInfoResponse> updateMyInfo(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody MemberUpdateRequest request
+    ) {
+        return BaseResponse.success(memberService.updateMyInfo(memberId, request));
     }
 
     @PostMapping("/interest-keywords")
