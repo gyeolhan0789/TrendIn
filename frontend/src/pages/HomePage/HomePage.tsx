@@ -3,10 +3,13 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { PageContainer } from '../../components/layout/PageContainer';
+import { useCollect } from '../../features/savedTrend/collect/collectContext';
+import { useCollectHandlers } from '../../features/savedTrend/collect/useCollectHandlers';
 import { useNewTrends } from '../../features/trend/hooks/useNewTrends';
 import { useRelatedTrends } from '../../features/trend/hooks/useRelatedTrends';
 import { useResurgingTrends } from '../../features/trend/hooks/useResurgingTrends';
 import { useTopTrends } from '../../features/trend/hooks/useTopTrends';
+import { Sparkline } from '../../features/trend/components/Sparkline';
 import type { Trend, TrendFilterParams } from '../../features/trend/types/trend';
 
 const categories = ['패션', '개발'];
@@ -25,43 +28,19 @@ function formatDate(date: Date) {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function makeSeries(trend: Trend, count = 14) {
-  const growth = Math.max(-20, Math.min(240, trend.growthRate));
-  const start = 14 + ((trend.keyword.length * 7) % 12);
-  return Array.from({ length: count }, (_, index) => {
-    const progress = index / (count - 1);
-    const wave = ((trend.keyword.charCodeAt(index % trend.keyword.length) ?? 40) % 9) - 4;
-    return Math.max(4, start + progress * (growth * 0.28 + 26) + wave + (index > count - 4 ? growth * 0.08 : 0));
-  });
-}
-
-function getSparkPoints(values: number[], width: number, height: number) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  return values.map((value, index) => `${((index / (values.length - 1)) * width).toFixed(1)},${(height - ((value - min) / span) * height).toFixed(1)}`).join(' ');
-}
-
-function Sparkline({ trend, width = 72, height = 26, color = '#4966d8' }: { trend: Trend; width?: number; height?: number; color?: string }) {
-  const points = getSparkPoints(makeSeries(trend, 7), width, height);
-  const lastPoint = points.split(' ').at(-1)?.split(',') ?? [String(width), String(height)];
-  return (
-    <svg className="home-sparkline" viewBox={`0 0 ${width} ${height}`} width={width} height={height} preserveAspectRatio="none" aria-hidden="true">
-      <polyline points={points} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={lastPoint[0]} cy={lastPoint[1]} r="2.3" fill={color} />
-    </svg>
-  );
-}
-
 function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
   const location = useLocation();
-  return <Link className={`home-keyword ${className}`} to={{ pathname: `/trends/${trend.trendId}`, search: location.search }}>{trend.keyword}</Link>;
+  const collectHandlers = useCollectHandlers(trend);
+  return <Link className={`home-keyword ${className}`} to={{ pathname: `/trends/${trend.trendId}`, search: location.search }} {...collectHandlers}>{trend.keyword}</Link>;
 }
 
-function BookmarkButton({ trend, saved, onToggle }: { trend: Trend; saved: boolean; onToggle: (trendId: string) => void }) {
+function BookmarkButton({ trend }: { trend: Trend }) {
+  const { isSaved, toggleSave } = useCollect();
+  const saved = isSaved(trend.trendId);
   return (
-    <button className="home-bookmark" type="button" title={saved ? '저장 취소' : '트렌드 저장'} aria-label={`${trend.keyword} ${saved ? '저장 취소' : '저장'}`} onClick={(event) => { event.preventDefault(); onToggle(trend.trendId); }}>
-      <svg viewBox="0 0 13 16" width="13" height="16" fill={saved ? '#202226' : 'none'} stroke={saved ? '#202226' : '#a4aab3'} strokeWidth="1.3" aria-hidden="true"><path d="M1.5 1.5h10v13l-5-3.6-5 3.6z" /></svg>
+    <button className={`home-bookmark${saved ? ' is-saved' : ''}`} type="button" title={saved ? '담기 취소' : '담기'} aria-label={`${trend.keyword} ${saved ? '담기 취소' : '담기'}`} aria-pressed={saved} onClick={(event) => { event.preventDefault(); toggleSave(trend); }}>
+      {/* 담긴 키워드는 앰버로 채우고, 해제하면 선만 남습니다. 색은 CSS에서 currentColor로 받습니다. */}
+      <svg viewBox="0 0 13 16" width="13" height="16" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.3" aria-hidden="true"><path d="M1.5 1.5h10v13l-5-3.6-5 3.6z" /></svg>
     </button>
   );
 }
@@ -73,7 +52,7 @@ function HomeState({ loading, error, empty, onRetry }: { loading: boolean; error
   return null;
 }
 
-function Spotlight({ trend, saved, onToggle }: { trend: Trend; saved: boolean; onToggle: (trendId: string) => void }) {
+function Spotlight({ trend }: { trend: Trend }) {
   return (
     <article className="home-spotlight">
       <div className="home-spotlight-copy">
@@ -82,7 +61,7 @@ function Spotlight({ trend, saved, onToggle }: { trend: Trend; saved: boolean; o
           <span className="home-rise-badge">급등</span>
           <span className="home-muted-meta">{trend.category} · 3주 연속 상위권</span>
           <span className="home-movement">▲ {Math.max(1, trend.change === 'NEW' || !trend.change ? 2 : trend.change)}</span>
-          <BookmarkButton trend={trend} saved={saved} onToggle={onToggle} />
+          <BookmarkButton trend={trend} />
         </div>
         <div className="home-spotlight-title-row">
           <h3><TrendKeyword trend={trend} className="home-keyword--spotlight" /></h3>
@@ -103,7 +82,7 @@ function Spotlight({ trend, saved, onToggle }: { trend: Trend; saved: boolean; o
   );
 }
 
-function RankingRows({ trends, saved, onToggle }: { trends: Trend[]; saved: Set<string>; onToggle: (trendId: string) => void }) {
+function RankingRows({ trends }: { trends: Trend[] }) {
   return (
     <div className="home-ranking-table">
       <div className="home-ranking-head"><span>순위</span><span>추이</span><span>키워드</span><span>언급량</span><span>7일 대비</span><span>순위 변동</span><span /></div>
@@ -117,7 +96,7 @@ function RankingRows({ trends, saved, onToggle }: { trends: Trend[]; saved: Set<
             <span className="home-number">{trend.mentionCount.toLocaleString()}건</span>
             <strong className={trend.growthRate < 0 ? 'is-muted' : ''}>{trend.growthRate > 0 ? '+' : ''}{trend.growthRate}%</strong>
             <span className="home-change"><span className={trend.change !== 'NEW' && typeof trend.change === 'number' && trend.change < 0 ? 'is-down' : ''}>{change}</span></span>
-            <span className="home-row-action"><BookmarkButton trend={trend} saved={saved.has(trend.trendId)} onToggle={onToggle} /></span>
+            <span className="home-row-action"><BookmarkButton trend={trend} /></span>
           </div>
         );
       })}
@@ -125,14 +104,29 @@ function RankingRows({ trends, saved, onToggle }: { trends: Trend[]; saved: Set<
   );
 }
 
+function FreshCard({ trend }: { trend: Trend }) {
+  const collectHandlers = useCollectHandlers(trend);
+  return (
+    <Link className="home-fresh-card" to={`/trends/${trend.trendId}`} {...collectHandlers}>
+      <span>{trend.keyword}</span>
+      <small>{formatShortDate(trend)} 첫 등장</small>
+    </Link>
+  );
+}
+
+function RelatedChip({ trend }: { trend: Trend }) {
+  const collectHandlers = useCollectHandlers(trend);
+  return <Link className="home-chip home-chip--collectable" to={`/trends/${trend.trendId}`} {...collectHandlers}>{trend.keyword}</Link>;
+}
+
 function DiscoverySection({ newTrends, risingTrends, relatedTrends, category }: { newTrends: Trend[]; risingTrends: Trend[]; relatedTrends: Trend[]; category: string }) {
-  const relatedKeywords = relatedKeywordSets[category] ?? relatedTrends.map((trend) => trend.keyword);
+  const fallbackKeywords = relatedKeywordSets[category] ?? [];
   return (
     <section className="home-discovery" aria-label="새로운 발견">
       <div>
         <div className="home-discovery-heading"><h2>새로 등장</h2><span className="home-rise-badge">처음 등장한 키워드</span></div>
         <div className="home-fresh-grid">
-          {newTrends.slice(0, 4).map((trend) => <Link className="home-fresh-card" key={trend.trendId} to={`/trends/${trend.trendId}`}><span>{trend.keyword}</span><small>{formatShortDate(trend)} 첫 등장</small></Link>)}
+          {newTrends.slice(0, 4).map((trend) => <FreshCard key={trend.trendId} trend={trend} />)}
         </div>
       </div>
       <div>
@@ -141,7 +135,11 @@ function DiscoverySection({ newTrends, risingTrends, relatedTrends, category }: 
       </div>
       <div>
         <div className="home-discovery-heading home-discovery-heading--lined"><h2>{relatedTrends[0]?.keyword ?? category} <span>관련 키워드</span></h2></div>
-        <div className="home-keyword-cloud">{relatedKeywords.slice(0, 9).map((keyword) => <span className="home-chip" key={keyword}>{keyword}</span>)}</div>
+        {/* 실제 트렌드로 연결되는 키워드만 담을 수 있고, 나머지는 안내용 텍스트로 둡니다. */}
+        <div className="home-keyword-cloud">
+          {relatedTrends.slice(0, 9).map((trend) => <RelatedChip key={trend.trendId} trend={trend} />)}
+          {fallbackKeywords.slice(0, Math.max(0, 9 - relatedTrends.length)).map((keyword) => <span className="home-chip" key={keyword}>{keyword}</span>)}
+        </div>
       </div>
     </section>
   );
@@ -156,7 +154,6 @@ export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [now, setNow] = useState(() => new Date());
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const rawCategory = searchParams.get('category');
   const category = rawCategory && categories.includes(rawCategory) ? rawCategory : '패션';
   const period = searchParams.get('period') ?? '24h';
@@ -176,18 +173,6 @@ export function HomePage() {
     next.set(key, value);
     setSearchParams(next);
     setCategoryOpen(false);
-  };
-
-  const toggleSaved = (trendId: string) => {
-    setSavedIds((current) => {
-      const next = new Set(current);
-      if (next.has(trendId)) {
-        next.delete(trendId);
-      } else {
-        next.add(trendId);
-      }
-      return next;
-    });
   };
 
   const topTrends = topQuery.data ?? [];
@@ -213,7 +198,7 @@ export function HomePage() {
         <section className="home-top-section" aria-labelledby="home-top-heading">
           <h2 id="home-top-heading">지금 눈여겨볼 TOP 5</h2>
           <HomeState loading={topQuery.isLoading} error={topQuery.isError} empty={!spotlight} onRetry={() => topQuery.refetch()} />
-          {spotlight && <><Spotlight trend={spotlight} saved={savedIds.has(spotlight.trendId)} onToggle={toggleSaved} /><RankingRows trends={topTrends.slice(1, 5)} saved={savedIds} onToggle={toggleSaved} /></>}
+          {spotlight && <><Spotlight trend={spotlight} /><RankingRows trends={topTrends.slice(1, 5)} /></>}
         </section>
 
         <HomeState loading={newQuery.isLoading || risingQuery.isLoading || relatedQuery.isLoading} error={newQuery.isError || risingQuery.isError || relatedQuery.isError} empty={false} onRetry={() => { void newQuery.refetch(); void risingQuery.refetch(); void relatedQuery.refetch(); }} />
