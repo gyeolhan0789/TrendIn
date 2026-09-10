@@ -55,6 +55,7 @@ erDiagram
         bigint id PK
         bigint member_id FK
         bigint keyword_id FK
+        boolean was_trending
         timestamptz created_at
     }
 
@@ -167,6 +168,7 @@ erDiagram
 | bigint | id | PK |
 | bigint | member_id | FK → members |
 | bigint | keyword_id | FK → keywords |
+| boolean | was_trending | NOT NULL, default false |
 | timestamptz | created_at | |
 
 ### keywords

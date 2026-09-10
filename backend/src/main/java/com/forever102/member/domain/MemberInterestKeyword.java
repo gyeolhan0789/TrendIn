@@ -16,6 +16,7 @@ import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(
@@ -46,13 +47,22 @@ public class MemberInterestKeyword {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "was_trending", nullable = false)
+    @ColumnDefault("false")
+    private boolean wasTrending;
+
     private MemberInterestKeyword(Member member, Keyword keyword) {
         this.member = Objects.requireNonNull(member);
         this.keyword = Objects.requireNonNull(keyword);
+        this.wasTrending = false;
     }
 
     public static MemberInterestKeyword register(Member member, Keyword keyword) {
         return new MemberInterestKeyword(member, keyword);
+    }
+
+    public void updateTrendingState(boolean trending) {
+        this.wasTrending = trending;
     }
 
     @PrePersist
