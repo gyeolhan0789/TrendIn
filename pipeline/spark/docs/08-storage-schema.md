@@ -31,6 +31,21 @@
 
 ⚠️ 표시는 **제약이 실제로 존재하는지 확인되지 않은 것**이다. [§5](#5-백엔드에-요청할-것).
 
+**`keywords` 의 ⚠️ 는 2026-09-09 에 확인됐다 — 없다.** `backend/.../trend/domain/Keyword.java`
+에 `@Table(name = "keywords")` 뿐이고 `uniqueConstraints` 가 없다. 같은 저장소의 `Member` ·
+`KeywordMetric` · `KeywordMetricHistory` 에는 있으므로 빠뜨린 것으로 보인다. [05 §5](05-keyword-registry-spec.md)
+의 승격 SQL 은 이 제약 없이는 동작하지 않으므로
+`io/keywords.KeywordSink.unique_constraint_ready()` 가 `pg_index` 를 보고 **없으면 승격을
+건너뛴다** ([§5](#5-백엔드에-요청할-것) 티어 1).
+
+**`contents` · `keyword_contents` 는 생겼다** (2026-09-09, `2967bce`). `Content` 엔티티가
+`@ManyToMany` + `@JoinTable(name = "keyword_contents")` 로 조인 표까지 만들고
+`keywords.normalized_name` 도 있다 — [10 §4](10-delivery-plan.md) 가 S3·S5 를 막고 있던
+항목이 이걸로 풀렸다. `Set` 매핑이라 조인 표에 `(content_id, keyword_id)` PK 가 생기므로 위
+표의 `DO NOTHING` 이 성립한다. 다만 적재 코드는 **대상을 지정하지 않은
+`ON CONFLICT DO NOTHING`** 을 쓴다 — 컬럼 순서나 제약 이름에 기대지 않는 쪽이
+`ddl-auto: create` 아래에서 안전하다.
+
 **`aggregate` 의 네 테이블은 같은 회차에 쓴다.** 상세 화면 하나가 `keyword_metrics`(숫자)와 `keyword_metric_history`(그래프)를 함께 읽으므로, 한쪽만 갱신된 상태로 남으면 화면의 숫자와 그래프가 어긋난다.
 
 ### `contents` 와 `keywords` 를 지우지 않는 이유
@@ -91,7 +106,7 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | `pl_document_candidate` | 문서 × 후보 점수 ([04 §7](04-keyword-extraction-spec.md)). `tf` · `df` · `c_value` · `bm25` · `score` · `rank` · **`selected`**(상위 K) · `stat_date` · `is_dup` | extract |
 | `pl_keyword_daily_stat` | **키워드·후보별 일별 원자료** | extract |
 | `pl_abbreviation_observation` | `전개형 (약어)` 관측 — 문서 × 쌍. [05 §3](05-keyword-registry-spec.md) 통합의 결정적 증거. `initials_match` 가 첫 글자 대응 여부 | extract |
-| `pl_alias` | 별칭 → 대표. 근거 층, 신뢰도 | extract |
+| `pl_alias` | 별칭 → 대표. 근거 층·규칙·신뢰도·신호. **`alias_key` 가 PK 이고 사슬이 없다** ([05 §3](05-keyword-registry-spec.md)) | extract |
 | `pl_merge_log` | 병합 이력 ([05 §8](05-keyword-registry-spec.md)) | extract |
 | `pl_trend_type_log` | **회차별 유형 판별 이력.** `(keyword_id, period, 회차)` → 유형 ([07 §6](07-metrics-and-ranking-spec.md)) | aggregate |
 | `pl_review_queue` | 검수 큐 ([05 §7](05-keyword-registry-spec.md)) | extract |
@@ -121,7 +136,15 @@ ON CONFLICT (keyword_id) DO UPDATE SET
 | `io/dlq.py` | `pl_processing_error` |
 | `io/stats.py` | `pl_batch_stat` |
 | `io/contents.py` | `pl_content_id_map` · `pl_stage_contents` |
-| `io/candidates.py` | `pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` · `pl_abbreviation_observation` (+ 스테이징 셋) |
+| `io/candidates.py` | `pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` · `pl_abbreviation_observation` · **`pl_alias`** (+ 스테이징 셋) |
+| `io/keywords.py` | `pl_merge_log` · `pl_review_queue` · `pl_embedding_cache` · `pl_keyword_id_map` (+ 스테이징 셋) |
+
+**`pl_alias` 의 DDL 이 `io/candidates.py` 에 있는 것이 유일한 예외다.** 그 표를 채우는 것은
+[05](05-keyword-registry-spec.md)(`io/keywords.py`)인데, `io/candidates.py` 의 일별 원자료
+재집계가 그 표 없이는 성립하지 않는다 — 병합된 두 표기의 언급량을 행 단위로 더하면 같은
+문서를 두 번 세게 되고([05 §8](05-keyword-registry-spec.md)) 그걸 막는 조인이 이 표다.
+쓰는 쪽이 아니라 **없으면 깨지는 쪽**에 DDL 을 둔 것이고, 그래서 `ensure_schema()` 호출
+순서에 의존하지 않는다.
 
 ### `extract` 의 네 표는 한 트랜잭션으로 쓴다
 
@@ -251,6 +274,11 @@ Spark JDBC `append` 로 두었는데, 그러면 그 INSERT 가 **자기 연결�
 
 `contents.id` 와 `keywords.id` 는 DB 가 발행하므로 Spark 가 미리 모른다 ([03 §8](03-normalization-spec.md), [05 §5](05-keyword-registry-spec.md)).
 
+**둘 다 구현됐다** — `io/contents.MERGE_SQL` 과 `io/keywords.PROMOTE_SQL` 이 아래 형태
+그대로다. 후자는 `RETURNING` 으로 받은 `id` 를 `pl_keyword_id_map` 에 담고, 이어서
+`pl_candidate.keyword_id` · `pl_keyword_daily_stat.keyword_id` 를 같은 트랜잭션에서 채운다 —
+승격 상태가 세 표에 걸쳐 있어 하나만 갱신되면 다음 실행이 그 후보를 다시 심사한다.
+
 ```sql
 BEGIN;
 WITH upserted AS (
@@ -287,7 +315,7 @@ Spark 는 DDL 권한이 없으므로 정리해 전달한다. **[§6](#6-스키�
 
 | # | 요청 | 없으면 |
 | --- | --- | --- |
-| 1 | **`keywords (domain, normalized_name)` UNIQUE** | `ON CONFLICT` 가 동작하지 않는다. **같은 키워드가 매 배치마다 새 행으로 쌓인다.** 며칠이면 복구 불가 ([05 §5](05-keyword-registry-spec.md)) |
+| 1 | **`keywords (domain, normalized_name)` UNIQUE** — **2026-09-09 확인: 없다** | `ON CONFLICT` 가 동작하지 않는다. **같은 키워드가 매 배치마다 새 행으로 쌓인다.** 며칠이면 복구 불가 ([05 §5](05-keyword-registry-spec.md)). 지금은 [05] 가 승격을 건너뛰고 있어 `keywords` 가 비어 있다 |
 | 2 | **`keyword_metrics (keyword_id, period)` UNIQUE** | "기간별 1행" 이 보장되지 않는다. 재실행마다 같은 기간이 중복 삽입되고 목록에 같은 키워드가 여러 번 나온다 |
 | 3 | **`keyword_metric_history (keyword_id, bucket_start)` UNIQUE** | 재계산할 때마다 같은 날짜가 그래프에 여러 번 나온다. **화면에 바로 보이는 종류의 오류다** |
 

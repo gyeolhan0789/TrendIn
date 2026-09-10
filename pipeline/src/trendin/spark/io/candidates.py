@@ -6,6 +6,7 @@
 | `pl_candidate` | 후보 마스터. 대표 표기 · **최초 관측일** · 승격 상태 | upsert (`LEAST`) |
 | `pl_keyword_daily_stat` | 일별 원자료 — **집계의 원본** | 영향받은 날짜를 다시 센다 |
 | `pl_abbreviation_observation` | `전개형 (약어)` 관측 — [05 §3] 의 결정적 증거 | upsert |
+| `pl_alias` | 별칭 → 대표. **[05] 가 채우고 여기서는 읽는다** | 아래 `ALIAS` 주석 |
 
 **서비스 테이블을 전혀 건드리지 않는다** ([08 §1], [10 §4] S4 마지막 조건). 전부 `pl_` 이고
 DDL 은 우리 것이다.
@@ -18,6 +19,10 @@ DDL 은 우리 것이다.
 에 흩어져 오므로(발행이 늦은 문서, [07 §2]) 이번 배치의 행만으로는 그 날의 값을 알 수 없다.
 영향받은 날짜를 모아 `pl_document_candidate` 전체에서 다시 세고, 그 날짜에서 사라진 후보의
 행은 지운다. `keyword_id` 는 [05] 가 승격할 때 채우는 칸이라 갱신에서 건드리지 않는다.
+
+**세는 단위는 대표 비교키다** ([05 §8]). `pl_alias` 를 거쳐 별칭을 대표로 접은 뒤 문서를
+센다 — 접지 않으면 병합된 두 표기가 함께 나온 문서를 두 번 세게 되고, 그러면 병합 시점에
+없던 급증이 생긴다. 이 재집계가 `DAILY_STAT_RECOUNT` 한 곳에 있고 [05] 도 그것을 부른다.
 
 **후보의 `doc_count` 는 필터를 통과한 전부를 센다** — 상위 K 만이 아니다. [04 §7] 이 내부
 통계에는 "필터를 통과한 전부" 를 남기라고 했고, 승격 심사([05 §5])는 그 누적 관측을 본다.
@@ -42,6 +47,12 @@ DOCUMENT_CANDIDATE = "pl_document_candidate"
 CANDIDATE = "pl_candidate"
 DAILY_STAT = "pl_keyword_daily_stat"
 ABBREVIATION = "pl_abbreviation_observation"
+
+# **[05] 가 채우고 여기서는 읽는다** (`registry/`, `io/keywords.py`). 그래도 DDL 이 이 모듈에
+# 있는 이유는 아래 일별 원자료 재집계가 이 표 없이는 성립하지 않기 때문이다 — 병합된 두 표기의
+# 언급량을 행 단위로 더하면 같은 문서를 두 번 세게 되고([05 §8]), 그걸 막는 조인이 이 표다.
+# 소유가 갈리는 자리라 [08 §3] 의 모듈 표에 그렇게 적어 뒀다.
+ALIAS = "pl_alias"
 
 STAGE_DOCUMENT_CANDIDATE = "pl_stage_document_candidate"
 # 이번에 처리한 문서 전부 — 후보가 0 개인 문서도. 그 문서의 옛 행을 지우는 근거다.
@@ -185,6 +196,27 @@ CREATE TABLE IF NOT EXISTS {ABBREVIATION} (
     PRIMARY KEY (domain, url_hash, abbreviation_key, expansion_key)
 );
 
+-- 별칭 → 대표 ([05 §3]). 채우는 것은 `io/keywords.py` 이고 여기서는 재집계가 읽는다.
+-- `alias_key` 가 PK 인 것이 요점이다 — 한 표기가 두 대표를 가리키면 재집계가 같은 문서를
+-- 두 대표에 각각 세고, 그게 [05 §8] 이 막으려는 이중 계수다.
+CREATE TABLE IF NOT EXISTS {ALIAS} (
+    domain        text        NOT NULL,
+    alias_key     text        NOT NULL,
+    canonical_key text        NOT NULL,
+    -- 근거 층 ([05 §2]·[05 §3]) 과 규칙 이름. 1=결정적 · 2=통계 증거 · 3=검수 승인.
+    layer         integer     NOT NULL,
+    rule          text        NOT NULL,
+    confidence    double precision NOT NULL,
+    signal        jsonb,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (domain, alias_key),
+    -- 자기 자신을 가리키는 별칭은 대표를 지운다. 방어로 둔다.
+    CHECK (alias_key <> canonical_key)
+);
+-- 재집계가 `alias_key` 로 조인하고, 승격 심사가 대표별로 별칭을 모은다.
+CREATE INDEX IF NOT EXISTS pl_alias_canonical_idx ON {ALIAS} (domain, canonical_key);
+
 -- 스테이징은 제약이 없다. 순수 INSERT 를 빠르게 받고 MERGE 뒤 비운다.
 CREATE TABLE IF NOT EXISTS {STAGE_DOCUMENT_CANDIDATE} (LIKE {DOCUMENT_CANDIDATE});
 CREATE TABLE IF NOT EXISTS {STAGE_EXTRACTED_DOCUMENT} (
@@ -197,13 +229,65 @@ CREATE TABLE IF NOT EXISTS {STAGE_ABBREVIATION} (LIKE {ABBREVIATION});
 _DC = ", ".join(DOCUMENT_CANDIDATE_COLUMNS)
 _AB = ", ".join(ABBREVIATION_COLUMNS)
 
+# 대표 비교키. 별칭이 없으면 자기 자신이다 — `LEFT JOIN` 이라 [05] 가 아직 아무것도 채우지
+# 않은 상태에서도 옛 동작과 같다.
+_CANONICAL = "coalesce(al.canonical_key, d.normalized_key)"
+
+# 일별 원자료를 **저장된 문서 후보 전체에서** 다시 세는 두 문장. `_affected_date`
+# (`(domain, stat_date)`) 임시 테이블이 이미 있다고 전제한다.
+#
+# **부르는 곳이 둘이다.** 아래 `MERGE_SQL`([04] — 문서를 새로 처리했을 때)과
+# `io/keywords.RegistrySink.apply_aliases`([05] — 병합이 새로 생겼을 때). 정의가 두 곳이 되면 한쪽만
+# 고쳐져 같은 날짜의 값이 부른 사람에 따라 달라진다.
+#
+# **별칭을 대표로 접어 센다** ([05 §8]). 병합된 두 표기의 언급량을 행 단위로 더하면 두 표기가
+# 함께 나온 문서를 두 번 세는데, `count(DISTINCT url_hash)` 를 대표로 묶으면 그 문서가 1 이
+# 된다 — 원자료에서 다시 세는 것이 이관보다 맞는 이유가 이것이다.
+#
+# 뒤의 `DELETE` 가 **별칭 행을 걷어낸다.** 병합 뒤 별칭은 어느 대표 키로도 나오지 않으므로
+# `NOT EXISTS` 에 걸려 사라지고, 관측은 `pl_document_candidate` 에 그대로 남는다.
+DAILY_STAT_RECOUNT = f"""
+INSERT INTO {DAILY_STAT}
+    (domain, normalized_key, stat_date, doc_count, occurrence_count, source_count, author_count,
+     doc_count_with_dup, updated_at)
+SELECT d.domain, {_CANONICAL}, d.stat_date,
+       count(DISTINCT d.url_hash) FILTER (WHERE NOT d.is_dup),
+       coalesce(sum(d.tf), 0),
+       count(DISTINCT d.source_id) FILTER (WHERE NOT d.is_dup),
+       count(DISTINCT d.author)
+           FILTER (WHERE NOT d.is_dup AND d.author IS NOT NULL AND d.author <> ''),
+       count(DISTINCT d.url_hash),
+       now()
+  FROM {DOCUMENT_CANDIDATE} d
+  JOIN _affected_date a ON a.domain = d.domain AND a.stat_date = d.stat_date
+  LEFT JOIN {ALIAS} al ON al.domain = d.domain AND al.alias_key = d.normalized_key
+ GROUP BY d.domain, {_CANONICAL}, d.stat_date
+ON CONFLICT (domain, normalized_key, stat_date) DO UPDATE SET
+    doc_count          = EXCLUDED.doc_count,
+    occurrence_count   = EXCLUDED.occurrence_count,
+    source_count       = EXCLUDED.source_count,
+    author_count       = EXCLUDED.author_count,
+    doc_count_with_dup = EXCLUDED.doc_count_with_dup,
+    updated_at         = EXCLUDED.updated_at;
+
+DELETE FROM {DAILY_STAT} s
+ USING _affected_date a
+ WHERE s.domain = a.domain AND s.stat_date = a.stat_date
+   AND NOT EXISTS (
+        SELECT 1 FROM {DOCUMENT_CANDIDATE} d
+         LEFT JOIN {ALIAS} al ON al.domain = d.domain AND al.alias_key = d.normalized_key
+         WHERE d.domain = s.domain AND d.stat_date = s.stat_date
+           AND {_CANONICAL} = s.normalized_key
+   );
+"""
+
 # 순서가 중요하다.
 #   1. 영향받는 (domain, stat_date) 를 **지우기 전에** 모은다 — 지운 뒤에는 옛 날짜를 알 수 없다.
 #   2. 처리한 문서의 옛 후보 행을 지운다 (후보가 0 개가 된 문서도 포함).
 #   3. 새 후보 행을 넣는다.
 #   4. 후보 마스터 upsert. 최초 관측일은 LEAST 로 지킨다 — 재실행이 앞당기지도 늦추지도 않는다.
-#   5. 영향받은 날짜의 일별 원자료를 저장된 문서 후보에서 다시 센다. keyword_id 는 건드리지 않는다.
-#   6. 그 날짜에서 사라진 후보의 원자료 행을 지운다.
+#   5·6. 영향받은 날짜의 일별 원자료를 다시 센다 (`DAILY_STAT_RECOUNT`). keyword_id 는
+#        건드리지 않는다 — [05] 가 승격할 때 채우는 칸이다.
 #   7. 약어 관측 upsert.
 MERGE_SQL = f"""
 CREATE TEMP TABLE _affected_date ON COMMIT DROP AS
@@ -237,36 +321,7 @@ ON CONFLICT (domain, normalized_key) DO UPDATE SET
     last_seen_date  = GREATEST({CANDIDATE}.last_seen_date, EXCLUDED.last_seen_date),
     updated_at      = now();
 
-INSERT INTO {DAILY_STAT}
-    (domain, normalized_key, stat_date, doc_count, occurrence_count, source_count, author_count,
-     doc_count_with_dup, updated_at)
-SELECT d.domain, d.normalized_key, d.stat_date,
-       count(DISTINCT d.url_hash) FILTER (WHERE NOT d.is_dup),
-       coalesce(sum(d.tf), 0),
-       count(DISTINCT d.source_id) FILTER (WHERE NOT d.is_dup),
-       count(DISTINCT d.author)
-           FILTER (WHERE NOT d.is_dup AND d.author IS NOT NULL AND d.author <> ''),
-       count(DISTINCT d.url_hash),
-       now()
-  FROM {DOCUMENT_CANDIDATE} d
-  JOIN _affected_date a ON a.domain = d.domain AND a.stat_date = d.stat_date
- GROUP BY d.domain, d.normalized_key, d.stat_date
-ON CONFLICT (domain, normalized_key, stat_date) DO UPDATE SET
-    doc_count          = EXCLUDED.doc_count,
-    occurrence_count   = EXCLUDED.occurrence_count,
-    source_count       = EXCLUDED.source_count,
-    author_count       = EXCLUDED.author_count,
-    doc_count_with_dup = EXCLUDED.doc_count_with_dup,
-    updated_at         = EXCLUDED.updated_at;
-
-DELETE FROM {DAILY_STAT} s
- USING _affected_date a
- WHERE s.domain = a.domain AND s.stat_date = a.stat_date
-   AND NOT EXISTS (
-        SELECT 1 FROM {DOCUMENT_CANDIDATE} d
-         WHERE d.domain = s.domain AND d.stat_date = s.stat_date
-           AND d.normalized_key = s.normalized_key
-   );
+{DAILY_STAT_RECOUNT}
 
 INSERT INTO {ABBREVIATION} ({_AB})
 SELECT DISTINCT ON (domain, url_hash, abbreviation_key, expansion_key) {_AB}

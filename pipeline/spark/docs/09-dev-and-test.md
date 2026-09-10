@@ -237,7 +237,7 @@ conf/base.yaml  ←  conf/{profile}.yaml  ←  환경변수
 | --- | --- |
 | URL 정규화, HTML 제거, 코드 블록 분리, 언어 판별 | [03](03-normalization-spec.md) |
 | 토큰화(**한국어 형태소 분석** · 표기 정책 · 사용자 사전 · 영문 식별자·버전·약어 보존), 후보 생성(명사 연속 · n-gram · 포함 관계 · 약어-전개형 쌍), 비교키, 필터(형태·길이·불용어·노이즈 · DF 비율 경계), C-value · BM25 · 정규화 · 결합 · 선별, 문서 하나의 UDF 본체, 설정 거부 | [04](04-keyword-extraction-spec.md). 구현 `extract/*`, 테스트 `tests/unit/test_extract_*.py` |
-| 결정적 병합 규칙, 약어 대응 판별, 승격 조건 | [05](05-keyword-registry-spec.md) |
+| 조건부 복수형, 약어-전개형 판별, 표기 변형(편집 거리·DF 압도), 대표 선정(사슬·승격 보류), 승격 관문 경계값, 검수 큐 우선순위·`REJECTED` 기억, 임베딩 배선(`pickle`·캐시 적중), 설정 거부 | [05](05-keyword-registry-spec.md). 구현 `registry/*`, 테스트 `tests/unit/test_registry_*.py` |
 | NPMI, 점수 사상, 상위 N 절단 | [06](06-related-keyword-spec.md) |
 | 구간 경계(반열린 구간·기준일 D), 성장률(0 분모 포함), 동점 정렬, **유형 판별 세 개** | [07](07-metrics-and-ranking-spec.md) |
 | **이벤트 계약 판별** — 두 형태 분기, `schema_version`, checksum 대조, `article.json` 필수 필드·동일 기사 확인 | [02](02-input-contract.md). 구현 `io/contract.py`, 테스트 `tests/unit/test_contract.py` |
@@ -252,6 +252,10 @@ conf/base.yaml  ←  conf/{profile}.yaml  ←  환경변수
 **⚠️ 층 1 이 "의존성 없음" 은 아니다.** 한국어 토큰화는 형태소 분석기(kiwipiepy)를 쓰므로 그 패키지가 필요하다. 층 1 의 조건은 **pyspark 를 import 하지 않는 것**이고, 분석기를 고를 때 **Windows·Linux 휠이 둘 다 있는 것**을 조건으로 둔 이유가 이 층을 지키기 위해서다 — 호스트에서 토큰화를 고치고 바로 재는 것이 안 되면 이 층 구분이 무너진다 ([04 §2](04-keyword-extraction-spec.md), `extract/morphology.py` 의 후보 비교표).
 
 **분석기 객체는 pickle 되지 않는다.** UDF 클로저에는 설정(`AnalyzerSpec`)만 담고 분석기는 executor 프로세스에서 만들어 캐시한다 (`extract/morphology.analyzer_for`). 층 1 테스트가 그 회귀를 지킨다 — 층 2 까지 가야 잡히는 종류의 배선 실수인데, `pickle.dumps` 한 줄로 층 1 에서 잡을 수 있다.
+
+**같은 회귀 방어가 임베딩에도 있다** (`test_registry_embedding.py`). 층 3 은 모델이 설정이라 기본이 꺼져 있는데([05 §4](05-keyword-registry-spec.md)), 그 상태에서도 배선은 지켜져야 한다 — `EmbeddingSpec` 이 `pickle` 되고 제공자가 그 안에 없다는 것을 의존성 없는 결정적 제공자로 검증한다.
+
+**[05](05-keyword-registry-spec.md) 는 층 1 에서 거의 전부 덮인다.** 그 문서의 로직이 Spark 를 쓰지 않기 때문이다 — 집계는 PostgreSQL 이 하고 판정은 순수 파이썬이 한다 ([10 §4](10-delivery-plan.md) S5). 그래서 층 2 에 S5 항목이 없고, 남는 것은 SQL 이라 층 3 이 받는다.
 
 `pipeline/tests/` 가 이미 같은 패턴이다 — 태스크 함수를 Airflow 없이 테스트한다.
 
@@ -298,12 +302,18 @@ compose 를 띄우고 실제 경로를 한 번 훑는다. 수는 적게, 시나�
 | 수집 실패한 날 | 그 날짜의 버킷 행이 **만들어지지 않는지** ([07 §3](07-metrics-and-ranking-spec.md)) |
 | **트렌드에서 내려온 키워드** | `trends` 행은 남고 `trend_types` 가 빈 배열이 되는지, 지표·시계열은 계속 나오는지 ([07 §6](07-metrics-and-ranking-spec.md)) |
 | **`trend_types` 배열 적재** | 문자열 배열이 실제 컬럼 타입에 들어가는지. 캐스트가 필요한 형태인지가 여기서 드러난다 ([08 §4](08-storage-schema.md)) |
+| **extract 두 번 (승격 포함)** | `keywords` 행 수가 늘지 않는지, `pl_keyword_id_map` 이 같은 `id` 를 다시 받는지 ([05 §5](05-keyword-registry-spec.md)) |
+| **`keywords` UNIQUE 가 없는 상태** | 승격**만** 건너뛰고 `pl_alias` · `pl_review_queue` 는 채워지는지. `promotion_skipped` 가 `pl_batch_stat` 에 1 로 남는지 ([10 §4](10-delivery-plan.md) S5) |
+| **병합이 새로 생긴 회차** | 별칭의 일별 원자료 행이 사라지고 대표 행에 합쳐지는지, **두 표기가 함께 나온 문서가 1 로 셈되는지** ([05 §8](05-keyword-registry-spec.md)) |
+| **문서의 후보가 바뀐 재추출** | `keyword_contents` 에서 그 문서분만 갈리고 다른 문서의 연결은 남는지 ([08 §2](08-storage-schema.md)) |
 
 **요약 이벤트 줄이 새로 가장 중요하다.** 한 토픽에 형태가 둘 흐르는데, 분기를 빠뜨리면 요약 이벤트가 전부 DLQ 로 간다. 그러면 문서는 정상으로 들어오면서 수집 상태만 조용히 사라져서 층 1·2 에서 전혀 드러나지 않는다.
 
 **`members_only`·`route: api` 두 줄도 같은 종류다.** 본문 없는 문서가 정상 입력인데 필터가 물면, dev 도메인이 통째로 비면서 "수집이 안 됐나" 로 보인다.
 
 **마지막 두 줄은 층 1·2 에서 잡히지 않는다.** 실제 운영에서 자주 일어나고, 재실행 안정성은 compose 를 실제로 두 번 돌려야만 확인된다.
+
+**[05](05-keyword-registry-spec.md) 의 네 줄은 이 층에만 있다.** 그 문서의 로직은 층 1 이 거의 전부 덮지만([§4 층 1](#층-1--순수-함수-spark-없음)) 남는 것이 서버사이드 MERGE 라, 실제 PostgreSQL 없이는 `ON CONFLICT` 추론도 `_new_alias` 임시 표도 확인할 수 없다. **첫 두 줄은 `keywords (domain, normalized_name)` UNIQUE 가 적용돼야 돌 수 있다** ([§7](#7-구현-착수-전에-필요한-것) 항목 2).
 
 ### Spark 자격증명이 read 전용인지 확인하는 법
 
@@ -449,7 +459,7 @@ Spark 태스크는 `crawler_pool` 을 쓰지 않는다. 외부 사이트를 치�
 | # | 필요한 것 | 없으면 | 막히는 Job |
 | --- | --- | --- | --- |
 | 1 | **`ddl-auto: create` → `update`** | 백엔드 재배포마다 수집 데이터와 사용자의 관심 키워드가 사라진다. 지표는 내부 원자료에서 다시 계산되지만 `contents` 는 MinIO 재스캔이 필요하다 ([08 §6](08-storage-schema.md)) | 전부 |
-| 2 | **`keywords (domain, normalized_name)` UNIQUE 적용** | 같은 키워드가 계속 새 행으로 쌓인다. **나중에 붙일 수 없다** ([05 §5](05-keyword-registry-spec.md)) | `extract` |
+| 2 | **`keywords (domain, normalized_name)` UNIQUE 적용** — **2026-09-09 확인: 없다** | 같은 키워드가 계속 새 행으로 쌓인다. **나중에 붙일 수 없다** ([05 §5](05-keyword-registry-spec.md)). 지금은 `extract` 가 승격만 건너뛰고 돌아 `keywords` 가 비어 있다 | `extract` — **승격만** |
 | 3 | `period` 값 규약 | varchar 라 코드가 정하는 대로 굳는다 ([07 §4](07-metrics-and-ranking-spec.md)) | `aggregate` |
 | 4 | `keyword_metrics (keyword_id, period)` · `keyword_metric_history (keyword_id, bucket_start)` UNIQUE | 기간별 1행이 깨지고 그래프에 같은 날짜가 여러 번 나온다 | `aggregate` |
 | 4a | **`trend_type_array` 의 실제 타입** | 배열 컬럼인지 조인 테이블인지에 따라 `trends` 적재 코드가 달라진다 ([01 §6](01-architecture.md)) | `aggregate` |
@@ -459,6 +469,8 @@ Spark 태스크는 `crawler_pool` 을 쓰지 않는다. 외부 사이트를 치�
 `domain` 값은 합의됐다 — 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION` ([01 §6](01-architecture.md)). **`development` 가 아니다.**
 
 **1·2 만 적용되면 `ingest` 와 `extract` 를 만들 수 있다.** 3·4·4a 는 `aggregate` 착수 전에 필요하다.
+
+**2026-09-09 — `ingest` 와 `extract` 는 1·2 없이 다 만들어졌다.** 남은 것은 "만들 수 있나" 가 아니라 **승격 한 단계가 실제로 도는가**다. 그 단계만 `keywords` 에 쓰기 때문이다 ([10 §4](10-delivery-plan.md) S5). 같은 날 `contents` · `keyword_contents` · `keywords.normalized_name` 이 생겼으므로(`2967bce`) 이제 진짜로 이 표의 두 줄만 남았다.
 
 **1번을 먼저 해야 하는 이유** — 2번을 적용해도 `create` 상태면 다음 재배포에 그 제약까지 함께 날아간다. 순서가 뒤바뀌면 같은 일을 두 번 한다.
 

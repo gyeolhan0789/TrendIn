@@ -179,13 +179,17 @@ src/trendin/spark/    로직. jobs 가 import 한다
 ├─ io/        contract.py(판별) · schema.py(스키마) · kafka.py(소비)
 │             objects.py(MinIO 조회) · ledger.py(처리 이력) · dlq.py(DLQ) · jdbc.py(앱 DB)
 │             contents.py(contents 적재) · stats.py(pl_batch_stat) · candidates.py(후보 표 넷)
+│             keywords.py(keywords · keyword_contents 적재 · 별칭·검수 큐·이력)
 ├─ ingest/    routing.py(판별→상태·단계) · objects.py(객체 검증) · batch.py(배치 배선)
 │             normalize.py(정제·적재 단계) · backfill.py(--source objects)
 ├─ normalize/ [03] documents · text · urls · lang · filters · dedup · simhash · curated · adapters/
 ├─ extract/   [04] morphology(ko 형태소 분석기) · tokenize(ko 분석·en 규칙) · candidates
 │             keys · lexicon · filters · scoring
 │             document(UDF 본체) · batch(Spark 배선) · source(curated 읽기) · thresholds
-├─ registry/ metrics/    아직 비어 있다 ([05] · [06] [07])
+├─ registry/  [05] normalize(층1 복수형) · merge(층2 판정) · alias(대표 선정)
+│             promote(승격 관문) · review(검수 큐) · embedding(층3) · batch(단계 배선)
+│             thresholds. **pyspark 를 import 하지 않는다**
+├─ metrics/   아직 비어 있다 ([06] [07])
 ```
 
 불용어·노이즈는 `conf/lexicon/stopwords-*.txt` · `noise-*.txt` 다 (`extract/lexicon.py`).
@@ -244,13 +248,15 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | | 필요한 것 | 막히는 Job |
 | --- | --- | --- |
 | 1 | **`ddl-auto: create` → `update`** — 지금은 백엔드 재배포마다 수집 데이터가 전부 사라진다 | 전부 |
-| 2 | **`keywords (domain, normalized_name)` UNIQUE** — **나중에 붙일 수 없는 유일한 항목** | `extract` |
+| 2 | **`keywords (domain, normalized_name)` UNIQUE** — **나중에 붙일 수 없는 유일한 항목.** 2026-09-09 확인 결과 `Keyword.java` 에 없다 | `extract` — **승격 단계만** |
 | 3 | `period` 값 규약 (varchar 라 코드가 정하는 대로 굳는다) | `aggregate` |
 | 4 | `keyword_metrics (keyword_id, period)` · `keyword_metric_history (keyword_id, bucket_start)` UNIQUE | `aggregate` |
 | 4a | **`trends.trend_types` 의 실제 타입** — 배열 컬럼인지 조인 테이블인지 ([01 §6](docs/01-architecture.md)) | `aggregate` |
 | 5 | **실제 수집 데이터 샘플** — 임계값을 추측으로 정하면 전부 다시 하게 된다 | 품질 |
 
 **1·2 만 적용되면 `ingest` 와 `extract` 는 착수할 수 있다.** 1을 2보다 먼저 해야 한다 — `create` 상태에서는 2번 제약도 다음 재배포에 함께 날아간다.
+
+**2026-09-09 — 둘 다 없이 `ingest`·`extract` 를 다 만들었다.** 파이프라인 내부 테이블(`pl_*`)만 쓰는 부분이 대부분이라 그럴 수 있었고, 실제로 막혀 있는 것은 **키워드 승격 한 단계**다 — `keywords` 에 쓰는 유일한 자리이기 때문이다. 그동안 `extract` 는 병합·검수 큐·이력·재집계를 정상으로 돌리고 승격만 건너뛴다 (`extract.registry.required`, [10 §4](docs/10-delivery-plan.md) S5). 그리고 같은 날 `contents`·`keyword_contents`·`keywords.normalized_name` 이 생겨(`2967bce`) 이 표에서 빠졌다.
 
 ### MinIO — `curated` 버킷과 쓰기 권한이 없다
 
