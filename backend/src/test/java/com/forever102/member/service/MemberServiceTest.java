@@ -8,6 +8,7 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.domain.Member;
 import com.forever102.member.dto.MemberInfoResponse;
+import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.repository.MemberRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +25,7 @@ class MemberServiceTest {
     private static final Long MEMBER_ID = 1L;
     private static final String EMAIL = "test@example.com";
     private static final String NICKNAME = "trenduser";
+    private static final String NEW_NICKNAME = "newNickname";
     private static final String ENCODED_PASSWORD = "{bcrypt}$2a$10$encoded";
 
     @Mock
@@ -83,6 +85,85 @@ class MemberServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MEMBER_NOT_FOUND);
     }
 
+
+    @Test
+    @DisplayName("닉네임을 수정하면 바뀐 회원 정보를 반환한다")
+    void updatesNickname() {
+        // given
+        givenMember();
+
+        // when
+        MemberInfoResponse response = memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NEW_NICKNAME));
+
+        // then
+        assertThat(response).isEqualTo(new MemberInfoResponse(MEMBER_ID, EMAIL, NEW_NICKNAME, false));
+    }
+
+    @Test
+    @DisplayName("수정은 저장된 회원 엔티티에 반영된다")
+    void appliesNicknameToMember() {
+        // given
+        Member member = givenMember();
+
+        // when
+        memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NEW_NICKNAME));
+
+        // then
+        assertThat(member.getNickname()).isEqualTo(NEW_NICKNAME);
+    }
+
+    @Test
+    @DisplayName("닉네임 외의 정보는 수정하지 않는다")
+    void doesNotChangeOtherFields() {
+        // given
+        Member member = givenMember();
+
+        // when
+        memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NEW_NICKNAME));
+
+        // then
+        assertThat(member.getEmail()).isEqualTo(EMAIL);
+        assertThat(member.getPasswordHash()).isEqualTo(ENCODED_PASSWORD);
+        assertThat(member.isOnboardingCompleted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("온보딩을 완료한 회원은 수정 후에도 onboardingCompleted가 true다")
+    void keepsOnboardingCompletedAfterUpdate() {
+        // given
+        givenMember().completeOnboarding();
+
+        // when
+        MemberInfoResponse response = memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NEW_NICKNAME));
+
+        // then
+        assertThat(response.onboardingCompleted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("같은 닉네임을 쓰는 회원이 있어도 수정을 막지 않는다")
+    void allowsDuplicatedNickname() {
+        // given
+        givenMember();
+
+        // when
+        MemberInfoResponse response = memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NICKNAME));
+
+        // then
+        assertThat(response.nickname()).isEqualTo(NICKNAME);
+    }
+
+    @Test
+    @DisplayName("토큰의 회원이 남아 있지 않으면 MEMBER_NOT_FOUND 예외가 발생한다")
+    void rejectsUpdateForMissingMember() {
+        // given
+        given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> memberService.updateMyInfo(MEMBER_ID, new MemberUpdateRequest(NEW_NICKNAME)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MEMBER_NOT_FOUND);
+    }
     private Member givenMember() {
         Member member = Member.create(EMAIL, ENCODED_PASSWORD, NICKNAME);
         ReflectionTestUtils.setField(member, "id", MEMBER_ID);

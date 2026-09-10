@@ -189,6 +189,39 @@ operation::members-me-unauthorized[snippets='http-response,response-fields']
 
 operation::members-me-not-found[snippets='http-response,response-fields']
 
+[[members-me-update]]
+=== 내 정보 수정
+
+`PATCH /members/me`
+
+본인의 회원 정보를 수정한다. 현재 수정 가능한 필드는 닉네임뿐이며, 이메일과 비밀번호는 이 API로 바꿀 수 없다.
+이메일·비밀번호 변경은 재인증 정책과 별도 API가 필요하다.
+
+닉네임은 앞뒤 공백을 제거한 뒤 2~30자여야 한다. 표시용 값이고 회원 식별은 이메일로 하므로 중복을 허용한다.
+온보딩 완료 여부는 이 API로 바뀌지 않는다.
+
+==== 요청 및 응답
+
+operation::members-me-update[snippets='http-request,request-headers,request-fields,http-response,response-fields']
+
+==== 에러
+
+===== 400 Bad Request
+
+`nickname`이 없거나, 앞뒤 공백을 제거한 길이가 2~30자를 벗어난 경우.
+
+operation::members-me-update-invalid-request[snippets='http-response,response-fields']
+
+===== 401 Unauthorized
+
+액세스 토큰이 없거나 만료·위조된 경우.
+
+operation::members-me-update-unauthorized[snippets='http-response,response-fields']
+
+===== 404 Not Found
+
+토큰은 유효하지만 해당 회원이 남아 있지 않은 경우.
+
 [[members-interest-keywords-register]]
 === 관심 키워드 등록
 

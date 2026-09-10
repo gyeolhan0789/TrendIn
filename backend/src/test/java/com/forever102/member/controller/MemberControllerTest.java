@@ -1,6 +1,7 @@
 package com.forever102.member.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
@@ -18,6 +19,7 @@ import static org.springframework.restdocs.request.RequestDocumentation.paramete
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,6 +33,7 @@ import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
 import com.forever102.member.dto.MemberInfoResponse;
+import com.forever102.member.dto.MemberUpdateRequest;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
@@ -57,6 +60,8 @@ class MemberControllerTest {
 
     private static final String URL = "/members/me/interest-keywords";
     private static final String ME_URL = "/members/me";
+    private static final String VALID_UPDATE_REQUEST = "{\"nickname\":\"newNickname\"}";
+    private static final String SHORT_NICKNAME_REQUEST = "{\"nickname\":\"  a  \"}";
     private static final Long MEMBER_ID = 1L;
     private static final Long KEYWORD_ID = 81L;
 
@@ -381,6 +386,151 @@ class MemberControllerTest {
                                 fieldWithPath("message").type(JsonFieldType.STRING)
                                         .description("에러 메시지")
                         )));
+    }
+
+    @Test
+    @DisplayName("인증된 회원이 닉네임을 수정하면 200과 바뀐 정보를 반환하고 문서화한다")
+    void updatesMyInfo() throws Exception {
+        // given
+        given(memberService.updateMyInfo(eq(MEMBER_ID), any(MemberUpdateRequest.class)))
+                .willReturn(new MemberInfoResponse(MEMBER_ID, "test@example.com", "newNickname", false));
+
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.memberId").value(1))
+                .andExpect(jsonPath("$.data.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.nickname").value("newNickname"))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-me-update",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        requestFields(fieldWithPath("nickname").type(JsonFieldType.STRING)
+                                .description("바꿀 닉네임. 필수, 앞뒤 공백 제거 후 2~30자. 현재 수정 가능한 필드는 닉네임뿐이다.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.memberId").type(JsonFieldType.NUMBER)
+                                        .description("회원 식별자"),
+                                fieldWithPath("data.email").type(JsonFieldType.STRING)
+                                        .description("가입 이메일. 이 API로는 수정할 수 없다."),
+                                fieldWithPath("data.nickname").type(JsonFieldType.STRING)
+                                        .description("수정된 닉네임"),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. 수정으로 바뀌지 않는다."),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("토큰의 회원 식별자로 서비스를 호출한다")
+    void passesAuthenticatedMemberIdOnUpdate() throws Exception {
+        // given
+        given(memberService.updateMyInfo(eq(MEMBER_ID), any(MemberUpdateRequest.class)))
+                .willReturn(new MemberInfoResponse(MEMBER_ID, "test@example.com", "newNickname", false));
+
+        // when
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_REQUEST))
+                .andExpect(status().isOk());
+
+        // then
+        then(memberService).should().updateMyInfo(eq(MEMBER_ID), any(MemberUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("액세스 토큰이 없으면 401로 응답하고 서비스를 호출하지 않는다")
+    void updateRequiresAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
+                .andDo(document("members-me-update-unauthorized",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+        then(memberService).should(never()).updateMyInfo(any(), any(MemberUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("앞뒤 공백을 제거하면 2자 미만이 되는 닉네임은 400으로 응답한다")
+    void updateRejectsBlankPaddedNickname() throws Exception {
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(SHORT_NICKNAME_REQUEST))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("닉네임은 2자 이상 30자 이하여야 합니다."))
+                .andDo(document("members-me-update-invalid-request",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )));
+    }
+
+    @Test
+    @DisplayName("닉네임이 30자를 넘으면 400으로 응답한다")
+    void updateRejectsTooLongNickname() throws Exception {
+        // given
+        String request = "{\"nickname\":\"" + "a".repeat(31) + "\"}";
+
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("닉네임은 2자 이상 30자 이하여야 합니다."));
+    }
+
+    @Test
+    @DisplayName("닉네임이 없으면 400으로 응답하고 서비스를 호출하지 않는다")
+    void updateRejectsMissingNickname() throws Exception {
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("닉네임은 필수입니다."));
+        then(memberService).should(never()).updateMyInfo(any(), any(MemberUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("토큰의 회원이 남아 있지 않으면 404로 응답한다")
+    void updateReturnsNotFoundForMissingMember() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND))
+                .given(memberService).updateMyInfo(eq(MEMBER_ID), any(MemberUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(patch(ME_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_UPDATE_REQUEST))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 회원입니다."));
     }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
