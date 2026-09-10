@@ -14,6 +14,10 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +29,7 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.InterestKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse.DomainResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
@@ -184,6 +189,91 @@ class MemberControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, bearerToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("로그인 회원의 관심 키워드 목록을 조회하고 문서화한다")
+    void getsInterestKeywords() throws Exception {
+        // given
+        given(interestKeywordService.getInterestKeywords(MEMBER_ID, Domain.DEVELOP))
+                .willReturn(List.of(new InterestKeywordResponse(
+                        15L, 50L, "Kubernetes", Domain.DEVELOP)));
+
+        // when & then
+        mockMvc.perform(get(URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .queryParam("domain", "DEVELOP"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].interestKeywordId").value(15))
+                .andExpect(jsonPath("$.data[0].keywordId").value(50))
+                .andExpect(jsonPath("$.data[0].keyword").value("Kubernetes"))
+                .andExpect(jsonPath("$.data[0].domain").value("DEVELOP"))
+                .andDo(document("members-interest-keywords-list",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        queryParameters(parameterWithName("domain").optional()
+                                .description("선택 분야: DEVELOP, FASHION")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("data[].interestKeywordId").type(JsonFieldType.NUMBER)
+                                        .description("관심 키워드 등록 ID"),
+                                fieldWithPath("data[].keywordId").type(JsonFieldType.NUMBER).description("키워드 ID"),
+                                fieldWithPath("data[].keyword").type(JsonFieldType.STRING).description("키워드명"),
+                                fieldWithPath("data[].domain").type(JsonFieldType.STRING).description("분야 코드"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+    }
+
+    @Test
+    @DisplayName("관심 키워드가 없으면 빈 배열을 반환한다")
+    void returnsEmptyInterestKeywords() throws Exception {
+        // given
+        given(interestKeywordService.getInterestKeywords(MEMBER_ID, null)).willReturn(List.of());
+
+        // when & then
+        mockMvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("로그인 회원이 소유한 관심 키워드를 삭제하고 문서화한다")
+    void deletesInterestKeyword() throws Exception {
+        // when & then
+        mockMvc.perform(delete(URL + "/{interestKeywordId}", 15L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-interest-keywords-delete",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰")),
+                        pathParameters(parameterWithName("interestKeywordId")
+                                .description("삭제할 관심 키워드 등록 ID")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.NULL).description("삭제 성공 시 null"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null"))));
+        then(interestKeywordService).should().delete(MEMBER_ID, 15L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않거나 본인 소유가 아닌 관심 키워드 삭제는 404로 응답한다")
+    void rejectsUnknownInterestKeywordDeletion() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INTEREST_KEYWORD_NOT_FOUND))
+                .given(interestKeywordService).delete(MEMBER_ID, 15L);
+
+        // when & then
+        mockMvc.perform(delete(URL + "/{interestKeywordId}", 15L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 관심 키워드입니다."));
     }
 
     private String bearerToken() {

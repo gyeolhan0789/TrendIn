@@ -23,6 +23,7 @@ import com.forever102.trend.repository.KeywordRelationRepository.RecommendedKeyw
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.List;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -171,6 +172,77 @@ class MemberInterestKeywordServiceTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("로그인 회원의 관심 키워드를 응답으로 변환한다")
+    void getsInterestKeywords() {
+        // given
+        Member member = Member.create("member@example.com", "password-hash", "회원");
+        Keyword keyword = new Keyword("Kubernetes", Domain.DEVELOP);
+        MemberInterestKeyword interestKeyword = MemberInterestKeyword.register(member, keyword);
+        ReflectionTestUtils.setField(interestKeyword, "id", 15L);
+        ReflectionTestUtils.setField(keyword, "id", 50L);
+        given(interestKeywordRepository.findAllByMemberIdOrderByIdAsc(MEMBER_ID))
+                .willReturn(List.of(interestKeyword));
+
+        // when
+        var result = interestKeywordService.getInterestKeywords(MEMBER_ID, null);
+
+        // then
+        assertThat(result).singleElement().satisfies(response -> {
+            assertThat(response.interestKeywordId()).isEqualTo(15L);
+            assertThat(response.keywordId()).isEqualTo(50L);
+            assertThat(response.keyword()).isEqualTo("Kubernetes");
+            assertThat(response.domain()).isEqualTo(Domain.DEVELOP);
+        });
+    }
+
+    @Test
+    @DisplayName("분야를 지정하면 해당 분야의 관심 키워드를 조회한다")
+    void getsInterestKeywordsByDomain() {
+        // given
+        given(interestKeywordRepository.findAllByMemberIdAndKeywordDomainOrderByIdAsc(
+                MEMBER_ID, Domain.FASHION)).willReturn(List.of());
+
+        // when
+        interestKeywordService.getInterestKeywords(MEMBER_ID, Domain.FASHION);
+
+        // then
+        then(interestKeywordRepository).should()
+                .findAllByMemberIdAndKeywordDomainOrderByIdAsc(MEMBER_ID, Domain.FASHION);
+        then(interestKeywordRepository).should(never()).findAllByMemberIdOrderByIdAsc(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("로그인 회원이 소유한 관심 키워드를 삭제한다")
+    void deletesOwnedInterestKeyword() {
+        // given
+        MemberInterestKeyword interestKeyword = MemberInterestKeyword.register(
+                Member.create("member@example.com", "password-hash", "회원"),
+                new Keyword("Kubernetes", Domain.DEVELOP));
+        given(interestKeywordRepository.findByIdAndMemberId(15L, MEMBER_ID))
+                .willReturn(Optional.of(interestKeyword));
+
+        // when
+        interestKeywordService.delete(MEMBER_ID, 15L);
+
+        // then
+        then(interestKeywordRepository).should().delete(interestKeyword);
+    }
+
+    @Test
+    @DisplayName("본인 소유가 아닌 관심 키워드는 찾을 수 없음 예외가 발생한다")
+    void rejectsInterestKeywordNotOwnedByMember() {
+        // given
+        given(interestKeywordRepository.findByIdAndMemberId(15L, MEMBER_ID))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> interestKeywordService.delete(MEMBER_ID, 15L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INTEREST_KEYWORD_NOT_FOUND);
+        then(interestKeywordRepository).should(never()).delete(any());
     }
 
     private DataIntegrityViolationException uniqueConstraintViolation() {

@@ -49,6 +49,63 @@ class MemberInterestKeywordRepositoryTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("회원의 관심 키워드를 등록 순서대로 함께 조회한다")
+    void findsMemberInterestKeywordsWithKeywords() {
+        // given
+        Member member = persistMember();
+        Keyword first = persistKeyword("Kubernetes", Domain.DEVELOP);
+        Keyword second = persistKeyword("Ballet Sneakers", Domain.FASHION);
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(member, first));
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(member, second));
+        entityManager.clear();
+
+        // when
+        var result = interestKeywordRepository.findAllByMemberIdOrderByIdAsc(member.getId());
+
+        // then
+        assertThat(result).extracting(interest -> interest.getKeyword().getName())
+                .containsExactly("Kubernetes", "Ballet Sneakers");
+    }
+
+    @Test
+    @DisplayName("회원과 분야가 모두 일치하는 관심 키워드만 조회한다")
+    void findsMemberInterestKeywordsByDomain() {
+        // given
+        Member member = persistMember();
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(
+                member, persistKeyword("Kubernetes", Domain.DEVELOP)));
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(
+                member, persistKeyword("Ballet Sneakers", Domain.FASHION)));
+        entityManager.clear();
+
+        // when
+        var result = interestKeywordRepository
+                .findAllByMemberIdAndKeywordDomainOrderByIdAsc(member.getId(), Domain.DEVELOP);
+
+        // then
+        assertThat(result).extracting(interest -> interest.getKeyword().getName())
+                .containsExactly("Kubernetes");
+    }
+
+    @Test
+    @DisplayName("다른 회원이 등록한 관심 키워드는 소유권 조회에서 제외한다")
+    void excludesOtherMembersInterestKeyword() {
+        // given
+        Member owner = persistMember();
+        Member other = Member.create("other@example.com", "password-hash", "다른 회원");
+        entityManager.persist(other);
+        MemberInterestKeyword interestKeyword = interestKeywordRepository.saveAndFlush(
+                MemberInterestKeyword.register(owner, persistKeyword()));
+
+        // when
+        var result = interestKeywordRepository.findByIdAndMemberId(
+                interestKeyword.getId(), other.getId());
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
     private Member persistMember() {
         Member member = Member.create("member@example.com", "password-hash", "회원");
         entityManager.persist(member);
@@ -56,7 +113,11 @@ class MemberInterestKeywordRepositoryTest {
     }
 
     private Keyword persistKeyword() {
-        Keyword keyword = new Keyword("Ballet Sneakers", Domain.FASHION);
+        return persistKeyword("Ballet Sneakers", Domain.FASHION);
+    }
+
+    private Keyword persistKeyword(String name, Domain domain) {
+        Keyword keyword = new Keyword(name, domain);
         entityManager.persist(keyword);
         return keyword;
     }

@@ -4,8 +4,10 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.member.domain.Member;
 import com.forever102.member.domain.MemberInterestKeyword;
+import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.InterestKeywordResponse;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.repository.MemberInterestKeywordRepository;
 import com.forever102.member.repository.MemberRepository;
@@ -48,6 +50,22 @@ public class MemberInterestKeywordService {
         return keywordRelationRepository.findRecommendedKeywords(memberId).stream()
                 .map(RecommendedKeywordResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<InterestKeywordResponse> getInterestKeywords(Long memberId, Domain domain) {
+        List<MemberInterestKeyword> interestKeywords = domain == null
+                ? interestKeywordRepository.findAllByMemberIdOrderByIdAsc(memberId)
+                : interestKeywordRepository.findAllByMemberIdAndKeywordDomainOrderByIdAsc(
+                        memberId, domain);
+        return interestKeywords.stream().map(InterestKeywordResponse::from).toList();
+    }
+
+    public void delete(Long memberId, Long interestKeywordId) {
+        MemberInterestKeyword interestKeyword = interestKeywordRepository
+                .findByIdAndMemberId(interestKeywordId, memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTEREST_KEYWORD_NOT_FOUND));
+        interestKeywordRepository.delete(interestKeyword);
     }
 
     private MemberInterestKeyword save(MemberInterestKeyword interestKeyword) {

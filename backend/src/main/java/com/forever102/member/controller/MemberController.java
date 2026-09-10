@@ -3,15 +3,21 @@ package com.forever102.member.controller;
 import com.forever102.global.response.BaseResponse;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
+import com.forever102.member.dto.InterestKeywordResponse;
+import com.forever102.member.domain.Domain;
 import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.service.MemberInterestKeywordService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -38,5 +44,22 @@ public class MemberController {
             @AuthenticationPrincipal Long memberId
     ) {
         return BaseResponse.success(interestKeywordService.getRecommendedKeywords(memberId));
+    }
+
+    @GetMapping("/interest-keywords")
+    public BaseResponse<List<InterestKeywordResponse>> getInterestKeywords(
+            @AuthenticationPrincipal Long memberId,
+            @RequestParam(required = false) Domain domain
+    ) {
+        return BaseResponse.success(interestKeywordService.getInterestKeywords(memberId, domain));
+    }
+
+    @DeleteMapping("/interest-keywords/{interestKeywordId}")
+    public BaseResponse<Void> deleteInterestKeyword(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable @Positive Long interestKeywordId
+    ) {
+        interestKeywordService.delete(memberId, interestKeywordId);
+        return BaseResponse.success(null);
     }
 }
