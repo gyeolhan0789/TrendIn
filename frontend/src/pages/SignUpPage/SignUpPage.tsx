@@ -35,7 +35,7 @@ export function SignUpPage() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [errors, setErrors] = useState<SignUpErrors>({});
   const [formError, setFormError] = useState<string>();
-  /** 이메일 칸을 떠날 때 확인을 맡긴 주소입니다. 비어 있으면 아직 확인하지 않은 것입니다. */
+  /** 중복확인을 누른 주소입니다. 비어 있으면 아직 확인하지 않은 것입니다. */
   const [checkedEmail, setCheckedEmail] = useState('');
 
   // 가입 직후 자동 로그인으로 세션이 생기므로, 로그인 화면과 같은 이유로 진입 시점만 봅니다.
@@ -44,7 +44,7 @@ export function SignUpPage() {
   const normalizedEmail = normalizeEmail(email);
   // 가입이 시작되면 캐시를 비우는데, 그때 이 질의가 되살아나 쓸데없이 한 번 더 확인하러 갑니다.
   const availabilityQuery = useEmailAvailability(checkedEmail, Boolean(checkedEmail) && signUpMutation.isIdle);
-  // 이메일을 다시 고치면 앞서 받은 확인 결과는 지금 값의 것이 아닙니다.
+  // 이메일을 고치면 앞서 받은 확인 결과는 지금 값의 것이 아니어서, 버튼이 다시 눌리는 상태로 돌아갑니다.
   const checkedCurrent = checkedEmail === normalizedEmail;
   const available = checkedCurrent ? availabilityQuery.data : undefined;
   const checkingEmail = checkedCurrent && availabilityQuery.isFetching;
@@ -54,11 +54,13 @@ export function SignUpPage() {
 
   const emailHint = (() => {
     if (checkingEmail) return '이메일을 확인하는 중…';
-    // 확인 자체가 실패하면(null) 굳이 알리지 않습니다. 중복은 가입 응답이 최종적으로 가려냅니다.
     if (available === true) return '사용할 수 있는 이메일입니다.';
-    return undefined;
+    // 확인에 실패하면(null) 굳이 알리지 않습니다. 중복은 가입 응답이 최종적으로 가려냅니다.
+    if (checkedCurrent) return undefined;
+    return '중복확인을 누르면 쓸 수 있는 이메일인지 미리 알려 드립니다.';
   })();
 
+  /** 중복확인 버튼이 부르는 경로입니다. 형식이 틀리면 서버를 부르지 않고 그 자리에서 알려 줍니다. */
   const checkEmail = () => {
     const message = validateEmail(email);
     setErrors((current) => ({ ...current, email: message }));
@@ -75,6 +77,10 @@ export function SignUpPage() {
     };
     setErrors(nextErrors);
     setFormError(undefined);
+    /*
+     * 이미 쓰인 이메일인 줄 알면서 보내지 않습니다. 다만 확인을 누르지 않았다고 막지는 않습니다.
+     * 확인은 안내이고, 중복 판정은 가입 응답의 409가 합니다. 확인이 실패하는 날에도 가입은 되어야 합니다.
+     */
     if (Object.values(nextErrors).some(Boolean) || takenError) return;
 
     try {
@@ -94,6 +100,9 @@ export function SignUpPage() {
 
   if (enteredLoggedIn) return <Navigate to="/" replace />;
 
+  // 같은 주소를 이미 확인했으면 다시 누를 이유가 없어 버튼을 잠급니다.
+  const checkDisabled = signUpMutation.isPending || checkingEmail || (checkedCurrent && available !== undefined);
+
   return (
     <AuthShell
       eyebrow="SIGN UP"
@@ -106,13 +115,21 @@ export function SignUpPage() {
           label="이메일"
           type="email"
           value={email}
-          onChange={setEmail}
-          onBlur={checkEmail}
+          onChange={(value) => {
+            setEmail(value);
+            // 고치는 중에 앞선 오류가 남아 있으면, 이미 고친 값을 틀렸다고 하는 셈입니다.
+            setErrors((current) => (current.email ? { ...current, email: undefined } : current));
+          }}
           placeholder="you@company.co.kr"
           autoComplete="email"
           error={emailError}
           hint={emailHint}
           disabled={signUpMutation.isPending}
+          action={(
+            <button type="button" className="auth-check-button" onClick={checkEmail} disabled={checkDisabled}>
+              {checkingEmail ? '확인 중…' : '중복확인'}
+            </button>
+          )}
         />
         <AuthField
           label="닉네임"

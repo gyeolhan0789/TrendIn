@@ -13,10 +13,12 @@ interface AuthFieldProps {
   error?: string;
   hint?: ReactNode;
   disabled?: boolean;
+  /** 칸 안 오른쪽에 붙는 버튼. 이메일 중복확인처럼 그 칸에서 바로 하는 일에 씁니다. */
+  action?: ReactNode;
 }
 
 export function AuthField({
-  label, type = 'text', value, onChange, onBlur, placeholder, autoComplete, error, hint, disabled,
+  label, type = 'text', value, onChange, onBlur, placeholder, autoComplete, error, hint, disabled, action,
 }: AuthFieldProps) {
   const fieldId = useId();
   const noteId = `${fieldId}-note`;
@@ -52,8 +54,18 @@ export function AuthField({
             {revealed ? '숨기기' : '보기'}
           </button>
         )}
+        {action}
       </div>
-      {note && <div className={`auth-note${error ? ' is-error' : ''}`} id={noteId} role={error ? 'alert' : undefined}>{note}</div>}
+      {/* 확인 결과는 눈으로만 보이면 안 되어서, 오류는 alert로 안내는 status로 읽히게 합니다. */}
+      {note && (
+        <div
+          className={`auth-note${error ? ' is-error' : ''}`}
+          id={noteId}
+          role={error ? 'alert' : 'status'}
+        >
+          {note}
+        </div>
+      )}
     </div>
   );
 }
