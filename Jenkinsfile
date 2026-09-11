@@ -1,0 +1,159 @@
+pipeline {
+    agent any
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    environment {
+        COMPOSE_FILE = 'infra/compose.yaml'
+        BACKEND_IMAGE_REPOSITORY = 's15p21a102/backend'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Validate deployment') {
+            steps {
+                script {
+                    def branchName = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: '').replaceFirst('^origin/', '')
+                    if (branchName != 'dev') {
+                        error("Backend deployment is allowed only from dev (current: ${branchName ?: 'unknown'})")
+                    }
+                }
+                sh '''
+                    set -eu
+                    command -v docker
+                    docker compose version
+                    test -n "${DEPLOY_ENV_FILE:-}" || {
+                        echo 'DEPLOY_ENV_FILE is not configured in Jenkins.' >&2
+                        exit 1
+                    }
+                    test -r "$DEPLOY_ENV_FILE" || {
+                        echo "DEPLOY_ENV_FILE is not readable: $DEPLOY_ENV_FILE" >&2
+                        exit 1
+                    }
+                    docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" config --quiet
+                '''
+                script {
+                    env.RELEASE_IMAGE = "${env.BACKEND_IMAGE_REPOSITORY}:${env.GIT_COMMIT}-${env.BUILD_NUMBER}"
+                    env.PREVIOUS_BACKEND_IMAGE = sh(
+                        returnStdout: true,
+                        script: '''
+                            set -eu
+                            container_id=$(docker compose --env-file "$DEPLOY_ENV_FILE" \
+                                -f "$COMPOSE_FILE" ps --quiet backend)
+                            test -n "$container_id" || {
+                                echo 'A running backend container is required for rollback.' >&2
+                                exit 1
+                            }
+                            previous_image=$(docker inspect --format '{{.Config.Image}}' "$container_id")
+                            docker image inspect "$previous_image" >/dev/null
+                            printf '%s' "$previous_image"
+                        '''
+                    ).trim()
+                    echo "Release image: ${env.RELEASE_IMAGE}"
+                    echo "Rollback image: ${env.PREVIOUS_BACKEND_IMAGE}"
+                }
+            }
+        }
+
+        stage('Gradle test and build') {
+            steps {
+                dir('backend') {
+                    sh './gradlew clean build --no-daemon --console=plain'
+                }
+            }
+        }
+
+        stage('Docker image build') {
+            steps {
+                sh 'BACKEND_IMAGE="$RELEASE_IMAGE" docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" build backend'
+            }
+        }
+
+        stage('Deploy backend') {
+            steps {
+                sh '''
+                    set -eu
+
+                    wait_for_backend() {
+                        label="$1"
+                        attempt=1
+                        while [ "$attempt" -le 60 ]; do
+                            if status=$(curl --silent --show-error --output /dev/null \
+                                --write-out '%{http_code}' http://127.0.0.1:8080/); then
+                                case "$status" in
+                                    2??|3??|4??)
+                                        echo "$label responded with HTTP $status"
+                                        return 0
+                                        ;;
+                                    *)
+                                        echo "$label returned HTTP $status" >&2
+                                        ;;
+                                esac
+                            fi
+                            echo "Waiting for $label HTTP response ($attempt/60)"
+                            attempt=$((attempt + 1))
+                            sleep 2
+                        done
+                        return 1
+                    }
+
+                    rollback() {
+                        exit_code=$?
+                        trap - EXIT
+                        echo "Deployment failed. Rolling back to $PREVIOUS_BACKEND_IMAGE" >&2
+                        BACKEND_IMAGE="$RELEASE_IMAGE" docker compose \
+                            --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
+                            logs --no-color --tail=200 backend || true
+
+                        if BACKEND_IMAGE="$PREVIOUS_BACKEND_IMAGE" docker compose \
+                            --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
+                            up --detach --no-deps --force-recreate backend \
+                            && wait_for_backend 'Rollback backend'; then
+                            echo "Rollback completed: $PREVIOUS_BACKEND_IMAGE"
+                        else
+                            echo 'Automatic rollback failed. Manual recovery is required.' >&2
+                        fi
+                        exit "$exit_code"
+                    }
+
+                    trap rollback EXIT
+                    BACKEND_IMAGE="$RELEASE_IMAGE" docker compose \
+                        --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
+                        up --detach --no-deps --force-recreate backend
+
+                    wait_for_backend 'New backend' || {
+                        echo 'New backend did not return a non-5xx response within 120 seconds.' >&2
+                        exit 1
+                    }
+                    trap - EXIT
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
+        }
+        failure {
+            sh '''
+                if [ -n "${DEPLOY_ENV_FILE:-}" ] && [ -r "$DEPLOY_ENV_FILE" ]; then
+                    docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" ps backend || true
+                    docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
+                        logs --no-color --tail=200 backend || true
+                fi
+            '''
+        }
+    }
+}

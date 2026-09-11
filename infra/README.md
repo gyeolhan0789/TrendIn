@@ -131,15 +131,116 @@ docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100 backe
 설정 변경 시에는 항상 `sudo nginx -t`를 먼저 통과시킨 뒤 reload한다. 기존 Nginx 설정이나 다른
 가상 호스트가 있다면 `sites-enabled`의 80 포트 및 같은 `server_name` 충돌 여부를 먼저 확인한다.
 
+## Jenkins CI/CD
+
+루트 `Jenkinsfile`은 `dev` 브랜치만 배포 대상으로 허용하며 다음 순서로 실행한다.
+
+1. 소스 체크아웃 및 배포 브랜치·도구·환경 파일 검증
+2. Gradle `clean build`를 통한 테스트와 백엔드 빌드
+3. `<commit SHA>-<Jenkins build number>` 태그로 `backend` 이미지 빌드
+4. 현재 실행 중인 이미지 참조를 보존한 뒤 `--no-deps --force-recreate backend`로 백엔드만 재생성
+5. `127.0.0.1:8080`의 비 5xx HTTP 응답 확인 및 JUnit 결과 게시
+6. 배포 또는 HTTP 검증 실패 시 보존한 이미지로 backend 자동 롤백
+
+배포와 롤백 단계는 PostgreSQL과 Redis를 시작하거나 재생성하지 않는다. 실패한 새 backend의 최근 로그와
+롤백 결과를 Jenkins 콘솔에 출력한다. backend 교체 중 짧은 중단은 발생할 수 있으며 무중단 배포는 이번
+범위에 포함하지 않는다.
+Jenkins는 Compose 실행 시에만 `BACKEND_IMAGE`를 배포별 태그로 덮어쓰며 `infra/.env`의
+`BACKEND_IMAGE=s15p21a102/backend:dev` 값은 수동 배포용으로 유지한다.
+
+### EC2 준비
+
+Jenkins는 [공식 Debian/Ubuntu 설치 안내](https://www.jenkins.io/doc/book/installing/linux/)의 LTS 저장소를
+따라 설치한다. 현재 백엔드가 호스트의 `127.0.0.1:8080`을 사용하므로 Jenkins 기본 8080 포트와 충돌한다.
+Jenkins를 시작하기 전에 systemd override의 `JENKINS_PORT`를 8081 등 사용하지 않는 포트로 변경한다.
+설치 시 자동 시작에 실패했다면 포트 변경 후 다시 시작한다.
+
+```sh
+sudo systemctl edit jenkins
+```
+
+열린 편집기에 다음 override를 저장한 뒤 Jenkins를 시작한다.
+
+```ini
+[Service]
+Environment="JENKINS_PORT=8081"
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now jenkins
+sudo systemctl status jenkins --no-pager
+```
+
+`infra/.env`는 `ubuntu`와 `jenkins`가 함께 읽을 수 있도록 `deploy` 그룹으로 관리한다. `ubuntu`만
+수정할 수 있고 Jenkins는 읽기만 가능하게 하며, 그룹 구성 후 기존 로그인 세션은 다시 접속한다.
+
+```sh
+sudo groupadd --force deploy
+sudo usermod -aG deploy ubuntu
+sudo usermod -aG deploy jenkins
+sudo chown ubuntu:deploy /absolute/path/to/infra/.env
+sudo chmod 640 /absolute/path/to/infra/.env
+sudo -u jenkins test -r /absolute/path/to/infra/.env
+```
+
+Jenkins 작업을 실행하는 `jenkins` 사용자는 Docker CLI와 Compose v2를 실행할 수 있어야 한다.
+호스트 Docker를 사용하는 경우 Docker 그룹 권한은 사실상 호스트 관리자 권한이므로 Jenkins 관리자와
+Job 수정 권한을 최소화한 뒤 적용한다.
+
+```sh
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+sudo -u jenkins docker version
+sudo -u jenkins docker compose version
+```
+
+실제 Secret이 든 `infra/.env`는 Git 저장소와 Jenkinsfile에 넣지 않는다. Jenkins 작업공간 정리에도
+영향받지 않는 EC2 경로에 보관하고, 해당 파일은 소유자와 `deploy` 그룹만 읽을 수 있게 권한을 제한한다.
+기존 `infra/.env`를 그대로 사용한다면 파일을 이동하거나 복사하지 말고 그 절대 경로를 사용한다.
+
+Jenkins의 Job 또는 노드 환경변수 `DEPLOY_ENV_FILE`에는 위 파일의 절대 경로만 설정한다. 이 변수는
+Secret 값이 아니라 경로이며, 비밀번호와 JWT Secret은 파일 내부에만 유지한다. Jenkins가 실행되는
+EC2에서 `curl`과 Java 21 이상도 사용할 수 있어야 한다. Gradle은 프로젝트 설정에 따라 빌드용 Java 25
+툴체인을 내려받으므로 최초 빌드 시 외부 저장소 접근과 추가 시간이 필요하다.
+
+### Jenkins Job과 GitLab 설정
+
+- Jenkins에 Pipeline, Git, JUnit, GitLab 연동 플러그인을 설치한다.
+- Pipeline 또는 Multibranch Pipeline의 SCM을 이 GitLab 저장소로 설정하고 브랜치 대상을 `dev`로 제한한다.
+- Script Path는 저장소 루트의 `Jenkinsfile`로 설정한다.
+- 비공개 저장소 접근용 GitLab Credential은 Jenkins Credentials에서 관리하고 Job의 SCM에 연결한다.
+- GitLab Webhook은 `dev` push 이벤트만 Job을 실행하도록 Jenkins 플러그인과 GitLab UI에서 설정한다.
+- Webhook이 Jenkins에 도달할 수 있는 네트워크 경로를 마련하되 Jenkins 관리 화면을 공인망 전체에
+  노출하지 않는다. 관리 화면 접근은 SSH 터널 또는 허용된 관리 IP로 제한한다.
+- 현재 Nginx는 모든 80 포트 요청을 백엔드로 전달하므로 Jenkins Webhook을 프록시하지 않는다. 8081을
+  직접 사용한다면 UFW와 AWS 보안 그룹에서 팀이 확인한 GitLab Webhook 송신 대역과 관리 IP만 허용하고,
+  `0.0.0.0/0`으로 공개하지 않는다.
+- Jenkins 기본 포트 변경만으로 Nginx가 Jenkins를 프록시하지는 않는다. 별도 공개 경로가 필요하면
+  인증·접근 제어를 포함한 Nginx/보안 그룹 정책을 먼저 정한 뒤 구성한다.
+
+첫 자동 배포 전 Jenkins 사용자로 아래 명령을 실행해 실제 환경 파일과 Compose 구성을 확인한다.
+일반 `docker compose config` 출력에는 Secret이 포함될 수 있으므로 `--quiet`를 유지한다.
+
+```sh
+sudo -u jenkins docker compose \
+  --env-file /absolute/path/to/infra/.env \
+  -f /absolute/path/to/repository/infra/compose.yaml config --quiet
+```
+
+배포 후 `docker compose ps backend`, Jenkins 단계별 콘솔 로그, `http://127.0.0.1:8080` 응답과
+Nginx를 통한 80 포트 응답을 확인한다. PostgreSQL과 Redis 컨테이너 ID가 배포 전후 동일한지도 확인한다.
+
 ## EC2에서 준비 및 실행
 
 Docker Engine 및 Compose v2가 설치된 기본 EC2에서 저장소 루트 기준으로 실행한다.
 기존 `.env`가 있다면 덮어쓰지 않고 편집한다.
 
 ```sh
-# 최초 한 번만 실행: 파일이 없을 때 권한을 제한하여 생성
+# 최초 한 번만 실행: 파일이 없을 때 생성
 (umask 077; cp -n infra/.env.example infra/.env)
-chmod 600 infra/.env
+sudo chown ubuntu:deploy infra/.env
+sudo chmod 640 infra/.env
 nano infra/.env
 ```
 
