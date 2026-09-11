@@ -79,6 +79,22 @@ SUBMIT = f"{SPARK_HOME_IN_CONTAINER}/scripts/submit.sh"
 _COMMAND = 'set -euo pipefail; "$SUBMIT" {job} {args}'
 
 
+class SubmitOperator(BashOperator):
+    """`submit.sh` 를 부르는 BashOperator. 템플릿 파일 탐색만 끈다.
+
+    `BashOperator` 의 `template_ext` 는 `(".sh", ".bash")` 다. 템플릿 필드(`bash_command` ·
+    `env` · `cwd`)의 값이 그 확장자로 끝나면 Jinja 가 그것을 **읽어올 파일 경로**로 보고
+    DAG 폴더에서 찾는다. 아래 `env` 의 `SUBMIT` 이 `submit.sh` 로 끝나서, 배포 직후 첫
+    실행이 `TemplateNotFound: not found in search path: '/opt/airflow/dags/pipeline'` 으로
+    죽었다 — `spark-submit` 에 닿지도 못했다.
+
+    확장자 목록을 비워 그 탐색을 끈다. 이 연산자가 파일을 읽을 일은 없고, 이렇게 두면
+    나중에 인자가 `.sh` 로 끝나는 경우까지 함께 막힌다.
+    """
+
+    template_ext = ()
+
+
 def submit_command(job: str, *args: str) -> str:
     """`submit.sh <job> <args...>` 한 줄. 인자에 공백이 있으면 부른 쪽이 따옴표를 넣는다."""
     return _COMMAND.format(job=job, args=" ".join(args))
@@ -127,7 +143,7 @@ def build_spark_dag(
     )
     def spark_dag():
         for task_id, args in (task_args or {"run": ()}).items():
-            BashOperator(
+            SubmitOperator(
                 task_id=task_id,
                 bash_command=submit_command(job, *args),
                 cwd=SPARK_HOME_IN_CONTAINER + "/..",
