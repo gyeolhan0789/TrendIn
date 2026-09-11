@@ -72,6 +72,7 @@ def extraction_schema():
             StructField("tf", IntegerType()),
             StructField("tf_title", IntegerType()),
             StructField("parents", ArrayType(StringType())),
+            StructField("is_proper", BooleanType()),
         ]
     )
     abbreviation = StructType(
@@ -159,6 +160,7 @@ def extract_batch(
             F.col("c.tf").alias("tf"),
             F.col("c.tf_title").alias("tf_title"),
             F.col("c.parents").alias("parents"),
+            F.col("c.is_proper").alias("is_proper"),
         )
         .cache()
     )
@@ -248,11 +250,18 @@ def extract_batch(
         c_value=thresholds.weight_c_value,
         bm25=thresholds.weight_bm25,
         title=thresholds.weight_title,
+        latin=thresholds.weight_latin,
+        proper=thresholds.weight_proper,
     )
     combine_udf = F.udf(
-        lambda c, bm, title: float(scoring.combine(float(c), float(bm), float(title), weights)),
+        lambda c, bm, title, latin, proper: float(
+            scoring.combine(float(c), float(bm), float(title), weights, float(latin), float(proper))
+        ),
         DoubleType(),
     )
+    # 라틴 문자는 **코퍼스 대표 표기**에서 본다 ([04 §4]). 문서 안 표기로 보면 같은 키워드가
+    # 문서마다 다른 축 값을 받는다.
+    latin_udf = F.udf(lambda surface: float(scoring.latin_axis(surface)), DoubleType())
     per_doc = Window.partitionBy("url_hash")
     rank_order = Window.partitionBy("url_hash").orderBy(
         F.col("score").desc(), F.col("normalized_key").asc()
@@ -263,6 +272,10 @@ def extract_batch(
         .join(scored_keys, on="normalized_key")
         .withColumn("bm25", bm25_udf(F.col("tf"), F.col("doc_len"), F.col("idf")))
         .withColumn("title_axis", F.when(F.col("tf_title") > 0, F.lit(1.0)).otherwise(F.lit(0.0)))
+        .withColumn("latin_axis", latin_udf(F.col("surface")))
+        .withColumn(
+            "proper_axis", F.when(F.col("is_proper"), F.lit(1.0)).otherwise(F.lit(0.0))
+        )
         .withColumn(
             "c_norm",
             minmax_udf(
@@ -274,7 +287,14 @@ def extract_batch(
             minmax_udf(F.col("bm25"), F.min("bm25").over(per_doc), F.max("bm25").over(per_doc)),
         )
         .withColumn(
-            "score_raw", combine_udf(F.col("c_norm"), F.col("bm25_norm"), F.col("title_axis"))
+            "score_raw",
+            combine_udf(
+                F.col("c_norm"),
+                F.col("bm25_norm"),
+                F.col("title_axis"),
+                F.col("latin_axis"),
+                F.col("proper_axis"),
+            ),
         )
         # 해시태그 가중 ([04 §8]). 1 을 넘지 않게 — score_floor 가 0~1 척도다.
         .withColumn(
@@ -306,6 +326,8 @@ def extract_batch(
         F.col("tf"),
         F.col("tf_title"),
         (F.col("tf_title") > 0).alias("in_title"),
+        (F.col("latin_axis") > 0).alias("is_latin"),
+        F.col("is_proper"),
         F.col("df"),
         F.col("c_value"),
         F.col("bm25"),

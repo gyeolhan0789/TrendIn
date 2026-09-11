@@ -89,10 +89,27 @@ def test_base_만으로는_시작하지_않는다():
 
 def test_local_은_잠정값으로_돈다():
     thresholds = ExtractThresholds.from_config(load_config("local", conf_dir=CONF_DIR, env={}))
-    assert thresholds.per_document_top_k == 10
+    assert thresholds.per_document_top_k == 30
     assert (
         DomainOptions.from_config(
             load_config("local", conf_dir=CONF_DIR, env={}), domain="fashion"
         ).code_identifiers
         is False
     )
+
+
+def test_고유명사_축은_없어도_돈다():
+    """`REQUIRED` 가 아니다 — 0 이면 옛 동작 그대로라 비어 있는 것이 위험하지 않다."""
+    config = load_config("local", conf_dir=CONF_DIR, env={})
+    data = config.as_dict()
+    data["extract"]["score_weights"].pop("latin", None)
+    data["extract"]["score_weights"]["proper"] = None
+    thresholds = ExtractThresholds.from_config(Config(data, profile="test"))
+    assert (thresholds.weight_latin, thresholds.weight_proper) == (0.0, 0.0)
+
+
+def test_local_이_고유명사_축을_켠다():
+    thresholds = ExtractThresholds.from_config(load_config("local", conf_dir=CONF_DIR, env={}))
+    assert thresholds.weight_latin > 0
+    # 형태소 태그는 신뢰도가 낮아 라틴보다 작아야 한다 (`tokenize.Token.is_proper`).
+    assert 0 < thresholds.weight_proper < thresholds.weight_latin

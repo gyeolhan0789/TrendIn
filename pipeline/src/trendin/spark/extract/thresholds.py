@@ -52,13 +52,18 @@ class ExtractThresholds:
     # BM25 파라미터. 통상값에서 시작한다 ([04 §6]).
     bm25_k1: float
     bm25_b: float
-    # 세 축의 가중합 ([04 §6] 결합).
+    # 다섯 축의 가중합 ([04 §6] 결합). 뒤의 둘은 기본이 0 이라 켜야 돈다.
     weight_c_value: float
     weight_bm25: float
     weight_title: float
     # 선별 — 문서당 상위 K 이고 점수 하한 이상 ([04 §7]).
     per_document_top_k: int
     score_floor: float
+    # 라틴 문자 표기 · 형태소 고유명사 ([04 §6] 고유명사 축, 2026-09-10 추가).
+    # **`REQUIRED` 에 넣지 않는다** — 0 이면 옛 동작 그대로라, 비어 있는 것이 위험하지 않다.
+    # `null` 로 거부해야 하는 값은 "없으면 잡음이 통과하는" 것들이다.
+    weight_latin: float = 0.0
+    weight_proper: float = 0.0
 
     @classmethod
     def from_config(cls, config: Config) -> "ExtractThresholds":
@@ -84,6 +89,8 @@ class ExtractThresholds:
             weight_c_value=float(weights["c_value"]),
             weight_bm25=float(weights["bm25"]),
             weight_title=float(weights["title"]),
+            weight_latin=float(weights.get("latin") or 0.0),
+            weight_proper=float(weights.get("proper") or 0.0),
             per_document_top_k=int(section["per_document_top_k"]),
             score_floor=float(section["score_floor"]),
         ).validated()

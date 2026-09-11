@@ -44,6 +44,7 @@ REQUIRED = (
 # 달린다. 위 `REQUIRED` 와 나눈 것은 고치는 곳이 달라서다 — 저쪽은 `local.yaml`, 이쪽은
 # `base.yaml` 이다.
 CONFIGURED = (
+    "abbreviation.transliteration_floor",
     "variant.max_index_size",
     "embedding.dim",
     "embedding.batch_size",
@@ -65,6 +66,10 @@ class RegistryThresholds:
     # --- 층 2 — 약어 ↔ 전개형 ([05 §3]) ---------------------------------
     # 괄호 패턴이 관측된 **서로 다른 문서** 수 하한. 한 사람의 오기를 막는다.
     abbreviation_min_documents: int
+    # 음차 유사도 하한 ([05 §3], `registry/romanize.py`). 초성 대응이 성립하지 않는 한국어
+    # 전개형이 이 값으로 갈린다. **측정 대상이 아니라 `base.yaml` 이 값을 주는 쪽이다** —
+    # 2026-09-10 실측에서 0.5 가 진짜 쌍 66% 를 통과시키고 무작위 쌍 1% 만 통과시켰다.
+    transliteration_floor: float
 
     # --- 층 2 — 표기 변형(오타) ([05 §3]) -------------------------------
     # 이보다 짧은 표기에는 적용하지 않는다. 4자 이하에서 편집 거리 1은 딴 낱말이 흔하다.
@@ -124,6 +129,7 @@ class RegistryThresholds:
         return cls(
             plural_df_dominance=float(plural["df_dominance"]),
             abbreviation_min_documents=int(abbreviation["min_documents"]),
+            transliteration_floor=float(abbreviation["transliteration_floor"]),
             variant_min_length=int(variant["min_length"]),
             variant_max_edit_distance=int(variant["max_edit_distance"]),
             variant_df_dominance=float(variant["df_dominance"]),
@@ -147,6 +153,8 @@ class RegistryThresholds:
     def validated(self) -> "RegistryThresholds":
         if self.plural_df_dominance < 1:
             raise ConfigError(f"{SECTION}.plural.df_dominance 는 1 이상이어야 한다")
+        if not 0 <= self.transliteration_floor <= 1:
+            raise ConfigError(f"{SECTION}.abbreviation.transliteration_floor 는 0~1 이어야 한다")
         if self.abbreviation_min_documents < 1:
             raise ConfigError(f"{SECTION}.abbreviation.min_documents 는 1 이상이어야 한다")
         if self.variant_min_length < 1:

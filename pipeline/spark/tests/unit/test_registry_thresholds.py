@@ -17,7 +17,7 @@ from trendin.spark.registry.thresholds import CONFIGURED, REQUIRED, RegistryThre
 # 코드에 기본값이 없으므로 둘 중 하나라도 비면 시작하지 않는다.
 LOCAL_VALUES = {
     "plural": {"df_dominance": 5},
-    "abbreviation": {"min_documents": 3},
+    "abbreviation": {"min_documents": 3, "transliteration_floor": 0.5},
     "variant": {"min_length": 5, "max_edit_distance": 2, "df_dominance": 10,
                 "max_index_size": 20000},
     "promote": {
