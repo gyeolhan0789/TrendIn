@@ -29,6 +29,7 @@ class SecurityConfigTest {
 
     private static final String SECURED_URL = "/secured";
     private static final String PUBLIC_URL = "/auth/login";
+    private static final String H2_CONSOLE_URL = "/h2-console/";
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private static final String DISALLOWED_ORIGIN = "https://evil.example.com";
     private static final Long MEMBER_ID = 42L;
@@ -113,6 +114,14 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("H2 콘솔은 토큰 없이 접근할 수 있고 same-origin 프레임을 허용한다")
+    void allowsH2ConsoleWithoutToken() throws Exception {
+        mockMvc.perform(get(H2_CONSOLE_URL))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Frame-Options", "SAMEORIGIN"));
+    }
+
+    @Test
     @DisplayName("허용된 오리진의 프리플라이트는 토큰 없이 통과한다")
     void allowsPreflightFromAllowedOrigin() throws Exception {
         mockMvc.perform(options(SECURED_URL)
@@ -159,6 +168,11 @@ class SecurityConfigTest {
         @PostMapping(PUBLIC_URL)
         String publicEndpoint() {
             return "ok";
+        }
+
+        @GetMapping(H2_CONSOLE_URL)
+        String h2Console() {
+            return "h2-console";
         }
     }
 }
