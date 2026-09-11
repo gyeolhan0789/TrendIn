@@ -11,6 +11,7 @@ export function Header() {
         <nav className="main-nav" aria-label="주요 메뉴">
           <NavLink to="/" end>대시보드</NavLink>
           <NavLink to="/saved">저장한 트렌드</NavLink>
+          <NavLink to="/mypage">마이페이지</NavLink>
         </nav>
         <div className="header-right">
           {isHome && <span className="header-collection">수집 1,291건 · 갱신 방금</span>}

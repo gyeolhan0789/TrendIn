@@ -20,6 +20,11 @@ export const API_ENDPOINTS = {
     save: TODO_ENDPOINT,
     delete: TODO_ENDPOINT,
   },
+  // 등록한 관심 키워드 자체는 저장 보드처럼 기기에만 두므로 endpoint가 없습니다.
+  myPage: {
+    profile: TODO_ENDPOINT,
+    keywordCatalog: TODO_ENDPOINT,
+  },
 } as const;
 
 export function hasEndpoint(endpoint: string | undefined): endpoint is string {
