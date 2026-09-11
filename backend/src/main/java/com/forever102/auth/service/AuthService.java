@@ -1,5 +1,7 @@
 package com.forever102.auth.service;
 
+import com.forever102.auth.dto.EmailCheckRequest;
+import com.forever102.auth.dto.EmailCheckResponse;
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
 import com.forever102.auth.dto.LogoutRequest;
@@ -42,6 +44,15 @@ public class AuthService {
         );
 
         return SignUpResponse.from(save(member));
+    }
+
+    /**
+     * 회원가입 전에 해당 이메일로 가입할 수 있는지 확인한다.
+     * 확인 이후에도 가입 상태가 바뀔 수 있으므로 회원가입에서 다시 중복을 검사한다.
+     */
+    @Transactional(readOnly = true)
+    public EmailCheckResponse checkEmail(EmailCheckRequest request) {
+        return EmailCheckResponse.of(!memberRepository.existsByEmail(request.email()));
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,7 @@
 package com.forever102.auth.controller;
 
+import com.forever102.auth.dto.EmailCheckRequest;
+import com.forever102.auth.dto.EmailCheckResponse;
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
 import com.forever102.auth.dto.LogoutRequest;
@@ -30,6 +32,11 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public BaseResponse<SignUpResponse> signUp(@Valid @RequestBody SignUpRequest request) {
         return BaseResponse.success(authService.signUp(request));
+    }
+
+    @PostMapping("/email-check")
+    public BaseResponse<EmailCheckResponse> checkEmail(@Valid @RequestBody EmailCheckRequest request) {
+        return BaseResponse.success(authService.checkEmail(request));
     }
 
     @PostMapping("/login")

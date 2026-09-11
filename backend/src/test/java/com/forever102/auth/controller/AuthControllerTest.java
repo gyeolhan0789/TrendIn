@@ -20,6 +20,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.forever102.auth.dto.EmailCheckRequest;
+import com.forever102.auth.dto.EmailCheckResponse;
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
 import com.forever102.auth.dto.LogoutRequest;
@@ -55,6 +57,13 @@ class AuthControllerTest {
               "email": "test@example.com",
               "password": "password123!",
               "nickname": "trenduser"
+            }
+            """;
+
+    private static final String EMAIL_CHECK_URL = "/auth/email-check";
+    private static final String VALID_EMAIL_CHECK_REQUEST = """
+            {
+              "email": "test@example.com"
             }
             """;
 
@@ -713,6 +722,133 @@ class AuthControllerTest {
         then(authService).should(never()).logout(any(), any(LogoutRequest.class));
     }
 
+
+    @Test
+    @DisplayName("가입되지 않은 이메일이면 200과 available true를 반환한다")
+    void checkEmailReturnsAvailable() throws Exception {
+        // given
+        given(authService.checkEmail(any(EmailCheckRequest.class)))
+                .willReturn(new EmailCheckResponse(true));
+
+        // when & then
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_EMAIL_CHECK_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(true))
+                .andExpect(jsonPath("$.message").value(nullValue()))
+                .andDo(document("auth-email-check",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestFields(
+                                fieldWithPath("email").type(JsonFieldType.STRING)
+                                        .description("중복을 확인할 이메일. 필수, 이메일 형식, 최대 254자. 앞뒤 공백 제거 후 소문자로 정규화된다.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 중복 여부와 무관하게 확인에 성공하면 true"),
+                                fieldWithPath("data.available").type(JsonFieldType.BOOLEAN)
+                                        .description("사용 가능 여부. true면 가입 가능, false면 이미 사용 중인 이메일"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("이미 가입된 이메일이어도 200과 available false를 반환한다")
+    void checkEmailReturnsUnavailable() throws Exception {
+        // given
+        given(authService.checkEmail(any(EmailCheckRequest.class)))
+                .willReturn(new EmailCheckResponse(false));
+
+        // when & then
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_EMAIL_CHECK_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.available").value(false))
+                .andDo(document("auth-email-check-unavailable",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 중복이어도 확인 자체는 성공이므로 true"),
+                                fieldWithPath("data.available").type(JsonFieldType.BOOLEAN)
+                                        .description("사용 가능 여부. 이미 가입된 이메일이므로 false"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("중복 확인은 토큰 없이 호출할 수 있다")
+    void checkEmailIsPublic() throws Exception {
+        // given
+        given(authService.checkEmail(any(EmailCheckRequest.class)))
+                .willReturn(new EmailCheckResponse(true));
+
+        // when & then
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_EMAIL_CHECK_REQUEST))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("이메일 형식이 올바르지 않으면 400으로 응답한다")
+    void checkEmailRejectsInvalidEmail() throws Exception {
+        // given
+        String request = """
+                {
+                  "email": "not-an-email"
+                }
+                """;
+
+        // when & then
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("이메일 형식이 올바르지 않습니다."))
+                .andDo(document("auth-email-check-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("이메일이 없으면 400으로 응답한다")
+    void checkEmailRejectsMissingEmail() throws Exception {
+        // when & then
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("이메일은 필수입니다."));
+    }
+
+    @Test
+    @DisplayName("중복 확인 요청 검증에 실패하면 서비스를 호출하지 않는다")
+    void checkEmailDoesNotCallServiceWhenInvalid() throws Exception {
+        // when
+        mockMvc.perform(post(EMAIL_CHECK_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"));
+
+        // then
+        then(authService).should(never()).checkEmail(any(EmailCheckRequest.class));
+    }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
     }
