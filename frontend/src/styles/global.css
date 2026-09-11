@@ -930,3 +930,7 @@ a.saved-card-title:hover { color: var(--accent); }
 .onboarding-choice-mark { display: grid; position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: #fff; transition: border-color .12s, background .12s; }
 .onboarding-choice.is-selected .onboarding-choice-mark { border-color: #202226; background: #202226; }
 .onboarding-count { margin: 12px 0 0; color: #8b9099; font-size: 12px; font-variant-numeric: tabular-nums; }
+/* 이메일 칸 안의 중복확인 버튼. 칸 높이에 맞춰 눕히고, 다 쓴 뒤에는 잠급니다. */
+.auth-check-button { flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px; color: #6d737c; background: #fff; font-size: 12px; font-weight: 500; white-space: nowrap; transition: border-color .12s, background .12s, color .12s; }
+.auth-check-button:hover:not(:disabled) { border-color: #202226; background: #202226; color: #fff; }
+.auth-check-button:disabled { border-color: #eceef2; color: #c8ccd2; background: #fafbfc; }
