@@ -14,6 +14,7 @@ public enum ErrorCode {
     KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 키워드입니다."),
     INTEREST_KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 관심 키워드입니다."),
     SAVED_TREND_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 저장 트렌드입니다."),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 알림입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 일치하지 않습니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다."),

@@ -17,6 +17,7 @@ import com.forever102.member.service.SavedTrendService;
 import com.forever102.notification.dto.NotificationListResponse;
 import com.forever102.notification.dto.UnreadNotificationCountResponse;
 import com.forever102.notification.service.NotificationQueryService;
+import com.forever102.notification.service.NotificationReadService;
 import com.forever102.trend.domain.AnalysisPeriod;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.Valid;
@@ -45,6 +46,7 @@ public class MemberController {
     private final MemberInterestKeywordService interestKeywordService;
     private final SavedTrendService savedTrendService;
     private final NotificationQueryService notificationQueryService;
+    private final NotificationReadService notificationReadService;
 
     @GetMapping
     public BaseResponse<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal Long memberId) {
@@ -135,5 +137,22 @@ public class MemberController {
             @AuthenticationPrincipal Long memberId
     ) {
         return BaseResponse.success(notificationQueryService.getUnreadCount(memberId));
+    }
+
+    @PatchMapping("/notifications/read-all")
+    public BaseResponse<Void> markAllNotificationsAsRead(
+            @AuthenticationPrincipal Long memberId
+    ) {
+        notificationReadService.markAllAsRead(memberId);
+        return BaseResponse.success(null);
+    }
+
+    @PatchMapping("/notifications/{notificationId}")
+    public BaseResponse<Void> markNotificationAsRead(
+            @AuthenticationPrincipal Long memberId,
+            @PathVariable @Positive Long notificationId
+    ) {
+        notificationReadService.markAsRead(memberId, notificationId);
+        return BaseResponse.success(null);
     }
 }

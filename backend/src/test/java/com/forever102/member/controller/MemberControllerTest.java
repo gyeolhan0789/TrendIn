@@ -49,6 +49,7 @@ import com.forever102.notification.dto.NotificationListResponse;
 import com.forever102.notification.dto.NotificationListResponse.NotificationResponse;
 import com.forever102.notification.dto.UnreadNotificationCountResponse;
 import com.forever102.notification.service.NotificationQueryService;
+import com.forever102.notification.service.NotificationReadService;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
@@ -84,6 +85,73 @@ class MemberControllerTest {
     @MockitoBean MemberService memberService;
     @MockitoBean SavedTrendService savedTrendService;
     @MockitoBean NotificationQueryService notificationQueryService;
+    @MockitoBean NotificationReadService notificationReadService;
+
+    @Test
+    @DisplayName("로그인한 회원의 알림을 읽음 처리하고 문서화한다")
+    void marksNotificationAsRead() throws Exception {
+        // when & then
+        mockMvc.perform(patch("/members/me/notifications/{notificationId}", 30L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-notifications-read",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        pathParameters(parameterWithName("notificationId")
+                                .description("읽음 처리할 알림 식별자")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.NULL)
+                                        .description("읽음 처리 성공 시 null"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+        then(notificationReadService).should().markAsRead(MEMBER_ID, 30L);
+    }
+
+    @Test
+    @DisplayName("존재하지 않거나 본인 소유가 아닌 알림 읽음 처리는 404로 응답한다")
+    void rejectsUnknownNotificationRead() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.NOTIFICATION_NOT_FOUND))
+                .given(notificationReadService).markAsRead(MEMBER_ID, 30L);
+
+        // when & then
+        mockMvc.perform(patch("/members/me/notifications/{notificationId}", 30L)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 알림입니다."));
+    }
+
+    @Test
+    @DisplayName("로그인한 회원의 미읽음 알림을 모두 읽음 처리하고 문서화한다")
+    void marksAllNotificationsAsRead() throws Exception {
+        // when & then
+        mockMvc.perform(patch("/members/me/notifications/read-all")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-notifications-read-all",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.NULL)
+                                        .description("전체 읽음 처리 성공 시 null"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+        then(notificationReadService).should().markAllAsRead(MEMBER_ID);
+    }
 
     @Test
     @DisplayName("로그인한 회원의 알림을 최신순 페이지로 조회하고 문서화한다")
