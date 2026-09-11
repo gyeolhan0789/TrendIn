@@ -31,6 +31,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_GET_ENDPOINTS = {"/domains"};
     private static final String[] PUBLIC_POST_ENDPOINTS =
             {"/auth/signup", "/auth/login", "/auth/reissue", "/auth/email-check"};
+    private static final String H2_CONSOLE_ENDPOINT_PATTERN = "/h2-console/**";
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
@@ -44,11 +45,14 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
+                // H2 콘솔은 내부 페이지를 iframe으로 렌더링한다.
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // 프리플라이트는 인증 헤더를 실을 수 없으므로 항상 열어둔다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(H2_CONSOLE_ENDPOINT_PATTERN).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
