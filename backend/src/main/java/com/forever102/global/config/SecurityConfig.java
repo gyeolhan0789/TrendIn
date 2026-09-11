@@ -27,6 +27,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    // 개인 정보가 없는 고정 목록이라 로그인 전 화면에서도 조회할 수 있게 열어둔다.
+    private static final String[] PUBLIC_GET_ENDPOINTS = {"/domains"};
     private static final String[] PUBLIC_POST_ENDPOINTS =
             {"/auth/signup", "/auth/login", "/auth/reissue", "/auth/email-check"};
 
