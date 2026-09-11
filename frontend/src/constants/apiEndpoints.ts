@@ -14,6 +14,12 @@ export const API_ENDPOINTS = {
     emailCheck: '/auth/email-check',
     oauthLogin: (provider: string) => `/auth/oauth/${encodeURIComponent(provider)}/login`,
   },
+  // 고를 수 있는 관심 분야 목록. 로그인 전에도 볼 수 있습니다.
+  domains: '/domains',
+  members: {
+    me: '/members/me',
+    domains: '/members/me/domains',
+  },
   trends: {
     top: TODO_ENDPOINT,
     new: TODO_ENDPOINT,

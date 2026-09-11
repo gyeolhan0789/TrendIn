@@ -2,6 +2,10 @@ export const queryKeys = {
   auth: {
     emailCheck: (email: string) => ['auth', 'emailCheck', email] as const,
   },
+  onboarding: {
+    domains: ['onboarding', 'domains'] as const,
+    myDomains: ['onboarding', 'myDomains'] as const,
+  },
   trends: {
     top: (params?: object) => ['trends', 'top', params] as const,
     new: (params?: object) => ['trends', 'new', params] as const,

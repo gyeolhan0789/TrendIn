@@ -917,3 +917,16 @@ a.saved-card-title:hover { color: var(--accent); }
   .auth-card { padding: 30px 22px 28px; border-radius: 18px; }
   .auth-title { font-size: 22px; }
 }
+
+/* 온보딩: 로그인·가입을 마친 사람이 볼 분야를 고르는 화면입니다. */
+.onboarding-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 26px; }
+.onboarding-choice { display: flex; position: relative; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; text-align: left; transition: border-color .12s, background .12s; }
+.onboarding-choice:hover:not(:disabled) { border-color: #c9ced6; background: #f7f8f9; }
+.onboarding-choice.is-selected { border-color: #202226; background: #f7f8f9; }
+.onboarding-choice:disabled { color: #a9aeb6; }
+.onboarding-choice strong { font-size: 16px; font-weight: 600; letter-spacing: -.3px; }
+.onboarding-choice small { color: #a4aab3; font: 10px monospace; letter-spacing: .6px; }
+/* 고른 표시는 오른쪽 위 한 자리에 둡니다. 카드가 늘어도 자리가 흔들리지 않습니다. */
+.onboarding-choice-mark { display: grid; position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: #fff; transition: border-color .12s, background .12s; }
+.onboarding-choice.is-selected .onboarding-choice-mark { border-color: #202226; background: #202226; }
+.onboarding-count { margin: 12px 0 0; color: #8b9099; font-size: 12px; font-variant-numeric: tabular-nums; }

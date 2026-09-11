@@ -29,10 +29,10 @@ export function OAuthCallbackPage() {
       .mutateAsync({ provider, code, state })
       .then((result) => {
         showToast({
-          message: result.isNewMember ? '가입을 마쳤습니다. 관심 키워드를 등록해 보세요.' : '로그인했습니다.',
+          message: result.isNewMember ? '가입을 마쳤습니다. 먼저 관심 분야를 골라 주세요.' : '로그인했습니다.',
           type: 'success',
         });
-        navigate(result.onboardingCompleted ? '/' : '/mypage', { replace: true });
+        navigate(result.onboardingCompleted ? '/' : '/onboarding', { replace: true });
       })
       .catch(() => undefined);
   }, [code, navigate, oauthLoginMutation, provider, state]);
