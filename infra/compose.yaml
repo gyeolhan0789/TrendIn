@@ -1,6 +1,32 @@
 name: s15p21a102-infra
 
 services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in infra/.env}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DEV_POSTGRES_URL: ${DEV_POSTGRES_URL:?Set DEV_POSTGRES_URL in infra/.env}
+      DEV_POSTGRES_USER_NAME: ${DEV_POSTGRES_USER_NAME:?Set DEV_POSTGRES_USER_NAME in infra/.env}
+      DEV_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+      DEV_REDIS_HOST: ${DEV_REDIS_HOST:?Set DEV_REDIS_HOST in infra/.env}
+      DEV_REDIS_PORT: ${DEV_REDIS_PORT:?Set DEV_REDIS_PORT in infra/.env}
+      DEV_REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:?Set DEV_JWT_SECRET in infra/.env}
+      DEV_CORS_ALLOWED_ORIGINS: ${DEV_CORS_ALLOWED_ORIGINS:?Set DEV_CORS_ALLOWED_ORIGINS in infra/.env}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:?Set BACKEND_PORT in infra/.env}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shared
+
   postgres:
     image: postgres:17-bookworm
     restart: unless-stopped
@@ -12,6 +38,11 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - shared
 
@@ -29,6 +60,11 @@ services:
     volumes:
       - redis_data:/data
       - ./redis.conf:/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - shared
 
