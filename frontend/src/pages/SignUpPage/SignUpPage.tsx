@@ -84,9 +84,9 @@ export function SignUpPage() {
         navigate('/login', { replace: true });
         return;
       }
-      showToast({ message: `${member.nickname}님, 환영합니다. 관심 키워드를 등록해 보세요.`, type: 'success' });
-      // 가입 직후에는 온보딩이 끝나지 않았으므로 관심 키워드 화면부터 보여줍니다.
-      navigate(session.onboardingCompleted ? '/' : '/mypage', { replace: true });
+      showToast({ message: `${member.nickname}님, 환영합니다. 먼저 관심 분야를 골라 주세요.`, type: 'success' });
+      // 가입 직후에는 온보딩이 끝나지 않았으므로 관심 분야 선택부터 거칩니다.
+      navigate(session.onboardingCompleted ? '/' : '/onboarding', { replace: true });
     } catch (error) {
       setFormError(describeAuthError(error, '가입하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }

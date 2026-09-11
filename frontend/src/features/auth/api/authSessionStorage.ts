@@ -83,3 +83,13 @@ export function subscribeAuthSession(listener: () => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }
+
+/**
+ * 관심 분야를 처음 고르면 서버가 온보딩을 완료 처리하므로, 기기에 둔 세션도 함께 맞춥니다.
+ * 이 값이 어긋나면 이미 끝낸 사람을 온보딩으로 다시 돌려보내게 됩니다.
+ */
+export function markOnboardingCompleted() {
+  const current = getAuthSession();
+  if (!current || current.onboardingCompleted) return;
+  setAuthSession({ ...current, onboardingCompleted: true });
+}

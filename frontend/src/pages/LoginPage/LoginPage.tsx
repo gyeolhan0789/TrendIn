@@ -49,12 +49,12 @@ export function LoginPage() {
 
     try {
       const result = await loginMutation.mutateAsync({ email, password });
-      // 관심 분야를 아직 고르지 않은 계정은 개인화 홈 대신 관심 키워드부터 보여줍니다.
+      // 관심 분야를 아직 고르지 않은 계정은 온보딩부터 마치게 합니다.
       showToast({
-        message: result.onboardingCompleted ? '로그인했습니다.' : '관심 키워드를 등록하면 개인화 홈을 볼 수 있습니다.',
+        message: result.onboardingCompleted ? '로그인했습니다.' : '먼저 관심 분야를 골라 주세요.',
         type: 'success',
       });
-      navigate(result.onboardingCompleted ? from : '/mypage', { replace: true });
+      navigate(result.onboardingCompleted ? from : '/onboarding', { replace: true });
     } catch (error) {
       setFormError(describeAuthError(error, '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }
