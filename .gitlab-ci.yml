@@ -6,10 +6,20 @@ stages:
   - verify
   - deploy
 
-# 관련 파일을 변경한 MR과 dev 파이프라인만 생성한다.
-# dev는 변경 경로와 관계없이 기준선을 검증한다.
-# 이 목록은 MR에서 도는 잡이 보는 경로의 합집합이다. 배포 잡은 dev 전용이라 넣지 않는다.
+# 관련 파일을 변경한 MR과 dev 파이프라인만 생성한다. dev도 경로로 거른다.
+#
+# dev를 경로로 거르지 않으면 backend만 고친 머지도 dev 파이프라인을 만든다. 그 파이프라인이
+# 앞서 돌던 데이터 파이프라인을 밀어내는데, 배포 잡은 dev의 data 변경에만 생기므로 취소된
+# 배포를 아무도 대신하지 않는다. 머지한 사람은 canceled 표시만 보고 올라갔다고 믿는다.
+#
+# dev 목록에만 배포 스크립트가 있다. 그것만 고친 머지에서 파이프라인이 안 생기면 배포가
+# 도달하지 못한다. MR 목록에 없는 이유는 그 경로를 보는 잡이 MR에서 돌지 않기 때문이다.
 workflow:
+  # dev 파이프라인끼리도 서로 취소하지 않는다. 취소되는 시점의 deploy는 아직 시작하지 않은
+  # 잡이라 interruptible: false 로 보호되지 않고, 앞 커밋이 배포됐는지가 이력에 남지 않는다.
+  # 데이터 머지 N번이면 배포도 N번 돈다. 직렬화는 deploy 잡의 resource_group이 맡는다.
+  auto_cancel:
+    on_new_commit: none
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       changes:
@@ -18,6 +28,12 @@ workflow:
         - scripts/check-destructive-settings.sh
         - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - datastore/**/*
+        - pipeline/**/*
+        - scripts/check-destructive-settings.sh
+        - scripts/deploy-data-ec2.sh
+        - .gitlab-ci.yml
     - when: never
 
 default:
