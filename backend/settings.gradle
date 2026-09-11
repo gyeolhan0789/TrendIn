@@ -1,1 +1,12 @@
+/*
+ * build.gradle 이 Java 25 툴체인을 요구한다. 이 플러그인이 있으면 Gradle 이 그 JDK 를
+ * 직접 내려받으므로, 개발자와 CI 가 각자 JDK 를 맞춰 설치하지 않아도 된다.
+ * 쓰는 버전을 머신이 아니라 빌드가 정한다는 점에서 CI 가 이미지 태그를 고정하는 것과 같다.
+ *
+ * Gradle 자신을 띄우는 JVM 은 별개다(17 이상 필요). JAVA_HOME 으로 지정한다.
+ */
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
 rootProject.name = 'trendin-backend'
