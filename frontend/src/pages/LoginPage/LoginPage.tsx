@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { showToast } from '../../components/common/toast';
 import { AuthField } from '../../features/auth/components/AuthField';
@@ -67,6 +67,7 @@ export function LoginPage() {
       eyebrow="SIGN IN"
       title="다시 만나 반갑습니다"
       description="등록한 관심 키워드의 추이와 저장한 트렌드를 이어서 봅니다."
+      footer={<>아직 계정이 없으신가요? <Link to="/signup">회원가입</Link></>}
     >
       <form className="auth-form" onSubmit={submit} noValidate>
         <AuthField

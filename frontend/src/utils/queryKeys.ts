@@ -1,4 +1,7 @@
 export const queryKeys = {
+  auth: {
+    emailCheck: (email: string) => ['auth', 'emailCheck', email] as const,
+  },
   trends: {
     top: (params?: object) => ['trends', 'top', params] as const,
     new: (params?: object) => ['trends', 'new', params] as const,
@@ -17,4 +20,3 @@ export const queryKeys = {
     keywordCatalog: ['myPage', 'keywordCatalog'] as const,
   },
 };
-

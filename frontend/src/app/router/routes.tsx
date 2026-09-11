@@ -4,6 +4,7 @@ import { LoginPage } from '../../pages/LoginPage/LoginPage';
 import { MyPage } from '../../pages/MyPage/MyPage';
 import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
 import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
+import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
 
 export const appRoutes = (
@@ -25,6 +26,7 @@ export const appRoutes = (
 export const authRoutes = (
   <>
     <Route path="/login" element={<LoginPage />} />
+    <Route path="/signup" element={<SignUpPage />} />
     <Route path="/oauth/:provider/callback" element={<OAuthCallbackPage />} />
   </>
 );
