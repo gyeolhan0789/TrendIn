@@ -9,8 +9,10 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
+    INTEREST_COUNT_INVALID(HttpStatus.BAD_REQUEST, "관심 분야는 최소 1개 이상 선택해야 합니다."),
     TREND_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 트렌드입니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원입니다."),
+    DOMAIN_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 분야입니다."),
     KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 키워드입니다."),
     INTEREST_KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 관심 키워드입니다."),
     SAVED_TREND_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 저장 트렌드입니다."),

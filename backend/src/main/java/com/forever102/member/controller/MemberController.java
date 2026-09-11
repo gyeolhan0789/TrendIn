@@ -2,6 +2,7 @@ package com.forever102.member.controller;
 
 import com.forever102.global.response.BaseResponse;
 import com.forever102.member.dto.DomainResponse;
+import com.forever102.member.dto.MemberDomainUpdateRequest;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
@@ -30,6 +31,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -67,6 +69,14 @@ public class MemberController {
     @GetMapping("/domains")
     public BaseResponse<List<DomainResponse>> getMyDomains(@AuthenticationPrincipal Long memberId) {
         return BaseResponse.success(memberDomainService.getMyDomains(memberId));
+    }
+
+    @PutMapping("/domains")
+    public BaseResponse<List<DomainResponse>> updateMyDomains(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody MemberDomainUpdateRequest request
+    ) {
+        return BaseResponse.success(memberDomainService.updateMyDomains(memberId, request));
     }
 
     @PostMapping("/interest-keywords")
