@@ -1,8 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { AccountMenu } from '../../features/auth/components/AccountMenu';
+import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
 export function Header() {
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const session = useAuthSession();
 
   return (
     <header className={`app-header${isHome ? ' app-header--home' : ''}`}>
@@ -15,7 +18,10 @@ export function Header() {
         </nav>
         <div className="header-right">
           {isHome && <span className="header-collection">수집 1,291건 · 갱신 방금</span>}
-          <span className="avatar" aria-label="사용자 프로필">J</span>
+          {/* 로그인 화면으로 보낼 때, 보고 있던 자리로 되돌아올 수 있게 경로를 함께 넘깁니다. */}
+          {session
+            ? <AccountMenu session={session} />
+            : <NavLink className="header-login" to="/login" state={{ from: location.pathname }}>로그인</NavLink>}
         </div>
       </div>
     </header>
