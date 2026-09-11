@@ -9,6 +9,8 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
+import com.forever102.auth.dto.EmailCheckRequest;
+import com.forever102.auth.dto.EmailCheckResponse;
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
 import com.forever102.auth.dto.LogoutRequest;
@@ -156,6 +158,58 @@ class AuthServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMAIL_ALREADY_EXISTS);
     }
 
+
+    @Test
+    @DisplayName("가입되지 않은 이메일이면 available이 true다")
+    void checkEmailReturnsAvailableForNewEmail() {
+        // given
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
+
+        // when
+        EmailCheckResponse response = authService.checkEmail(new EmailCheckRequest(EMAIL));
+
+        // then
+        assertThat(response.available()).isTrue();
+    }
+
+    @Test
+    @DisplayName("이미 가입된 이메일이면 예외 대신 available이 false다")
+    void checkEmailReturnsUnavailableForRegisteredEmail() {
+        // given
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(true);
+
+        // when
+        EmailCheckResponse response = authService.checkEmail(new EmailCheckRequest(EMAIL));
+
+        // then
+        assertThat(response.available()).isFalse();
+    }
+
+    @Test
+    @DisplayName("중복 확인은 정규화된 이메일로 조회한다")
+    void checkEmailQueriesNormalizedEmail() {
+        // given
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
+
+        // when
+        authService.checkEmail(new EmailCheckRequest("  TEST@Example.COM  "));
+
+        // then
+        then(memberRepository).should().existsByEmail(EMAIL);
+    }
+
+    @Test
+    @DisplayName("중복 확인은 회원을 저장하지 않는다")
+    void checkEmailDoesNotCreateMember() {
+        // given
+        given(memberRepository.existsByEmail(EMAIL)).willReturn(false);
+
+        // when
+        authService.checkEmail(new EmailCheckRequest(EMAIL));
+
+        // then
+        then(memberRepository).should(never()).saveAndFlush(any(Member.class));
+    }
     @Test
     @DisplayName("이메일과 비밀번호가 일치하면 액세스·리프레시 토큰을 발급한다")
     void loginIssuesTokens() {

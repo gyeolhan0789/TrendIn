@@ -38,6 +38,40 @@ operation::auth-signup-invalid-request[snippets='http-response,response-fields']
 
 operation::auth-signup-email-already-exists[snippets='http-response,response-fields']
 
+[[auth-email-check]]
+=== 이메일 중복 확인
+
+`POST /auth/email-check`
+
+회원가입 전에 해당 이메일로 가입할 수 있는지 확인한다. 인증 헤더 없이 호출한다.
+
+`available`이 `true`면 사용 가능, `false`면 이미 사용 중인 이메일이다.
+중복이어도 오류가 아니라 200에 `available=false`로 응답한다.
+
+이메일은 회원가입과 같은 방식으로 앞뒤 공백을 제거하고 소문자로 정규화한 뒤 조회한다.
+확인한 뒤에도 다른 사용자가 같은 이메일로 먼저 가입할 수 있으므로, 회원가입 API가 중복을 다시 검사하고 409를 반환한다.
+클라이언트는 이 API의 결과를 최종 보장으로 다루면 안 된다.
+
+==== 요청
+
+operation::auth-email-check[snippets='http-request,request-fields']
+
+==== 응답
+
+operation::auth-email-check[snippets='http-response,response-fields']
+
+==== 200 OK — 이미 사용 중인 이메일
+
+operation::auth-email-check-unavailable[snippets='http-response,response-fields']
+
+==== 에러
+
+===== 400 Bad Request
+
+이메일이 없거나 형식이 올바르지 않거나 254자를 넘는 경우.
+
+operation::auth-email-check-invalid-request[snippets='http-response,response-fields']
+
 [[trends]]
 == Trends
 
