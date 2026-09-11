@@ -149,6 +149,54 @@ class NotificationRepositoryTest {
         assertThat(count).isOne();
     }
 
+    @Test
+    @DisplayName("알림 식별자와 회원이 모두 일치할 때만 알림을 조회한다")
+    void findsNotificationOnlyForOwner() {
+        // given
+        Member owner = persistMember("owner@example.com");
+        Member other = persistMember("other@example.com");
+        Trend trend = persistTrend(persistKeyword("Ballet Sneakers"));
+        Notification notification = notificationRepository.saveAndFlush(
+                notification(owner, trend, "TREND_ENTRY:1:owner"));
+
+        // when
+        var owned = notificationRepository.findByIdAndMemberId(
+                notification.getId(), owner.getId());
+        var unowned = notificationRepository.findByIdAndMemberId(
+                notification.getId(), other.getId());
+
+        // then
+        assertThat(owned).contains(notification);
+        assertThat(unowned).isEmpty();
+    }
+
+    @Test
+    @DisplayName("회원의 미읽음 알림만 bulk update로 읽음 처리한다")
+    void marksOnlyMemberUnreadNotificationsAsRead() {
+        // given
+        Member member = persistMember("member@example.com");
+        Member other = persistMember("other@example.com");
+        Trend trend = persistTrend(persistKeyword("Ballet Sneakers"));
+        Notification unread = notificationRepository.saveAndFlush(
+                notification(member, trend, "TREND_ENTRY:1:unread"));
+        Notification alreadyRead = notificationRepository.saveAndFlush(
+                notification(member, trend, "TREND_ENTRY:1:read"));
+        ReflectionTestUtils.setField(alreadyRead, "read", true);
+        Notification otherUnread = notificationRepository.saveAndFlush(
+                notification(other, trend, "TREND_ENTRY:2:unread"));
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        int updatedCount = notificationRepository.markAllAsReadByMemberId(member.getId());
+
+        // then
+        assertThat(updatedCount).isOne();
+        assertThat(notificationRepository.findById(unread.getId()).orElseThrow().isRead()).isTrue();
+        assertThat(notificationRepository.findById(alreadyRead.getId()).orElseThrow().isRead()).isTrue();
+        assertThat(notificationRepository.findById(otherUnread.getId()).orElseThrow().isRead()).isFalse();
+    }
+
     private Notification notification(Member member, Trend trend, String dedupKey) {
         return Notification.trendChange(member, trend, "트렌드 변화 알림", dedupKey);
     }

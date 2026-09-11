@@ -75,6 +75,10 @@ public class Notification {
         return new Notification(member, trend, message, dedupKey);
     }
 
+    public void markAsRead() {
+        read = true;
+    }
+
     @PrePersist
     void onCreate() {
         read = false;
