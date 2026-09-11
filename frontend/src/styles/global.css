@@ -876,6 +876,11 @@ a.saved-card-title:hover { color: var(--accent); }
 
 .auth-note { color: #8b9099; font-size: 12px; line-height: 1.6; }
 .auth-note.is-error { color: #e0453a; }
+/* 비밀번호 규칙은 아직 못 채운 항목이 눈에 들어와야 해서, 채운 쪽만 앰버로 칠합니다. */
+.auth-checklist { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 2px 0 0; padding: 0; list-style: none; }
+.auth-checklist li { display: flex; align-items: center; gap: 5px; color: #a4aab3; font-size: 11px; }
+.auth-checklist li.is-met { color: var(--amber); }
+.auth-checklist li > span[aria-hidden="true"] { display: inline-block; width: 9px; text-align: center; }
 
 .auth-alert { margin: 0; padding: 12px 14px; border: 1px solid #f3d6d3; border-radius: 10px; color: #b8382e; background: #fdf4f4; font-size: 13px; line-height: 1.6; }
 

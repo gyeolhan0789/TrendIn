@@ -17,6 +17,19 @@ export interface OAuthLoginResult extends LoginResult {
   isNewMember: boolean;
 }
 
+export interface SignUpRequest {
+  email: string;
+  password: string;
+  nickname: string;
+}
+
+export interface SignUpResult {
+  memberId: number;
+  email: string;
+  nickname: string;
+  onboardingCompleted: boolean;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

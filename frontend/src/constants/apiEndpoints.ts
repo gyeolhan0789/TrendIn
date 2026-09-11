@@ -7,9 +7,11 @@ const TODO_ENDPOINT = undefined;
 export const API_ENDPOINTS = {
   // 인증 API는 계약이 확정되어 경로를 그대로 적습니다.
   auth: {
+    signUp: '/auth/signup',
     login: '/auth/login',
     logout: '/auth/logout',
     reissue: '/auth/reissue',
+    emailCheck: '/auth/email-check',
     oauthLogin: (provider: string) => `/auth/oauth/${encodeURIComponent(provider)}/login`,
   },
   trends: {
