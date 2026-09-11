@@ -29,7 +29,6 @@ class SecurityConfigTest {
 
     private static final String SECURED_URL = "/secured";
     private static final String PUBLIC_URL = "/auth/login";
-    private static final String H2_CONSOLE_URL = "/h2-console/";
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private static final String DISALLOWED_ORIGIN = "https://evil.example.com";
     private static final Long MEMBER_ID = 42L;
@@ -114,11 +113,17 @@ class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("H2 콘솔은 토큰 없이 접근할 수 있고 same-origin 프레임을 허용한다")
-    void allowsH2ConsoleWithoutToken() throws Exception {
-        mockMvc.perform(get(H2_CONSOLE_URL))
+    @DisplayName("공용 체인은 프레임 차단 기본값을 유지한다")
+    void keepsFrameOptionsDeny() throws Exception {
+        // given
+        String accessToken = jwtTokenProvider.issue(MEMBER_ID).accessToken();
+
+        // when & then
+        // H2 콘솔 때문에 sameOrigin으로 완화하면 모든 API 응답의 클릭재킹 방어가 약해진다.
+        // 콘솔은 local 전용 체인에서 자기 헤더를 따로 설정한다.
+        mockMvc.perform(get(SECURED_URL).header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(header().string("X-Frame-Options", "SAMEORIGIN"));
+                .andExpect(header().string("X-Frame-Options", "DENY"));
     }
 
     @Test
@@ -168,11 +173,6 @@ class SecurityConfigTest {
         @PostMapping(PUBLIC_URL)
         String publicEndpoint() {
             return "ok";
-        }
-
-        @GetMapping(H2_CONSOLE_URL)
-        String h2Console() {
-            return "h2-console";
         }
     }
 }
