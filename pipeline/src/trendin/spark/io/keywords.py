@@ -524,7 +524,11 @@ SELECT EXISTS (
       JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY (i.indkey)
      WHERE c.relname = '{KEYWORDS}' AND i.indisunique
      GROUP BY i.indexrelid
-    HAVING array_agg(a.attname ORDER BY a.attname) = ARRAY['domain', 'normalized_name']
+    -- `attname` 은 `name` 타입이라 `text[]` 와 바로 비교되지 않는다 (`operator does not
+    -- exist: name[] = text[]`). 2026-09-10 에 제약이 실제로 생긴 DB 에서 처음 드러났다 —
+    -- 그전에는 `keywords` 가 없어 이 경로가 돈 적이 없다.
+    HAVING array_agg(a.attname::text ORDER BY a.attname::text)
+           = ARRAY['domain', 'normalized_name']
 )
 """
 

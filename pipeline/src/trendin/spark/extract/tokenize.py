@@ -71,6 +71,13 @@ class Token:
     is_stop: bool = False
     # 이 토큰 뒤에서 구간이 끝난다 — 명사가 아닌 형태소 · 구두점 · 줄바꿈 · 해시태그.
     boundary_after: bool = False
+    # 형태소 분석기가 **고유명사(`NNP`)** 로 본 명사가 이 토큰에 들어 있나 ([04 §6] 고유명사 축).
+    #
+    # ⚠️ **믿을 만한 신호가 아니다.** 2026-09-10 실측에서 `디올`·`바자` 는 `NNG` 이고
+    # `퍼플`·`플랫`·`데일리` 는 `NNP` 였다 — Kiwi 의 `NNP` 는 고유명사라기보다 "사전에 드물게
+    # 등재된 외래어" 에 가깝다. 그래서 축으로 쓰되 **가중치를 작게** 둔다 (`score_weights.proper`).
+    # 확실한 신호는 라틴 문자 표기이고 그건 `batch.py` 가 표기에서 직접 본다.
+    is_proper: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,13 +189,15 @@ def _emit_line(
             builder.boundary()
             index += 1
             continue
-        end, next_index = _unit(morphs, index, glue_before=glue_before, glue_after=glue_after)
+        end, next_index, proper = _unit(
+            morphs, index, glue_before=glue_before, glue_after=glue_after
+        )
         if end is None:
             # 핵 없이 접두사만 있었다. 한 칸만 넘긴다 — 뒤를 통째로 버리면 낱말이 사라진다.
             builder.boundary()
             index += 1
             continue
-        _emit_unit(line[morph.start : end], builder, options=options)
+        _emit_unit(line[morph.start : end], builder, options=options, proper=proper)
         index = next_index
 
 
@@ -198,14 +207,15 @@ def _unit(
     *,
     glue_before: frozenset[str],
     glue_after: frozenset[str],
-) -> tuple[int | None, int]:
-    """`morphs[start]` 에서 시작하는 명사 단위 → `(표기의 끝 위치, 다음 형태소 번호)`.
+) -> tuple[int | None, int, bool]:
+    """`morphs[start]` 에서 시작하는 명사 단위 → `(표기의 끝, 다음 형태소 번호, 고유명사 여부)`.
 
     **공백이 있으면 끊는다.** 형태소가 원문에서 바로 이어 붙어 있을 때만 한 표기로 본다 —
     `개발자`+`경험` 은 `개발자경험` 이지만 `테일러드` `재킷` 은 두 토큰이고, 그 둘을 잇는
     것은 구간과 n-gram 의 일이다 ([04 §3]). 여기서 붙이면 원문에 없는 공백이 표기에 들어간다.
     """
     end: int | None = None
+    proper = False
     index = start
     while index < len(morphs):
         morph = morphs[index]
@@ -213,6 +223,7 @@ def _unit(
             break
         if morph.tag in mp.NOUN_CORE:
             end = morph.end
+            proper = proper or morph.tag == mp.PROPER_NOUN
         elif end is None and morph.tag in glue_before:
             pass  # 접두사는 핵 앞에서만
         elif end is not None and morph.tag in glue_after:
@@ -220,14 +231,17 @@ def _unit(
         else:
             break
         index += 1
-    return end, index
+    return end, index, proper
 
 
-def _emit_unit(surface: str, builder: "_Builder", *, options: TokenizeOptions) -> None:
+def _emit_unit(
+    surface: str, builder: "_Builder", *, options: TokenizeOptions, proper: bool = False
+) -> None:
     if _HAS_HANGUL.search(surface):
-        builder.token(surface, HANGUL)
+        builder.token(surface, HANGUL, proper=proper)
         return
     # 한글이 없으면 영문 분류기가 종류를 정한다 — 분석기는 `SL`·`SN` 까지만 안다.
+    # 라틴 표기의 고유명사 여부는 태그로 보지 않는다 — `batch.py` 가 표기에서 직접 본다.
     for token_surface, kind in _classify_latin(surface, options):
         builder.token(token_surface, kind)
 
@@ -289,9 +303,10 @@ class _Builder:
 
     def __init__(self, lexicon: Lexicon) -> None:
         self._lexicon = lexicon
-        self._tokens: list[list] = []  # [surface, kind, is_stop, boundary_after]
+        # [surface, kind, is_stop, boundary_after, is_proper]
+        self._tokens: list[list] = []
 
-    def token(self, surface: str, kind: str) -> None:
+    def token(self, surface: str, kind: str, *, proper: bool = False) -> None:
         key = normalized_key(surface)
         # 한 글자 영문(`F/W` 의 `F`, `-f` 의 `f`)은 후보가 못 되고 n-gram 에 끼면 `w 런웨이` 같은
         # 조각을 만든다. 한글 한 음절이 경계가 되는 것과 같은 처리다.
@@ -300,7 +315,7 @@ class _Builder:
             return
         # **비교키 하나만 대조한다.** 옛 코드는 조사를 뗀 어간까지 두드렸는데(`컬러의` →
         # `컬러`), 이제 분석기가 조사를 떼고 나서 오므로 그럴 일이 없다 ([04 §5]).
-        self._tokens.append([surface, kind, self._lexicon.is_stopword(key), False])
+        self._tokens.append([surface, kind, self._lexicon.is_stopword(key), False, proper])
 
     def hashtag(self, raw: str) -> None:
         # 해시태그는 홀로 선다 — 앞뒤 모두 경계. `new #vibecoding trend` 에서
@@ -308,14 +323,17 @@ class _Builder:
         self.boundary()
         surface, _ = _clean(raw)
         if len(surface) > 1:
-            self._tokens.append([surface, HASHTAG, False, True])
+            self._tokens.append([surface, HASHTAG, False, True, False])
 
     def boundary(self) -> None:
         if self._tokens:
             self._tokens[-1][3] = True
 
     def tokens(self) -> list[Token]:
-        return [Token(s, k, stop, boundary) for s, k, stop, boundary in self._tokens]
+        return [
+            Token(surface, kind, stop, boundary, proper)
+            for surface, kind, stop, boundary, proper in self._tokens
+        ]
 
 
 def doc_length(tokens: Sequence[Token]) -> int:

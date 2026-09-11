@@ -25,6 +25,7 @@ curated/
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from trendin.spark.common.config import Config
@@ -42,6 +43,15 @@ log = get_logger(__name__)
 
 DEFAULT_BUCKET = "curated"
 COMPRESSION = "snappy"
+
+# `s3a://` · `file://` 같은 URI 스킴. `//` 를 필수로 두는 것이 중요하다 — `:` 만 옵션으로
+# 받으면 Windows 경로(`C:\...`)의 드라이브 문자를 스킴으로 먹는다.
+SCHEME_RE = r"^[a-zA-Z0-9+.-]+://"
+
+
+def strip_scheme(path: str) -> str:
+    """URI 스킴을 뗀 경로. `body_object_keys` 가 양쪽을 같은 모양으로 맞추는 데 쓴다."""
+    return re.sub(SCHEME_RE, "", path)
 
 
 def curated_root(config: Config) -> str:
@@ -121,8 +131,6 @@ def body_object_keys(
     **한계는 규격이 이미 적어 뒀다** — 키가 파일을 가리키지 문서를 가리키지 않으므로 읽는
     쪽은 파일을 열어 `url` 로 행을 찾아야 한다. 지금은 실제 소비자가 없다 ([01 §3]).
     """
-    import re
-
     from pyspark.sql import functions as F
 
     root = root or curated_root(config)
@@ -136,9 +144,16 @@ def body_object_keys(
     # `s3a://버킷/키` 에서 키만 남긴다. `contents.body_object_key` 는 **버킷 안의 키**이고,
     # 버킷 이름은 설정이 들고 있다 — 키에 섞으면 버킷을 옮길 때 옛 행이 못 따라온다.
     #
+    # **자르기 전에 양쪽에서 스킴을 뗀다.** `input_file_name()` 은 스킴을 붙여 돌려주는데
+    # (로컬이면 `file:///tmp/...`) `root` 는 로컬 경로일 때 스킴이 없다. 그대로 `^{root}/`
+    # 로 앵커하면 한 글자도 안 잘려 파티션 경로가 통째로 키에 들어간다. 운영은 양쪽이 다
+    # `s3a://` 라 우연히 맞았을 뿐이다.
+    #
     # 경로를 정규식에 넣으므로 이스케이프한다. 버킷 이름에 `.` 이 들어가는 일이 실제로
     # 있고(도메인 형태 이름), 그러면 임의의 한 글자와 맞아 키가 잘못 잘린다.
+    bare = strip_scheme(root)
+    path = F.regexp_replace(F.col("_path"), SCHEME_RE, "")
     return written.select(
         F.col("url_hash"),
-        F.regexp_replace(F.col("_path"), f"^{re.escape(root)}/", "").alias("body_object_key"),
+        F.regexp_replace(path, f"^{re.escape(bare)}/", "").alias("body_object_key"),
     )

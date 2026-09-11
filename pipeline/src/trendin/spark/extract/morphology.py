@@ -72,6 +72,10 @@ NOUN_CORE = frozenset(
     }
 )
 
+# 고유명사 태그. `NOUN_CORE` 안에 있지만 **구분해서 토큰까지 들고 간다** ([04 §6] 고유명사 축).
+# 2026-09-10 전까지는 `NNG` 와 한 덩어리로 버려졌다.
+PROPER_NOUN = "NNP"
+
 # 접두사. `재해석` · `친환경` 처럼 명사 앞에 붙어 뜻을 바꾼다.
 NOUN_PREFIX = frozenset({"XPN"})
 

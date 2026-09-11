@@ -72,6 +72,8 @@ DOCUMENT_CANDIDATE_COLUMNS = (
     "tf",
     "tf_title",
     "in_title",
+    "is_latin",
+    "is_proper",
     "df",
     "c_value",
     "bm25",
@@ -115,6 +117,11 @@ CREATE TABLE IF NOT EXISTS {DOCUMENT_CANDIDATE} (
     tf              integer     NOT NULL,
     tf_title        integer     NOT NULL,
     in_title        boolean     NOT NULL,
+    -- 고유명사 축 두 개 ([04 §6], 2026-09-10 추가). 점수에 이미 반영돼 있지만 **원값도 남긴다** —
+    -- 가중치를 바꿔 다시 고르는 실험이 재추출 없이 되려면 축이 저장돼 있어야 한다
+    -- (`spark/scripts/sweep-extract.py`).
+    is_latin        boolean     NOT NULL DEFAULT false,
+    is_proper       boolean     NOT NULL DEFAULT false,
     -- 그 실행의 코퍼스에서 본 문서 빈도. 재추출하면 바뀐다.
     df              integer     NOT NULL,
     c_value         double precision NOT NULL,
@@ -218,7 +225,17 @@ CREATE TABLE IF NOT EXISTS {ALIAS} (
 CREATE INDEX IF NOT EXISTS pl_alias_canonical_idx ON {ALIAS} (domain, canonical_key);
 
 -- 스테이징은 제약이 없다. 순수 INSERT 를 빠르게 받고 MERGE 뒤 비운다.
+-- 이미 있는 표에 칸을 더한다. `CREATE TABLE IF NOT EXISTS` 는 옛 표를 고치지 않으므로
+-- 컬럼을 더할 때는 이 줄이 필요하다 (2026-09-10 고유명사 축).
+ALTER TABLE {DOCUMENT_CANDIDATE} ADD COLUMN IF NOT EXISTS is_latin boolean NOT NULL DEFAULT false;
+ALTER TABLE {DOCUMENT_CANDIDATE} ADD COLUMN IF NOT EXISTS is_proper boolean NOT NULL DEFAULT false;
+
+-- 스테이징은 본표를 베끼므로 위 ALTER 뒤에 만들어야 칸이 맞는다. 이미 있으면 함께 고친다.
 CREATE TABLE IF NOT EXISTS {STAGE_DOCUMENT_CANDIDATE} (LIKE {DOCUMENT_CANDIDATE});
+ALTER TABLE {STAGE_DOCUMENT_CANDIDATE}
+    ADD COLUMN IF NOT EXISTS is_latin boolean NOT NULL DEFAULT false;
+ALTER TABLE {STAGE_DOCUMENT_CANDIDATE}
+    ADD COLUMN IF NOT EXISTS is_proper boolean NOT NULL DEFAULT false;
 CREATE TABLE IF NOT EXISTS {STAGE_EXTRACTED_DOCUMENT} (
     domain   text  NOT NULL,
     url_hash bytea NOT NULL

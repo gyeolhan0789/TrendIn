@@ -46,6 +46,8 @@ class DocumentCandidate:
     tf: int
     tf_title: int
     parents: tuple[str, ...]
+    # 이 문서의 어느 출현에서든 고유명사 태그를 받았나 ([04 §6]).
+    is_proper: bool = False
 
     def as_row(self) -> dict[str, Any]:
         return {
@@ -56,6 +58,7 @@ class DocumentCandidate:
             "tf": self.tf,
             "tf_title": self.tf_title,
             "parents": list(self.parents),
+            "is_proper": self.is_proper,
         }
 
 
@@ -135,6 +138,7 @@ def _merge(occurrences: list[cand.Occurrence]) -> list[DocumentCandidate]:
     tf: Counter[str] = Counter()
     tf_title: Counter[str] = Counter()
     parents: dict[str, set[str]] = {}
+    proper: dict[str, bool] = {}
     for occ in occurrences:
         if occ.key not in kinds:
             order.append(occ.key)
@@ -142,6 +146,8 @@ def _merge(occurrences: list[cand.Occurrence]) -> list[DocumentCandidate]:
             ntokens[occ.key] = occ.ntokens
             surfaces[occ.key] = Counter()
             parents[occ.key] = set()
+            proper[occ.key] = False
+        proper[occ.key] = proper[occ.key] or occ.is_proper
         surfaces[occ.key][occ.surface] += 1
         tf[occ.key] += 1
         if occ.in_title:
@@ -161,6 +167,7 @@ def _merge(occurrences: list[cand.Occurrence]) -> list[DocumentCandidate]:
                 tf=tf[key],
                 tf_title=tf_title[key],
                 parents=tuple(sorted(parents[key])),
+                is_proper=proper[key],
             )
         )
     return result

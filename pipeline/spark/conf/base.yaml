@@ -112,11 +112,21 @@ extract:
   bm25:
     k1: 1.2           # 통상값. 측정 전에 바꾸지 않는다
     b: 0.75
-  # 세 축의 가중합. 축은 문서 안에서 0~1 로 정규화된 뒤 더해진다 ([04 §6]).
+  # 다섯 축의 가중합 ([04 §6]). 앞 셋은 측정이 필요해 null 이고, 뒤 둘은 **0 이면 옛 동작**
+  # 그대로라 기본값을 둔다 — 없어서 위험한 값이 아니다.
+  #
+  # `latin`·`proper` 는 고유명사를 잡는 축이다 (2026-09-10 추가). 근거는
+  # `tests/fixtures/review/extract-proper-nouns-2026-09-10.md` — 이 축 없이는 `Calvin Klein`
+  # 같은 라틴 표기의 **16% 만** 선별됐다.
   score_weights:
     c_value: null
     bm25: null
     title: null
+    # 표기에 라틴 문자가 섞여 있나. 한국어 코퍼스에서 의심 없는 고유명사 신호다.
+    latin: 0.0
+    # 형태소 분석기의 `NNP`. **작게 둔다** — Kiwi 의 `NNP` 는 신뢰도가 낮아
+    # (`디올`=NNG · `퍼플`=NNP) 크게 주면 라틴 표기를 밀어낸다.
+    proper: 0.0
   # 선별 — 문서당 상위 K 이고 점수 하한 이상 ([04 §7]). 점수는 0~1 척도다.
   per_document_top_k: null
   score_floor: null
@@ -144,6 +154,14 @@ extract:
     # 약어 ↔ 전개형 ([05 §3]). 괄호 패턴이 관측된 서로 다른 문서 수 하한.
     abbreviation:
       min_documents: null
+      # 음차 유사도 하한 (`registry/romanize.py`). 한글을 로마자로 펴서 괄호 안 표기와
+      # 비교한다 — `메시카` → `mesika` ↔ `Messika`. 초성 대응이 성립하지 않는 한국어
+      # 전개형은 이 값이 근거가 되고, 그때 위 `min_documents` 를 갈음한다.
+      #
+      # **측정이 필요한 값이 아니라 이미 잰 값이라 여기 있다** (2026-09-10, fashion 코퍼스의
+      # 이름꼴 고유 쌍 275개): 0.5 에서 진짜 병기 쌍 66% 통과 · 무작위로 섞은 쌍 1% 통과.
+      # 올리면 놓치는 브랜드가 늘고, 내리면 번역(`황소 가죽(Bull Leather)` 0.09)이 섞인다.
+      transliteration_floor: 0.5
     # 표기 변형(오타) 흡수 ([05 §3]).
     variant:
       min_length: null          # 이보다 짧으면 적용하지 않는다 (`Vue` ↔ `Sue`)
@@ -188,15 +206,76 @@ extract:
       surface_policy: prefixed
 
 aggregate:
-  # 서비스가 파는 기간 ([07 §4]). 값 규약은 백엔드와 합의 전이다 (09 §7 항목 3).
+  # 서비스가 파는 기간 ([07 §4]). **값 규약이 확정됐다** — 백엔드 `AnalysisPeriod` 의
+  # `@EnumeratedValue` 가 이 문자열을 그대로 쓰고, 컬럼 타입은 네이티브 enum `metric_period` 다.
+  # 그래서 적재에 `::metric_period` 캐스트가 붙는다 (`io/metrics.py`).
   periods: ["24H", "7D", "30D"]
   # 기준일 D = 실행일(KST) − 이 값. 1 은 "완결된 마지막 날" 이다 ([07 §4]). 0 으로 두면
   # 진행 중인 오늘을 완결된 어제와 비교하게 되어 증가율이 시각에 따라 뒤집힌다.
+  #
+  # **백엔드가 같은 구간을 독립으로 계산해 등호로 조회한다** (`AnalysisWindow.completed`:
+  # recentEnd = 오늘 KST 자정, recentStart = end − 기간). 그 값과 우리가 적는
+  # `period_start`·`period_end` 가 한 자리라도 다르면 목록이 통째로 빈다. 1 이 그 일치를 준다.
   reference_day_offset: 1
-  # 소급 재계산 구간 W(일). 발행일 분포를 실측한 뒤 정한다 ([07 §2]) — 비면 Job 이 거부한다.
-  recompute_window_days: null
+  # 소급 재계산 구간 W(일). **2026-09-10 실측으로 확정했다** —
+  # `tests/fixtures/review/publish-lag-2026-09-10.md`. 정상 운영 지연은 p95=0 · 7일 이상이
+  # 1건뿐이라 하한은 3 이지만, 표본이 이틀치로 얇고 이 구간이 임계값 변경·병합의 반영 창을
+  # 겸하므로([04 §10], [05 §8]) 크게 잡았다. 비면 Job 이 거부한다 ([07 §2]).
+  recompute_window_days: 30
+  # 서비스 테이블 셋이 없으면 시작하지 않는다 (`io/metrics.py`). `ingest.contents.required` ·
+  # `extract.registry.required` 와 같은 형태이고 이유도 같다 — 없이 돌면 계산은 되는데 아무
+  # 데도 안 남고, 증상이 "화면이 비었다" 로 나타난다. 로컬만 local.yaml 이 false 로 덮고,
+  # 그 밖에서는 `--allow-missing-service-tables` 로만 푼다.
+  service:
+    required: true
   # keyword_metric_history 버킷 폭. 지금은 일 버킷만 지원한다 ([07 §3]).
   history_bucket: "1D"
   # 연관 키워드 기준 기간. 30D 를 제안했고 기획 답변 대기 중 ([06 §3]).
   related_window: "30D"
-  thresholds: {}
+  # [07 §5]·[07 §6] 의 문턱. **`null` 인 키가 하나라도 있으면 Job 이 시작하지 않는다**
+  # (`metrics/thresholds.py`). `extract.*`·`extract.registry.*` 와 같은 규약이고 이유도 같다 —
+  # 근거 없는 문턱으로 서비스 테이블에 트렌드 배지를 다는 것보다 시작을 거부하는 것이 싸다.
+  # local.yaml 이 실측을 돌릴 잠정값을 채운다.
+  #
+  # 규격이 숫자를 준 값은 여기 없다 — [07 §6] 의 "서로 다른 소스 ≥ 2" 는
+  # `metrics/thresholds.MIN_SOURCES` 로 고정이다. 설정으로 낮출 값이 아니다.
+  thresholds:
+    # 0 행을 쓸 활성 키워드의 정의 ([07 §3]) — 최근 이 며칠 안에 한 번이라도 언급이 있었나.
+    # 정규 키워드 전체 × W 를 매 실행 갱신하면 대부분이 0 인 행을 대량으로 쓰게 된다.
+    active_window_days: 30
+    current:
+      # [07 §6] 초기 규칙 — 도메인·기간별 mention_rank 이 이 값 이하.
+      top_n: 5
+    rising:
+      # 셋을 **함께** 넘어야 한다 ([07 §6]). 증가율만 보면 3→9(200%)가 500→700(40%)을
+      # 앞서고, 증가량만 보면 큰 키워드가 늘 이긴다.
+      min_growth_amount: null   # A
+      min_growth_rate: null     # B — 퍼센트
+      # **C 가 없으면 급상승 목록이 전부 극소 표본이 된다** ([07 §6] 의 경고). 1→3 이 200% 다.
+      min_mention_count: null   # C
+      top_n: 5
+    new:
+      # 기간마다 "이전" 의 길이가 다르다 ([07 §6]). `quiet_days` 는 현재 구간 **바로 앞**의
+      # 며칠을 보는지이고, 이 값이 원자료 보존 지평의 하한을 정한다 (30D → 30+90 = 120일).
+      # 24H 의 (<=1, >=5) 만 규격이 숫자를 줬고 나머지는 실측 후 확정이다.
+      windows:
+        "24H": {quiet_days: 7, quiet_max: 1, min_mentions: 5}
+        "7D": {quiet_days: 30, quiet_max: null, min_mentions: null}
+        "30D": {quiet_days: 90, quiet_max: null, min_mentions: null}
+      top_n: 5
+    # 무정보어 자동 제외 ([07 §6]) — `요즘`·`매력` 처럼 이 코퍼스에서 늘 흔한 말은 자기 과거를
+    # 배경으로 놓으면 z ≈ 0 이다. 사전에 손으로 올리는 대신 이 축이 거른다.
+    zscore:
+      # 배경 분포를 재는 구간(일). 현재 구간 앞쪽만 본다 — 현재를 배경에 넣으면 자기 자신과
+      # 비교하게 되어 급증이 희석된다.
+      background_days: null
+      # 배경 표본이 이보다 적으면 z 를 내지 않는다 (신생 키워드). null 로 두지 않고 통과시킨다 —
+      # 갓 뜬 키워드를 무정보어로 몰지 않기 위해서다.
+      min_background_days: null
+      # RISING 이 요구하는 최소 z. 배경 대비 이만큼 튀지 않으면 "늘 흔한 말" 로 본다.
+      min_z: null
+    # [07 §8] 저자당 일별 기여 상한 C. **`null` = 꺼짐이고 지금이 그 상태다.**
+    # 2026-09-09 실데이터에서 상한 3 이 바꾸는 행이 28,433 중 29(0.1%)뿐이라 넣지 않았다
+    # (`tests/fixtures/review/publish-lag-2026-09-10.md`). 켜려면 원자료에 저자별 건수를
+    # 남기는 재집계가 **선행**이다 — `pl_keyword_daily_stat` 에는 지금 그 근거가 없다.
+    author_daily_cap: null

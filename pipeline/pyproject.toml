@@ -36,7 +36,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 # spark/tests 는 층 1(순수 함수) · 층 2(local[2] 세션) · 층 3(compose) 로 나뉜다.
-# 층 3 은 아직 비어 있다 (spark/docs/09-dev-and-test.md 4절).
+# 층 3 은 아직 비어 있다 (spark/docs/09-dev-and-test.md 4절 — 그 문서는 저장소에 없다).
 # pyspark 는 여기에 없다 — 버전 핀은 spark/versions.sh 한 곳이고, 설치는
 # spark/scripts/dev-setup.sh(로컬) 와 spark/Dockerfile(컨테이너) 이 한다.
 testpaths = ["tests", "spark/tests"]

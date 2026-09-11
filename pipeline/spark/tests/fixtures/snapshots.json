@@ -397,7 +397,23 @@
   },
   "fashion-gqkorea-394718.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "System 0",
+          "expansion": "시스템 제로",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "Young",
+          "expansion": "영",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "Alex Plante",
+          "expansion": "알렉스 플란테",
+          "initials_match": false
+        }
+      ],
       "candidates": 99,
       "doc_len": 126,
       "dropped": {
@@ -712,7 +728,18 @@
   },
   "fashion-harpersbazaar-1893074.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "mesh base layer",
+          "expansion": "메쉬 베이스 레이어",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "fishnet base layer",
+          "expansion": "피쉬넷 베이스 레이어",
+          "initials_match": false
+        }
+      ],
       "candidates": 90,
       "doc_len": 128,
       "dropped": {
@@ -832,7 +859,13 @@
   },
   "fashion-marieclaire-558420.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "Georges Vuitton",
+          "expansion": "조르주 비통",
+          "initials_match": false
+        }
+      ],
       "candidates": 107,
       "doc_len": 143,
       "dropped": {
@@ -922,7 +955,23 @@
   },
   "fashion-marieclaire-559199.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "Karim Sadli",
+          "expansion": "카림 사들리",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "Lulu Tenney",
+          "expansion": "룰루 테니",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "Barry Jenkins",
+          "expansion": "배리 젠킨스",
+          "initials_match": false
+        }
+      ],
       "candidates": 100,
       "doc_len": 111,
       "dropped": {
@@ -967,7 +1016,13 @@
   },
   "fashion-vogue-854781.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "Royal Collection",
+          "expansion": "왕실 컬렉션",
+          "initials_match": false
+        }
+      ],
       "candidates": 65,
       "doc_len": 94,
       "dropped": {
@@ -1202,7 +1257,18 @@
   },
   "fashion-wkorea-450650.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "Okavango Blue",
+          "expansion": "오카방고 블루",
+          "initials_match": false
+        },
+        {
+          "abbreviation": "Messika",
+          "expansion": "메시카",
+          "initials_match": false
+        }
+      ],
       "candidates": 73,
       "doc_len": 106,
       "dropped": {
@@ -1247,7 +1313,13 @@
   },
   "fashion-wkorea-450659.json": {
     "extract": {
-      "abbreviations": [],
+      "abbreviations": [
+        {
+          "abbreviation": "Akris",
+          "expansion": "아크리스",
+          "initials_match": false
+        }
+      ],
       "candidates": 100,
       "doc_len": 170,
       "dropped": {

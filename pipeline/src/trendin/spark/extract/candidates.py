@@ -63,6 +63,10 @@ class Occurrence:
     in_title: bool
     # 같은 구간에서 이 후보를 포함하는 더 긴 후보의 비교키 (C-value 의 T_a).
     parents: tuple[str, ...] = ()
+    # 구성 토큰 중 하나라도 고유명사 태그를 받았나 ([04 §6] 고유명사 축).
+    # `제니 발레 슈즈` 처럼 이름이 낀 복합어를 잡으려면 **any** 여야 한다 — all 로 두면
+    # 이름 + 일반명사 조합이 전부 떨어진다.
+    is_proper: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,7 +118,8 @@ def ngram_candidates(
 
 
 def _span_candidates(span: Sequence[Token], *, ngram_max: int, in_title: bool) -> list[Occurrence]:
-    grams: list[tuple[int, int, str, str, str]] = []  # (start, end, key, surface, kind)
+    # (start, end, key, surface, kind, is_proper)
+    grams: list[tuple[int, int, str, str, str, bool]] = []
     length = len(span)
     for size in range(1, min(ngram_max, length) + 1):
         for start in range(0, length - size + 1):
@@ -125,15 +130,18 @@ def _span_candidates(span: Sequence[Token], *, ngram_max: int, in_title: bool) -
             key = normalized_key(surface)
             if not key:
                 continue
-            grams.append((start, start + size, key, surface, _kind_of(window)))
+            grams.append(
+                (start, start + size, key, surface, _kind_of(window),
+                 any(token.is_proper for token in window))
+            )
 
     result: list[Occurrence] = []
-    for start, end, key, surface, kind in grams:
+    for start, end, key, surface, kind, proper in grams:
         parents = tuple(
             sorted(
                 {
                     other_key
-                    for o_start, o_end, other_key, _, _ in grams
+                    for o_start, o_end, other_key, _, _, _ in grams
                     if o_start <= start
                     and o_end >= end
                     and (o_end - o_start) > (end - start)
@@ -141,7 +149,7 @@ def _span_candidates(span: Sequence[Token], *, ngram_max: int, in_title: bool) -
                 }
             )
         )
-        result.append(Occurrence(surface, key, kind, end - start, in_title, parents))
+        result.append(Occurrence(surface, key, kind, end - start, in_title, parents, proper))
     return result
 
 
@@ -169,13 +177,23 @@ def _kind_of(window: Sequence[Token]) -> str:
 
 # --- 약어-전개형 쌍 ---------------------------------------------------------
 
-# `Model Context Protocol (MCP)` · `모델 컨텍스트 프로토콜(MCP)`. 전개형은 괄호 앞의 단어 1~6개,
-# 약어는 대문자 2~6자(숫자 허용). 전개형 첫머리에 불용어(`the`)가 끼어도 아래 대응 검사가
-# 필요한 만큼만 뒤에서 잘라 쓴다.
-_ABBREVIATION = re.compile(r"((?:[\w\-]+[  ]+){0,5}[\w\-]+)[  ]*\(\s*([A-Z][A-Z0-9]{1,5})\s*\)")
+# `Model Context Protocol (MCP)` · `모델 컨텍스트 프로토콜(MCP)` · `메시카(Messika)`.
+# 전개형은 괄호 앞의 단어 1~6개, 괄호 안은 **약어 또는 이름꼴**이다. 전개형 첫머리에
+# 불용어(`the`)가 끼어도 아래 대응 검사가 필요한 만큼만 뒤에서 잘라 쓴다.
+#
+# ⚠️ **2026-09-10 에 괄호 안의 범위를 넓혔다.** 그전에는 공백 없는 대문자 약어만 받았다.
+# 실측에서 fashion 코퍼스 376문서에 `한글(라틴)` 패턴이 **316건** 있는데 그중 **21건만**
+# 잡히고 있었다. 나머지 288건이 `메시카(Messika)` · `아크리스(Akris)` 처럼 브랜드 음차
+# 병기였고, 그게 [05 §3] 이 "가장 강한 증거" 로 꼽은 바로 그 형태다.
+_ABBREVIATION = re.compile(
+    r"((?:[\w\-]+[  ]+){0,5}[\w\-]+)[  ]*\(\s*([A-Za-z][A-Za-z0-9&'’.\- ]{1,30})\s*\)"
+)
 # 전개형 안에서 첫 글자 대응에 세지 않는 기능어.
 _SKIPPED_IN_EXPANSION = frozenset({"of", "and", "the", "for", "to", "in", "on", "a", "an"})
 _HANGUL = re.compile(r"[가-힣]")
+# 초성 대응 검사가 성립하는 형태 — 공백 없는 대문자 약어. 이름꼴(`Messika`)은 첫 글자가
+# 전개형 어절과 아무 관계가 없어 그 검사를 건너뛴다.
+_ACRONYM = re.compile(r"[A-Z][A-Z0-9]{1,5}")
 
 
 def abbreviation_pairs(text: str | None) -> list[AbbreviationPair]:
@@ -202,6 +220,28 @@ def abbreviation_pairs(text: str | None) -> list[AbbreviationPair]:
     return result
 
 
+# 한국어 전개형을 몇 어절까지 볼지의 상한. 넘는 이름은 실측에 없었고(최대 4어절), 상한이
+# 없으면 앞 문맥을 먹던 옛 동작으로 돌아간다.
+_MAX_EXPANSION_WORDS = 4
+
+
+def _expansion_words(bracketed: str) -> int:
+    """한국어 전개형을 뒤에서 몇 어절까지 볼지 — 괄호 안 표기가 정한다.
+
+    **대응 방식이 둘이고 세는 단위가 다르다.**
+
+    | 괄호 안 | 세는 것 | 왜 |
+    | --- | --- | --- |
+    | 약어 `MCP` | **글자 수** 3 | 초성 대응 — 글자 하나가 어절 하나다 (`모델 컨텍스트 프로토콜`) |
+    | 이름꼴 `Art of Fusion` | **어절 수** 3 | 음차 대응 — 어절이 어절에 붙는다 (`아트 오브 퓨전`) |
+
+    숫자만 있는 어절도 센다 (`System 0` 은 2어절이고 `시스템 제로` 와 대응한다).
+    """
+    if _ACRONYM.fullmatch(bracketed):
+        return min(max(sum(1 for ch in bracketed if ch.isalpha()), 1), _MAX_EXPANSION_WORDS)
+    return min(max(len(bracketed.split()), 1), _MAX_EXPANSION_WORDS)
+
+
 def _align(words: list[str], abbreviation: str) -> tuple[str | None, bool]:
     """전개형 후보 단어들과 약어를 맞춘다. `(전개형, 첫 글자 대응 여부)`.
 
@@ -220,7 +260,19 @@ def _align(words: list[str], abbreviation: str) -> tuple[str | None, bool]:
             tail.insert(0, word)
         if not tail:
             return None, False
-        return " ".join(tail), False
+        # **여기서 더 잘라야 한다.** 한국어 전개형에는 초성 대응이 없어(`ASICS` ↔ `아식스`)
+        # 어디까지가 이름인지 알려 주는 것이 없었고, 그래서 앞 문맥을 통째로 먹었다 —
+        # `이라는 주제로 글로벌 스포츠 브랜드 아식스(ASICS)` ([05 §3] 이 후속으로 올려 둔 결함).
+        # 2026-09-10 실측에서 이 한 줄이 4어절 이상 전개형을 34% → 2% 로 줄였다. 마지막
+        # 1어절만 취하면 0% 지만 `아트 오브 퓨전` 이 `퓨전` 으로 깨진다.
+        return " ".join(tail[-_expansion_words(abbreviation) :]), False
+
+    # 괄호 안이 **이름꼴**(소문자가 섞였거나 공백이 있다)이면 초성 대응이 성립하지 않는다 —
+    # `Messika` 의 첫 글자는 전개형 어절 수와 아무 관계가 없다. 쌍은 남기되 `initials_match`
+    # 를 `False` 로 둔다. 그 값이 `True` 여야 자동 병합하는 것은 [05 §3] 의 규약이고, 이름꼴은
+    # 대신 **음차 유사도**가 근거가 된다 (`registry/romanize.py`).
+    if not _ACRONYM.fullmatch(abbreviation):
+        return " ".join(words[-_expansion_words(abbreviation) :]), False
 
     letters = [ch for ch in abbreviation if ch.isalpha()]
     content = [word for word in words if word.lower() not in _SKIPPED_IN_EXPANSION]

@@ -17,3 +17,29 @@ spark/jars/*.jar
 # 회귀에 필요한 것은 거기서 30건을 발췌한 spark/tests/fixtures/corpus/ 다.
 spark/trendin-collect-*/
 spark/trendin-collect-*.tar.gz
+spark/.dumps/
+
+# --- 규격 문서 (2026-09-10) -----------------------------------------------
+# 저장소에는 도는 데 필요한 것과 그것을 지키는 테스트만 둔다. 규격 원본은 로컬과 git
+# 이력에 그대로 남아 있다 — `git rm --cached` 로 추적만 끊었다 (21c5c5f).
+#
+# ⚠️ 이걸 빼면 소스 149곳의 `[04 §6]` 식 참조가 저장소 안에서 풀리지 않는다. 그 참조는
+# 주석에 그대로 남아 있으므로, 문서를 볼 일이 생기면 21c5c5f 이전을 본다.
+#
+# 02 는 예외로 추적한다 — `tests/common/test_events.py` 가 이 파일을 읽어 봉투 필드를
+# 대조한다. 빠지면 `pipeline:verify` 가 FileNotFoundError 로 죽는다.
+# 디렉터리째 무시하면 git 이 그 안으로 내려가지 않아 부정 규칙이 안 먹는다. 그래서
+# `spark/docs/` 가 아니라 `spark/docs/*` 로 두고 그 한 장만 되살린다.
+spark/docs/*
+!spark/docs/02-input-contract.md
+
+# 평가·운영 도구. 돌리는 데 필요하지 않고 로컬에서만 쓴다.
+# `update-snapshots.py` 는 뺐다가 되돌렸다 — spark/tests/fixtures/snapshots.json 의
+# 생성기라, 이게 없으면 테스트는 있는데 스냅숏을 갱신할 방법이 저장소에 없다.
+# 구동 스크립트(`submit.sh` · `_common.sh` · `fetch-jars.sh` · `check-jars.*` ·
+# `dev-setup.sh` · `build-image.sh`)와 함께 남긴다.
+spark/scripts/evaluate-extract.py
+spark/scripts/evaluate-aggregate.py
+spark/scripts/sweep-extract.py
+spark/scripts/measure-publish-lag.py
+spark/scripts/promote-candidates.py

@@ -16,6 +16,7 @@ from trendin.spark.registry.thresholds import RegistryThresholds
 DEFAULTS = dict(
     plural_df_dominance=5.0,
     abbreviation_min_documents=3,
+    transliteration_floor=0.5,
     variant_min_length=5,
     variant_max_edit_distance=2,
     variant_df_dominance=10.0,

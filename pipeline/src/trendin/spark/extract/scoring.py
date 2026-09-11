@@ -15,6 +15,7 @@ UDF 로 감싼다 — 어느 쪽이든 수식의 정의는 여기 한 곳이다.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Iterable, Sequence
 
@@ -66,18 +67,52 @@ class ScoreWeights:
     c_value: float
     bm25: float
     title: float
+    # 라틴 문자 표기 축 ([04 §6]). `Calvin Klein` · `Fendi` — 한국어 코퍼스에서 **의심 없는
+    # 고유명사**다. 2026-09-10 실측에서 이 축 없이는 라틴 표기의 16% 만 선별됐다.
+    latin: float = 0.0
+    # 형태소 고유명사(`NNP`) 축. **작게 둔다** — Kiwi 의 `NNP` 는 신뢰도가 낮다
+    # (`tokenize.Token.is_proper` 의 경고). 크게 주면 라틴 표기를 오히려 밀어낸다.
+    proper: float = 0.0
 
     @property
     def total(self) -> float:
-        return self.c_value + self.bm25 + self.title
+        return self.c_value + self.bm25 + self.title + self.latin + self.proper
 
 
-def combine(c_value_norm: float, bm25_norm: float, title: float, weights: ScoreWeights) -> float:
-    """가중합. 가중치 합으로 나눠 결과도 0~1 이다 — `score_floor` 가 그 척도로 정해진다."""
+def combine(
+    c_value_norm: float,
+    bm25_norm: float,
+    title: float,
+    weights: ScoreWeights,
+    latin: float = 0.0,
+    proper: float = 0.0,
+) -> float:
+    """가중합. 가중치 합으로 나눠 결과도 0~1 이다 — `score_floor` 가 그 척도로 정해진다.
+
+    **다섯 축의 성격이 둘로 갈린다.** `c_value`·`bm25` 는 문서 안에서 0~1 로 정규화된 연속값이고,
+    `title`·`latin`·`proper` 는 0 또는 1 이다. 뒤의 셋은 "이 문서에서 두드러지나" 가 아니라
+    **표기 자체의 성질**이라 문서 간 비교가 되는 유일한 축이다 ([04 §6]).
+    """
     if weights.total <= 0:
         return 0.0
-    total = weights.c_value * c_value_norm + weights.bm25 * bm25_norm + weights.title * title
+    total = (
+        weights.c_value * c_value_norm
+        + weights.bm25 * bm25_norm
+        + weights.title * title
+        + weights.latin * latin
+        + weights.proper * proper
+    )
     return total / weights.total
+
+
+# 라틴 문자가 섞인 표기 — `Calvin Klein` · `Balenciaga FW26` · `T스트랩`.
+# **표기에서 직접 본다.** 형태소 태그를 거치지 않는 것이 요점이다 — 태그는 틀릴 수 있지만
+# 글자는 틀리지 않는다.
+_LATIN = re.compile(r"[A-Za-z]")
+
+
+def latin_axis(surface: str) -> float:
+    return 1.0 if _LATIN.search(surface or "") else 0.0
 
 
 def title_axis(tf_title: int) -> float:

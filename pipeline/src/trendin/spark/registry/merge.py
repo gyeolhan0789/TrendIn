@@ -33,6 +33,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
+from trendin.spark.registry import romanize
 from trendin.spark.registry.thresholds import RegistryThresholds
 
 # 근거 층. `pl_merge_log.layer` 에 그대로 들어간다 — **값이 곧 집계 키다.**
@@ -120,19 +121,38 @@ def abbreviation_pairs(
 ) -> tuple[MergePair, ...]:
     """약어 ↔ 전개형 자동 병합 ([05 §3]).
 
-    세 조건을 **함께** 만족해야 한다 — 서로 다른 문서 N건 이상, 초성 대응, 서로 다른 소스
-    2곳 이상. 하나라도 빠지면 병합하지 않는다.
+    조건은 **소스 2곳 이상**에 더해, 아래 둘 중 **하나**다.
+
+    | 근거 | 무엇 | 언제 |
+    | --- | --- | --- |
+    | 초성 대응 + 문서 N건 | `Model Context Protocol (MCP)` | 영문 전개형. [05 §3] 의 원래 규약 |
+    | **음차 유사도** | `메시카(Messika)` | 한국어 전개형. 초성 대응이 성립하지 않는 자리 |
+
+    **둘째 줄이 2026-09-10 에 늘었다.** 문서 N건 문턱은 "한 사람의 오기가 아님" 을 보려는
+    것인데, 브랜드 병기는 괄호에 한두 번 나오고 말아 실측에서 아무것도 통과하지 못했다
+    (고유 쌍 275개 중 2회 이상 관측이 8개). 로마자로 편 문자열이 거의 같다는 것은 반복 관측과
+    **다른 종류의** 증거이고, 오기로 그런 일치가 나오지 않는다 (`registry/romanize.py`).
+
+    번역(`일상의 사물들(Banal Objects)`)은 유사도에서 떨어진다 — 의도한 동작이다. 음차는 같은
+    낱말의 다른 표기라 합치고, 번역은 다른 낱말이라 합치지 않는다.
 
     **둘 다 후보로 살아남아 있어야 한다.** 한쪽이 [04 §5] 의 필터나 DF 문턱에 걸려 `df` 에
     없거나 관측이 0 이면(`observed`) 합칠 대상이 없다 — 관측은 남아 있으니 다음 배치에서
     다시 본다.
+
     """
     counts = observed(df)
     pairs: list[MergePair] = []
     for item in sorted(evidence, key=lambda e: (e.abbreviation_key, e.expansion_key)):
-        if not item.initials_match:
-            continue
-        if item.document_count < thresholds.abbreviation_min_documents:
+        by_initials = (
+            item.initials_match
+            and item.document_count >= thresholds.abbreviation_min_documents
+        )
+        # 비교키로 잰다. 대소문자·공백이 접힌 값이라([05 §2]) 표기보다 오히려 안정적이다.
+        by_sound = romanize.is_transliteration(
+            item.expansion_key, item.abbreviation_key, floor=thresholds.transliteration_floor
+        )
+        if not (by_initials or by_sound):
             continue
         if item.source_count < thresholds.min_sources:
             continue
@@ -153,10 +173,16 @@ def abbreviation_pairs(
                 rule=RULE_ABBREVIATION,
                 # 글쓴이의 선언이라 이 층에서 가장 높다.
                 confidence=1.0,
+                # 어느 근거로 붙었는지 남긴다 — 임계를 바꿨을 때 무엇이 달라졌는지
+                # `pl_merge_log` 만 보고 답할 수 있어야 한다.
                 signal=signal_of(
                     documents=item.document_count,
                     sources=item.source_count,
-                    initials_match=True,
+                    initials_match=item.initials_match,
+                    basis="initials" if by_initials else "transliteration",
+                    similarity=round(
+                        romanize.similarity(item.expansion_key, item.abbreviation_key), 3
+                    ),
                     df_representative=counts[representative],
                     df_absorbed=counts[absorbed],
                 ),
