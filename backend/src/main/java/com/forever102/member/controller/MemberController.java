@@ -1,6 +1,7 @@
 package com.forever102.member.controller;
 
 import com.forever102.global.response.BaseResponse;
+import com.forever102.member.dto.DomainResponse;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
@@ -11,6 +12,7 @@ import com.forever102.member.dto.RecommendedKeywordResponse;
 import com.forever102.member.dto.SavedTrendListResponse;
 import com.forever102.member.dto.SavedTrendRegisterRequest;
 import com.forever102.member.dto.SavedTrendRegisterResponse;
+import com.forever102.member.service.MemberDomainService;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
@@ -43,6 +45,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MemberController {
 
     private final MemberService memberService;
+    private final MemberDomainService memberDomainService;
     private final MemberInterestKeywordService interestKeywordService;
     private final SavedTrendService savedTrendService;
     private final NotificationQueryService notificationQueryService;
@@ -59,6 +62,11 @@ public class MemberController {
             @Valid @RequestBody MemberUpdateRequest request
     ) {
         return BaseResponse.success(memberService.updateMyInfo(memberId, request));
+    }
+
+    @GetMapping("/domains")
+    public BaseResponse<List<DomainResponse>> getMyDomains(@AuthenticationPrincipal Long memberId) {
+        return BaseResponse.success(memberDomainService.getMyDomains(memberId));
     }
 
     @PostMapping("/interest-keywords")

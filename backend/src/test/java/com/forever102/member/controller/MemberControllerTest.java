@@ -40,6 +40,7 @@ import com.forever102.member.dto.SavedTrendListResponse;
 import com.forever102.member.dto.SavedTrendListResponse.SavedTrendResponse;
 import com.forever102.member.dto.SavedTrendRegisterRequest;
 import com.forever102.member.dto.SavedTrendRegisterResponse;
+import com.forever102.member.service.MemberDomainService;
 import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
@@ -74,6 +75,7 @@ class MemberControllerTest {
 
     private static final String URL = "/members/me/interest-keywords";
     private static final String ME_URL = "/members/me";
+    private static final String MY_DOMAINS_URL = "/members/me/domains";
     private static final String VALID_UPDATE_REQUEST = "{\"nickname\":\"newNickname\"}";
     private static final String SHORT_NICKNAME_REQUEST = "{\"nickname\":\"  a  \"}";
     private static final Long MEMBER_ID = 1L;
@@ -83,6 +85,7 @@ class MemberControllerTest {
     @Autowired JwtTokenProvider jwtTokenProvider;
     @MockitoBean MemberInterestKeywordService interestKeywordService;
     @MockitoBean MemberService memberService;
+    @MockitoBean MemberDomainService memberDomainService;
     @MockitoBean SavedTrendService savedTrendService;
     @MockitoBean NotificationQueryService notificationQueryService;
     @MockitoBean NotificationReadService notificationReadService;
@@ -955,6 +958,96 @@ class MemberControllerTest {
                         .content(VALID_UPDATE_REQUEST))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("존재하지 않는 회원입니다."));
+    }
+
+    @Test
+    @DisplayName("인증된 회원이 선택한 분야를 조회하면 200으로 응답하고 문서화한다")
+    void returnsMyDomains() throws Exception {
+        // given
+        given(memberDomainService.getMyDomains(MEMBER_ID)).willReturn(List.of(
+                new com.forever102.member.dto.DomainResponse(Domain.DEVELOP, "개발"),
+                new com.forever102.member.dto.DomainResponse(Domain.FASHION, "패션")));
+
+        // when & then
+        mockMvc.perform(get(MY_DOMAINS_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].domain").value("DEVELOP"))
+                .andExpect(jsonPath("$.data[0].name").value("개발"))
+                .andExpect(jsonPath("$.data[1].domain").value("FASHION"))
+                .andExpect(jsonPath("$.data[1].name").value("패션"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-me-domains",
+                        preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data[].domain").type(JsonFieldType.STRING)
+                                        .description("분야 코드. 전체 분야 조회의 domain과 같은 값이다."),
+                                fieldWithPath("data[].name").type(JsonFieldType.STRING)
+                                        .description("화면에 표시할 분야 이름"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("아직 분야를 고르지 않았으면 200과 빈 배열을 반환한다")
+    void returnsEmptyArrayBeforeFirstRegistration() throws Exception {
+        // given
+        given(memberDomainService.getMyDomains(MEMBER_ID)).willReturn(List.of());
+
+        // when & then
+        mockMvc.perform(get(MY_DOMAINS_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andDo(document("members-me-domains-empty",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data").type(JsonFieldType.ARRAY)
+                                        .description("선택한 분야가 없으면 빈 배열. 오류가 아니다."),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("토큰의 회원 식별자로 서비스를 호출한다")
+    void passesAuthenticatedMemberIdOnDomainLookup() throws Exception {
+        // given
+        given(memberDomainService.getMyDomains(MEMBER_ID)).willReturn(List.of());
+
+        // when
+        mockMvc.perform(get(MY_DOMAINS_URL).header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk());
+
+        // then
+        then(memberDomainService).should().getMyDomains(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("액세스 토큰이 없으면 401로 응답하고 서비스를 호출하지 않는다")
+    void myDomainsRequiresAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(get(MY_DOMAINS_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."))
+                .andDo(document("members-me-domains-unauthorized",
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+        then(memberDomainService).should(never()).getMyDomains(any());
     }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
