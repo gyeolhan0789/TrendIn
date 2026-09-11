@@ -62,6 +62,56 @@ class MemberDomainRepositoryTest {
         assertThat(memberDomainRepository.findDomainsByMemberId(-1L)).isEmpty();
     }
 
+
+    @Test
+    @DisplayName("남길 분야에 없는 선택만 지운다")
+    void deletesDomainsNotInKeepList() {
+        // given
+        Member member = persistMember("replace@example.com");
+        persistMemberDomain(member, Domain.DEVELOP);
+        persistMemberDomain(member, Domain.FASHION);
+
+        // when
+        memberDomainRepository.deleteByMemberIdAndDomainNotIn(member.getId(), List.of(Domain.DEVELOP));
+
+        // then
+        assertThat(memberDomainRepository.findDomainsByMemberId(member.getId()))
+                .containsExactly(Domain.DEVELOP);
+    }
+
+    @Test
+    @DisplayName("남길 분야가 모두 선택돼 있으면 아무것도 지우지 않는다")
+    void keepsEverythingWhenAllRetained() {
+        // given
+        Member member = persistMember("keep@example.com");
+        persistMemberDomain(member, Domain.DEVELOP);
+
+        // when
+        memberDomainRepository.deleteByMemberIdAndDomainNotIn(
+                member.getId(), List.of(Domain.DEVELOP, Domain.FASHION));
+
+        // then
+        assertThat(memberDomainRepository.findDomainsByMemberId(member.getId()))
+                .containsExactly(Domain.DEVELOP);
+    }
+
+    @Test
+    @DisplayName("다른 회원의 분야 선택은 지우지 않는다")
+    void doesNotDeleteOtherMembersDomains() {
+        // given
+        Member owner = persistMember("owner2@example.com");
+        Member other = persistMember("other2@example.com");
+        persistMemberDomain(owner, Domain.FASHION);
+        persistMemberDomain(other, Domain.FASHION);
+
+        // when
+        memberDomainRepository.deleteByMemberIdAndDomainNotIn(owner.getId(), List.of(Domain.DEVELOP));
+
+        // then
+        assertThat(memberDomainRepository.findDomainsByMemberId(owner.getId())).isEmpty();
+        assertThat(memberDomainRepository.findDomainsByMemberId(other.getId()))
+                .containsExactly(Domain.FASHION);
+    }
     private Member persistMember(String email) {
         Member member = Member.create(email, "password-hash", "회원");
         entityManager.persist(member);

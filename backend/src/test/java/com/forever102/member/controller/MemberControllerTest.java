@@ -21,6 +21,7 @@ import static org.springframework.restdocs.request.RequestDocumentation.queryPar
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,6 +30,7 @@ import com.forever102.auth.jwt.JwtTokenProvider;
 import com.forever102.global.config.SecurityTestConfig;
 import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
+import com.forever102.member.dto.MemberDomainUpdateRequest;
 import com.forever102.member.dto.InterestKeywordRegisterRequest;
 import com.forever102.member.dto.InterestKeywordRegisterResponse;
 import com.forever102.member.dto.InterestKeywordResponse;
@@ -76,6 +78,7 @@ class MemberControllerTest {
     private static final String URL = "/members/me/interest-keywords";
     private static final String ME_URL = "/members/me";
     private static final String MY_DOMAINS_URL = "/members/me/domains";
+    private static final String VALID_DOMAINS_REQUEST = "{\"domains\":[\"DEVELOP\",\"FASHION\"]}";
     private static final String VALID_UPDATE_REQUEST = "{\"nickname\":\"newNickname\"}";
     private static final String SHORT_NICKNAME_REQUEST = "{\"nickname\":\"  a  \"}";
     private static final Long MEMBER_ID = 1L;
@@ -1048,6 +1051,139 @@ class MemberControllerTest {
                                         .description("에러 메시지")
                         )));
         then(memberDomainService).should(never()).getMyDomains(any());
+    }
+
+    @Test
+    @DisplayName("인증된 회원이 관심 분야를 교체하면 200과 교체 결과를 반환하고 문서화한다")
+    void updatesMyDomains() throws Exception {
+        // given
+        given(memberDomainService.updateMyDomains(eq(MEMBER_ID), any(MemberDomainUpdateRequest.class)))
+                .willReturn(List.of(
+                        new com.forever102.member.dto.DomainResponse(Domain.DEVELOP, "개발"),
+                        new com.forever102.member.dto.DomainResponse(Domain.FASHION, "패션")));
+
+        // when & then
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_DOMAINS_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].domain").value("DEVELOP"))
+                .andExpect(jsonPath("$.data[0].name").value("개발"))
+                .andExpect(jsonPath("$.data[1].domain").value("FASHION"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.nullValue()))
+                .andDo(document("members-me-domains-update",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        requestFields(fieldWithPath("domains").type(JsonFieldType.ARRAY)
+                                .description("교체할 분야 코드 목록. 필수, 최소 1개. 같은 값을 여러 번 보내면 하나로 합친다.")),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data[].domain").type(JsonFieldType.STRING)
+                                        .description("교체 후 선택된 분야 코드"),
+                                fieldWithPath("data[].name").type(JsonFieldType.STRING)
+                                        .description("화면에 표시할 분야 이름"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )));
+    }
+
+    @Test
+    @DisplayName("토큰의 회원 식별자로 서비스를 호출한다")
+    void passesAuthenticatedMemberIdOnDomainUpdate() throws Exception {
+        // given
+        given(memberDomainService.updateMyDomains(eq(MEMBER_ID), any(MemberDomainUpdateRequest.class)))
+                .willReturn(List.of());
+
+        // when
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_DOMAINS_REQUEST))
+                .andExpect(status().isOk());
+
+        // then
+        then(memberDomainService).should().updateMyDomains(eq(MEMBER_ID), any(MemberDomainUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("분야를 하나도 보내지 않으면 400으로 응답한다")
+    void updateRejectsEmptyDomains() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.INTEREST_COUNT_INVALID))
+                .given(memberDomainService).updateMyDomains(eq(MEMBER_ID), any(MemberDomainUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"domains\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("관심 분야는 최소 1개 이상 선택해야 합니다."))
+                .andDo(document("members-me-domains-update-count-invalid",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 분야를 보내면 404로 응답한다")
+    void updateRejectsUnknownDomain() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.DOMAIN_NOT_FOUND))
+                .given(memberDomainService).updateMyDomains(eq(MEMBER_ID), any(MemberDomainUpdateRequest.class));
+
+        // when & then
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"domains\":[\"COOKING\"]}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("존재하지 않는 분야입니다."))
+                .andDo(document("members-me-domains-update-domain-not-found",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )));
+    }
+
+    @Test
+    @DisplayName("domains 필드가 없으면 400으로 응답하고 서비스를 호출하지 않는다")
+    void updateRejectsMissingDomainsField() throws Exception {
+        // when & then
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("관심 분야 목록은 필수입니다."));
+        then(memberDomainService).should(never())
+                .updateMyDomains(any(), any(MemberDomainUpdateRequest.class));
+    }
+
+    @Test
+    @DisplayName("액세스 토큰이 없으면 401로 응답하고 서비스를 호출하지 않는다")
+    void updateMyDomainsRequiresAccessToken() throws Exception {
+        // when & then
+        mockMvc.perform(put(MY_DOMAINS_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_DOMAINS_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+        then(memberDomainService).should(never())
+                .updateMyDomains(any(), any(MemberDomainUpdateRequest.class));
     }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();

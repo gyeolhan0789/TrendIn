@@ -106,8 +106,52 @@ class MemberInterestKeywordRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+
+    @Test
+    @DisplayName("남길 분야에 속하지 않는 관심 키워드만 지운다")
+    void deletesInterestKeywordsOutsideKeptDomains() {
+        // given
+        Member member = persistMember();
+        Keyword fashionKeyword = persistKeyword("Ballet Sneakers", Domain.FASHION);
+        Keyword developKeyword = persistKeyword("Spring Boot", Domain.DEVELOP);
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(member, fashionKeyword));
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(member, developKeyword));
+
+        // when
+        interestKeywordRepository.deleteByMemberIdAndKeywordDomainNotIn(
+                member.getId(), java.util.List.of(Domain.DEVELOP));
+
+        // then
+        assertThat(interestKeywordRepository.findAllByMemberIdOrderByIdAsc(member.getId()))
+                .extracting(interestKeyword -> interestKeyword.getKeyword().getDomain())
+                .containsExactly(Domain.DEVELOP);
+    }
+
+    @Test
+    @DisplayName("다른 회원의 관심 키워드는 지우지 않는다")
+    void doesNotDeleteOtherMembersInterestKeywords() {
+        // given
+        Member owner = persistMember();
+        Member other = persistMember("other-ik@example.com");
+        Keyword fashionKeyword = persistKeyword("Ballet Sneakers", Domain.FASHION);
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(owner, fashionKeyword));
+        interestKeywordRepository.saveAndFlush(MemberInterestKeyword.register(other, fashionKeyword));
+
+        // when
+        interestKeywordRepository.deleteByMemberIdAndKeywordDomainNotIn(
+                owner.getId(), java.util.List.of(Domain.DEVELOP));
+
+        // then
+        assertThat(interestKeywordRepository.findAllByMemberIdOrderByIdAsc(owner.getId())).isEmpty();
+        assertThat(interestKeywordRepository.findAllByMemberIdOrderByIdAsc(other.getId())).hasSize(1);
+    }
+
     private Member persistMember() {
-        Member member = Member.create("member@example.com", "password-hash", "회원");
+        return persistMember("member@example.com");
+    }
+
+    private Member persistMember(String email) {
+        Member member = Member.create(email, "password-hash", "회원");
         entityManager.persist(member);
         return member;
     }
