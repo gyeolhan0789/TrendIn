@@ -5,7 +5,8 @@ spring:
       path: /h2-console
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:trendin;INIT=CREATE DOMAIN IF NOT EXISTS metric_period AS VARCHAR(3)
+    # 네이티브 쿼리가 쓰는 Postgres 사용자 타입을 H2에 맞춰 만든다. INIT 안의 문장 구분자는 \; 다.
+    url: jdbc:h2:mem:trendin;INIT=CREATE DOMAIN IF NOT EXISTS metric_period AS VARCHAR(3)\;CREATE DOMAIN IF NOT EXISTS trend_type AS VARCHAR(20)
     username: sa
   jpa:
     show-sql: true
