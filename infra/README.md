@@ -12,6 +12,7 @@
 - `../backend/Dockerfile`: Java 25로 애플리케이션을 빌드하고 실행하는 멀티 스테이지 이미지 정의
 - `../backend/.dockerignore`: 백엔드 이미지 빌드에 필요하지 않은 로컬 파일 제외
 - `redis.conf`: Redis의 영속화·메모리 설정. 비밀번호는 이 파일에 두지 않는다.
+- `nginx/trendin.conf`: EC2 호스트 Nginx에서 백엔드로 전달하는 HTTP 리버스 프록시 설정
 - `README.md`: 구성 의도, 검증 방법, 후속 이슈의 작업 범위
 - `.env.example`: 필요한 비밀번호 환경변수의 빈 템플릿
 - 실제 `infra/.env`는 EC2에서만 관리하며 루트 `.gitignore`로 Git 추적에서 제외한다.
@@ -87,6 +88,48 @@ docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100 backe
 
 EC2 내부에서는 `curl http://127.0.0.1:8080`으로 연결을 확인한다. 외부 PC에서 임시로 확인할 때는
 5432와 마찬가지로 SSH 터널 `-L 18080:127.0.0.1:8080`을 사용하며 8080을 공인망에 열지 않는다.
+
+## Nginx 리버스 프록시
+
+호스트 Nginx가 `j15a102.p.ssafy.io`의 80 포트 요청을 받고, 루프백에만 공개된 백엔드
+`127.0.0.1:8080`으로 전달한다. 클라이언트의 Host, IP, 전달 경로의 프로토콜은 표준 proxy header로
+백엔드에 전달한다. HTTPS와 인증서 설정은 이번 구성에 포함하지 않는다.
+
+EC2에서 백엔드가 정상 실행 중인지 먼저 확인한 뒤 저장소 루트에서 다음 명령을 실행한다.
+
+```sh
+curl --silent --show-error --output /dev/null --write-out 'HTTP %{http_code}\n' http://127.0.0.1:8080/
+
+sudo apt-get update
+sudo apt-get install -y nginx
+sudo install -o root -g root -m 644 infra/nginx/trendin.conf /etc/nginx/sites-available/trendin
+sudo ln -sfn /etc/nginx/sites-available/trendin /etc/nginx/sites-enabled/trendin
+sudo nginx -t
+sudo systemctl enable --now nginx
+sudo systemctl reload nginx
+```
+
+UFW는 비활성화하지 않는다. SSH 허용 규칙과 현재 접속을 먼저 확인하고 HTTP만 추가한다.
+AWS 보안 그룹도 외부 HTTP 접속이 필요하면 TCP 80만 허용하며, 8080은 열지 않는다.
+
+```sh
+sudo ufw status verbose
+sudo ufw allow 'Nginx HTTP'
+sudo ufw status verbose
+```
+
+EC2에서는 Host 헤더를 포함해 프록시 응답을 확인하고, 외부에서는 공인 도메인으로 확인한다.
+애플리케이션에 `/` 엔드포인트가 없어 404가 반환되더라도 Nginx 응답과 백엔드 로그를 함께 확인한다.
+
+```sh
+curl -i -H 'Host: j15a102.p.ssafy.io' http://127.0.0.1/
+curl -i http://j15a102.p.ssafy.io/
+sudo journalctl -u nginx --since '10 minutes ago' --no-pager
+docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100 backend
+```
+
+설정 변경 시에는 항상 `sudo nginx -t`를 먼저 통과시킨 뒤 reload한다. 기존 Nginx 설정이나 다른
+가상 호스트가 있다면 `sites-enabled`의 80 포트 및 같은 `server_name` 충돌 여부를 먼저 확인한다.
 
 ## EC2에서 준비 및 실행
 
