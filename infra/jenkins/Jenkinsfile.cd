@@ -98,10 +98,10 @@ pipeline {
             }
         }
 
-        stage('Gradle test and build') {
+        stage('Build bootJar') {
             steps {
                 dir('backend') {
-                    sh './gradlew clean build --no-daemon --console=plain'
+                    sh './gradlew clean bootJar -x test -x asciidoctor --no-daemon --console=plain'
                 }
             }
         }
