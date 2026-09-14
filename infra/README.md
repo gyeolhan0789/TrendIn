@@ -136,7 +136,7 @@ docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100 backe
 
 ## Jenkins CI/CD
 
-루트 `Jenkinsfile`은 `dev` 브랜치만 배포 대상으로 허용하며 다음 순서로 실행한다.
+`infra/jenkins/Jenkinsfile`은 `dev` 브랜치만 배포 대상으로 허용하며 다음 순서로 실행한다.
 
 1. 소스 체크아웃 및 배포 브랜치·도구·환경 파일 검증
 2. Gradle `clean build`를 통한 테스트와 백엔드 빌드
@@ -211,7 +211,9 @@ EC2에서 `curl`과 Java 21 이상도 사용할 수 있어야 한다. Gradle은 
 
 - Jenkins에 Pipeline, Git, JUnit, GitLab 연동 플러그인을 설치한다.
 - Pipeline 또는 Multibranch Pipeline의 SCM을 이 GitLab 저장소로 설정하고 브랜치 대상을 `dev`로 제한한다.
-- Script Path는 저장소 루트의 `Jenkinsfile`로 설정한다.
+- Script Path는 `infra/jenkins/Jenkinsfile`로 설정한다.
+- Job에서 GitLab Connection은 Jenkinsfile에 지정된 `ssafy-gitlab`을 사용한다. 이 Connection의 API Token이
+  해당 프로젝트 commit status를 갱신할 권한을 가지고 있는지 확인한다.
 - 비공개 저장소 접근용 GitLab Credential은 Jenkins Credentials에서 관리하고 Job의 SCM에 연결한다.
 - GitLab Webhook은 `dev` push 이벤트만 Job을 실행하도록 Jenkins 플러그인과 GitLab UI에서 설정한다.
 - Webhook이 Jenkins에 도달할 수 있는 네트워크 경로를 마련하되 Jenkins 관리 화면을 공인망 전체에
