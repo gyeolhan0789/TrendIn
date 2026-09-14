@@ -1,5 +1,5 @@
 -- TrendIn service schema baseline for an empty PostgreSQL 17 database.
--- This file is applied manually. Flyway is not configured in this project.
+-- Flyway executes this migration only for a new, empty schema.
 -- It intentionally contains no DROP or TRUNCATE statements.
 
 CREATE TYPE metric_period AS ENUM ('24H', '7D', '30D');
