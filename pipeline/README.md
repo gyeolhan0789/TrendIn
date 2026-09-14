@@ -76,7 +76,7 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 | 지금 한 번 | `CLI airflow dags trigger fashion_collect` |
 | 켜졌나 | `CLI airflow dags list` 의 `is_paused` 열 |
 
-`fashion_collect` 은 매시 정각(KST), `dev_collect` 은 30분마다다. `dev_collect` 은 소스가 비어 있어 켜도 수집 태스크가 돌지 않는다 — 어댑터는 `S15P21A102-165` 가 채운다.
+`fashion_collect` 은 매시 정각(KST), `dev_collect` 은 30분마다다. `dev_collect` 은 Hacker News 하나를 돌고, 매 실행이 최근 6시간에 올라온 story 를 Algolia API 로 묻는다. 6시간보다 오래 멈췄다면 그 구간은 아래 hn 백필로 메운다.
 
 **켜는 순간 예약 회차가 한 번 바로 돈다.** `catchup=False` 라 밀린 회차가 몰려 돌지는 않지만, 직후에 `trigger` 까지 하면 실행 둘이 겹친다.
 
@@ -84,7 +84,11 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 
 ### 과거분 백필
 
-주기 실행은 피드에 보이는 만큼(10건)만 받는다. 그보다 오래된 것은 이 명령이 받는다.
+주기 실행이 보는 범위보다 오래된 것은 도메인별 백필 명령이 받는다. 둘 다 주기 실행과 같은 저장 루프를 쓰고, 발급은 하지 않는다 — 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+
+#### 매거진 피드
+
+주기 실행은 피드에 보이는 만큼(10건)만 받는다.
 
 ```sh
 CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
@@ -100,7 +104,26 @@ CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
 
 `--store` 를 주면 한 페이지가 통째로 이미 받은 기사일 때 멈춘다. 훑기 모드는 장부가 없어 그 판정을 못 하므로 `--pages` 만큼 다 돈다.
 
-발급은 백필이 하지 않는다. 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+#### Hacker News
+
+주기 실행은 최근 6시간만 본다. hn 백필은 페이지가 아니라 시각 구간을 받는다. Algolia 가 한 질의에 1000건까지만 주고 페이지를 넘기지 못하게 해서다.
+
+```sh
+CLI python -m trendin.dev.collect.backfill hn --since 2026-08-03T00:00+09:00 --store
+```
+
+| 인자 | 뜻 |
+| --- | --- |
+| `--since` | 구간 시작(포함). 오프셋 필수 — KST 면 `+09:00`. 기본값이 없고, `--until` 까지 6주를 넘으면 거부한다 — 실수로 전량이 돌지 않게. 더 긴 공백은 나눠 돌린다 |
+| `--until` | 구간 끝(제외). 없으면 지금 |
+| `--store` | MinIO·장부에 실제로 쓴다. 없으면 훑기만 한다 |
+| `--json` | 정규화된 article.json 을 한 줄씩 낸다. 훑기 모드에서만 듣는다 — `--store` 와 같이 주면 아무것도 안 나온다 |
+
+첫 채움은 6주다(약 3만 3천 건, 6시간 조각이라 요청 170번 남짓·3초 간격). 멈춘 구간을 메울 때는 앞뒤로 넉넉히 줘도 된다 — 장부에 있는 글은 거른다. fashion 백필과 달리 이미 받은 조각에서 멈추지 않는다. 빈 구간이 어느 조각에 있을지 모르기 때문이다.
+
+**발급이 한꺼번에 나간다.** 6주 백필 뒤 첫 주기 실행이 미발급 행 전부를 낸다. 돌리기 전에 Spark 쪽에 시점을 알린다.
+
+**백필 중에는 `dev_collect` 를 멈춘다** (`CLI airflow dags pause dev_collect`, 끝나면 `unpause`). `--until` 을 생략하면 마지막 조각이 주기 실행의 6시간 창과 겹치고, 둘이 같은 글을 거의 동시에 장부 거름에 통과시키면 둘 다 MinIO 에 쓴다. 두 쪽의 `collected_at`·점수가 달라 바이트가 다르고, 장부는 먼저 적은 해시를, MinIO 는 나중에 쓴 객체를 남겨 서로 어긋난다(불변식 7).
 
 ### 결과 확인
 

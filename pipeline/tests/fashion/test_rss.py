@@ -15,8 +15,9 @@ import pytest
 from trendin.common.collect.contracts import SourceDef
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.stores import InMemoryValidatorStore
+from trendin.common.collect.urls import clean_url
 from trendin.fashion.collect import sources
-from trendin.fashion.collect.rss import RssAdapter, article_id_from_guid, clean_url
+from trendin.fashion.collect.rss import RssAdapter, article_id_from_guid
 
 ROBOTS = "User-agent: *\nDisallow: /wp-admin/\n"
 MEASURED = ["vogue", "gqkorea", "wkorea", "allure", "marieclaire"]
