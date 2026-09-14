@@ -1,6 +1,8 @@
 spring:
   application:
     name: trendin
+  flyway:
+    enabled: false
   config:
     import: optional:file:.env[.properties]
   data:
