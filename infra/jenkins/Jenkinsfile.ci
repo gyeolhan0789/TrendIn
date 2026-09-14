@@ -13,7 +13,6 @@ pipeline {
     stages {
         stage('Checkout MR source') {
             steps {
-                checkout scm
                 script {
                     if (env.gitlabActionType != 'MERGE' || env.gitlabTargetBranch != 'dev') {
                         error('This job accepts only merge requests targeting dev')
@@ -27,11 +26,28 @@ pipeline {
                     }
                     env.BUILD_COMMIT = env.gitlabMergeRequestLastCommit
                     env.BUILD_BRANCH = env.gitlabSourceBranch
+
+                    def configuredRemote = scm.userRemoteConfigs[0]
+                    if (configuredRemote.credentialsId != 'gitlab-repo') {
+                        error('CI Job SCM must use the gitlab-repo credential')
+                    }
+
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: env.BUILD_COMMIT]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', honorRefspec: true, noTags: false, reference: '', shallow: false]
+                        ],
+                        userRemoteConfigs: [[
+                            credentialsId: configuredRemote.credentialsId,
+                            refspec: "+refs/heads/${env.BUILD_BRANCH}:refs/remotes/origin/${env.BUILD_BRANCH}",
+                            url: configuredRemote.url
+                        ]]
+                    ])
                 }
                 sh '''
                     set -eu
-                    git fetch origin "+refs/heads/$BUILD_BRANCH:refs/remotes/origin/$BUILD_BRANCH"
-                    git checkout --detach "$BUILD_COMMIT"
                     test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"
                 '''
                 updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'running'
