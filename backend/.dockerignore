@@ -1,5 +1,8 @@
 .gradle/
-build/
+build/*
+!build/libs/
+build/libs/*
+!build/libs/app.jar
 .idea/
 *.iml
 .env
