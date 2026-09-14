@@ -5,6 +5,7 @@ import {
   clearAuthSession,
   getAuthSession,
   replaceSessionTokens,
+  syncAuthSessionFromStorage,
 } from '../features/auth/api/authSessionStorage';
 import type { ApiResponse } from './apiResponse';
 import type { AuthSession, LoginResult } from '../features/auth/types/auth';
@@ -37,7 +38,8 @@ apiClient.interceptors.request.use((config) => {
 });
 
 async function requestReissue(): Promise<AuthSession | undefined> {
-  const session = getAuthSession();
+  // 옆 탭이 이미 토큰을 갈아 끼웠을 수 있어, 메모리에 둔 값 대신 저장소의 최신 값으로 보냅니다.
+  const session = syncAuthSessionFromStorage();
   if (!session) return undefined;
   try {
     const { data } = await reissueClient.post<ApiResponse<LoginResult>>(
@@ -46,7 +48,15 @@ async function requestReissue(): Promise<AuthSession | undefined> {
     );
     return replaceSessionTokens(data.data, data.data.onboardingCompleted);
   } catch {
-    // Refresh Token까지 만료됐으면 되살릴 방법이 없어 세션을 비우고 로그아웃 상태로 둡니다.
+    /*
+     * 서버는 쓰인 Refresh Token을 즉시 회전시킵니다. 옆 탭이 같은 순간에 재발급을 마쳤다면
+     * 우리가 보낸 토큰은 이미 무효라 실패합니다. 이때 저장소에 새 토큰이 들어와 있으면
+     * 세션 자체는 멀쩡하므로, 로그아웃시키지 않고 그 토큰을 이어받습니다.
+     */
+    const latest = syncAuthSessionFromStorage();
+    if (latest && latest.refreshToken !== session.refreshToken) return latest;
+
+    // 여기까지 왔으면 Refresh Token도 만료됐거나 로그아웃된 것이라 되살릴 방법이 없습니다.
     clearAuthSession();
     return undefined;
   }

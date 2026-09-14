@@ -1,26 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Trend } from '../../trend/types/trend';
+import { useEffect, useRef, useState } from 'react';
+import { AddInterestKeywordButton } from './AddInterestKeywordButton';
+import { useKeywordSearch } from '../../trend/hooks/useKeywordSearch';
+import type { KeywordSearchItem } from '../../trend/types/keyword';
 
-interface KeywordSearchBarProps {
-  catalog: Trend[];
-  /** 이미 등록한 키워드는 '등록됨'으로 표시하고 다시 담지 않습니다. */
-  registeredTrendIds: Set<string>;
-  registeredKeywords: Set<string>;
-  onAdd: (input: { keyword: string; trendId?: string }) => void;
+/** 글자를 칠 때마다 보내지 않고, 잠시 멈춘 뒤의 값으로만 찾습니다. */
+const SEARCH_DELAY_MS = 250;
+
+function formatGrowth(item: KeywordSearchItem) {
+  if (item.trendId === null) return '트렌드 없음';
+  if (item.growthRate === null) return '증감 없음';
+  return `${item.growthRate > 0 ? '+' : ''}${item.growthRate}%`;
 }
 
-const maxResults = 5;
-
-function formatGrowth(trend: Trend) {
-  if (trend.change === 'NEW') return 'NEW';
-  return `${trend.growthRate > 0 ? '+' : ''}${trend.growthRate}%`;
-}
-
-export function KeywordSearchBar({ catalog, registeredTrendIds, registeredKeywords, onAdd }: KeywordSearchBarProps) {
+export function KeywordSearchBar() {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   // 바깥을 누르면 닫습니다. click은 드롭다운 안의 버튼이 사라진 뒤에 와서 pointerdown을 씁니다.
   useEffect(() => {
@@ -32,21 +34,10 @@ export function KeywordSearchBar({ catalog, registeredTrendIds, registeredKeywor
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
 
+  const searchQuery = useKeywordSearch(debouncedQuery);
+  const results = searchQuery.data?.items ?? [];
   const trimmed = query.trim();
-  const results = useMemo(() => {
-    if (!trimmed) return [];
-    const needle = trimmed.toLowerCase();
-    return catalog.filter((trend) => trend.keyword.toLowerCase().includes(needle)).slice(0, maxResults);
-  }, [catalog, trimmed]);
-
-  // 같은 이름이 이미 후보에 있으면 '새 키워드로 등록'은 군더더기라 감춥니다.
-  const canCreate = Boolean(trimmed) && !catalog.some((trend) => trend.keyword.toLowerCase() === trimmed.toLowerCase());
-
-  const add = (input: { keyword: string; trendId?: string }) => {
-    onAdd(input);
-    setQuery('');
-    setOpen(false);
-  };
+  const searching = trimmed.length > 0 && (searchQuery.isLoading || debouncedQuery.trim() !== trimmed);
 
   return (
     <div className="mypage-search" ref={wrap}>
@@ -57,71 +48,32 @@ export function KeywordSearchBar({ catalog, registeredTrendIds, registeredKeywor
           type="text"
           value={query}
           aria-label="키워드 검색"
-          placeholder="키워드 검색 또는 직접 입력…"
-          onFocus={() => setOpen(true)}
+          placeholder="등록할 키워드를 찾아보세요"
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') { setOpen(false); return; }
-            if (event.key !== 'Enter' || event.nativeEvent.isComposing || !trimmed) return;
-            // 목록에 없는 말이면 입력한 그대로, 이미 있는 말이면 후보 첫 줄을 등록합니다.
-            if (canCreate) {
-              if (!registeredKeywords.has(trimmed)) add({ keyword: trimmed });
-              return;
-            }
-            const first = results.find((trend) => !registeredTrendIds.has(trend.trendId));
-            if (first) add({ keyword: first.keyword, trendId: first.trendId });
-          }}
+          onFocus={() => setOpen(true)}
         />
       </div>
 
-      {open && trimmed && (
-        <div className="mypage-search-menu">
-          {results.length > 0 && (
-            <div className="mypage-search-group">
-              <p>검색 결과</p>
-              {results.map((trend) => {
-                const registered = registeredTrendIds.has(trend.trendId);
-                return (
-                  <div className="mypage-search-row" key={trend.trendId}>
-                    <span className="mypage-search-name">
-                      {trend.keyword}
-                      {trend.growthRate >= 200 && <em className="mypage-badge mypage-badge--surge">급등</em>}
-                      <small className={trend.change === 'NEW' ? 'is-muted' : ''}>{formatGrowth(trend)}</small>
-                    </span>
-                    <button
-                      type="button"
-                      className={`mypage-search-add${registered ? ' is-registered' : ''}`}
-                      disabled={registered}
-                      onClick={() => add({ keyword: trend.keyword, trendId: trend.trendId })}
-                    >
-                      {registered
-                        ? <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>등록됨</>
-                        : <><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>추가</>}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+      {open && trimmed.length > 0 && (
+        <div className="mypage-search-menu" role="listbox" aria-label="검색 결과">
+          {searching && <p className="mypage-search-none">찾는 중…</p>}
+          {!searching && searchQuery.isError && <p className="mypage-search-none">키워드를 찾지 못했습니다.</p>}
+          {/* 서버에 없는 말은 등록할 수 없습니다. 직접 만들어 넣는 길은 두지 않습니다. */}
+          {!searching && searchQuery.isSuccess && results.length === 0 && (
+            <p className="mypage-search-none">검색어와 맞는 키워드가 없습니다.</p>
           )}
-
-          {canCreate && (
-            <div className="mypage-search-group mypage-search-group--create">
-              <button
-                type="button"
-                className="mypage-search-row mypage-search-create"
-                disabled={registeredKeywords.has(trimmed)}
-                onClick={() => add({ keyword: trimmed })}
-              >
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                  {registeredKeywords.has(trimmed) ? `"${trimmed}"은(는) 이미 등록했습니다` : `"${trimmed}"를 새 키워드로 등록`}
-                </span>
-                <small>Enter</small>
-              </button>
+          {!searching && results.map((item) => (
+            <div className="mypage-search-row" key={item.keywordId}>
+              <span className="mypage-search-name">
+                <strong>{item.keyword}</strong>
+                <small>{item.domain.name} · {formatGrowth(item)}</small>
+              </span>
+              <AddInterestKeywordButton keywordId={item.keywordId} keyword={item.keyword} />
             </div>
+          ))}
+          {!searching && searchQuery.data?.hasNext && (
+            <p className="mypage-search-none">결과가 더 있습니다. 검색어를 조금 더 적어 보세요.</p>
           )}
-
-          {results.length === 0 && !canCreate && <p className="mypage-search-none">이미 등록한 키워드입니다.</p>}
         </div>
       )}
     </div>

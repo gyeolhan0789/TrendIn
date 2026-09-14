@@ -1,26 +1,24 @@
-import type { Trend } from '../../trend/types/trend';
+import type { TrendDomainRef, TrendType } from '../../trend/types/trend';
 
-export interface SavedTrend extends Trend {
-  savedAt?: string;
+/**
+ * 저장한 트렌드 한 건입니다.
+ * 지우거나 이미 담았는지 가릴 때 쓰는 키는 trendId 가 아니라 savedTrendId 입니다.
+ */
+export interface SavedTrend {
+  savedTrendId: number;
+  trendId: number;
+  keywordId: number;
+  keyword: string;
+  domain: TrendDomainRef;
+  trendTypes: TrendType[];
+  description: string;
+  /** 요청한 기간의 지표가 없으면 비어 옵니다. */
+  mentionCount: number | null;
+  growthRate: number | null;
+  savedAt: string;
 }
 
-/** 사용자가 저장한 키워드를 묶어두는 보드. 백엔드가 없어 기기에만 보관합니다. */
-export interface SavedBoard {
-  boardId: string;
-  name: string;
-  /** YYYY.MM.DD. 담기 패널에 만든 날짜로 표시합니다. */
-  createdAt: string;
-}
-
-export interface SavedBoardState {
-  boards: SavedBoard[];
-  /** trendId -> boardId. 값이 없는 키워드는 미분류 열에 남습니다. */
-  assignments: Record<string, string>;
-}
-
-/** 화면에 그릴 보드 한 개. 미분류를 포함하며 소속 키워드를 함께 담습니다. */
-export interface SavedBoardView {
-  boardId: string;
-  name: string;
+export interface SavedTrendList {
   trends: SavedTrend[];
+  hasNext: boolean;
 }

@@ -1,10 +1,9 @@
+import { useUnreadNotificationCount } from '../../notification/hooks/useUnreadNotificationCount';
 import type { MyProfile } from '../types/myPage';
 
 interface MyPageSidebarProps {
   profile?: MyProfile;
   keywordCount: number;
-  boardCount: number;
-  alertCount: number;
 }
 
 /*
@@ -16,12 +15,14 @@ const pendingMenus = [
   { label: '계정 설정', icon: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></> },
 ];
 
-export function MyPageSidebar({ profile, keywordCount, boardCount, alertCount }: MyPageSidebarProps) {
+export function MyPageSidebar({ profile, keywordCount }: MyPageSidebarProps) {
+  const unreadCountQuery = useUnreadNotificationCount();
+
   return (
     <aside className="mypage-side">
       <div className="mypage-profile">
-        <span className="mypage-profile-avatar" aria-hidden="true">{profile?.initial ?? ''}</span>
-        <strong>{profile?.name ?? '\u00a0'}</strong>
+        <span className="mypage-profile-avatar" aria-hidden="true">{profile ? profile.nickname.slice(0, 1) : ''}</span>
+        <strong>{profile?.nickname ?? '\u00a0'}</strong>
         <span className="mypage-profile-email">{profile?.email ?? '\u00a0'}</span>
         <dl className="mypage-profile-stats">
           <div>
@@ -29,12 +30,8 @@ export function MyPageSidebar({ profile, keywordCount, boardCount, alertCount }:
             <dd className="is-amber">{keywordCount}</dd>
           </div>
           <div>
-            <dt>보드</dt>
-            <dd className="is-accent">{boardCount}</dd>
-          </div>
-          <div>
-            <dt>알림 설정</dt>
-            <dd>{alertCount}</dd>
+            <dt>안 읽은 알림</dt>
+            <dd className="is-accent">{unreadCountQuery.data ?? 0}</dd>
           </div>
         </dl>
       </div>

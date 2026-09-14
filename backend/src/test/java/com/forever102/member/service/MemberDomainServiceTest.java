@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.never;
 
 import com.forever102.global.exception.BusinessException;
@@ -18,6 +19,7 @@ import com.forever102.member.dto.MemberDomainUpdateRequest;
 import com.forever102.member.repository.MemberDomainRepository;
 import com.forever102.member.repository.MemberInterestKeywordRepository;
 import com.forever102.member.repository.MemberRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -200,6 +202,32 @@ class MemberDomainServiceTest {
 
         // then
         assertThat(member.isOnboardingCompleted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("영속성 컨텍스트를 비우는 삭제 쿼리보다 먼저 온보딩을 완료 처리한다")
+    void completesOnboardingBeforeClearingDeletes() {
+        // given
+        Member member = givenMember();
+        given(memberDomainRepository.findDomainsByMemberId(MEMBER_ID)).willReturn(List.of(Domain.DEVELOP));
+        // 삭제 쿼리는 clearAutomatically로 회원을 준영속 상태로 만든다. 그 시점의 완료 여부를 기록한다.
+        List<Boolean> completedAtDelete = new ArrayList<>();
+        willAnswer(invocation -> {
+            completedAtDelete.add(member.isOnboardingCompleted());
+            return null;
+        }).given(interestKeywordRepository)
+                .deleteByMemberIdAndKeywordDomainNotIn(MEMBER_ID, Set.of(Domain.DEVELOP));
+        willAnswer(invocation -> {
+            completedAtDelete.add(member.isOnboardingCompleted());
+            return null;
+        }).given(memberDomainRepository)
+                .deleteByMemberIdAndDomainNotIn(MEMBER_ID, Set.of(Domain.DEVELOP));
+
+        // when
+        memberDomainService.updateMyDomains(MEMBER_ID, request("DEVELOP"));
+
+        // then
+        assertThat(completedAtDelete).containsExactly(true, true);
     }
 
     @Test

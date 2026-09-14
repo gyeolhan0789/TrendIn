@@ -42,6 +42,36 @@ export function getAuthSession(): AuthSession | undefined {
   return cachedSession;
 }
 
+/*
+ * useSyncExternalStore 는 값이 같으면 같은 객체가 돌아오기를 요구합니다. 저장소를 다시 읽을
+ * 때마다 새 객체를 내놓으면 내용이 그대로여도 화면을 다시 그리게 됩니다.
+ */
+function isSameSession(a: AuthSession | undefined, b: AuthSession | undefined) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.accessToken === b.accessToken
+    && a.refreshToken === b.refreshToken
+    && a.tokenType === b.tokenType
+    && a.email === b.email
+    && a.onboardingCompleted === b.onboardingCompleted;
+}
+
+/**
+ * 저장소에 담긴 최신 세션으로 메모리 캐시를 맞춥니다.
+ *
+ * 리프레시 토큰은 쓰는 즉시 회전해 직전 토큰이 무효가 됩니다. 캐시는 탭마다 따로 있어서,
+ * 한 탭이 재발급을 마치면 다른 탭이 든 토큰은 이미 못 쓰는 토큰입니다. 재발급 직전에
+ * 저장소를 다시 읽어야 옆 탭이 갈아 끼운 토큰을 씁니다.
+ */
+export function syncAuthSessionFromStorage(): AuthSession | undefined {
+  const stored = readAuthSession();
+  loaded = true;
+  if (isSameSession(stored, cachedSession)) return cachedSession;
+  cachedSession = stored;
+  listeners.forEach((listener) => listener());
+  return cachedSession;
+}
+
 export function setAuthSession(session: AuthSession) {
   cachedSession = session;
   loaded = true;
@@ -92,4 +122,16 @@ export function markOnboardingCompleted() {
   const current = getAuthSession();
   if (!current || current.onboardingCompleted) return;
   setAuthSession({ ...current, onboardingCompleted: true });
+}
+
+/*
+ * 다른 탭이 로그인하거나 로그아웃하거나 토큰을 갈아 끼우면 알려 옵니다. 같은 탭에서 쓴 값은
+ * 이 이벤트가 오지 않으므로, 쓰는 쪽이 직접 구독자에게 알립니다.
+ * key 가 null 이면 저장소 전체가 비워진 경우입니다.
+ */
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== null && event.key !== sessionKey) return;
+    syncAuthSessionFromStorage();
+  });
 }

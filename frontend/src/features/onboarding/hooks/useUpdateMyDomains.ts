@@ -13,7 +13,7 @@ export function useUpdateMyDomains() {
       markOnboardingCompleted();
       queryClient.setQueryData(queryKeys.onboarding.myDomains, domains);
       // 분야에서 빠진 관심 키워드는 서버가 함께 지우므로, 키워드 목록도 다시 받아야 합니다.
-      queryClient.invalidateQueries({ queryKey: queryKeys.myPage.keywordCatalog });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myPage.interestKeywords });
     },
   });
 }

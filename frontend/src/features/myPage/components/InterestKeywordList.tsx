@@ -1,53 +1,41 @@
-import { useState } from 'react';
-import type { InterestKeywordView, KeywordAlerts } from '../types/myPage';
-import { InterestKeywordRow } from './InterestKeywordRow';
+import { useDeleteInterestKeyword } from '../hooks/useInterestKeywordMutations';
+import type { InterestKeyword } from '../types/myPage';
 
 interface InterestKeywordListProps {
-  views: InterestKeywordView[];
-  /** 필터로 일부만 보여줄 때도 위/아래로 옮기기는 전체 목록 기준이어야 합니다. */
-  totalCount: number;
-  indexOf: (keywordId: string) => number;
-  onAlertsChange: (keywordId: string, alerts: Partial<KeywordAlerts>) => void;
-  onMove: (keywordId: string, targetKeywordId: string, after: boolean) => void;
-  onShift: (keywordId: string, offset: number) => void;
-  onRemove: (keywordId: string) => void;
+  keywords: InterestKeyword[];
+  /** 분야 코드에 붙일 표시 이름. 서버가 관심 키워드에는 코드만 주므로 바깥에서 받아 씁니다. */
+  domainNames: Map<string, string>;
 }
 
-export function InterestKeywordList(props: InterestKeywordListProps) {
-  const { views, totalCount, indexOf } = props;
-  const [draggingId, setDraggingId] = useState<string>();
-  const [insertAt, setInsertAt] = useState<{ keywordId: string; after: boolean }>();
-
-  const endDrag = () => {
-    setDraggingId(undefined);
-    setInsertAt(undefined);
-  };
+export function InterestKeywordList({ keywords, domainNames }: InterestKeywordListProps) {
+  const deleteMutation = useDeleteInterestKeyword();
 
   return (
     <ul className="mypage-keyword-list">
-      {views.map((view) => {
-        const index = indexOf(view.keywordId);
+      {keywords.map((item) => {
+        const removing = deleteMutation.isPending
+          && deleteMutation.variables?.interestKeywordId === item.interestKeywordId;
+
         return (
-          <InterestKeywordRow
-            key={view.keywordId}
-            view={view}
-            dragging={draggingId === view.keywordId}
-            // 끌고 있는 줄 자신에게는 끼워 넣기 표시를 하지 않습니다.
-            insertAfter={insertAt?.keywordId === view.keywordId && draggingId !== view.keywordId ? insertAt.after : undefined}
-            isFirst={index <= 0}
-            isLast={index === totalCount - 1}
-            onDragStart={setDraggingId}
-            onDragEnd={endDrag}
-            onDragOver={(keywordId, after) => setInsertAt({ keywordId, after })}
-            onDragLeave={(keywordId) => setInsertAt((current) => (current?.keywordId === keywordId ? undefined : current))}
-            onDrop={(targetKeywordId, after) => {
-              if (draggingId) props.onMove(draggingId, targetKeywordId, after);
-              endDrag();
-            }}
-            onAlertsChange={props.onAlertsChange}
-            onShift={props.onShift}
-            onRemove={props.onRemove}
-          />
+          <li className="mypage-keyword-row" key={item.interestKeywordId}>
+            <span className="mypage-keyword-name">
+              {/* 긴 키워드가 칸을 밀어내지 않도록, 말줄임 규칙이 걸린 span 으로 감쌉니다. */}
+              <span>{item.keyword}</span>
+              <small>{domainNames.get(item.domain) ?? item.domain}</small>
+            </span>
+            <button
+              type="button"
+              className="mypage-keyword-remove"
+              disabled={removing}
+              aria-label={`${item.keyword} 관심 키워드에서 빼기`}
+              title="관심 키워드에서 빼기"
+              onClick={() => deleteMutation.mutate({ interestKeywordId: item.interestKeywordId, keyword: item.keyword })}
+            >
+              {removing
+                ? <span className="spinner spinner--small" aria-hidden="true" />
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></svg>}
+            </button>
+          </li>
         );
       })}
     </ul>
