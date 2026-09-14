@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from typing import Callable, Sequence
 
@@ -20,10 +21,12 @@ from airflow.sdk.exceptions import AirflowFailException
 from trendin.common.collect import flow
 from trendin.common.collect.contracts import ValidatorStore
 from trendin.common.collect.db import Database
-from trendin.common.collect.kafka_publisher import KafkaEventPublisher
+from trendin.common.collect.kafka_publisher import SUMMARY_TOPIC_ENV, KafkaEventPublisher
 from trendin.common.collect.ledger import Ledger, PostgresLedger
 from trendin.common.collect.minio_store import MinioObjectStore
 from trendin.common.collect.stores import PostgresValidatorStore
+
+logger = logging.getLogger("trendin.collect.dag")
 
 KST = "Asia/Seoul"
 COLLECT_TASK_ID = "collect_one"
@@ -113,7 +116,7 @@ def build_collect_dag(
             publisher = KafkaEventPublisher.from_env()
 
             run_id = flow.run_id_of(logical_date)
-            # 소스별 건수가 그대로 요약 이벤트의 `record_count` 가 된다. 장부를 구간으로
+            # 소스별 건수가 그대로 요약 이벤트의 `emitted` 가 된다. 장부를 구간으로
             # 다시 세지 않는 이유는 실행이 겹치면 앞 실행 몫까지 세기 때문이다.
             counts = flow.publish_pending(
                 ledger=ledger,
@@ -128,17 +131,22 @@ def build_collect_dag(
                 flow.outcomes_from_xcom(context["ti"].xcom_pull(task_ids=COLLECT_TASK_ID)),
                 domain_of,
             )
-            summaries = flow.publish_summaries(
-                publisher=publisher,
-                bucket=store.bucket,
-                run_id=run_id,
-                logical_date=logical_date,
-                statuses=statuses,
-                counts=counts,
-            )
+            summary_publisher = KafkaEventPublisher.from_env_optional(topic_env=SUMMARY_TOPIC_ENV)
+            if summary_publisher is None:
+                logger.info("%s가 비어 있어 실행 요약 발급을 건너뛴다", SUMMARY_TOPIC_ENV)
+                summaries = 0
+            else:
+                summaries = flow.publish_summaries(
+                    publisher=summary_publisher,
+                    run_id=run_id,
+                    logical_date=logical_date,
+                    statuses=statuses,
+                    counts=counts,
+                )
             return {
-                "articles": sum(counts.values()),
+                "articles": sum(stats.count for stats in counts.values()),
                 "summaries": summaries,
+                "summary_enabled": summary_publisher is not None,
                 "failed_sources": [s.source for s in statuses if s.status == "failed"],
             }
 

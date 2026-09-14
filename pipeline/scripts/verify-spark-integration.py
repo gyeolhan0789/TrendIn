@@ -36,9 +36,10 @@ from pathlib import Path
 
 # Windows 콘솔 기본 코드페이지(cp949)는 이 파일과 계약 문서가 쓰는 문자를 못 찍고
 # UnicodeEncodeError 로 죽는다. 검증이 인코딩 때문에 멈추면 안 되므로 여기서 못 박는다.
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+for stream in (sys.stdout, sys.stderr):
+    reconfigure = getattr(stream, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
 
 PIPELINE = Path(__file__).resolve().parents[1]
 REPO = PIPELINE.parent
@@ -50,7 +51,7 @@ FIXTURES = PIPELINE / "spark" / "tests" / "fixtures" / "contract"
 VERIFY_PREFIX = "_verify/spark-integration"
 
 # 봉투 두 모양이 공통으로 가진 칸. 하나라도 없으면 계약 위반이다.
-REQUIRED = ("event_id", "schema_version", "bucket", "domain", "source_id", "status", "collected_at")
+REQUIRED = ("event_id", "schema_version", "domain", "source_id", "status")
 # 저작권법 제37조 출처 명시. 기사 이벤트에서 절대 비지 않는다 (web-collect.md 불변식 11).
 ATTRIBUTION = ("url", "source_id", "published_at")
 KNOWN_SCHEMA_VERSIONS = (1,)
@@ -96,8 +97,8 @@ def s3_client(access_key: str, secret_key: str, endpoint: str):
 # --- 봉투 검증 ------------------------------------------------------------
 
 
-def verify_event(event: dict, *, spark_s3, bucket: str, label: str) -> None:
-    """봉투 하나. 기사 이벤트와 요약 이벤트는 여기서 갈린다 (spark-integration.md §3)."""
+def verify_event(event: dict, *, spark_s3, bucket: str, label: str, summary: bool) -> None:
+    """봉투 하나. 수신한 토픽으로 기사와 요약을 구분한다 (spark-integration.md §3)."""
     missing = [f for f in REQUIRED if event.get(f) in (None, "")]
     check(not missing, f"{label} 공통 필드", f"빈 칸: {missing}" if missing else "")
 
@@ -108,8 +109,7 @@ def verify_event(event: dict, *, spark_s3, bucket: str, label: str) -> None:
         f"{version} (아는 값: {KNOWN_SCHEMA_VERSIONS})",
     )
 
-    # 분기 기준은 `object_key` 의 null 여부다. status 나 record_count 로 가르면 안 된다.
-    if event.get("object_key") is None:
+    if summary:
         verify_summary_event(event, label=label)
     else:
         verify_article_event(event, spark_s3=spark_s3, bucket=bucket, label=label)
@@ -121,12 +121,34 @@ def verify_summary_event(event: dict, *, label: str) -> None:
     check(status in ("success", "failed"), f"{label} 요약: status", str(status))
     if status == "failed":
         check(bool(event.get("failure_reason")), f"{label} 요약: failed 면 failure_reason 이 있다")
-    # 이 조합이 계약 위반으로 읽히면 정상 실행마다 DLQ 가 쌓인다 (spark-integration.md §3).
-    if status == "success" and (event.get("record_count") or 0) > 0:
-        check(True, f"{label} 요약: success + record_count>0 + object_key=null 조합", "정상이다")
+    check(bool(event.get("run_started_at")), f"{label} 요약: logical date 가 있다")
+    check("object_key" not in event and "record_count" not in event,
+          f"{label} 요약: 기사 봉투 필드가 없다")
+    emitted = event.get("emitted")
+    check(type(emitted) is int and emitted >= 0, f"{label} 요약: emitted 는 0 이상의 정수")
+    check((event.get("emitted_oldest_collected_at") is None) == (emitted == 0),
+          f"{label} 요약: 발급 0건일 때만 가장 오래된 수집 시각이 null")
+    collection = ("discovered", "stored", "skipped", "not_modified", "failed", "failed_by_stage",
+                  "failures", "duration_ms", "members_only_stored")
+    check(all(key in event for key in collection), f"{label} 요약: 수집 결과 필드가 있다")
+    if status == "failed":
+        check(all(event.get(key) is None for key in collection), f"{label} 요약: 죽은 수집은 null")
+    else:
+        check(all(event.get(key) is not None for key in collection),
+              f"{label} 요약: 수집 결과 보존")
+        failures = event.get("failures")
+        check(isinstance(failures, list) and len(failures) <= 10,
+              f"{label} 요약: 실패 표본 10건 상한")
+        if isinstance(failures, list):
+            check(all(isinstance(f, dict) and isinstance(f.get("reason"), str)
+                      and len(f["reason"]) <= 200 for f in failures),
+                  f"{label} 요약: 사유 200자 상한")
 
 
 def verify_article_event(event: dict, *, spark_s3, bucket: str, label: str) -> None:
+    # 요약에는 없는 필드지만 기사 봉투에서는 계속 필수다.
+    missing = [f for f in ("bucket", "collected_at") if event.get(f) in (None, "")]
+    check(not missing, f"{label} 기사: 필수 필드", f"빈 칸: {missing}" if missing else "")
     # 발급한 실행의 값이다 (data-pipeline-design.md §5 필드 규약). 수집한 실행이 아니다.
     check(event.get("run_id") not in (None, ""), f"{label} 기사: run_id 가 있다")
     count = event.get("record_count")
@@ -134,7 +156,11 @@ def verify_article_event(event: dict, *, spark_s3, bucket: str, label: str) -> N
     blank = [f for f in ATTRIBUTION if not event.get(f)]
     check(not blank, f"{label} 기사: 출처 명시 3종", f"빈 칸: {blank}" if blank else "")
 
-    key = event["object_key"]
+    key = event.get("object_key")
+    if not isinstance(key, str) or not key:
+        check(False, f"{label} 기사: object_key 가 있다")
+        return
+    check(True, f"{label} 기사: object_key 가 있다")
     body = read_object(spark_s3, bucket, key, label=f"{label} 기사: object_key 읽기")
     if body is None:
         return
@@ -217,20 +243,26 @@ def consume(
             msg = consumer.poll(1.0)
             if msg is None:
                 continue
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+            error = msg.error()
+            if error is not None:
+                if error.code() == KafkaError._PARTITION_EOF:
                     continue
-                print(f"  경고  소비 오류: {msg.error()}")
+                print(f"  경고  소비 오류: {error}")
+                continue
+            payload = msg.value()
+            if payload is None:
                 continue
             try:
-                event = json.loads(msg.value().decode("utf-8"))
+                event = json.loads(payload.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
                 continue  # `_verify` 같은 손으로 넣은 메시지가 섞여 있을 수 있다
             if not isinstance(event, dict):
                 continue
             eid = event.get("event_id")
+            message_key = msg.key()
             meta = {
-                "key": msg.key().decode("utf-8") if msg.key() else None,
+                "topic": msg.topic(),
+                "key": message_key.decode("utf-8") if message_key else None,
                 "partition": msg.partition(),
                 "offset": msg.offset(),
             }
@@ -275,32 +307,18 @@ def verify_kafka_placement(records: list[tuple[dict, dict]]) -> None:
         f"불일치 {len(mismatched)}건: {mismatched[:3]}" if mismatched else f"{len(records)}건 확인",
     )
 
-    partitions: dict[str, set[int]] = collections.defaultdict(set)
+    partitions: dict[tuple[str, str], set[int]] = collections.defaultdict(set)
     for event, meta in records:
-        partitions[event.get("source_id")].add(meta["partition"])
+        source = event.get("source_id")
+        if isinstance(source, str):
+            partitions[(meta["topic"], source)].add(meta["partition"])
     split = {src: sorted(parts) for src, parts in partitions.items() if len(parts) > 1}
     check(
         not split,
-        "소스별로 한 파티션에 모인다",
+        "토픽별로 같은 소스가 한 파티션에 모인다",
         f"쪼개진 소스: {split}" if split else f"{len(partitions)}개 소스",
     )
 
-    # 요약 이벤트는 그 소스의 기사들이 다 나간 뒤에 발행된다(`flow` 의 태스크 순서).
-    # 같은 key 라 같은 파티션이므로 offset 비교로 확인할 수 있다.
-    checked = 0
-    for source, parts in partitions.items():
-        if len(parts) > 1:
-            continue  # 위에서 이미 FAIL 로 찍혔다
-        mine = [(e, m) for e, m in records if e.get("source_id") == source]
-        arts = [m["offset"] for e, m in mine if e.get("object_key")]
-        sums = [m["offset"] for e, m in mine if not e.get("object_key")]
-        if not arts or not sums:
-            continue  # 기사만 왔거나 요약만 왔다 — 순서를 볼 수 없다
-        ok = min(sums) > max(arts)
-        check(ok, f"{source}: 요약이 기사들 뒤에 있다", f"기사 최대 {max(arts)}, 요약 {sums}")
-        checked += 1
-    if not checked:
-        print("  건너뜀  요약과 기사가 함께 있는 소스가 없어 순서를 보지 않았다")
 
 
 def publish(bootstrap: str, topic: str, events: list[dict]) -> None:
@@ -336,7 +354,12 @@ def load_fixtures() -> tuple[list[dict], dict[str, bytes]]:
     나머지 칸은 손대지 않으므로 `checksum` 은 그대로 유효하다.
     """
     events, objects = [], {}
-    for name in ("article-event.json", "run-summary-success.json", "run-summary-failed.json"):
+    names = (
+        "article-event.json",
+        "collect-run-summary-success.json",
+        "collect-run-summary-failed.json",
+    )
+    for name in names:
         event = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
         event["event_id"] = f"{VERIFY_PREFIX}-{event['event_id']}"
         for field in ("object_key", "raw_object_key"):
@@ -362,23 +385,31 @@ def run_fixture_mode(cfg: dict) -> None:
     if fail:
         sys.exit("객체를 올리지 못했다. 나머지는 건너뛴다.")
 
-    print("[2] 이벤트 3건을 토픽에 발행한다")
-    publish(cfg["bootstrap"], cfg["topic"], events)
-    check(True, f"발행 {len(events)}건 (key=source_id)")
-
-    print("[3] 소비 측 경로로 되읽는다")
-    want = {e["event_id"] for e in events}
-    got = consume(cfg["bootstrap"], cfg["topic"], want=want, limit=0, timeout_s=60)
-    check(len(got) == len(want), f"발행한 {len(want)}건 회수", f"{len(got)}건 받음")
+    print("[2·3] 토픽별로 fixture 를 발행하고 되읽는다")
+    got = []
+    for topic, batch in (
+        (cfg["topic"], [e for e in events if "object_key" in e]),
+        (cfg["summary_topic"], [e for e in events if "run_started_at" in e]),
+    ):
+        if not topic:
+            print("  건너뜀  요약 토픽이 설정되지 않았다")
+            continue
+        publish(cfg["bootstrap"], topic, batch)
+        want = {e["event_id"] for e in batch}
+        records = consume(cfg["bootstrap"], topic, want=want, limit=0, timeout_s=60)
+        check(len(records) == len(want), f"{topic}: {len(want)}건 회수", f"{len(records)}건 받음")
+        got.extend(records)
 
     print("[4] Kafka 배치와 순서")
     verify_kafka_placement(got)
 
     print("[5] 봉투와 원문을 검증한다 (Spark read 전용 키)")
     spark = s3_client(cfg["spark_key"], cfg["spark_secret"], cfg["minio_endpoint"])
-    for event, _meta in got:
-        shape = "기사" if event.get("object_key") else "요약"
-        verify_event(event, spark_s3=spark, bucket=cfg["bucket"], label=f"[{shape}]")
+    for event, meta in got:
+        summary = meta["topic"] == cfg["summary_topic"]
+        shape = "요약" if summary else "기사"
+        verify_event(event, spark_s3=spark, bucket=cfg["bucket"],
+                     label=f"[{shape}]", summary=summary)
 
     print("[6] Spark 키는 쓰기가 안 된다")
     verify_read_only(spark, cfg["bucket"])
@@ -396,8 +427,11 @@ def run_live_mode(cfg: dict, limit: int) -> None:
             "  docker compose -f pipeline/compose.yaml run --rm airflow-cli "
             "airflow dags test fashion_collect"
         )
-    articles = [e for e, _ in got if e.get("object_key")]
-    summaries = [e for e, _ in got if not e.get("object_key")]
+    if cfg["summary_topic"]:
+        got.extend(consume(cfg["bootstrap"], cfg["summary_topic"],
+                           want=None, limit=limit, timeout_s=60))
+    articles = [e for e, m in got if m["topic"] == cfg["topic"]]
+    summaries = [e for e, m in got if m["topic"] == cfg["summary_topic"]]
     check(True, f"{len(got)}건 읽음", f"기사 {len(articles)}건, 요약 {len(summaries)}건")
     # AC 3 — 실제 크롤링 1회분의 본문이 소비 측까지 도달했는지가 이 줄이다.
     check(
@@ -411,10 +445,11 @@ def run_live_mode(cfg: dict, limit: int) -> None:
 
     print("[3] 봉투와 원문을 검증한다 (Spark read 전용 키)")
     spark = s3_client(cfg["spark_key"], cfg["spark_secret"], cfg["minio_endpoint"])
-    for event, _meta in got:
-        shape = "기사" if event.get("object_key") else "요약"
+    for event, meta in got:
+        summary = meta["topic"] == cfg["summary_topic"]
+        shape = "요약" if summary else "기사"
         label = f"[{shape} {event['event_id']}]"
-        verify_event(event, spark_s3=spark, bucket=cfg["bucket"], label=label)
+        verify_event(event, spark_s3=spark, bucket=cfg["bucket"], label=label, summary=summary)
 
     print("[4] Spark 키는 쓰기가 안 된다")
     verify_read_only(spark, cfg["bucket"])
@@ -452,11 +487,14 @@ def main() -> None:
     args = parser.parse_args()
 
     env = load_env(DATASTORE_ENV)
+    pipeline_env_path = PIPELINE / ".env"
+    pipeline_env = load_env(pipeline_env_path) if pipeline_env_path.is_file() else {}
     kafka_host = env.get("KAFKA_EXTERNAL_HOST", "127.0.0.1")
     kafka_port = env.get("KAFKA_EXTERNAL_PORT", "29092")
     cfg = {
         "bucket": env.get("MINIO_BUCKET", "raw-data"),
         "topic": env.get("KAFKA_TOPIC_RAW_FILE_READY", "raw-file-ready"),
+        "summary_topic": pipeline_env.get("TRENDIN_KAFKA_TOPIC_RUN_SUMMARY", "").strip(),
         # 컨테이너 밖이라 EXTERNAL 리스너와 공개 포트로 붙는다.
         "bootstrap": f"{kafka_host}:{kafka_port}",
         "minio_endpoint": f"http://127.0.0.1:{env.get('MINIO_API_PORT', '9000')}",

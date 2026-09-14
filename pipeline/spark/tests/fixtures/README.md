@@ -1,5 +1,5 @@
 ```
-contract/    입력 계약 샘플 — 이벤트 3건 + 그 이벤트가 가리키는 객체 (S15P21A102-159)
+contract/    입력 계약 샘플 — 이벤트 5건 + 그 이벤트가 가리키는 객체 (S15P21A102-159)
 corpus.json    한국어·혼합 문서 30건 (실제 수집 데이터에서 발췌, 익명화)
 snapshots.json 각 문서의 추출 결과
 ```
@@ -14,6 +14,8 @@ contract/
 ├─ article-event.json         기사 이벤트. object_key 가 있다
 ├─ run-summary-success.json   실행 요약(성공). object_key 가 null 이고 record_count > 0
 ├─ run-summary-failed.json    실행 요약(실패). failure_reason 이 있다
+├─ collect-run-summary-success.json  collect-run-summary 토픽의 요약(성공). 소비는 S15P21A102-206
+├─ collect-run-summary-failed.json   collect-run-summary 토픽의 요약(실패)
 └─ objects/<object_key 그대로>/
    ├─ article.json            article-event.json 의 object_key 가 가리키는 실물
    └─ raw.xml                 raw_object_key 가 가리키는 실물

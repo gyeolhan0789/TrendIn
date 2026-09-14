@@ -109,7 +109,8 @@ pipeline:verify:
     - RUFF_SPEC=$(sed -n 's/.*"\(ruff[^"]*\)".*/\1/p' pyproject.toml | head -1)
     # 따옴표로 감싸 YAML의 `: ` 오해석을 막는다.
     - 'echo "ruff spec: ${RUFF_SPEC}"'
-    - pip install --no-cache-dir pytest "${RUFF_SPEC}"
+    # 발급 테스트가 `confluent_kafka.Producer` 를 경로로 패치해 모듈이 있어야 한다. 이미지에는 없다.
+    - pip install --no-cache-dir pytest "${RUFF_SPEC}" confluent-kafka
     - ruff check .
     # Spark 테스트는 별도 잡에서 맡는다. DAG import 검사는 여기 들어 있다.
     - pytest tests
