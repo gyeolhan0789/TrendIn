@@ -9,7 +9,7 @@
 ## 파일 구성
 
 - `compose.yaml`: 공용 Compose 프로젝트, PostgreSQL·Redis 서비스와 각각의 데이터 Volume, 공용 네트워크 정의
-- `../backend/Dockerfile`: Java 25로 애플리케이션을 빌드하고 실행하는 멀티 스테이지 이미지 정의
+- `../backend/Dockerfile`: 빌드된 실행 JAR을 Java 25 런타임 이미지에 포함하는 정의
 - `../backend/.dockerignore`: 백엔드 이미지 빌드에 필요하지 않은 로컬 파일 제외
 - `redis.conf`: Redis의 영속화·메모리 설정. 비밀번호는 이 파일에 두지 않는다.
 - `nginx/trendin.conf`: EC2 호스트 Nginx에서 백엔드로 전달하는 HTTP 리버스 프록시 설정
@@ -65,7 +65,9 @@ UFW 변경이나 EC2 배포 작업은 이번 범위에 포함하지 않는다.
 
 ## 백엔드 컨테이너
 
-백엔드는 Java 25 빌드·런타임 이미지를 분리한 멀티 스테이지 Dockerfile로 빌드한다.
+백엔드는 Gradle로 먼저 빌드한 `backend/build/libs/app.jar`를 Java 25 런타임 이미지에 포함한다.
+`bootJar` 출력 이름은 `app.jar`로 고정하며 plain JAR은 이미지에 포함하지 않는다.
+Dockerfile에서는 Gradle을 실행하지 않으므로 로컬·EC2 수동 이미지 빌드 전에도 Gradle 빌드가 필요하다.
 컨테이너는 일반 사용자 `spring`으로 실행하고 `dev` 프로필을 사용한다.
 `application-dev.yml`의 `ddl-auto`는 `validate`이므로 기동 시 공용 DB를 생성하거나 변경하지 않고,
 사전에 적용한 baseline과 Entity가 일치하는지만 검사한다.
@@ -80,6 +82,7 @@ EC2에서 기존 `infra/.env`에 `.env.example`의 Backend 항목을 추가하�
 
 ```sh
 docker compose --env-file infra/.env -f infra/compose.yaml config --quiet
+(cd backend && ./gradlew clean build --no-daemon --console=plain)
 docker compose --env-file infra/.env -f infra/compose.yaml build backend
 docker compose --env-file infra/.env -f infra/compose.yaml up -d backend
 docker compose --env-file infra/.env -f infra/compose.yaml ps
