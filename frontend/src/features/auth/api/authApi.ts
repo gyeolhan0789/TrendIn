@@ -1,5 +1,6 @@
 import { apiClient } from '../../../api/client';
 import type { ApiResponse } from '../../../api/apiResponse';
+import { unwrap } from '../../../api/apiResponse';
 import { API_ENDPOINTS } from '../../../constants/apiEndpoints';
 import type {
   LoginRequest,
@@ -11,13 +12,11 @@ import type {
 } from '../types/auth';
 
 export async function signUp(request: SignUpRequest): Promise<SignUpResult> {
-  const { data } = await apiClient.post<ApiResponse<SignUpResult>>(API_ENDPOINTS.auth.signUp, request);
-  return data.data;
+  return unwrap(apiClient.post<ApiResponse<SignUpResult>>(API_ENDPOINTS.auth.signUp, request));
 }
 
 export async function login(request: LoginRequest): Promise<LoginResult> {
-  const { data } = await apiClient.post<ApiResponse<LoginResult>>(API_ENDPOINTS.auth.login, request);
-  return data.data;
+  return unwrap(apiClient.post<ApiResponse<LoginResult>>(API_ENDPOINTS.auth.login, request));
 }
 
 export async function logout(refreshToken: string): Promise<void> {
@@ -30,20 +29,17 @@ export async function logout(refreshToken: string): Promise<void> {
  */
 export async function checkEmailAvailable(email: string): Promise<boolean | null> {
   try {
-    const { data } = await apiClient.post<ApiResponse<{ available: boolean }>>(
-      API_ENDPOINTS.auth.emailCheck,
-      { email },
+    const { available } = await unwrap(
+      apiClient.post<ApiResponse<{ available: boolean }>>(API_ENDPOINTS.auth.emailCheck, { email }),
     );
-    return data.data.available;
+    return available;
   } catch {
     return null;
   }
 }
 
 export async function oauthLogin(provider: string, request: OAuthLoginRequest): Promise<OAuthLoginResult> {
-  const { data } = await apiClient.post<ApiResponse<OAuthLoginResult>>(
-    API_ENDPOINTS.auth.oauthLogin(provider),
-    request,
+  return unwrap(
+    apiClient.post<ApiResponse<OAuthLoginResult>>(API_ENDPOINTS.auth.oauthLogin(provider), request),
   );
-  return data.data;
 }

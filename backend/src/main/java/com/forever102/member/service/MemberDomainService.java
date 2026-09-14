@@ -49,12 +49,18 @@ public class MemberDomainService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
+        /*
+         * 삭제 쿼리보다 먼저 완료 처리한다. 아래 두 삭제는 clearAutomatically로 영속성 컨텍스트를 비우므로,
+         * 그 뒤에 바꾸면 member가 준영속 상태여서 변경이 DB에 반영되지 않는다.
+         * 지금 바꿔 두면 삭제 쿼리의 flushAutomatically가 이 변경을 먼저 flush한다.
+         */
+        member.completeOnboarding();
+
         // 빠진 분야의 키워드를 먼저 지운다. 분야 행이 남아 있는 동안 정리해야 참조가 꼬이지 않는다.
         interestKeywordRepository.deleteByMemberIdAndKeywordDomainNotIn(memberId, domains);
         memberDomainRepository.deleteByMemberIdAndDomainNotIn(memberId, domains);
 
         addMissingDomains(member, domains);
-        member.completeOnboarding();
 
         return toSortedResponses(memberDomainRepository.findDomainsByMemberId(memberId));
     }

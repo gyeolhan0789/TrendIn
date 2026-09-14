@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { AccountMenu } from '../../features/auth/components/AccountMenu';
+import { NotificationBell } from '../../features/notification/components/NotificationBell';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
 export function Header() {
@@ -17,8 +18,8 @@ export function Header() {
           <NavLink to="/mypage">마이페이지</NavLink>
         </nav>
         <div className="header-right">
-          {isHome && <span className="header-collection">수집 1,291건 · 갱신 방금</span>}
           {/* 로그인 화면으로 보낼 때, 보고 있던 자리로 되돌아올 수 있게 경로를 함께 넘깁니다. */}
+          {session && <NotificationBell />}
           {session
             ? <AccountMenu session={session} />
             : <NavLink className="header-login" to="/login" state={{ from: location.pathname }}>로그인</NavLink>}

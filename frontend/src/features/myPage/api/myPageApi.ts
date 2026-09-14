@@ -1,24 +1,33 @@
 import { apiClient } from '../../../api/client';
-import { API_ENDPOINTS, hasEndpoint, requireEndpoint } from '../../../constants/apiEndpoints';
-import { getMockAllTrends } from '../../trend/api/trendMockData';
-import type { Trend } from '../../trend/types/trend';
-import type { MyProfile } from '../types/myPage';
-
-// Fictional UI fixture, matching the design mock. Replaced by the profile endpoint once it exists.
-const mockProfile: MyProfile = { name: '정민수', email: 'jungms@company.co.kr', initial: 'J' };
+import type { ApiResponse } from '../../../api/apiResponse';
+import { unwrap } from '../../../api/apiResponse';
+import { API_ENDPOINTS } from '../../../constants/apiEndpoints';
+import type { InterestKeyword, MyProfile, RecommendedKeyword } from '../types/myPage';
 
 export async function getMyProfile(): Promise<MyProfile> {
-  if (!hasEndpoint(API_ENDPOINTS.myPage.profile)) return mockProfile;
-  const { data } = await apiClient.get<MyProfile>(requireEndpoint(API_ENDPOINTS.myPage.profile, 'getMyProfile'));
-  return data;
+  return unwrap(apiClient.get<ApiResponse<MyProfile>>(API_ENDPOINTS.members.me));
+}
+
+/** 분야를 주면 그 분야의 키워드만, 주지 않으면 전부 등록한 순서대로 옵니다. */
+export async function getInterestKeywords(domain?: string): Promise<InterestKeyword[]> {
+  return unwrap(apiClient.get<ApiResponse<InterestKeyword[]>>(API_ENDPOINTS.members.interestKeywords, {
+    params: domain ? { domain } : undefined,
+  }));
+}
+
+/** 등록은 이름이 아니라 키워드 식별자로 합니다. 서버에 없는 말은 등록할 수 없습니다. */
+export async function registerInterestKeyword(keywordId: number): Promise<void> {
+  await apiClient.post<ApiResponse<unknown>>(API_ENDPOINTS.members.interestKeywords, { keywordId });
+}
+
+export async function deleteInterestKeyword(interestKeywordId: number): Promise<void> {
+  await apiClient.delete<ApiResponse<null>>(API_ENDPOINTS.members.interestKeyword(interestKeywordId));
 }
 
 /**
- * 검색창과 추천 카드가 함께 쓰는 키워드 후보 목록입니다.
- * 두 곳이 같은 목록을 봐야 이미 등록한 키워드를 중복으로 권하지 않습니다.
+ * 관심 키워드와 함께 언급되는 키워드를 권합니다.
+ * 관심 키워드를 하나도 등록하지 않았으면 기댈 곳이 없어 빈 목록이 옵니다.
  */
-export async function getKeywordCatalog(): Promise<Trend[]> {
-  if (!hasEndpoint(API_ENDPOINTS.myPage.keywordCatalog)) return getMockAllTrends();
-  const { data } = await apiClient.get<Trend[]>(requireEndpoint(API_ENDPOINTS.myPage.keywordCatalog, 'getKeywordCatalog'));
-  return data;
+export async function getRecommendedKeywords(): Promise<RecommendedKeyword[]> {
+  return unwrap(apiClient.get<ApiResponse<RecommendedKeyword[]>>(API_ENDPOINTS.members.recommendedKeywords));
 }

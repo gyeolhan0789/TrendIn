@@ -7,20 +7,27 @@ export const queryKeys = {
     myDomains: ['onboarding', 'myDomains'] as const,
   },
   trends: {
-    top: (params?: object) => ['trends', 'top', params] as const,
-    new: (params?: object) => ['trends', 'new', params] as const,
-    resurging: (params?: object) => ['trends', 'resurging', params] as const,
-    related: (params?: object) => ['trends', 'related', params] as const,
-    detail: (trendId: string) => ['trends', 'detail', trendId] as const,
-    analysis: (trendId: string) => ['trends', 'analysis', trendId] as const,
-    relatedKeywords: (trendId: string) => ['trends', 'relatedKeywords', trendId] as const,
-    relatedContents: (trendId: string) => ['trends', 'relatedContents', trendId] as const,
+    // 분야·갈래·기간이 다르면 다른 목록이라 조회 조건을 그대로 키에 싣습니다.
+    list: (params?: object) => ['trends', 'list', params] as const,
+    // 지표와 그래프는 기간마다 달라 기간까지 키에 넣습니다.
+    detail: (trendId: number, period: string) => ['trends', 'detail', trendId, period] as const,
+    history: (trendId: number, period: string) => ['trends', 'history', trendId, period] as const,
+    contents: (trendId: number) => ['trends', 'contents', trendId] as const,
+    relatedKeywords: (trendId: number) => ['trends', 'relatedKeywords', trendId] as const,
+  },
+  keywords: {
+    search: (query: string) => ['keywords', 'search', query] as const,
+  },
+  notifications: {
+    list: ['notifications', 'list'] as const,
+    unreadCount: ['notifications', 'unreadCount'] as const,
   },
   savedTrends: {
     all: ['savedTrends'] as const,
   },
   myPage: {
     profile: ['myPage', 'profile'] as const,
-    keywordCatalog: ['myPage', 'keywordCatalog'] as const,
+    interestKeywords: ['myPage', 'interestKeywords'] as const,
+    recommendedKeywords: ['myPage', 'recommendedKeywords'] as const,
   },
 };
