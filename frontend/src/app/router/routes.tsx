@@ -1,5 +1,6 @@
 import { Route } from 'react-router-dom';
 import { HomePage } from '../../pages/HomePage/HomePage';
+import { LandingPage } from '../../pages/LandingPage/LandingPage';
 import { LoginPage } from '../../pages/LoginPage/LoginPage';
 import { MyPage } from '../../pages/MyPage/MyPage';
 import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
@@ -8,9 +9,15 @@ import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
 
+/*
+ * 랜딩은 공용 레이아웃 밖에 둡니다. 첫 화면은 자기 헤더와 푸터를 직접 들고 있고,
+ * 담기 패널처럼 로그인한 사람을 위한 장치도 여기서는 띄우지 않습니다.
+ */
+export const landingRoutes = <Route path="/" element={<LandingPage />} />;
+
 export const appRoutes = (
   <>
-    <Route path="/" element={<HomePage />} />
+    <Route path="/dashboard" element={<HomePage />} />
     <Route path="/saved" element={<SavedTrendPage />} />
     <Route path="/trends/:trendId" element={<TrendDetailPage />} />
     <Route path="/mypage" element={<MyPage />} />

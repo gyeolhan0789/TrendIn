@@ -48,7 +48,8 @@ export function OnboardingPage() {
     try {
       await updateMutation.mutateAsync(selected);
       showToast({ message: '관심 분야를 저장했습니다.', type: 'success' });
-      navigate('/', { replace: true });
+      // 분야를 막 고른 사람이 볼 것은 소개 화면이 아니라 그 분야가 반영된 대시보드입니다.
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setFormError(describeAuthError(error, '관심 분야를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }

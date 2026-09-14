@@ -21,7 +21,7 @@ function MyPageEmpty() {
     <div className="mypage-empty">
       <p>아직 등록한 관심 키워드가 없습니다.</p>
       <h2>위 검색창에서 키워드를 찾거나, 없는 말은 직접 입력해 등록할 수 있습니다.</h2>
-      <Link className="mypage-empty-action" to="/">대시보드에서 키워드 둘러보기<span aria-hidden="true">→</span></Link>
+      <Link className="mypage-empty-action" to="/dashboard">대시보드에서 키워드 둘러보기<span aria-hidden="true">→</span></Link>
     </div>
   );
 }
