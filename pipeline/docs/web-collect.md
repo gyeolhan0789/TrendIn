@@ -15,7 +15,7 @@
 | 항목 | 제목·URL·발행일·요약·본문 텍스트·카테고리·저자 | 회원 전용 본문(#3), Hacker News 가 링크한 외부 원문(⚠️ #12) |
 | 저장 | MinIO 원문 + 정규화 JSON, 앱 DB 장부 | 검색 색인, 키워드 추출 |
 | 이벤트 | "기사 하나가 저장됐다" 알림 | 소비자 쪽 처리, 재처리 큐(DLQ) |
-| 시간 | 지금부터의 새 글 + 피드가 허용하는 만큼의 과거분 | 아카이브 전량 백필 |
+| 시간 | 지금부터의 새 글 + 피드가 허용하는 만큼의 과거분 + hn 의 지정 구간(첫 채움 6주) | 아카이브 전량 백필 |
 
 소스 목록. **도메인**은 `fashion` / `dev` 둘이다. hypebeast 는 약관 때문에 뺐다(확정 2-1).
 
@@ -44,7 +44,7 @@
 | ~~hypebeast~~ (제외) | 자체 CMS (CloudFront) | `/api /_ajax /post-content /search-suggest` 등 금지, 그 외 `Allow: /` | `/fashion/feed` | 20 | 피드 `content:encoded` 전문 | guid `?post=705465` 의 숫자 | pubDate (UTC) | 없음. `?paged=2` 가 같은 20건 |
 | harpersbazaar | 자체 플랫폼 (cosmopolitan 과 동일 템플릿) | `/event/notice` 만 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{news,style,trend,sports,watchnjewelry}` | 목록 36건 (섹션별 `?offset=N` 동작) | 기사 페이지 `div.atc_body_cont`. 그 안에 로그인 마스크(`atc_mask_login`)와 관련기사(`ab_related_article`)가 섞여 있어 둘은 걷어낸다. 바깥 `atc_body` 는 크레딧·태그·추천까지 감싸서 넓다. ld+json `NewsArticle` 에 headline·datePublished·description·author 는 있고 articleBody 는 없다 | URL `/article/{숫자}` | `article:published_time` (+09:00) | 섹션 페이지 offset 으로 일부 |
 | cosmopolitan | 위와 같음 | `/event/notice` 와 기사 1건 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{trends,item,howto,celebstyle,watchandjewelry}` | 목록 49건 (`?offset=20` 에서 10건 추가 후 멈춤) | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
-| hn | 공식 API | HTML 은 `Crawl-delay: 30`. API 는 robots 대상이 아니다 | Algolia HN Search `search_by_date?tags=story&numericFilters=created_at_i>{커서}` | 시간당 약 26건 (1회 요청 최대 1000건) | 없음. 제목·URL·점수·댓글수·작성자만 | `objectID` | `created_at_i` (epoch) | 커서로 무제한. 대안 Firebase `newstories` 는 500건 ≈ 10시간 |
+| hn | 공식 API | HTML 은 `Crawl-delay: 30`. API 는 robots 대상이 아니다 | Algolia HN Search `search_by_date?tags=story&numericFilters=created_at_i>={시작},created_at_i<{끝}` | 시간당 약 26건 (1회 요청 최대 1000건) | 없음. 제목·URL·점수·댓글수·작성자만 | `objectID` | `created_at_i` (epoch) | 구간을 잘라 무제한(한 질의 1000건, 페이지 넘김 불가 — #9). 대안 Firebase `newstories` 는 500건 ≈ 10시간 |
 
 특이사항.
 
@@ -177,7 +177,7 @@ article.json 의 해시. 이벤트·장부에도 같은 값이 있지만, 객체
 |---|---|---|
 | `schema_version` | ✓ | `1` |
 | `domain` `source` `route` `article_id` | ✓ | 키와 같은 값 |
-| `url` | ✓ | 기사 정식 URL. 추적 파라미터 제거. 피드의 `link` 또는 `og:url` |
+| `url` | ✓ | 기사 정식 URL. 추적 파라미터 제거. 피드의 `link` 또는 `og:url`. hn 은 story 의 외부 링크, 없으면(Ask HN 등) HN 항목 URL `https://news.ycombinator.com/item?id={objectID}` — 문자열로만 두고 요청하지 않는다 |
 | `title` | ✓ | 제목. HTML 엔티티 풀고 앞뒤 공백 제거 |
 | `published_at` | ✓ | ISO-8601, 소스가 준 오프셋 그대로 (UTC 로 바꾸지 않는다) |
 | `collected_at` | ✓ | ISO-8601 UTC. 원문을 받은 시각 |
@@ -186,11 +186,11 @@ article.json 의 해시. 이벤트·장부에도 같은 값이 있지만, 객체
 | `modified_at` | | 소스가 주면 |
 | `summary` | | description / og:description / 리드 |
 | `body_text` | | 본문. HTML 태그를 벗긴 평문. 문단 경계는 빈 줄 |
-| `categories` | | 소스가 붙인 분류 문자열 배열. 피드 소스는 `<category>`. 목록 소스는 **그 기사를 발견한 하위 섹션 슬러그**다 — `article:section` 은 8/8 상수 `"FASHION"` 이라 `domain` 필드의 사본이고, `cate_depth1/2` 는 `/rss` 에만 있고 기사 페이지엔 없다 (① 재실측). 루트 목록(`/fashion`)은 분류가 아니라 목록이므로 라벨로 치지 않는다 |
+| `categories` | | 소스가 붙인 분류 문자열 배열. 피드 소스는 `<category>`. 목록 소스는 **그 기사를 발견한 하위 섹션 슬러그**다 — `article:section` 은 8/8 상수 `"FASHION"` 이라 `domain` 필드의 사본이고, `cate_depth1/2` 는 `/rss` 에만 있고 기사 페이지엔 없다 (① 재실측). 루트 목록(`/fashion`)은 분류가 아니라 목록이므로 라벨로 치지 않는다. hn 은 `_tags` 중 `show_hn`·`ask_hn` 만 — `front_page` 는 시간에 따라 붙었다 떨어지는데 v1 은 글을 갱신하지 않아 받은 순간의 우연한 값으로 굳는다 |
 | `author` | | |
 | `members_only` | | harpersbazaar·cosmopolitan 회원 전용이면 `true`. 이때 `body_text` 는 없다 |
 | `body_withheld` | | 소스가 본문 승인(게이트2)을 아직 못 받았으면 `true`. 이때 `body_text` 는 없다 (`source-discovery.md` #4) |
-| `extra` | | 소스 고유 값. hn 은 `score` `descendants` `by` |
+| `extra` | | 소스 고유 값. hn 은 `score` `descendants` `by` `external_url`. `score`·`descendants` 는 수집 시각의 스냅샷이다(막 올라온 글은 거의 1·0). `external_url` 은 story 의 외부 링크이고 없으면 `null` — `url` 이 대체값인지 소비자가 추측하지 않게 한다 |
 
 ### 5.4 장부 `collected_article` (앱 DB)
 
@@ -277,7 +277,7 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 | 9 | article.json 필수 필드가 하나라도 비면 그 기사는 저장하지 않고 실패로 남긴다 | 반쪽 기사가 이벤트로 나가면 소비자가 판정할 수 없다 |
 | 10 | 발행일 키(`yyyy/mm/dd`)는 Asia/Seoul 로 계산한다 | 팀 스케줄과 트렌드 집계가 KST 다 |
 | 11 | article.json·장부·**기사 이벤트**에 `url` `source` `published_at` 이 항상 있다 | 저작권법 제37조 출처 명시. 공정이용은 면제가 아니다. 실행 요약 이벤트(#6)는 기사를 담지 않으므로 명시할 출처도 없다 — 그 칸은 `null` 이다 |
-| 12 | 장부에 있는 `(source, article_id)` 는 다시 받지도 저장하지도 않는다. 과거분 백필은 소스당 한 번이다. 목록·피드 요청은 주기마다 하되 저장은 신규분만이다. **본문 승인(게이트2)은 소급하지 않는다** — 승인 시점 이후 기사만 본문을 받는다 | 저작권법 제93조 제2항. 반복적·체계적 전량 복제가 되지 않게 |
+| 12 | 장부에 있는 `(source, article_id)` 는 다시 받지도 저장하지도 않는다. 과거분 백필은 소스당 한 번(첫 채움)이다. 실행이 멈춘 동안 빈 구간을 메우는 백필은 따로 허용하고, 그때 겹친 구간을 다시 물어도 장부에 있는 글은 저장하지 않는다. 목록·피드·API 요청은 주기마다 하되 저장은 신규분만이다. **본문 승인(게이트2)은 소급하지 않는다** — 승인 시점 이후 기사만 본문을 받는다 | 저작권법 제93조 제2항. 반복적·체계적 전량 복제가 되지 않게 |
 | 13 | MinIO 객체는 보존 기간(#9)을 넘기면 지운다. 장부 행은 남는다 | 복제권 부담을 기간으로 자른다. 메타데이터는 저작물이 아니라 남겨도 된다 |
 
 ## 8. 확정 사항
@@ -287,13 +287,13 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 | 1 | 발견 경로는 #2 표대로. 두산 4곳·marieclaire 는 카테고리 피드, harpersbazaar·cosmopolitan 은 목록 HTML + 기사 페이지, hn 은 Algolia API | bazaar·cosmo `/rss` 는 카테고리 필터가 없고 2~10건. hn 은 약관이 사이트 스크래핑을 금지하고 API 를 공식 제공한다 |
 | 2 | 피드 소스는 피드의 `content:encoded` 를 본문으로 쓰고 기사 페이지를 따로 받지 않는다 | 요청 수를 1/10 로 줄인다. 잘림이 확인되면 그 소스만 기사 페이지로 바꾼다 |
 | 2-1 | **hypebeast 를 소스에서 뺀다.** 피드를 포함해 어떤 요청도 보내지 않는다. #1 표에 줄이 없고 어댑터도 만들지 않는다. #2 표의 행은 실측 기록으로만 남는다 | 약관 8조가 "automated or non-automated means" 로 "any portion of the website" 에 접근·수집하는 것을 금지하고 **RSS 예외가 없다**(#3.2 원문). 피드만 읽는 안은 우회 위험은 0으로 만들지만 약관 위반은 그대로 남긴다. 2026-09-03 팀 확정 |
-| 3 | hn 은 API 메타데이터만 저장한다. 링크된 외부 원문은 v1 에서 받지 않는다 | 외부 도메인마다 robots·약관이 다르다. 제목·점수만으로 dev 트렌드 1차 판정은 된다 (⚠️ #12) |
+| 3 | hn 은 API 메타데이터만 저장한다. 링크된 외부 원문은 v1 에서 받지 않는다. Ask HN 류의 `story_text` 도 raw 에만 두고 `body_text` 로 옮기지 않는다 | 외부 도메인마다 robots·약관이 다르다. 제목·점수만으로 dev 트렌드 1차 판정은 된다 (⚠️ #12). `story_text` 는 24시간 표본 789건 중 77건(중앙값 605자, 100자 미만 9건)에 있다 — dev 문서에 본문을 쓸지는 Spark 의 추출 경로 결정(한계 19)이 정하고, 수집이 10% 에만 먼저 넣으면 그 결정을 앞지른다. 필요해지면 raw 에서 다시 만든다 (2026-09-14) |
 | 4 | 저장소는 MinIO 버킷 하나, 키 구조 #5.1 | 도메인별 버킷은 권한·수명주기 정책이 둘로 갈린다. 접두어면 충분하다 |
 | 5 | 날짜 파티션은 발행일 KST | 수집일이면 재수집마다 키가 늘어 불변식 7 이 깨진다 |
 | 6 | 장부는 앱 DB `collected_article` | 파이프라인 규약 "XCom 엔 ID·건수만, 본문은 DB" 와 같은 방향 |
 | 7 | 이벤트는 저장 확인 뒤, 본문 없이. message key 는 `source_id` | #6. 팀 계약이 key 를 `source_id` 로 정해 뒀고, 그러면 같은 소스의 이벤트가 한 파티션에 모여 순서가 보장된다. 중복 판정은 key 가 아니라 `event_id` 로 한다 |
 | 8 | 회원 전용 기사는 본문 제외 (불변식 2) | 우회 없음이 원칙. ⚠️ #12 에서 팀 확인 |
-| 9 | 과거분은 피드가 `?paged=N` 을 주는 소스(두산 4곳, marieclaire)만, 파라미터 #9 깊이까지. 나머지는 없음 | 아카이브 백필은 범위 밖 |
+| 9 | 과거분은 피드가 `?paged=N` 을 주는 소스(두산 4곳, marieclaire)와 hn 만, 파라미터 #9 깊이까지. 목록 소스는 없음 | 아카이브 백필은 범위 밖. **2026-09-14 hn 을 더했다** — 처음엔 페이지 넘김이 없다는 사실로 뺐지만, `created_at_i` 로 구간을 자르면 된다. 주기 실행이 6시간 창만 보므로 실행이 오래 멈춘 구간을 메울 수단이 따로 없었다 |
 | 10 | UA 는 자체 문자열에 팀명·연락처·목적을 넣는다 (#9) | 잡코리아 사건에서 정체를 숨긴 점이 불리하게 작용했다. 운영자가 연락할 수 있어야 한다 |
 | 11 | MinIO 객체(raw·article.json)는 보존 기간이 지나면 지운다. 장부는 영구다 | 무기한 보존은 복제권·제93조 부담을 키운다. 재처리가 필요하면 기간 안에 한다 (⚠️ #12) |
 
@@ -303,8 +303,11 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 |---|---|---|
 | 수집 주기 — fashion 소스 | 1시간 | ① vogue 카테고리 피드 10건이 딱 24시간을 덮었다. 발행이 몰리는 날엔 피드가 더 빨리 넘어가므로 여유를 둔다 |
 | 수집 주기 — hn | 30분 | ① 시간당 26건, Algolia 1회 1000건. 사실 6시간도 되지만 "새 글" 체감을 위해 |
+| hn 주기 실행 창 | 최근 6시간. 겹친 글은 장부가 거른다 | 30분 주기에서 11번 연속 빠져도 잃지 않는다. ① 6시간 168건(2026-09-14)이라 한 질의에 든다. 지연을 두지 않는다 — 스팸 판정은 Spark 몫이다(#12 질문 8) |
+| hn 과거분 깊이 | 첫 채움 6주, 6시간 조각. 발급은 다음 주기 실행이 한꺼번에 낸다 | ① 하루 약 790건이라 약 3만 3천 건. 한 번에 내는 발급량이 소비 측 처리량 확인을 겸한다 |
+| Algolia 1회 상한 | 1000건. 넘치면 구간을 반씩 쪼개 다시 묻는다 | ① 7일 구간: `nbHits` 7018 에 `nbPages` 1, hit 1000. `page=1` 은 거부된다. 그래서 hit 가 1000건 찼으면 잘린 것으로 본다 — `nbHits` 는 추정일 수 있어(`exhaustive.nbHits`) 판정에 쓰지 않는다 |
 | 같은 호스트 요청 간격 | 3초 | ③ 법정 기준은 없다. hn robots 의 30초는 HTML 에만 해당하고 우리는 HTML 을 안 받는다 |
-| Algolia 요청 상한 | 시간당 10,000 (문서 명시). 우리는 시간당 2건 안팎 | ② 출처 |
+| Algolia 요청 상한 | 시간당 10,000 (문서 명시). 우리는 시간당 4건 안팎 — 30분 주기마다 검색 1건과 세션이 새로 여는 `robots.txt` 1건(404) | ② 출처 |
 | 요청 타임아웃 | 20초 | ③ |
 | 재시도 | 2회, 1분 간격. 403·429 는 재시도하지 않는다(불변식 2) | 파이프라인 예제 DAG 의 값 |
 | 과거분 깊이 | 피드 30페이지 (≈ 300건, vogue 기준 6주), 소스당 한 번. **2페이지부터** 돈다 | ① `?paged=30` 확인. ① `?paged=1` 은 파라미터 없는 요청과 같은 10건이라 주기 수집과 겹친다. ① `?paged=999` 도 404 가 아니라 200 에 오래된 10건을 주므로 "빈 응답이면 멈춘다" 는 종료 조건이 없다 — 페이지 상한이 유일한 브레이크다 |
@@ -350,6 +353,7 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 | ~~5~~ | ~~장부를 앱 DB 에 둘지, MinIO 존재 확인만으로 갈지~~ | **앱 DB 장부 (2026-09-07).** 166 이 구현했다. 그 DB 의 backend 가 `ddl-auto: create` 라 **"`collected_article` 은 JPA 밖이고 지우지 않는다"를 한결과 합의해 S15P21A102-12 에 적어야 한다** |
 | 6 | 날짜 파티션: 발행일 vs 수집일 | 발행일 |
 | 7 | 저장·이벤트 단위 | 기사별 객체·기사별 이벤트는 유지한다. **2026-09-09 재검토: 뒤집었다.** 158에서 새 토픽·새 봉투를 만들었다가 비용 때문에 되돌렸던 결정을 다시 열어 요약만 별도 봉투·토픽으로 옮긴다. 당시 유정균 확인은 새 결정의 재확인이 아니다 |
+| 8 | hn 스팸 | 수집은 거르지 않는다. 품질 판정은 Spark 몫이다. **다만 v1 에서 Spark 가 쓸 신호가 제목뿐이다** — `extra` 는 `ARTICLE_SCHEMA` 가 버리고, 수집 시각의 `score` 는 거의 1 이라 갈리지 않고, HN 이 나중에 지운 글은 이미 받은 행에 전해지지 않는다. ③ 같은 시간대 1시간 구간이 방금은 27건, 24시간 전은 16건이었다(표본 하나). 어댑터가 붙은 뒤 실측한다 |
 
 ### 2026-09-09에 결정을 되짚은 근거
 
@@ -372,7 +376,7 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 - 도메인당 DAG 하나(`fashion_collect`, `dev_collect`), 소스별 동적 매핑. 외부 요청 태스크는 `pool="crawler_pool"`. 호스트별 간격은 어댑터 안에서.
 - MinIO 는 S3 호환이라 Airflow 의 S3 훅(`endpoint_url` 지정)으로 쓴다. Kafka 는 Airflow 의 Kafka provider 또는 `confluent-kafka` 직접.
 - MinIO·Kafka 는 `infra/compose.yaml` 의 `s15p21a102-shared` 네트워크에 붙는다. 포트는 `127.0.0.1` 바인드, 접근은 SSH 터널.
-- 커서: 피드 소스는 커서가 없다(매번 10~20건 받고 장부로 거른다). hn 은 마지막 `created_at_i` 를 Airflow 데이터 구간에서 계산한다.
+- 커서: 피드 소스는 커서가 없다(매번 10~20건 받고 장부로 거른다). hn 도 같은 방식이다 — 매 실행이 현재 시각에서 6시간 창을 묻고 장부로 거른다. Airflow 데이터 구간을 쓰지 않는 이유는 수집 태스크 계약에 실행 문맥을 새로 끌어들이지 않기 위해서다. 창보다 오래 멈춘 구간은 `trendin.dev.collect.backfill` 이 받는다.
 - 보존 기간은 MinIO 버킷 수명주기 규칙(ILM)으로 건다. 코드가 지우지 않는다.
 - 호스트별 3초 간격은 어댑터 안의 단일 세션에서 지킨다. 같은 호스트를 두 태스크가 동시에 치지 않도록 소스당 태스크 하나로 매핑한다.
 

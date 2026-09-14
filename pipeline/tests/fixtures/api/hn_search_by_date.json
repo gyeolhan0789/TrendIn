@@ -1,0 +1,190 @@
+{
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "hits": [
+    {
+      "_highlightResult": {
+        "author": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "me_sleepy"
+        },
+        "story_text": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Hey, I'm a college student and also a solo mobile developer with a few apps already published on the App Store, generating revenue.<p>I'm looking to grow and connect with other motivated entrepreneurs in the consumer app space. Primarily, someone who has very good distribution experience (TikTok and Instagram UGC, Reddit, etc). If you fit this category and are willing to put in the work (minimum of 15-20 hours a week), please shoot me a DM!<p>I only ask for the following<p>Must be based in the USA. If you are not based in the USA, please don't dm<p>Must have proof of previous marketing experience, preferably with mobile apps. Send me a link to your work in your dm<p>Must have an iPhone"
+        },
+        "title": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Looking for co founder in the consumer app space"
+        }
+      },
+      "_tags": [
+        "story",
+        "author_me_sleepy",
+        "story_49692009",
+        "ask_hn"
+      ],
+      "author": "me_sleepy",
+      "created_at": "2026-09-14T04:30:16Z",
+      "created_at_i": 1789360216,
+      "num_comments": 0,
+      "objectID": "49692009",
+      "points": 1,
+      "story_id": 49692009,
+      "story_text": "Hey, I&#x27;m a college student and also a solo mobile developer with a few apps already published on the App Store, generating revenue.<p>I&#x27;m looking to grow and connect with other motivated entrepreneurs in the consumer app space. Primarily, someone who has very good distribution experience (TikTok and Instagram UGC, Reddit, etc). If you fit this category and are willing to put in the work (minimum of 15-20 hours a week), please shoot me a DM!<p>I only ask for the following<p>Must be based in the USA. If you are not based in the USA, please don&#x27;t dm<p>Must have proof of previous marketing experience, preferably with mobile apps. Send me a link to your work in your dm<p>Must have an iPhone",
+      "title": "Looking for co founder in the consumer app space",
+      "updated_at": "2026-09-14T04:33:21Z"
+    },
+    {
+      "_highlightResult": {
+        "author": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "x312"
+        },
+        "title": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Does AI Assistance Enhance or Erode Expertise?"
+        },
+        "url": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "https://www.nber.org/papers/w35720"
+        }
+      },
+      "_tags": [
+        "story",
+        "author_x312",
+        "story_49691998"
+      ],
+      "author": "x312",
+      "created_at": "2026-09-14T04:27:43Z",
+      "created_at_i": 1789360063,
+      "num_comments": 0,
+      "objectID": "49691998",
+      "points": 1,
+      "story_id": 49691998,
+      "title": "Does AI Assistance Enhance or Erode Expertise?",
+      "updated_at": "2026-09-14T04:33:21Z",
+      "url": "https://www.nber.org/papers/w35720"
+    },
+    {
+      "_highlightResult": {
+        "author": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Shraddha__Singh"
+        },
+        "title": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Show HN: 3dbae is changing the game of Real Time AI Renddering"
+        },
+        "url": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "https://3dbae.com"
+        }
+      },
+      "_tags": [
+        "story",
+        "author_Shraddha__Singh",
+        "story_49691859",
+        "show_hn"
+      ],
+      "author": "Shraddha__Singh",
+      "created_at": "2026-09-14T04:05:58Z",
+      "created_at_i": 1789358758,
+      "num_comments": 0,
+      "objectID": "49691859",
+      "points": 1,
+      "story_id": 49691859,
+      "title": "Show HN: 3dbae is changing the game of Real Time AI Renddering",
+      "updated_at": "2026-09-14T04:07:19Z",
+      "url": "https://3dbae.com"
+    },
+    {
+      "_highlightResult": {
+        "author": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "andsoitis"
+        },
+        "story_text": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "<a href=\"https://archive.ph/8NmSg\" rel=\"nofollow\">https://archive.ph/8NmSg</a>"
+        },
+        "title": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "Nike exits the S&P 100 after 18 years and a $200B market-cap wipeout"
+        },
+        "url": {
+          "matchLevel": "none",
+          "matchedWords": [],
+          "value": "https://fortune.com/2026/09/08/nike-stock-plummets-sp500-market-cap-index/"
+        }
+      },
+      "_tags": [
+        "story",
+        "author_andsoitis",
+        "story_49691343",
+        "front_page"
+      ],
+      "author": "andsoitis",
+      "children": [
+        49691672,
+        49691774,
+        49692011,
+        49692017,
+        49691423,
+        49691855,
+        49691735,
+        49691670,
+        49691940,
+        49691647,
+        49691572,
+        49691704,
+        49691905
+      ],
+      "created_at": "2026-09-14T02:50:40Z",
+      "created_at_i": 1789354240,
+      "num_comments": 27,
+      "objectID": "49691343",
+      "points": 45,
+      "story_id": 49691343,
+      "story_text": "<a href=\"https:&#x2F;&#x2F;archive.ph&#x2F;8NmSg\" rel=\"nofollow\">https:&#x2F;&#x2F;archive.ph&#x2F;8NmSg</a>",
+      "title": "Nike exits the S&P 100 after 18 years and a $200B market-cap wipeout",
+      "updated_at": "2026-09-14T04:33:21Z",
+      "url": "https://fortune.com/2026/09/08/nike-stock-plummets-sp500-market-cap-index/"
+    }
+  ],
+  "hitsPerPage": 1000,
+  "nbHits": 168,
+  "nbPages": 1,
+  "page": 0,
+  "params": "tags=story&numericFilters=created_at_i%3E%3D1789338807%2Ccreated_at_i%3C1789360407&hitsPerPage=1000&advancedSyntax=true&analyticsTags=backend",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 16
+    },
+    "afterFetch": {
+      "format": {
+        "highlighting": 2,
+        "total": 3
+      }
+    },
+    "total": 1
+  },
+  "query": "",
+  "serverTimeMS": 5
+}
