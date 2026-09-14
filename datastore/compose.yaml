@@ -91,7 +91,8 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # 버킷 · 정책 · 계정 생성. 크롤러 키는 write, Spark 키는 read 만 갖는다.
+  # 버킷 · 정책 · 계정 생성. 크롤러 키는 raw-data 에 write, Spark 키는 raw-data 를 read 하고
+  # curated 에 write 한다 (S15P21A102-243).
   minio-init:
     image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     entrypoint: ["/bin/sh", "/init.sh"]
@@ -100,6 +101,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in datastore/.env}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in datastore/.env}
       MINIO_BUCKET: ${MINIO_BUCKET:-raw-data}
+      # 정제 결과 버킷. pipeline/.env 의 TRENDIN_MINIO_CURATED_BUCKET 과 값이 같아야 한다.
+      MINIO_CURATED_BUCKET: ${MINIO_CURATED_BUCKET:-curated}
       MINIO_CRAWLER_ACCESS_KEY: ${MINIO_CRAWLER_ACCESS_KEY:?Set MINIO_CRAWLER_ACCESS_KEY in datastore/.env}
       MINIO_CRAWLER_SECRET_KEY: ${MINIO_CRAWLER_SECRET_KEY:?Set MINIO_CRAWLER_SECRET_KEY in datastore/.env}
       MINIO_SPARK_ACCESS_KEY: ${MINIO_SPARK_ACCESS_KEY:?Set MINIO_SPARK_ACCESS_KEY in datastore/.env}

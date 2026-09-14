@@ -1,11 +1,13 @@
 # datastore — 수집 계층 저장소 (Kafka · MinIO)
 
-크롤러가 원문을 MinIO 에 올리고 그 위치를 Kafka 에 발행하면, Spark 가 이벤트를 받아 MinIO 에서 읽는다.
-이 디렉터리는 그 두 저장소만 띄운다. Airflow 는 `pipeline/`, Spark 는 별도 프로젝트다.
+크롤러가 원문을 MinIO `raw-data` 에 올리고 그 위치를 Kafka 에 발행하면, Spark 가 이벤트를 받아 그것을 읽고
+정제 결과를 MinIO `curated` 에 쓴다. 이 디렉터리는 그 두 저장소만 띄운다. Airflow 는 `pipeline/`,
+Spark 는 별도 프로젝트다.
 
 - 계약(버킷 이름, 객체 경로, 토픽 이름, 이벤트 형식): `pipeline/docs/data-pipeline-design.md` 4·5 장
 - 실행 환경 결정과 근거: Jira `S15P21A102-156`
 - 토픽 설정 · 보관 정책 결정과 근거: Jira `S15P21A102-157` (아래 "토픽 설정" · "보관 정책" 절)
+- `curated` 버킷과 Spark 쓰기 권한: Jira `S15P21A102-243` (아래 "키 세 벌" · "보관 정책" 절)
 
 ## 어디에 뜨나
 
@@ -25,7 +27,7 @@
 datastore/
 ├─ compose.yaml        kafka · kafka-storage-init · kafka-init · minio · minio-init
 ├─ kafka-init/init.sh  토픽 생성 · 보존 설정 적용 (매 up 마다 멱등)
-├─ minio-init/init.sh  버킷 · 정책 · 계정 · 보관 정책 (매 up 마다 멱등)
+├─ minio-init/init.sh  버킷 둘 · 정책 · 계정 · 보관 정책 (매 up 마다 멱등)
 ├─ scripts/verify.sh   완료 조건 검증. 실패하면 exit 1
 ├─ .env.example        → .env 로 복사해 채운다
 └─ README.md
@@ -36,8 +38,8 @@ datastore/
 | `kafka` | KRaft 단일 노드 브로커. ZooKeeper 없음 |
 | `kafka-storage-init` | 빈 볼륨을 브로커 uid(1000) 소유로 넘긴다. 한 번 돌고 끝 |
 | `kafka-init` | 계약 토픽 `raw-file-ready` 생성 + 보존 설정 적용. 다시 돌려도 같다 |
-| `minio` | 원문 객체 저장소. S3 호환 |
-| `minio-init` | 버킷 · 정책 · 계정 · 수명 주기 규칙. 다시 돌려도 같다 |
+| `minio` | 객체 저장소. S3 호환. 버킷 둘 — 원문 `raw-data`, 정제 결과 `curated` |
+| `minio-init` | 버킷 둘 · 정책 · 계정 · 수명 주기 규칙. 다시 돌려도 같다 |
 
 ## 처음 실행
 
@@ -74,10 +76,21 @@ networks:
 | 키 | 권한 | 쓰는 곳 |
 |---|---|---|
 | `MINIO_ROOT_*` | 관리자 | `minio-init` 과 운영자만 |
-| `MINIO_CRAWLER_*` | 버킷 목록 · 객체 put/get · 멀티파트 | 크롤러 → `pipeline/.env` 의 `TRENDIN_MINIO_*` |
-| `MINIO_SPARK_*` | 버킷 목록 · 객체 get | Spark |
+| `MINIO_CRAWLER_*` | `raw-data` 목록 · 객체 put/get · 멀티파트 | 크롤러 → `pipeline/.env` 의 `TRENDIN_MINIO_*` |
+| `MINIO_SPARK_*` | `raw-data` 읽기 + `curated` 읽기/쓰기 | Spark → `pipeline/.env` 의 `TRENDIN_MINIO_SPARK_*` |
 
-크롤러 키에 삭제 권한은 없다. Spark 키로 쓰기를 시도하면 거부된다. 애플리케이션에 root 키를 주지 않는다.
+버킷별로 갈라 보면 이렇다.
+
+| 계정 (정책) | `raw-data` | `curated` |
+|---|---|---|
+| 크롤러 (`crawler-write`) | 목록 · put · get · 멀티파트 | 접근 권한 없음 |
+| Spark (`spark-raw-read-curated-write`) | 목록 · get | 목록 · put · get · delete · 멀티파트 |
+
+크롤러 키에 삭제 권한은 없다. **Spark 키로 `raw-data` 에 쓰기를 시도하면 거부된다** — 원문은 Spark 가 건드릴 것이 아니다.
+`curated` 는 반대로 Spark 소유라 쓰기가 열려 있다. 거기에 삭제 권한까지 들어가는 이유는 쓰기 방식 때문이다. `ingest` 는 Parquet 을 `mode("overwrite")` + `partitionOverwriteMode=dynamic` 으로 쓰므로, 같은 `ingest_run_id` 를 재처리하면 그 파티션의 옛 part 파일을 지우고 새로 쓴다. 멀티파트와 `_temporary` 정리도 같은 권한을 쓴다. `s3:DeleteObject` 가 없으면 첫 재처리에서 죽는다.
+애플리케이션에 root 키를 주지 않는다.
+
+**Spark 정책 이름이 바뀌었다.** `spark-read` 는 `curated` 쓰기가 붙으면서 실제 권한과 어긋나 `spark-raw-read-curated-write` 가 됐다 (`S15P21A102-243`). `minio-init` 이 새 이름을 붙인 뒤 옛 `spark-read` 를 계정에서 떼고 지운다 — 이미 돌던 서버에만 남아 있고, 없으면 그냥 넘어간다.
 `.env` 를 고쳐도 이미 만들어진 계정은 그대로다. 값을 바꿨으면 `docker compose -f datastore/compose.yaml up -d minio-init` 을 다시 돌려 반영한다.
 
 ## 토픽 설정
@@ -118,18 +131,24 @@ MINIO_RAW_EXPIRE_DAYS=90
 
 ## 보관 정책
 
-MinIO 버킷 `raw-data` 쪽이다. 결정 근거: Jira `S15P21A102-157` · `S15P21A102-158`.
+MinIO 쪽이다. 결정 근거: Jira `S15P21A102-157` · `S15P21A102-158` · `S15P21A102-243`.
 
-| 항목 | 값 | 근거 |
+| 버킷 | 버전 관리 | 수명 주기 |
 |---|---|---|
-| 버전 관리 | off | 같은 `(source, article_id)` 를 다시 저장하면 같은 키를 덮어쓴다(설계문서 5장 멱등). 켜두면 재시도마다 옛 버전이 쌓여 용량만 는다 |
-| 수명 주기 규칙 | `expire-all` 하나. 버킷 전체 90일 만료 | 아래 |
+| `raw-data` | off | `expire-all` 하나. 버킷 전체 90일 만료 |
+| `curated` | off | **없음.** 만료를 걸지 않는다 |
 
-**규칙은 하나고 접두어를 보지 않는다** (`S15P21A102-158`). 버킷에 들어오는 것이 전부 수집 원문이고 만료 기간도 하나라, 접두어로 가르면 얻는 것이 없고 잃는 것이 있다 — 키 규칙이 바뀔 때마다 규칙이 조용히 어긋난다.
+**버전 관리는 두 버킷 모두 끈다.** `raw-data` 는 같은 `(source, article_id)` 를 다시 저장하면 같은 키를 덮어쓰고(설계문서 5장 멱등), `curated` 는 같은 `ingest_run_id` 를 재처리하면 그 파티션을 덮어쓴다. 어느 쪽이든 켜두면 재시도마다 옛 버전이 쌓여 용량만 는다. `minio-init` 은 누가 콘솔에서 켠 경우를 대비해 매번 `suspend` 로 되돌린다.
+
+**`curated` 에는 만료를 걸지 않는다** (`S15P21A102-243`). 거기 있는 것은 90일 지나면 지워도 되는 수집 원문이 아니라, `extract` 가 계속 읽는 정제 결과다. 만료를 걸면 옛 `ingest_run_id` 파티션부터 사라져 재집계와 백필이 조용히 빈 구간을 만든다 — `extract` 는 입력이 없어졌다는 것을 알 방법이 없으므로 에러 없이 적게 집계한다. `verify.sh` 가 `curated` 에 규칙이 없는지 확인한다.
+
+아래는 `raw-data` 의 만료 규칙 이야기다.
+
+**규칙은 하나고 접두어를 보지 않는다** (`S15P21A102-158`). `raw-data` 에 들어오는 것이 전부 수집 원문이고 만료 기간도 하나라, 접두어로 가르면 얻는 것이 없고 잃는 것이 있다 — 키 규칙이 바뀔 때마다 규칙이 조용히 어긋난다.
 
 실제로 그랬다. 규칙이 `domain=` 접두를 잡고 있었는데 계약 키는 `fashion/vogue/...` 로 시작해서 **아무것도 매칭되지 않았다.** 규칙은 유효하고 대상만 0 개라 에러도 나지 않는다. 즉 90일 만료가 도는 것처럼 보이면서 원문이 영구히 쌓인다(불변식 13 위반).
 
-`verify.sh` 가 남기는 `_verify/` 객체도 같이 90일을 산다. 7 바이트짜리 텍스트라 규칙을 하나 더 두는 값이 없다. `verify.sh` 는 끝에서 관리자 키로 그것들을 지운다 — 크롤러 키에는 삭제 권한이 없어 그 키로 지우려 하면 조용히 실패한다.
+`verify.sh` 가 `raw-data` 에 남기는 `_verify/` 객체도 같이 90일을 산다. 7 바이트짜리 텍스트라 규칙을 하나 더 두는 값이 없다. `verify.sh` 는 끝에서 관리자 키로 그것들을 지운다 — 크롤러 키에는 삭제 권한이 없어 그 키로 지우려 하면 조용히 실패한다. `curated` 쪽 검증 객체는 만료가 없어 남으면 영영 남으므로, `verify.sh` 가 Spark 키로 지우는지 확인하고 그것이 실패한 경우를 대비해 관리자 키로 한 번 더 지운다.
 
 **만료 기준은 업로드 시각이다.** 경로의 발행일이 아니다. 백필로 과거 날짜분을 지금 올려도 올린 날부터 90일을 센다.
 
@@ -159,7 +178,7 @@ docker compose -f datastore/compose.yaml restart kafka minio
 
 ## 검증 스크립트
 
-완료 조건(Jira `S15P21A102-156` AC 1~4, `S15P21A102-157` AC 5) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
+완료 조건(Jira `S15P21A102-156` AC 1~4, `S15P21A102-157` AC 5, `S15P21A102-243` 의 `curated`) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
 
 ```sh
 ./datastore/scripts/verify.sh
@@ -173,14 +192,18 @@ Windows 는 Git Bash 에서 돌린다. PowerShell·CMD 는 `.sh` 를 실행하�
 | `kafka` · `minio` healthy, `restart=unless-stopped` | 1 |
 | 네트워크 `s15p21a102-data` 존재, 그 안에서 `kafka:9092` · `minio:9000` 도달 | 2 |
 | 토픽 존재, produce → consume 왕복 | 3 |
-| 크롤러 키 put/get, Spark 키 get, **Spark 키 write 거부** | 4 |
+| `raw-data` — 크롤러 키 put/get, Spark 키 get, **Spark 키 write 거부** | 4 |
+| `curated` — **Spark 키 put/get/delete 성공** | 4 |
 | 파티션 수, `cleanup.policy` · `retention.ms` · `segment.ms` 실제 값 | 5 |
-| 수명 주기 규칙 2 개(중복 없음), 버전 관리 off, MinIO 보관 ≥ Kafka 보존 | 5 |
+| `raw-data` 수명 주기 `expire-all` 1 개(중복 없음), 버전 관리 off, MinIO 보관 ≥ Kafka 보존 | 5 |
+| **`curated` 수명 주기 없음**, 버전 관리 off | 5 |
 
 검증용 객체는 `_verify/` 아래에만 만들고 끝나면 지운다. 수집 데이터는 건드리지 않는다.
 Kafka 에 넣은 `_verify` 메시지는 토픽에 남는다. 보존 기간이 지나면 사라진다.
 
-수명 주기 규칙이 각각 1 개인지 세는 이유는 멱등 확인이다. `up` 을 두 번 돌린 뒤에도 2 개여야 한다. 늘어나 있으면 규칙이 교체가 아니라 누적되고 있다는 뜻이다.
+`raw-data` 의 `expire-all` 이 1 개인지 세는 이유는 멱등 확인이다. `up` 을 두 번 돌린 뒤에도 1 개여야 한다. 늘어나 있으면 규칙이 교체가 아니라 누적되고 있다는 뜻이다.
+
+`raw-data` 쓰기 거부와 `curated` 쓰기 성공은 짝으로 본다. 한쪽만 확인하면 정책이 두 버킷에 통으로 붙은 사고를 잡지 못한다.
 버킷 설정 조회에는 관리자 계정이 필요하다. 크롤러·Spark 정책에는 그 권한이 없다.
 
 ## 손으로 확인할 때
@@ -216,14 +239,27 @@ docker run --rm --network s15p21a102-data \
   --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
   'echo hi > /tmp/t && mc cp /tmp/t crawler/raw-data/_healthcheck && mc cat crawler/raw-data/_healthcheck'
 
-# MinIO — Spark 키로 쓰기. Insufficient permissions 로 끝나야 한다
+# MinIO — Spark 키로 raw-data 에 쓰기. Insufficient permissions 로 끝나야 한다
 docker run --rm --network s15p21a102-data \
   -e MC_HOST_spark="http://$MINIO_SPARK_ACCESS_KEY:$MINIO_SPARK_SECRET_KEY@minio:9000" \
   --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
   'echo hi > /tmp/t && mc cp /tmp/t spark/raw-data/should-fail'
+
+# MinIO — Spark 키로 curated 에 쓰기. 이쪽은 put · get · delete 가 전부 성공해야 한다
+docker run --rm --network s15p21a102-data \
+  -e MC_HOST_spark="http://$MINIO_SPARK_ACCESS_KEY:$MINIO_SPARK_SECRET_KEY@minio:9000" \
+  --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
+  'echo hi > /tmp/t && mc cp /tmp/t spark/curated/_healthcheck && mc cat spark/curated/_healthcheck && mc rm spark/curated/_healthcheck'
+
+# 계정에 붙은 정책과 그 내용
+docker run --rm --network s15p21a102-data \
+  -e MC_HOST_admin="http://$MINIO_ROOT_USER:$MINIO_ROOT_PASSWORD@minio:9000" \
+  --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
+  "mc admin user info admin $MINIO_SPARK_ACCESS_KEY; mc admin policy info admin spark-raw-read-curated-write"
 ```
 
-Spark 키 쓰기가 성공하면 정책이 잘못 붙은 것이다.
+**`raw-data` 에서** Spark 키 쓰기가 성공하면 정책이 잘못 붙은 것이다. 반대로 **`curated` 에서** 쓰기나 삭제가 거부되면 정책이 덜 붙은 것이고, 그 상태로는 `ingest` 가 첫 실행이나 첫 재처리에서 죽는다.
+`mc admin user info` 에 `spark-read` 가 남아 있으면 옛 정책이 덜 걷힌 것이다. `up -d minio-init` 을 다시 돌린다.
 콘솔(`:9001`) 은 객체 브라우저다. 계정·정책 관리는 콘솔이 아니라 `mc admin` 으로 한다.
 
 수명 주기 규칙과 버전 관리 상태는 버킷 설정이라 관리자 계정으로 본다. `mc ls` 에는 안 나온다.
@@ -234,6 +270,8 @@ docker run --rm --network s15p21a102-data \
   --entrypoint sh minio/mc:RELEASE.2025-08-13T08-35-41Z -c \
   'mc ilm rule ls admin/raw-data; mc version info admin/raw-data'
 ```
+
+`curated` 는 규칙이 없는 것이 정상이라 `mc ilm rule ls admin/curated` 가 "no lifecycle configuration" 으로 끝난다. 여기에 규칙이 보이면 누가 만료를 걸어둔 것이므로 지운다.
 
 ## EC2 에서 바꾸는 것
 
@@ -254,4 +292,5 @@ docker run --rm --network s15p21a102-data \
 Kafka 인증(SASL)·TLS, 다중 브로커, DLQ 토픽, 백업.
 DLQ 는 담당 2 의 후속 이슈, 나머지는 필요해질 때 이슈를 판다.
 
-수명 주기 규칙은 만료만 건다. 저장 등급 전환(transition)이나 미완료 멀티파트 정리는 아직 없다.
+수명 주기 규칙은 `raw-data` 에 만료만 건다. 저장 등급 전환(transition)이나 미완료 멀티파트 정리는 아직 없다.
+`curated` 에는 규칙이 아예 없어서, 재처리로 버려진 파티션이 있어도 저절로 지워지지 않는다. 용량이 문제가 되면 그때 이슈를 판다.
