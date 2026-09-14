@@ -3,8 +3,8 @@ import { AccountMenu } from '../../features/auth/components/AccountMenu';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
 /*
- * 디자인의 메뉴 여섯 칸 가운데 아직 화면이 없는 곳이 있습니다. 칸을 빼면 가로 균형이
- * 무너져서, 자리는 그대로 두고 누를 수 없다는 것만 표시합니다.
+ * 새 시안의 공용 헤더입니다. 메뉴 여섯 칸 가운데 아직 화면이 없는 곳이 있는데,
+ * 칸을 빼면 가로 균형이 무너져서 자리는 그대로 두고 누를 수 없다는 것만 표시합니다.
  */
 const navItems: { label: string; to?: string }[] = [
   { label: '홈', to: '/' },
@@ -23,7 +23,7 @@ function BoltMark() {
   );
 }
 
-export function LandingHeader() {
+export function SiteHeader() {
   const location = useLocation();
   const session = useAuthSession();
 

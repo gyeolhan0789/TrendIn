@@ -6,7 +6,6 @@ import { useNewTrends } from '../../features/trend/hooks/useNewTrends';
 import { useResurgingTrends } from '../../features/trend/hooks/useResurgingTrends';
 import { useTopTrends } from '../../features/trend/hooks/useTopTrends';
 import type { Trend } from '../../features/trend/types/trend';
-import { LandingHeader } from './LandingHeader';
 import { landingContents } from './landingContents';
 
 type BoardTone = 'rising' | 'new' | 'resurging';
@@ -127,8 +126,6 @@ export function LandingPage() {
 
   return (
     <div className="landing-page">
-      <LandingHeader />
-
       <section className="landing-hero">
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">REAL-TIME TREND INSIGHTS</p>
@@ -283,18 +280,6 @@ export function LandingPage() {
           ))}
         </div>
       </section>
-
-      <footer className="landing-footer">
-        <div className="landing-footer-inner">
-          <div className="landing-footer-brand">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#9ca3af" />
-            </svg>
-            <span>TrendIn</span>
-          </div>
-          <p>© {new Date().getFullYear()} TrendIn. 실시간 트렌드 분석 플랫폼</p>
-        </div>
-      </footer>
     </div>
   );
 }

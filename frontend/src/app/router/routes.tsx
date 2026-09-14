@@ -9,15 +9,17 @@ import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
 
-/*
- * 랜딩은 공용 레이아웃 밖에 둡니다. 첫 화면은 자기 헤더와 푸터를 직접 들고 있고,
- * 담기 패널처럼 로그인한 사람을 위한 장치도 여기서는 띄우지 않습니다.
- */
-export const landingRoutes = <Route path="/" element={<LandingPage />} />;
+/* 새 시안으로 다시 그린 화면들. 공용 헤더·푸터는 SiteLayout이 붙여 줍니다. */
+export const siteRoutes = (
+  <>
+    <Route path="/" element={<LandingPage />} />
+    <Route path="/dashboard" element={<HomePage />} />
+  </>
+);
 
+/* 아직 옛 모양인 화면들. 각자 시안이 나오면 위로 옮겨 갑니다. */
 export const appRoutes = (
   <>
-    <Route path="/dashboard" element={<HomePage />} />
     <Route path="/saved" element={<SavedTrendPage />} />
     <Route path="/trends/:trendId" element={<TrendDetailPage />} />
     <Route path="/mypage" element={<MyPage />} />
