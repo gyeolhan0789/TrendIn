@@ -274,9 +274,11 @@ export function LandingPage() {
           {landingContents.map((content) => (
             <article className="landing-content" key={content.id}>
               <div className="landing-content-cover" style={{ background: content.background }} />
-              <h4>{content.title}</h4>
-              <p className="landing-content-desc">{content.description}</p>
-              <p className="landing-content-meta">{content.source} · {content.time}</p>
+              <div className="landing-content-body">
+                <h4>{content.title}</h4>
+                <p className="landing-content-desc">{content.description}</p>
+                <p className="landing-content-meta">{content.source} · {content.time}</p>
+              </div>
             </article>
           ))}
         </div>

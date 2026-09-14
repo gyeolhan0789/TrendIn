@@ -1075,11 +1075,17 @@ a.saved-card-title:hover { color: var(--accent); }
 .landing-chart-axis { display: flex; justify-content: space-between; margin-top: 12px; padding: 0 4px; color: var(--lp-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 .landing-contents { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.landing-content { display: flex; flex-direction: column; }
-.landing-content-cover { position: relative; height: 160px; overflow: hidden; border-radius: 14px; }
+/* 커버가 카드 위쪽을 가득 채우고 글은 안쪽으로 들어간 카드 한 장입니다.
+   모서리는 카드가 잘라 주므로 커버에는 반지름을 주지 않습니다. */
+.landing-content { display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .06); transition: transform .3s, box-shadow .3s; }
+.landing-content:hover { box-shadow: 0 14px 34px rgba(16, 24, 40, .1); transform: translateY(-2px); }
+.landing-content-cover { position: relative; flex: 0 0 160px; height: 160px; }
 .landing-content-cover::after { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0, 0, 0, .02), rgba(0, 0, 0, .08)); content: ""; }
-.landing-content h4 { margin-top: 16px; font-size: 15px; font-weight: 600; line-height: 1.5; }
+.landing-content-body { padding: 18px 20px 22px; }
+.landing-content h4 { font-size: 15px; font-weight: 600; line-height: 1.5; }
 .landing-content-desc { margin-top: 6px; color: var(--lp-faint); font-size: 13px; line-height: 1.5; }
+/* 제목·설명이 길어도 카드 높이가 들쭉날쭉해지지 않게 두 줄에서 끊습니다. */
+.landing-content h4, .landing-content-desc { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .landing-content-meta { margin-top: 10px; color: #c4b5fd; font-size: 12px; }
 
 .landing-footer { border-top: 1px solid #f3f4f6; background: #fafafa; }
