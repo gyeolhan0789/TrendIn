@@ -16,6 +16,10 @@ cd pipeline
 
 샘플 값은 `tests/common/test_events.py` 의 `pending()` 과 같게 둔다. 두 곳이 갈리면 같은
 계약을 두 모양으로 설명하는 셈이 된다.
+
+같은 폴더의 `run-summary-*.json` 은 이 스크립트가 만들지 않는다. 토픽 분리 전에
+`raw-file-ready` 로 나간 이전 봉투 요약이고, 보존 기간 동안 소비 측이 계속 판별하므로
+그대로 둔다. 기사 토픽의 요약 분기를 걷을 때(S15P21A102-206) 함께 지운다.
 """
 
 from __future__ import annotations
@@ -27,9 +31,9 @@ from pathlib import Path
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.events import article_event, run_summary_event
-from trendin.common.collect.flow import article_bytes
+from trendin.common.collect.flow import FailureBrief, SourceOutcome, article_bytes
 from trendin.common.collect.keys import article_key, raw_key
-from trendin.common.collect.ledger import PendingArticle
+from trendin.common.collect.ledger import EmittedStats, PendingArticle
 
 KST = timezone(timedelta(hours=9), "KST")
 BUCKET = "raw-data"
@@ -48,7 +52,7 @@ COLLECTED_AT = datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc)
 
 RUN_ID = "20260903T100000"
 LOGICAL_DATE = datetime(2026, 9, 3, 10, 0, tzinfo=KST)
-SUMMARY_RECORD_COUNT = 12
+SUMMARY_EMITTED = 12
 FAILED_SOURCE = "wkorea"
 FAILURE_REASON = "목록 페이지가 3회 연속 타임아웃"
 
@@ -122,26 +126,35 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
 
     events = {
         "article-event.json": article_event(pending, bucket=BUCKET, run_id=RUN_ID),
-        "run-summary-success.json": run_summary_event(
+        "collect-run-summary-success.json": run_summary_event(
             source=SOURCE,
             domain=DOMAIN,
             run_id=RUN_ID,
             logical_date=LOGICAL_DATE,
             status="success",
-            record_count=SUMMARY_RECORD_COUNT,
-            bucket=BUCKET,
+            outcome=SourceOutcome(
+                source=SOURCE, domain=DOMAIN, discovered=10, stored=1, skipped=7, failed=2,
+                failed_by_stage={"discover": 0, "materialize": 2, "store": 0},
+                failures=(
+                    FailureBrief("materialize", "856053", "HTTPError 404"),
+                    FailureBrief("materialize", "856101", "본문을 못 찾았다"),
+                ),
+                duration_ms=21430,
+            ),
+            emitted=EmittedStats(SUMMARY_EMITTED, COLLECTED_AT - timedelta(days=2)),
         ),
-        "run-summary-failed.json": run_summary_event(
+        "collect-run-summary-failed.json": run_summary_event(
             source=FAILED_SOURCE,
             domain=DOMAIN,
             run_id=RUN_ID,
             logical_date=LOGICAL_DATE,
             status="failed",
-            record_count=0,
-            bucket=BUCKET,
+            outcome=None,
+            emitted=EmittedStats(0, None),
             failure_reason=FAILURE_REASON,
         ),
     }
+    assert article.raw_key is not None  # 이 fixture는 공개 RSS 기사다.
     objects = {pending.article_key: body, article.raw_key: raw}
     return events, objects
 

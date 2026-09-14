@@ -16,15 +16,16 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Sequence, get_args
 
 from trendin.common.collect.article import Article
-from trendin.common.collect.contracts import Candidate, Failure, SourceAdapter
+from trendin.common.collect.contracts import Candidate, Failure, SourceAdapter, Stage
 from trendin.common.collect.events import article_event, run_summary_event
 from trendin.common.collect.keys import ROUTE_EXT, article_key, raw_key
-from trendin.common.collect.ledger import Ledger
+from trendin.common.collect.ledger import EmittedStats, Ledger
 from trendin.common.collect.session import (
     BlockedUserAgent,
     HostBlocked,
@@ -51,35 +52,52 @@ NO_RETRY = (BlockedUserAgent, RobotsDisallowed, UrlNotAllowed, HostBlocked)
 TASK_FAILED_REASON = "태스크가 실패했다 (로그 참조)"
 
 
+FAILURE_SAMPLE_LIMIT = 10
+FAILURE_REASON_MAX = 200
+
+
+@dataclass(frozen=True, slots=True)
+class FailureBrief:
+    """요약에 싣는 실패 표본. 사유는 200자까지만 보존한다."""
+
+    stage: Stage
+    article_id: str
+    reason: str
+
+
 @dataclass(frozen=True, slots=True)
 class SourceOutcome:
     """소스 하나가 이번 실행에서 한 일. 요약 이벤트(#6)의 재료다."""
 
     source: str
     domain: str
+    discovered: int = 0
     stored: int = 0
     skipped: int = 0  # 장부에 이미 있어 받지 않은 후보 (불변식 12)
     not_modified: bool = False  # 조건부 요청이 304 — "새 글 0건"과 다르다
-    failed: int = 0  # 기사 단위 실패 건수. 이유는 로그에 남는다
+    failed: int = 0
+    failed_by_stage: dict[str, int] = field(
+        default_factory=lambda: {"discover": 0, "materialize": 0, "store": 0}
+    )
+    failures: tuple[FailureBrief, ...] = ()
+    duration_ms: int = 0
+    members_only_stored: int = 0
 
     def to_dict(self) -> dict:
         """XCom 으로 넘길 수 있는 모양.
 
-        규약 4 대로 ID·건수만이다. 실패 **이유**는 여기 싣지 않는다 — 예외 문자열은 길이도
-        내용도 예측이 안 돼서 XCom 에 들어갈 물건이 아니고, 건별 경고는 이미 로그에 있다.
+        예외 문자열은 길이를 예측할 수 없어 원래 제외했다. 표본 10건·사유 200자로
+        상한을 두어 실패 이유도 전달한다. 본문은 여전히 싣지 않는다(규약 4).
         """
-        return {
-            "source": self.source,
-            "domain": self.domain,
-            "stored": self.stored,
-            "skipped": self.skipped,
-            "not_modified": self.not_modified,
-            "failed": self.failed,
-        }
+        data = asdict(self)
+        data["failures"] = [asdict(failure) for failure in self.failures]
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "SourceOutcome":
-        return cls(**data)
+        values = data.copy()
+        values["failures"] = tuple(FailureBrief(**failure) for failure in data.get("failures", []))
+        return cls(**values)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +108,7 @@ class SourceStatus:
     domain: str
     status: str  # "success" | "failed"
     failure_reason: str | None = None
+    outcome: SourceOutcome | None = None
 
 
 def run_id_of(logical_date: datetime) -> str:
@@ -123,7 +142,7 @@ def source_statuses(
             )
         else:
             statuses.append(
-                SourceStatus(source=key, domain=outcome.domain, status="success")
+                SourceStatus(source=key, domain=outcome.domain, status="success", outcome=outcome)
             )
     return statuses
 
@@ -151,14 +170,17 @@ def store_candidates(
     *,
     ledger: Ledger,
     store: ObjectStore,
-) -> tuple[int, list[Failure]]:
-    """후보를 취득·정규화해 저장하고 장부에 적는다. 저장한 건수와 실패 목록을 돌려준다.
+) -> tuple[int, int, list[Failure]]:
+    """후보를 취득·정규화해 저장하고 장부에 적는다.
+
+    저장 건수·회원 전용 저장 건수·실패 목록을 돌려준다.
 
     주기 실행과 백필이 같은 루프를 쓴다. 백필이 제 루프를 따로 두면 저장 확인·장부 기록
     순서가 두 벌로 갈리고, 한쪽만 고쳐지는 날이 온다.
     """
     source = adapter.source
     stored = 0
+    members_only_stored = 0
     failures: list[Failure] = []
 
     for candidate in candidates:
@@ -180,6 +202,7 @@ def store_candidates(
 
         if store_article(article, raw, store=store, ledger=ledger):
             stored += 1
+            members_only_stored += int(bool(article.members_only))
         else:
             logger.warning("%s: 저장 확인 실패 %s", source.key, article.article_id)
             failures.append(
@@ -190,7 +213,7 @@ def store_candidates(
                     reason="저장한 객체가 stat 에 안 잡힌다",
                 )
             )
-    return stored, failures
+    return stored, members_only_stored, failures
 
 
 def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore) -> SourceOutcome:
@@ -199,23 +222,41 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
     발견 자체가 실패하면 예외가 그대로 올라간다 — 그 소스는 이번 실행에서 할 일이 없고,
     재시도할지 말지는 예외 종류가 정한다(`NO_RETRY`).
     """
+    started = time.monotonic()
     source = adapter.source
     result = adapter.discover()
 
     new_ids = ledger.filter_new(source.key, [c.article_id for c in result.candidates])
     fresh = [c for c in result.candidates if c.article_id in new_ids]
 
-    stored, failures = store_candidates(adapter, fresh, ledger=ledger, store=store)
+    stored, members_only_stored, failures = store_candidates(
+        adapter, fresh, ledger=ledger, store=store
+    )
     for failure in result.failures:
         logger.warning("%s: 발견 실패 %s — %s", source.key, failure.ref, failure.reason)
+
+    all_failures = [*result.failures, *failures]
+    # 세 단계는 0 이어도 싣는다. 모르는 단계는 키를 늘려 센다 — 저장을 마친 뒤라 여기서
+    # 죽으면 태스크만 실패하고 수집 결과(XCom)가 날아간다.
+    failed_by_stage: dict[str, int] = dict.fromkeys(get_args(Stage), 0)
+    for failure in all_failures:
+        failed_by_stage[failure.stage] = failed_by_stage.get(failure.stage, 0) + 1
 
     return SourceOutcome(
         source=source.key,
         domain=source.domain,
+        discovered=len(result.candidates),
         stored=stored,
         skipped=len(result.candidates) - len(fresh),
         not_modified=result.not_modified,
-        failed=len(failures) + len(result.failures),
+        failed=len(all_failures),
+        failed_by_stage=failed_by_stage,
+        failures=tuple(
+            FailureBrief(f.stage, f.ref, f.reason[:FAILURE_REASON_MAX])
+            for f in all_failures[:FAILURE_SAMPLE_LIMIT]
+        ),
+        duration_ms=int((time.monotonic() - started) * 1000),
+        members_only_stored=members_only_stored,
     )
 
 
@@ -294,14 +335,14 @@ def publish_pending(
     run_id: str,
     now: datetime,
     batch: int = 500,
-) -> dict[str, int]:
+) -> dict[str, EmittedStats]:
     """그 도메인에서 아직 안 나간 행을 전부 낸다. 지난 실행의 미발급분이 여기 딸려 온다.
 
     순서는 발행 → 장부 기록이다. 뒤집으면 기록 뒤 발행 전에 죽었을 때 그 기사가 영영 안
     나간다. 이 순서면 중복이 날 수 있는데, 그건 소비 측이 `event_id` 로 거르기로 팀
     계약에 적혀 있다(at-least-once).
 
-    소스별 건수를 돌려주는 이유는 요약 이벤트의 `record_count` 가 그 값이라서다. 그 값을
+    소스별 발급 건수와 가장 오래된 수집 시각이 요약의 발급 통계다. 그 값을
     **장부에 적힌 발급 실행**으로 세는 데는 이유가 둘 있다.
 
     이번 시도가 보낸 것만 세면 재시도에서 뒤집힌다 — 발급까지 마치고 요약 중간에 죽으면
@@ -310,7 +351,7 @@ def publish_pending(
     실행 구간으로 세면 겹칠 때 부푼다 — 실행 둘이 가까우면 앞 실행이 낸 것까지 센다.
 
     **밀린 것을 다 비운다.** 묶음 상한에서 끊으면 1차 시도가 100 건, 2차 시도가 250 건을
-    세어 같은 `event_id` 로 `record_count` 가 다른 요약이 나간다. 다 비우면 재시도는 낼
+    세어 같은 `event_id` 로 `emitted` 가 다른 요약이 나간다. 다 비우면 재시도는 낼
     것이 없어 값이 그대로다. `batch` 는 한 번에 메모리에 들 행 수지 한 회차의 상한이 아니다.
     """
     while True:
@@ -319,7 +360,7 @@ def publish_pending(
             break
         for row in rows:
             # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
-            # 순서가 보장되고, 뒤이어 나가는 요약 이벤트가 그 소스의 기사들 뒤에 선다.
+            # 순서가 보장된다. 요약은 별도 토픽이라 두 토픽 사이 순서는 보장하지 않는다.
             publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
         publisher.flush()
         # 한 묶음을 한 트랜잭션으로 적는다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
@@ -331,19 +372,16 @@ def publish_pending(
 def publish_summaries(
     *,
     publisher: EventPublisher,
-    bucket: str,
     run_id: str,
     logical_date: datetime,
     statuses: Sequence[SourceStatus],
-    counts: dict[str, int],
+    counts: dict[str, EmittedStats],
 ) -> int:
     """소스별 실행 요약. 0건이어도 낸다(팀 발행 규약 4).
 
-    `counts` 는 `publish_pending` 이 **이번 실행에서 실제로 내보낸** 소스별 건수다.
-    장부를 실행 구간으로 다시 세면 실행이 겹칠 때 앞 실행 몫까지 제 것으로 센다.
-
-    태스크가 재시도돼도 값이 흔들리지 않는다 — 앞 시도에서 나간 행은 장부에 발급 표시가
-    남아 `pending` 에 안 잡히므로 다시 세지 않는다(팀 발행 규약 3).
+    `counts` 는 장부의 발급 실행으로 집계한 소스별 건수와 가장 오래된 수집 시각이다.
+    앞 시도에서 발급된 행도 같은 실행의 통계에 포함되므로 재시도해도 값이 유지된다.
+    발급 시각 구간으로 집계하지 않아 가까운 다른 실행의 발급분은 섞이지 않는다.
     """
     for status in statuses:
         publisher.publish(
@@ -354,8 +392,8 @@ def publish_summaries(
                 run_id=run_id,
                 logical_date=logical_date,
                 status=status.status,
-                record_count=counts.get(status.source, 0),
-                bucket=bucket,
+                outcome=status.outcome,
+                emitted=counts.get(status.source, EmittedStats(0, None)),
                 failure_reason=status.failure_reason,
             ),
         )

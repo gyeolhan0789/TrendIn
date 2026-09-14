@@ -142,7 +142,18 @@ docker exec s15p21a102-datastore-kafka-1 \
 
 `raw.*` 가 `article.json` 보다 적은 것은 정상이다. 회원 전용 기사는 원문을 저장하지 않는다.
 
-토픽 건수는 장부보다 **소스 수 × 실행 횟수**만큼 많다. 실행마다 소스별 요약 이벤트가 하나씩 더 나가기 때문이다 — `object_key` 가 `null` 인 것이 그것이다.
+`raw-file-ready`에는 기사 이벤트만 발급한다. 요약 토픽을 활성화하면 `collect-run-summary`에
+소스 수 × 실행 횟수만큼의 논리적 요약이 남는다. at-least-once 중복·보존 만료·이행 전 요약 때문에
+offset 합이 장부 행 수와 항상 같지는 않으며, 기사 대사는 고유 `event_id`로 한다.
+
+```sh
+# 요약 토픽 생성 후 TRENDIN_KAFKA_TOPIC_RUN_SUMMARY를 채웠을 때
+docker exec s15p21a102-datastore-kafka-1 \
+  /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic collect-run-summary
+```
+
+기본값은 `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=`다. 비어 있으면 기사 발급은 계속하고 요약만
+건너뛴다. 토픽 생성과 재확인·활성화 절차는 [`docs/spark-integration.md` §12](docs/spark-integration.md#12-토픽-생성과-소비-측-인계).
 
 ### 조용히 멈췄나
 
@@ -163,7 +174,7 @@ with Database.from_env().transaction() as c:
 
 **전부 오래됐으면** DAG 이 꺼졌거나 앱 DB·MinIO·Kafka 중 하나가 죽은 것이다. `CLI airflow dags list` 로 `is_paused` 부터 본다.
 
-새 글이 없어서 안 늘어난 것과는 구분이 안 된다. 그 판정이 `S15P21A102-199` 의 몫이다.
+요약 토픽을 활성화하면 `discovered`, `skipped`, `not_modified`, 단계별 실패 수로 원인을 구분할 수 있다. 자동 이상 판정은 `S15P21A102-199`의 몫이다.
 
 ### 다시 내기
 
@@ -191,7 +202,7 @@ CLI airflow dags trigger fashion_collect
 1. **DAG 파일엔 실행 순서만.** 함수는 `src/trendin/<도메인>/` 에 두고 import 한다. DAG 파일 최상단에서 API·DB 를 부르지 않는다.
 2. **import 는 `airflow.sdk` 에서.** `from airflow.sdk import dag, task, ...`. `airflow.decorators`·`airflow.models` 는 Airflow 2 식이라 쓰지 않는다.
 3. **dag_id 는 `fashion_` / `dev_` 접두어, tags 에 도메인.**
-4. **XCom 엔 ID·건수만.** 문서 본문·행렬은 DB 를 거친다.
+4. **XCom 엔 ID·건수와 제한된 실패 표본만.** 수집 실패 표본은 최대 10건, 사유는 건당 200자로 제한한다. 문서 본문·행렬은 DB 를 거친다.
 5. **모든 태스크는 멱등.** 재시도와 backfill 이 그 위에 선다. `default_args` 에 `retries` 를 둔다.
 6. **외부 사이트를 치는 태스크는 `pool="crawler_pool"`.** 새 pool 이 필요하면 `pools.json` 에 줄을 추가한다(init 이 `--overwrite` 없이 import 하므로 기존 값은 유지된다).
 7. **오래 기다리는 일(배치 API 등)은 `@task.sensor(mode="reschedule")`.** 대기 중 슬롯을 반납한다. poke 는 10~15분.

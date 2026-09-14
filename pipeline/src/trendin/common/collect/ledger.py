@@ -101,6 +101,14 @@ class PendingArticle:
     members_only: bool
 
 
+@dataclass(frozen=True, slots=True)
+class EmittedStats:
+    """발급 실행별 기사 수와 가장 오래된 수집 시각. 수집 지연과 발급 지연을 구분한다."""
+
+    count: int
+    oldest_collected_at: datetime | None
+
+
 class Ledger(Protocol):
     """장부. 발견과 취득 사이, 저장과 발급 사이에 끼어드는 두 자리를 연다."""
 
@@ -139,8 +147,8 @@ class Ledger(Protocol):
         """
         ...
 
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
-        """그 실행이 발급한 기사 수를 소스별로 센다. 요약 이벤트의 `record_count` 다.
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
+        """그 실행이 발급한 기사 수를 소스별로 센다. 요약 이벤트의 `emitted` 와 발급 지연의 근거다.
 
         "이번 시도가 보낸 것" 을 세지 않는 이유는 재시도 때문이다 — 발급까지 마치고 요약
         중간에 죽으면 다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른
@@ -226,13 +234,18 @@ class InMemoryLedger:
         for key in keys:
             self._emitted[key] = (at, run_id)
 
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
-        counts: dict[str, int] = {}
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
+        stats: dict[str, EmittedStats] = {}
         for key, (at, emitted_run) in self._emitted.items():
             row = self._rows[key]
             if row.domain == domain and emitted_run == run_id and at is not None:
-                counts[row.source] = counts.get(row.source, 0) + 1
-        return counts
+                previous = stats.get(row.source, EmittedStats(0, None))
+                oldest = previous.oldest_collected_at
+                stats[row.source] = EmittedStats(
+                    previous.count + 1,
+                    min(oldest, row.collected_at) if oldest is not None else row.collected_at,
+                )
+        return stats
 
 
 _INSERT = """
@@ -261,7 +274,7 @@ LIMIT %s
 # `event_emitted_at IS NOT NULL` 이 붙는 이유는 재발행 때문이다. 발급 표시만 지우고
 # `event_run_id` 를 남기면 아직 안 나간 행이 옛 실행 몫으로 잡힌다.
 _SELECT_EMITTED_BY_RUN = """
-SELECT source, count(*)
+SELECT source, count(*), min(collected_at)
 FROM collected_article
 WHERE domain = %s AND event_run_id = %s AND event_emitted_at IS NOT NULL
 GROUP BY source
@@ -348,7 +361,7 @@ class PostgresLedger:
                 (at, run_id, tuple(keys)),
             )
 
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, int]:
+    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(_SELECT_EMITTED_BY_RUN, (domain, run_id))
-            return {r[0]: r[1] for r in cur.fetchall()}
+            return {source: EmittedStats(count, oldest) for source, count, oldest in cur.fetchall()}

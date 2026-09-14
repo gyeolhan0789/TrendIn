@@ -67,6 +67,11 @@ def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes
     assert outcome.domain == "fashion"
     assert outcome.stored > 0
     assert outcome.failed == 0
+    assert outcome.discovered == outcome.stored
+    assert outcome.failed_by_stage == {"discover": 0, "materialize": 0, "store": 0}
+    assert outcome.failures == ()
+    assert outcome.members_only_stored == 0
+    assert outcome.duration_ms >= 0
     # 기사마다 raw 와 article.json 이 하나씩 (불변식 7)
     assert len(store.objects) == outcome.stored * 2
     assert len(ledger.pending("fashion")) == outcome.stored

@@ -10,7 +10,13 @@ import pytest
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.db import Database
-from trendin.common.collect.ledger import DDL, InMemoryLedger, PostgresLedger, to_pending
+from trendin.common.collect.ledger import (
+    DDL,
+    EmittedStats,
+    InMemoryLedger,
+    PostgresLedger,
+    to_pending,
+)
 
 KST = timezone(timedelta(hours=9))
 NOW = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
@@ -218,10 +224,11 @@ def test_실행별_발급_건수는_그_실행_태그로만_센다():
     메모리 구현은 SQL 을 안 거치므로 컬럼 이름이 틀려도 못 잡는다 — 실제로 이 브랜치에서
     `event_run_id` 를 DDL 에 안 넣고도 테스트가 통과한 적이 있다.
     """
-    db, conn = fake_db([("vogue", 3), ("wkorea", 1)])
+    db, conn = fake_db([("vogue", 3, NOW), ("wkorea", 1, NOW)])
     counts = PostgresLedger(db).emitted_by_run("fashion", "20260903T110000")
 
-    assert counts == {"vogue": 3, "wkorea": 1}
+    assert counts == {"vogue": EmittedStats(3, NOW), "wkorea": EmittedStats(1, NOW)}
+    assert "min(collected_at)" in conn.cursors[0].executed[-1][0]
     sql, params = conn.cursors[0].executed[-1]
     assert params == ("fashion", "20260903T110000")
     # 발급 표시가 지워진 행의 옛 태그를 세면 재발행 뒤 건수가 부푼다.
@@ -243,3 +250,22 @@ def test_적을_행이_없으면_DB_를_열지_않는다():
     db, conn = fake_db([])
     PostgresLedger(db).mark_emitted_many([], NOW, "20260903T110000")
     assert conn.cursors == []
+
+
+def test_발급_통계는_가장_오래된_수집_시각을_보존하고_다른_실행을_빼준다():
+    ledger = InMemoryLedger()
+    oldest = NOW - timedelta(days=3)
+    for aid, at in [("1", NOW), ("2", oldest), ("3", NOW - timedelta(days=5))]:
+        record(ledger, make_article(aid).model_copy(update={"collected_at": at}))
+    record(ledger, make_article("4", source="hn", domain="dev"))
+    ledger.mark_emitted_many([("vogue", "1"), ("vogue", "2"), ("hn", "4")], NOW, "run")
+    ledger.mark_emitted_many([("vogue", "3")], NOW, "other")
+    assert ledger.emitted_by_run("fashion", "run") == {"vogue": EmittedStats(2, oldest)}
+    assert ledger.emitted_by_run("fashion", "empty").get("vogue", EmittedStats(0, None)) == (
+        EmittedStats(0, None)
+    )
+
+
+def test_Postgres_発급_0건은_빈_통계를_돌려준다():
+    db, _ = fake_db([])
+    assert PostgresLedger(db).emitted_by_run("fashion", "empty") == {}
