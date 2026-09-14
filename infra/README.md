@@ -136,7 +136,13 @@ docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100 backe
 
 ## Jenkins CI/CD
 
-`infra/jenkins/Jenkinsfile`은 `dev` 브랜치만 배포 대상으로 허용하며 다음 순서로 실행한다.
+Jenkins는 역할별 Pipeline Job과 Jenkinsfile을 사용한다.
+
+- `trendin-backend-ci`: `infra/jenkins/Jenkinsfile.ci`에서 MR 소스 SHA를 checkout하고 Gradle만 실행한다.
+- `trendin-backend-cd`: `infra/jenkins/Jenkinsfile.cd`에서 dev SHA를 checkout하고 기존 배포·롤백을 실행한다.
+
+MR 상태는 해당 소스 SHA의 `jenkins/backend-ci`, dev 배포 상태는 `jenkins/backend-cd` 이름으로 GitLab에
+전달한다. Checkout 완료 직후 `running`, 최종 결과에 따라 `success`, `failed`, `canceled`를 전송한다.
 
 1. 소스 체크아웃 및 배포 브랜치·도구·환경 파일 검증
 2. Gradle `clean build`를 통한 테스트와 백엔드 빌드
@@ -210,12 +216,20 @@ EC2에서 `curl`과 Java 21 이상도 사용할 수 있어야 한다. Gradle은 
 ### Jenkins Job과 GitLab 설정
 
 - Jenkins에 Pipeline, Git, JUnit, GitLab 연동 플러그인을 설치한다.
-- Pipeline 또는 Multibranch Pipeline의 SCM을 이 GitLab 저장소로 설정하고 브랜치 대상을 `dev`로 제한한다.
-- Script Path는 `infra/jenkins/Jenkinsfile`로 설정한다.
+- 두 Pipeline Job의 SCM 저장소와 Credential은 같게 설정하고 Branch Specifier는 모두 `*/dev`로 둔다.
+- `trendin-backend-ci` Script Path: `infra/jenkins/Jenkinsfile.ci`
+- `trendin-backend-cd` Script Path: `infra/jenkins/Jenkinsfile.cd`
 - Job에서 GitLab Connection은 Jenkinsfile에 지정된 `ssafy-gitlab`을 사용한다. 이 Connection의 API Token이
   해당 프로젝트 commit status를 갱신할 권한을 가지고 있는지 확인한다.
 - 비공개 저장소 접근용 GitLab Credential은 Jenkins Credentials에서 관리하고 Job의 SCM에 연결한다.
-- GitLab Webhook은 `dev` push 이벤트만 Job을 실행하도록 Jenkins 플러그인과 GitLab UI에서 설정한다.
+- CI Job은 GitLab Trigger의 Merge Request Events를 활성화하고 Push Events와 Pipeline Events는 끈다.
+  MR 생성·업데이트를 활성화하고 `Rebuild open Merge Requests`를 source branch push 시 재빌드하는 값으로
+  설정해 MR 소스 변경마다 다시 실행되게 한다.
+- CD Job은 Push Events만 활성화하고 Name-based filter의 include branch를 `dev`로 설정한다.
+- Job의 Pipeline script는 SCM의 `dev` 브랜치에서 읽도록 유지한다. Pipeline이 Webhook의 검증된
+  소스 브랜치와 commit SHA를 별도로 checkout하므로 MR 코드가 배포 설정 자체를 변경하지 못한다.
+- GitLab에서 `jenkins/backend-ci` 상태가 MR의 최신 commit SHA에 연결되어 MR Pipelines 탭에 표시되는지,
+  `jenkins/backend-cd` 상태가 dev commit에 표시되는지 첫 실행에서 확인한다.
 - Webhook이 Jenkins에 도달할 수 있는 네트워크 경로를 마련하되 Jenkins 관리 화면을 공인망 전체에
   노출하지 않는다. 관리 화면 접근은 SSH 터널 또는 허용된 관리 IP로 제한한다.
 - 현재 Nginx는 모든 80 포트 요청을 백엔드로 전달하므로 Jenkins Webhook을 프록시하지 않는다. 8081을

@@ -19,18 +19,32 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'running'
+                script {
+                    if (env.gitlabActionType == 'PUSH' && env.gitlabBranch == 'dev') {
+                        if (!(env.gitlabAfter ==~ /[0-9a-fA-F]{40}/)) {
+                            error('GitLab push payload does not contain a valid commit SHA')
+                        }
+                        env.BUILD_COMMIT = env.gitlabAfter
+                        env.BUILD_BRANCH = 'dev'
+                    } else {
+                        error('This job accepts only dev push events')
+                    }
+                }
+                sh '''
+                    set -eu
+                    git fetch origin "+refs/heads/$BUILD_BRANCH:refs/remotes/origin/$BUILD_BRANCH"
+                    git checkout --detach "$BUILD_COMMIT"
+                    test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"
+                '''
+                script {
+                    env.GIT_COMMIT = env.BUILD_COMMIT
+                }
+                updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'running'
             }
         }
 
         stage('Validate deployment') {
             steps {
-                script {
-                    def branchName = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: '').replaceFirst('^origin/', '')
-                    if (branchName != 'dev') {
-                        error("Backend deployment is allowed only from dev (current: ${branchName ?: 'unknown'})")
-                    }
-                }
                 sh '''
                     set -eu
                     command -v docker
@@ -146,26 +160,28 @@ pipeline {
 
     post {
         success {
-            updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'success'
+            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'success'
         }
         unstable {
-            updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed'
+            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed'
         }
         aborted {
-            updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'canceled'
+            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'canceled'
         }
         always {
             junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
         }
         failure {
-            sh '''
-                if [ -n "${DEPLOY_ENV_FILE:-}" ] && [ -r "$DEPLOY_ENV_FILE" ]; then
-                    docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" ps backend || true
-                    docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
-                        logs --no-color --tail=200 backend || true
-                fi
-            '''
-            updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed'
+            script {
+                sh '''
+                        if [ -n "${DEPLOY_ENV_FILE:-}" ] && [ -r "$DEPLOY_ENV_FILE" ]; then
+                            docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" ps backend || true
+                            docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
+                                logs --no-color --tail=200 backend || true
+                        fi
+                '''
+            }
+            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed'
         }
     }
 }
