@@ -1114,6 +1114,33 @@ a.saved-card-title:hover { color: var(--accent); }
   .landing-footer-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
 
+/* 새 시안 화면들이 함께 쓰는 조각: 드롭다운 한 칸, 불러오는 중·실패 표시, 분야 태그. */
+.trendin-filter { display: flex; align-items: center; gap: 8px; }
+.trendin-filter-label { color: var(--lp-muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
+/* 시안의 드롭다운 버튼 모양. 실제로는 select라서 키보드·모바일 조작이 그대로 됩니다. */
+.trendin-select { display: flex; position: relative; align-items: center; padding: 0 12px 0 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; transition: background .15s; }
+.trendin-select:hover:not(.is-disabled) { background: #f9fafb; }
+.trendin-select select { padding: 8px 22px 8px 0; border: 0; appearance: none; background: transparent; color: inherit; font-size: 13px; cursor: pointer; }
+.trendin-select select:focus { outline: none; }
+.trendin-select > svg { position: absolute; right: 12px; pointer-events: none; }
+.trendin-select.is-disabled { background: #f9fafb; color: #b6bac1; cursor: default; }
+.trendin-select.is-disabled select { cursor: default; }
+
+.trendin-state { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 64px 0; color: var(--lp-faint); font-size: 14px; }
+.trendin-state > span { width: 7px; height: 7px; border-radius: 50%; background: #c4b5fd; animation: trend-loading 1s infinite ease-in-out; }
+.trendin-state > span:nth-child(2) { animation-delay: .15s; }
+.trendin-state > span:nth-child(3) { animation-delay: .3s; }
+.trendin-state.is-error { flex-direction: column; color: #b8382e; }
+.trendin-state.is-error button { padding: 8px 16px; border: 1px solid var(--lp-line); border-radius: 8px; color: #374151; font-size: 13px; }
+.trendin-state.is-error button:hover { background: #f9fafb; }
+
+.trendin-tag { flex: 0 0 auto; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.trendin-tag--indigo { background: #ede9fe; color: #4F46E5; }
+.trendin-tag--rose { background: #fee2e2; color: #dc2626; }
+.trendin-tag--emerald { background: #d1fae5; color: #059669; }
+.trendin-tag--violet { background: #ede9fe; color: #7c3aed; }
+.trendin-tag--amber { background: #fef3c7; color: #d97706; }
+
 /* 트렌드 탐색: 히어로 → 검색 → 필터 → 3단 본문 → 페이지 이동 순서입니다. */
 .explore-page { --ex-w: 1280px; padding-bottom: 8px; }
 .explore-page section { width: 100%; max-width: var(--ex-w); margin: 0 auto; padding-left: 40px; padding-right: 40px; }
@@ -1141,17 +1168,6 @@ a.saved-card-title:hover { color: var(--accent); }
 
 .explore-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 28px; }
 .explore-filters-right { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-left: auto; }
-.explore-filter { display: flex; align-items: center; gap: 8px; }
-.explore-filter-label { color: var(--lp-muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
-/* 시안의 드롭다운 버튼 모양. 실제로는 select라서 키보드·모바일 조작이 그대로 됩니다. */
-.explore-select { display: flex; position: relative; align-items: center; padding: 0 12px 0 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; transition: background .15s; }
-.explore-select:hover:not(.is-disabled) { background: #f9fafb; }
-.explore-select select { padding: 8px 22px 8px 0; border: 0; appearance: none; background: transparent; color: inherit; font-size: 13px; cursor: pointer; }
-.explore-select select:focus { outline: none; }
-.explore-select > svg { position: absolute; right: 12px; pointer-events: none; }
-.explore-select.is-disabled { background: #f9fafb; color: #b6bac1; cursor: default; }
-.explore-select.is-disabled select { cursor: default; }
-
 .explore-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .explore-cat { padding: 7px 16px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: #374151; font-size: 13px; white-space: nowrap; transition: background .15s, border-color .15s; }
 .explore-cat:hover:not(.is-selected) { background: #f3f4f6; }
@@ -1162,14 +1178,6 @@ a.saved-card-title:hover { color: var(--accent); }
    최소 너비가 단을 밀어내서 왼쪽 큰 카드만 좁아집니다. */
 .explore-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 260px; align-items: start; gap: 20px; }
 
-.explore-state { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 64px 0; color: var(--lp-faint); font-size: 14px; }
-.explore-state > span { width: 7px; height: 7px; border-radius: 50%; background: #c4b5fd; animation: trend-loading 1s infinite ease-in-out; }
-.explore-state > span:nth-child(2) { animation-delay: .15s; }
-.explore-state > span:nth-child(3) { animation-delay: .3s; }
-.explore-state.is-error { flex-direction: column; color: #b8382e; }
-.explore-state.is-error button { padding: 8px 16px; border: 1px solid var(--lp-line); border-radius: 8px; color: #374151; font-size: 13px; }
-.explore-state.is-error button:hover { background: #f9fafb; }
-
 .explore-keyword { color: var(--lp-ink); font-size: 15px; font-weight: 600; }
 .explore-keyword:hover { color: var(--lp-indigo); }
 .explore-keyword--lg { font-size: 24px; font-weight: 700; letter-spacing: -.5px; }
@@ -1179,13 +1187,6 @@ a.saved-card-title:hover { color: var(--accent); }
 .explore-bookmark:hover { background: #f3f4f6; color: #6b7280; }
 .explore-bookmark.is-saved { color: var(--lp-indigo); }
 .explore-bookmark--sm { width: 24px; height: 24px; border-radius: 4px; }
-
-.explore-tag { flex: 0 0 auto; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.explore-tag--indigo { background: #ede9fe; color: #4F46E5; }
-.explore-tag--rose { background: #fee2e2; color: #dc2626; }
-.explore-tag--emerald { background: #d1fae5; color: #059669; }
-.explore-tag--violet { background: #ede9fe; color: #7c3aed; }
-.explore-tag--amber { background: #fef3c7; color: #d97706; }
 
 /* 왼쪽 큰 카드: 1위 트렌드 한 건을 자세히 보여 줍니다. */
 .explore-featured { position: relative; overflow: hidden; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; }

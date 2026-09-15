@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
+import { FilterSelect } from '../../components/common/FilterSelect';
 import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { TagChip } from '../../features/trend/components/TagChip';
 import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
+import { formatCount, formatGrowth, toneOf } from '../../features/trend/trendFormat';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
 import { TREND_TYPES } from '../../features/trend/types/trend';
@@ -35,26 +38,6 @@ const sorts = [
 const pageSizes = [6, 12, 24];
 /** 시안의 큰 카드가 목록의 첫 자리를 가져가고, 나머지가 카드 격자로 갑니다. */
 const FEATURED_COUNT = 1;
-
-const tagTones = ['indigo', 'rose', 'emerald', 'violet', 'amber'] as const;
-
-function toneOf(label: string) {
-  const sum = Array.from(label).reduce((total, char) => total + char.charCodeAt(0), 0);
-  return tagTones[sum % tagTones.length];
-}
-
-/** 12.4만처럼 짧게 읽히게 줄입니다. */
-function formatCount(count: number) {
-  if (count >= 10_000) return `${(count / 10_000).toFixed(1)}만`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}천`;
-  return count.toLocaleString();
-}
-
-/** 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그 자리에 숫자를 지어내지 않습니다. */
-function formatGrowth(trend: Trend) {
-  if (trend.growthRate === null) return '—';
-  return `${trend.growthRate > 0 ? '+' : ''}${trend.growthRate}%`;
-}
 
 function formatWindowDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -91,33 +74,8 @@ function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: s
   );
 }
 
-function TagChip({ label }: { label: string }) {
-  return <span className={`explore-tag explore-tag--${toneOf(label)}`}>{label}</span>;
-}
-
 function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
   return <Link className={`explore-keyword ${className}`} to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>;
-}
-
-function FilterSelect({ label, value, options, onChange, disabled = false, title }: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange?: (value: string) => void;
-  disabled?: boolean;
-  title?: string;
-}) {
-  return (
-    <div className="explore-filter">
-      <span className="explore-filter-label">{label}</span>
-      <div className={`explore-select${disabled ? ' is-disabled' : ''}`} title={title}>
-        <select value={value} disabled={disabled} aria-label={label} onChange={(event) => onChange?.(event.target.value)}>
-          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-      </div>
-    </div>
-  );
 }
 
 /** 1쪽과 마지막 쪽은 늘 보이고, 현재 쪽 둘레만 이어 붙입니다. 사이는 …로 접습니다. */
@@ -148,7 +106,7 @@ function FeaturedTrend({ trend, period }: { trend: Trend; period: PeriodCode }) 
           <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="explore-bookmark" />
         </div>
 
-        <p className="explore-featured-growth">{formatGrowth(trend)}</p>
+        <p className="explore-featured-growth">{formatGrowth(trend.growthRate)}</p>
         <p className="explore-featured-growth-label">
           언급량 증가
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
@@ -213,7 +171,7 @@ function TrendMiniCard({ trend, rank }: { trend: Trend; rank: number }) {
         <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="explore-bookmark explore-bookmark--sm" />
       </div>
       <p className={`explore-card-delta explore-card-delta--${tone}`}>
-        {isNew && trend.growthRate === null ? 'NEW' : formatGrowth(trend)}
+        {isNew && trend.growthRate === null ? 'NEW' : formatGrowth(trend.growthRate)}
       </p>
       <p className="explore-card-mentions">언급량 {formatCount(trend.mentionCount)}</p>
       {/* 카드마다 이력을 부를 수 없어, 이미 받은 직전 구간과 현재 두 값으로 방향만 보여 줍니다. */}
@@ -342,8 +300,8 @@ export function HomePage() {
           onChange={(value) => updateParams({ period: value })}
         />
 
-        <div className="explore-filter">
-          <span className="explore-filter-label">카테고리</span>
+        <div className="trendin-filter">
+          <span className="trendin-filter-label">카테고리</span>
           <div className="explore-chips" role="group" aria-label="카테고리">
             {domains.map((option) => (
               <button
@@ -356,7 +314,7 @@ export function HomePage() {
                 {option.name}
               </button>
             ))}
-            {domains.length === 0 && <span className="explore-filter-label">분야를 불러오는 중…</span>}
+            {domains.length === 0 && <span className="trendin-filter-label">분야를 불러오는 중…</span>}
           </div>
         </div>
 
@@ -374,15 +332,15 @@ export function HomePage() {
       </section>
 
       <section className="explore-main">
-        {loading && <div className="explore-state" aria-label="불러오는 중"><span /><span /><span /></div>}
+        {loading && <div className="trendin-state" aria-label="불러오는 중"><span /><span /><span /></div>}
         {!loading && failed && (
-          <div className="explore-state is-error" role="alert">
+          <div className="trendin-state is-error" role="alert">
             <p>트렌드를 불러오지 못했습니다.</p>
             <button type="button" onClick={retry}>다시 시도</button>
           </div>
         )}
         {!loading && !failed && !featured && (
-          <div className="explore-state" role="status">
+          <div className="trendin-state" role="status">
             <p>{query ? `‘${query}’와 맞는 트렌드가 이 쪽에 없습니다.` : '조건에 맞는 트렌드가 없습니다.'}</p>
           </div>
         )}
@@ -456,12 +414,12 @@ export function HomePage() {
             </button>
           </div>
 
-          <div className="explore-select">
-            <select value={String(size)} aria-label="한 쪽에 보여 줄 개수" onChange={(event) => updateParams({ size: event.target.value })}>
-              {pageSizes.map((option) => <option key={option} value={option}>{option}개씩 보기</option>)}
-            </select>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-          </div>
+          <FilterSelect
+            value={String(size)}
+            options={pageSizes.map((option) => ({ value: String(option), label: `${option}개씩 보기` }))}
+            ariaLabel="한 쪽에 보여 줄 개수"
+            onChange={(value) => updateParams({ size: value })}
+          />
         </section>
       )}
     </div>
