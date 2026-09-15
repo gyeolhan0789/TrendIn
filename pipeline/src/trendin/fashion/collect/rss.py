@@ -18,19 +18,18 @@ import xml.parsers.expat as expat
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
-from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlsplit
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
 from trendin.common.collect.html_text import html_to_text, looks_like_html
 from trendin.common.collect.keys import ROUTE_EXT, raw_key
 from trendin.common.collect.session import CollectSession
+from trendin.common.collect.urls import clean_url
 
 logger = logging.getLogger("trendin.collect.rss")
 
 _CLOSE = b"</item>"
-TRACKING_PREFIXES = ("utm_",)
-TRACKING_KEYS = frozenset({"fbclid", "gclid"})
 
 
 class FeedParseError(Exception):
@@ -115,19 +114,6 @@ def article_id_from_guid(guid: str, param: str) -> str:
     if not values or not values[0].isdigit():
         raise ValueError(f"guid 에서 {param!r} 숫자를 못 뽑았다: {guid!r}")
     return values[0]
-
-
-def clean_url(url: str) -> str:
-    """추적 파라미터만 뺀다. percent-encoding 은 소스가 발행한 정식 URL 이라 그대로 둔다."""
-    parts = urlsplit(url)
-    if not parts.query:
-        return url
-    kept = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if not key.startswith(TRACKING_PREFIXES) and key not in TRACKING_KEYS
-    ]
-    return urlunsplit(parts._replace(query=urlencode(kept)))
 
 
 def _parse_published(raw: str) -> datetime | None:

@@ -76,7 +76,7 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 | 지금 한 번 | `CLI airflow dags trigger fashion_collect` |
 | 켜졌나 | `CLI airflow dags list` 의 `is_paused` 열 |
 
-`fashion_collect` 은 매시 정각(KST), `dev_collect` 은 30분마다다. `dev_collect` 은 소스가 비어 있어 켜도 수집 태스크가 돌지 않는다 — 어댑터는 `S15P21A102-165` 가 채운다.
+`fashion_collect` 은 매시 정각(KST), `dev_collect` 은 30분마다다. `dev_collect` 은 Hacker News 하나를 돌고, 매 실행이 최근 6시간에 올라온 story 를 Algolia API 로 묻는다. 6시간보다 오래 멈췄다면 그 구간은 아래 hn 백필로 메운다.
 
 **켜는 순간 예약 회차가 한 번 바로 돈다.** `catchup=False` 라 밀린 회차가 몰려 돌지는 않지만, 직후에 `trigger` 까지 하면 실행 둘이 겹친다.
 
@@ -84,7 +84,11 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 
 ### 과거분 백필
 
-주기 실행은 피드에 보이는 만큼(10건)만 받는다. 그보다 오래된 것은 이 명령이 받는다.
+주기 실행이 보는 범위보다 오래된 것은 도메인별 백필 명령이 받는다. 둘 다 주기 실행과 같은 저장 루프를 쓰고, 발급은 하지 않는다 — 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+
+#### 매거진 피드
+
+주기 실행은 피드에 보이는 만큼(10건)만 받는다.
 
 ```sh
 CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
@@ -100,7 +104,26 @@ CLI python -m trendin.fashion.collect.backfill vogue --pages 30 --store
 
 `--store` 를 주면 한 페이지가 통째로 이미 받은 기사일 때 멈춘다. 훑기 모드는 장부가 없어 그 판정을 못 하므로 `--pages` 만큼 다 돈다.
 
-발급은 백필이 하지 않는다. 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+#### Hacker News
+
+주기 실행은 최근 6시간만 본다. hn 백필은 페이지가 아니라 시각 구간을 받는다. Algolia 가 한 질의에 1000건까지만 주고 페이지를 넘기지 못하게 해서다.
+
+```sh
+CLI python -m trendin.dev.collect.backfill hn --since 2026-08-03T00:00+09:00 --store
+```
+
+| 인자 | 뜻 |
+| --- | --- |
+| `--since` | 구간 시작(포함). 오프셋 필수 — KST 면 `+09:00`. 기본값이 없고, `--until` 까지 6주를 넘으면 거부한다 — 실수로 전량이 돌지 않게. 더 긴 공백은 나눠 돌린다 |
+| `--until` | 구간 끝(제외). 없으면 지금 |
+| `--store` | MinIO·장부에 실제로 쓴다. 없으면 훑기만 한다 |
+| `--json` | 정규화된 article.json 을 한 줄씩 낸다. 훑기 모드에서만 듣는다 — `--store` 와 같이 주면 아무것도 안 나온다 |
+
+첫 채움은 6주다(약 3만 3천 건, 6시간 조각이라 요청 170번 남짓·3초 간격). 멈춘 구간을 메울 때는 앞뒤로 넉넉히 줘도 된다 — 장부에 있는 글은 거른다. fashion 백필과 달리 이미 받은 조각에서 멈추지 않는다. 빈 구간이 어느 조각에 있을지 모르기 때문이다.
+
+**발급이 한꺼번에 나간다.** 6주 백필 뒤 첫 주기 실행이 미발급 행 전부를 낸다. 돌리기 전에 Spark 쪽에 시점을 알린다.
+
+**백필 중에는 `dev_collect` 를 멈춘다** (`CLI airflow dags pause dev_collect`, 끝나면 `unpause`). `--until` 을 생략하면 마지막 조각이 주기 실행의 6시간 창과 겹치고, 둘이 같은 글을 거의 동시에 장부 거름에 통과시키면 둘 다 MinIO 에 쓴다. 두 쪽의 `collected_at`·점수가 달라 바이트가 다르고, 장부는 먼저 적은 해시를, MinIO 는 나중에 쓴 객체를 남겨 서로 어긋난다(불변식 7).
 
 ### 결과 확인
 
@@ -142,7 +165,18 @@ docker exec s15p21a102-datastore-kafka-1 \
 
 `raw.*` 가 `article.json` 보다 적은 것은 정상이다. 회원 전용 기사는 원문을 저장하지 않는다.
 
-토픽 건수는 장부보다 **소스 수 × 실행 횟수**만큼 많다. 실행마다 소스별 요약 이벤트가 하나씩 더 나가기 때문이다 — `object_key` 가 `null` 인 것이 그것이다.
+`raw-file-ready`에는 기사 이벤트만 발급한다. 요약 토픽을 활성화하면 `collect-run-summary`에
+소스 수 × 실행 횟수만큼의 논리적 요약이 남는다. at-least-once 중복·보존 만료·이행 전 요약 때문에
+offset 합이 장부 행 수와 항상 같지는 않으며, 기사 대사는 고유 `event_id`로 한다.
+
+```sh
+# 요약 토픽 생성 후 TRENDIN_KAFKA_TOPIC_RUN_SUMMARY를 채웠을 때
+docker exec s15p21a102-datastore-kafka-1 \
+  /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic collect-run-summary
+```
+
+기본값은 `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=`다. 비어 있으면 기사 발급은 계속하고 요약만
+건너뛴다. 토픽 생성과 재확인·활성화 절차는 [`docs/spark-integration.md` §12](docs/spark-integration.md#12-토픽-생성과-소비-측-인계).
 
 ### 조용히 멈췄나
 
@@ -163,7 +197,7 @@ with Database.from_env().transaction() as c:
 
 **전부 오래됐으면** DAG 이 꺼졌거나 앱 DB·MinIO·Kafka 중 하나가 죽은 것이다. `CLI airflow dags list` 로 `is_paused` 부터 본다.
 
-새 글이 없어서 안 늘어난 것과는 구분이 안 된다. 그 판정이 `S15P21A102-199` 의 몫이다.
+요약 토픽을 활성화하면 `discovered`, `skipped`, `not_modified`, 단계별 실패 수로 원인을 구분할 수 있다. 자동 이상 판정은 `S15P21A102-199`의 몫이다.
 
 ### 다시 내기
 
@@ -191,7 +225,7 @@ CLI airflow dags trigger fashion_collect
 1. **DAG 파일엔 실행 순서만.** 함수는 `src/trendin/<도메인>/` 에 두고 import 한다. DAG 파일 최상단에서 API·DB 를 부르지 않는다.
 2. **import 는 `airflow.sdk` 에서.** `from airflow.sdk import dag, task, ...`. `airflow.decorators`·`airflow.models` 는 Airflow 2 식이라 쓰지 않는다.
 3. **dag_id 는 `fashion_` / `dev_` 접두어, tags 에 도메인.**
-4. **XCom 엔 ID·건수만.** 문서 본문·행렬은 DB 를 거친다.
+4. **XCom 엔 ID·건수와 제한된 실패 표본만.** 수집 실패 표본은 최대 10건, 사유는 건당 200자로 제한한다. 문서 본문·행렬은 DB 를 거친다.
 5. **모든 태스크는 멱등.** 재시도와 backfill 이 그 위에 선다. `default_args` 에 `retries` 를 둔다.
 6. **외부 사이트를 치는 태스크는 `pool="crawler_pool"`.** 새 pool 이 필요하면 `pools.json` 에 줄을 추가한다(init 이 `--overwrite` 없이 import 하므로 기존 값은 유지된다).
 7. **오래 기다리는 일(배치 API 등)은 `@task.sensor(mode="reschedule")`.** 대기 중 슬롯을 반납한다. poke 는 10~15분.

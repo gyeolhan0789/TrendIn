@@ -37,6 +37,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly 'org.postgresql:postgresql'
 
 	implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
@@ -95,6 +97,7 @@ tasks.named('processResources') {
 }
 
 tasks.named('bootJar') {
+	archiveFileName = 'app.jar'
 	dependsOn tasks.named('asciidoctor')
 	from(tasks.named('asciidoctor').map { it.outputDir }) {
 		into 'BOOT-INF/classes/static/docs'

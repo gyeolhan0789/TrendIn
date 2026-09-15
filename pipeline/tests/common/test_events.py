@@ -1,7 +1,6 @@
 """이벤트 봉투 (설계 문서 #6, 팀 계약 `docs/data-pipeline-design.md` 5장).
 
-봉투가 두 모양이라 소비 측이 `object_key` 로 가른다는 것, 그리고 배치용 필드가 기사 단위로
-어떻게 재해석되는지가 여기서 갈린다.
+기사 토픽과 요약 토픽 각각의 봉투와 수집·발급 지표의 의미를 검증한다.
 """
 
 import re
@@ -103,78 +102,81 @@ def test_회원_전용은_raw_키가_null_이다():
     assert event["object_key"]
 
 
-def test_요약_이벤트는_object_key_가_null_이라_기사_이벤트와_갈린다():
+def test_요약은_수집과_발급을_구분하고_고정_19개_필드로_나간다():
+    from trendin.common.collect.flow import SourceOutcome
+    from trendin.common.collect.ledger import EmittedStats
+
     event = run_summary_event(
-        source="vogue",
-        domain="fashion",
-        run_id="20260903T100000",
-        logical_date=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
-        status="success",
-        record_count=0,
-        bucket="raw-data",
+        source="vogue", domain="fashion", run_id=RUN_ID,
+        logical_date=datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc), status="success",
+        outcome=SourceOutcome(source="vogue", domain="fashion", discovered=10, stored=1, skipped=9),
+        emitted=EmittedStats(12, datetime(2026, 9, 1, tzinfo=timezone.utc)),
     )
-    assert event["object_key"] is None
-    assert event["event_id"] == "vogue-20260903T100000"
-    assert event["record_count"] == 0  # 0건도 낸다 (팀 발행 규약 4)
+    assert event == {
+        "schema_version": 1, "event_id": "vogue-20260903T110000", "domain": "fashion",
+        "source_id": "vogue", "run_id": RUN_ID, "run_started_at": "2026-09-03T11:00:00+09:00",
+        "status": "success", "discovered": 10, "stored": 1, "skipped": 9,
+        "not_modified": False, "failed": 0,
+        "failed_by_stage": {"discover": 0, "materialize": 0, "store": 0}, "failures": [],
+        "duration_ms": 0, "members_only_stored": 0, "emitted": 12,
+        "emitted_oldest_collected_at": "2026-09-01T09:00:00+09:00", "failure_reason": None,
+    }
 
 
-def test_실패_요약은_이유를_반드시_채운다():
-    """팀 발행 규약 5 — 소비 측이 누락과 실패를 구분해야 한다."""
+@pytest.mark.parametrize("status,reason", [("failed", None), ("partial", "이유")])
+def test_실패_사유와_상태를_검증한다(status, reason):
+    from trendin.common.collect.ledger import EmittedStats
+
     with pytest.raises(ValueError):
         run_summary_event(
-            source="vogue",
-            domain="fashion",
-            run_id="20260903T100000",
-            logical_date=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
-            status="failed",
-            record_count=0,
-            bucket="raw-data",
+            source="vogue", domain="fashion", run_id=RUN_ID,
+            logical_date=datetime(2026, 9, 3, tzinfo=KST), status=status,
+            outcome=None, emitted=EmittedStats(0, None), failure_reason=reason,
         )
 
 
-def test_기사_이벤트도_run_id_를_싣는다():
-    """소비 측이 `run_id` 로 curated 를 파티션하고 재처리 단위를 자른다.
-
-    값은 **발급한 실행**이다. 수집 시각은 `collected_at` 이 따로 든다 — 두 값이 갈리는
-    것이 이월분(저장은 실행 N, 발급은 실행 N+1)에서 정상이다.
-    """
+def test_기사_이벤트의_run_id_는_발급_실행이다():
     event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
-    assert event["run_id"] == "20260903T110000"
-    # 수집 시각은 실행과 무관하게 그대로다.
+    assert event["run_id"] == RUN_ID
     assert event["collected_at"] == "2026-09-03T11:10:00+09:00"
+    again = article_event(pending(), bucket="raw-data", run_id="20260904T110000")
+    assert event["event_id"] == again["event_id"]
 
 
-def test_봉투_두_모양이_소비_계약의_필드를_다_채운다():
-    """계약이 요구하는 칸이 빠지면 소비 측 스키마가 그 줄을 null 로 읽는다.
+def test_죽은_소스의_수집_결과는_null이고_발급_통계는_보존된다():
+    from trendin.common.collect.ledger import EmittedStats
 
-    필드 목록을 여기 베끼지 않고 `02-input-contract.md` 의 `EVENT_SCHEMA` 에서 읽는다.
-    베끼면 문서가 바뀌어도 이 테스트가 모른다.
-    """
+    event = run_summary_event(
+        source="vogue", domain="fashion", run_id=RUN_ID,
+        logical_date=datetime(2026, 9, 3, tzinfo=KST), status="failed",
+        outcome=None, emitted=EmittedStats(2, datetime(2026, 9, 1, tzinfo=KST)),
+        failure_reason="태스크 실패",
+    )
+    for name in ("discovered", "stored", "skipped", "not_modified", "failed",
+                 "failed_by_stage", "failures", "duration_ms", "members_only_stored"):
+        assert name in event and event[name] is None
+    assert event["emitted"] == 2
+    assert event["emitted_oldest_collected_at"] == "2026-09-01T00:00:00+09:00"
+
+
+def test_기사_봉투는_소비_계약의_필드를_다_채운다():
     required = _event_schema_fields()
     article = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
-    summary = run_summary_event(
-        source="vogue",
-        domain="fashion",
-        run_id=RUN_ID,
-        logical_date=datetime(2026, 9, 3, 11, 0, tzinfo=KST),
-        status="success",
-        record_count=3,
-        bucket="raw-data",
-    )
     for name, nullable in required.items():
-        for label, event in (("기사", article), ("요약", summary)):
-            assert name in event, f"{label} 이벤트에 {name} 이 없다"
-            if not nullable:
-                assert event[name] is not None, f"{label} 이벤트의 {name} 이 null 이다"
+        assert name in article
+        if not nullable:
+            assert article[name] is not None
 
 
-def test_봉투_두_모양이_소비_측_판별을_그대로_통과한다():
+def test_기사_봉투가_소비_측_판별을_그대로_통과한다():
     """필드 목록 대조보다 이쪽이 계약의 본체다.
 
     `_event_schema_fields()` 가 보는 `EVENT_SCHEMA` 는 "어떤 칸이 있나" 만 정하고, "어떤
     칸이 채워져 있어야 하나" 는 `spark/io/contract.py` 가 정한다(`02 §1` 마지막 문단).
     그래서 생산자 출력을 소비 측 판별기에 그대로 넣어 본다 — 칸이 하나 비면 여기서
     DLQ 사유가 이름과 함께 나온다.
+
+    요약은 `collect-run-summary` 로 옮겨 이 판별기(`raw-file-ready` 용)의 대상이 아니다.
 
     `contract.py` 는 stdlib 만 import 하므로 pyspark 없이 이 잡에서 돈다. `schema.py`
     (pyspark 의존)를 여기서 import 하지 않는 이유이기도 하다.
@@ -184,18 +186,3 @@ def test_봉투_두_모양이_소비_측_판별을_그대로_통과한다():
     article = classify(article_event(pending(), bucket="raw-data", run_id=RUN_ID))
     assert article.error_type is None, article.detail
     assert article.shape is EventShape.ARTICLE
-
-    summary = classify(
-        run_summary_event(
-            source="vogue",
-            domain="fashion",
-            run_id=RUN_ID,
-            logical_date=datetime(2026, 9, 3, 11, 0, tzinfo=KST),
-            status="success",
-            record_count=3,
-            bucket="raw-data",
-        )
-    )
-    assert summary.error_type is None, summary.detail
-    # `object_key` 가 null 이라 요약으로 갈린다 — 계약 위반이 아니다 (02 §2).
-    assert summary.shape is EventShape.SUMMARY

@@ -12,6 +12,7 @@ services:
       DEV_POSTGRES_URL: ${DEV_POSTGRES_URL:?Set DEV_POSTGRES_URL in infra/.env}
       DEV_POSTGRES_USER_NAME: ${DEV_POSTGRES_USER_NAME:?Set DEV_POSTGRES_USER_NAME in infra/.env}
       DEV_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+      DEV_FLYWAY_BASELINE_ON_MIGRATE: ${DEV_FLYWAY_BASELINE_ON_MIGRATE:-false}
       DEV_REDIS_HOST: ${DEV_REDIS_HOST:?Set DEV_REDIS_HOST in infra/.env}
       DEV_REDIS_PORT: ${DEV_REDIS_PORT:?Set DEV_REDIS_PORT in infra/.env}
       DEV_REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
@@ -59,7 +60,7 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-      - ./redis.conf:/etc/redis/redis.conf:ro
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 10s

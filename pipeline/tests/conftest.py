@@ -36,6 +36,21 @@ class FakeClock:
         self.now += seconds
 
 
+@pytest.fixture(autouse=True)
+def _no_real_http(monkeypatch):
+    """테스트가 실제 사이트를 치지 못하게 httpx 의 실제 전송을 막는다.
+
+    수집 코드가 밖으로 나가는 길은 `CollectSession` 의 httpx 하나다. 테스트는 `MockTransport`
+    를 끼우므로 이 막음에 닿지 않는다. 2026-09-14 에 인자 검사가 없던 백필 테스트가 진짜 세션을
+    열어 Algolia 를 2분간 쳤다 — 그런 테스트가 네트워크 대신 여기서 즉시 실패한다.
+    """
+
+    def refuse(self, request):
+        raise AssertionError(f"테스트가 실제 네트워크를 쳤다: {request.url}")
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", refuse)
+
+
 @pytest.fixture
 def clock() -> FakeClock:
     return FakeClock()
@@ -53,6 +68,14 @@ def feed_bytes():
 def listing_bytes():
     def read(name: str) -> bytes:
         return (FIXTURES / "listing" / name).read_bytes()
+
+    return read
+
+
+@pytest.fixture
+def api_bytes():
+    def read(name: str) -> bytes:
+        return (FIXTURES / "api" / name).read_bytes()
 
     return read
 

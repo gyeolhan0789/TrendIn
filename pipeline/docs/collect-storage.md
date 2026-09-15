@@ -32,6 +32,8 @@
 
 **저장과 발급이 다른 태스크인 이유는 재시도 복구다.** 저장까지 하고 발급 전에 죽은 행은 `event_emitted_at` 이 비어 있어 다음 실행의 발급이 이어 낸다. 그래서 발급은 "이번에 저장한 것"이 아니라 "아직 안 나간 것 전부"를 본다.
 
+기사 이벤트는 `raw-file-ready`, 실행 요약은 `collect-run-summary`로 나간다. 요약 토픽 환경변수가 비면 기사만 발급한다. 수집 숫자와 장부의 발급 통계는 별개이며, 계약은 `spark-integration.md` §3·§12를 따른다.
+
 과거분 백필도 저장까지는 같은 루프를 탄다(`flow.store_candidates`). 발급은 하지 않고 다음 주기 실행에 맡긴다.
 
 ## 3. MinIO 에 놓이는 것
@@ -66,7 +68,7 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 | 저장 순서와 `stat` 확인 | `flow.store_article` | 여기 하나뿐이다. 주기 실행과 백필이 같은 함수를 탄다 |
 | 객체 메타데이터 | `flow.object_metadata` | `minio_store._ascii_only` 가 ASCII 를 강제한다 |
 | 장부 컬럼 | `ledger.DDL` | `ledger.PendingArticle` · `events.article_event` — 발급이 장부만 읽고 봉투를 채운다 |
-| 이벤트 봉투 | `common/collect/events.py` | 견본 `spark/tests/fixtures/contract/` · `scripts/gen-contract-fixtures.py` |
+| 기사·요약 토픽별 이벤트 봉투 | `common/collect/events.py` | 견본 `spark/tests/fixtures/contract/` · `scripts/gen-contract-fixtures.py` |
 | 버킷 · 계정 권한 · 수명주기 | `datastore/minio-init/init.sh` | `datastore/README.md`, `pipeline/.env` 의 `TRENDIN_MINIO_*` |
 | 접속 주소와 자격증명 | 환경변수 `TRENDIN_MINIO_ENDPOINT` · `_BUCKET` · `_ACCESS_KEY` · `_SECRET_KEY` | 코드에 주소를 적지 않는다 |
 

@@ -9,13 +9,14 @@ import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
 
-/* 새 시안으로 다시 그린 화면들. 공용 헤더·푸터는 SiteLayout이 붙여 줍니다. */
-export const siteRoutes = (
-  <>
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/dashboard" element={<HomePage />} />
-  </>
-);
+/*
+ * 랜딩은 로그인 전에도 열리는 소개 화면이라 가드 밖에 둡니다. 다만 트렌드 조회는
+ * 토큰을 요구하므로, 로그인 전에는 화면이 알아서 자료 없는 모양으로 내려앉습니다.
+ */
+export const landingRoutes = <Route path="/" element={<LandingPage />} />;
+
+/* 새 시안으로 다시 그렸고, 자료를 받으려면 로그인해야 하는 화면들. */
+export const siteRoutes = <Route path="/dashboard" element={<HomePage />} />;
 
 /* 아직 옛 모양인 화면들. 각자 시안이 나오면 위로 옮겨 갑니다. */
 export const appRoutes = (

@@ -21,21 +21,22 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 
 | 항목 | 값 | 어디서 오나 |
 |---|---|---|
-| topic | `raw-file-ready` | `datastore/.env` `KAFKA_TOPIC_RAW_FILE_READY` |
+| 기사 topic | `raw-file-ready` | `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY` |
+| 요약 topic | `collect-run-summary` (생성 요청, 기본 비활성) | `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY` |
 | bootstrap (같은 EC2 의 다른 compose) | `kafka:9092` | 네트워크 `s15p21a102-data` |
 | bootstrap (호스트·다른 EC2) | `${KAFKA_EXTERNAL_HOST}:29092` | `datastore/.env` |
 | 직렬화 | JSON, UTF-8, 비ASCII 를 escape 하지 않는다 | `kafka_publisher.publish` |
 | message key | `source_id` (UTF-8 바이트) | `flow.publish_pending` · `flow.publish_summaries` |
-| 파티션 | 6 | 늘릴 수만 있고 줄이지 못한다 |
+| 파티션 | 기사 6 · 요약 1 요청 | 요약은 datastore 담당자 생성 후 활성화 |
 | `cleanup.policy` | `delete` | `compact` 면 key 가 `source_id` 라 소스당 최신 1 건만 남는다 |
-| `retention.ms` | 7일 | MinIO 원문은 90일이다 — 부등식은 §6 |
+| `retention.ms` | 기사 7일 · 요약 30일 요청 | MinIO 원문은 90일이다 — 부등식은 §5 |
 
 접속 정보의 정본은 [`datastore/README.md`](../../datastore/README.md) "접속 정보" 절이다. 값이 이 표와 다르면 그쪽이 맞다.
 
 ### message key 를 `source_id` 로 둔 결과
 
-같은 소스의 이벤트는 한 파티션에 모여 **순서가 보장된다.** 그래서 어떤 소스의 기사 이벤트들과
-뒤이어 나가는 그 소스의 실행 요약 이벤트(§3)는 순서대로 온다. 소스가 다르면 순서 보장이 없다.
+같은 **토픽 안에서** 같은 소스의 이벤트는 한 파티션에 모인다. 기사와 요약은 다른 토픽이므로
+두 토픽 사이의 도착 순서는 보장하지 않는다. 기사와 요약의 `run_id` 로 대사한다(기사 쪽은 발급 실행).
 
 중복 판정은 key 가 아니라 `event_id` 로 한다. 같은 key 로 다른 기사가 계속 오기 때문이다.
 
@@ -57,67 +58,96 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 적는다. 그래서 **발급 후 장부 기록 전에 죽으면 같은 이벤트가 다시 나간다.** at-least-once 이고,
 중복 제거는 소비 측 책임이다 (`event_id` 가 그 키다).
 
-## 3. 봉투 — 토픽에 모양이 둘 흐른다
+## 3. 봉투 — 토픽별 계약
 
-팀 계약([`data-pipeline-design.md` §5](data-pipeline-design.md))은 배치 하나에 이벤트 하나를
-전제하지만, 크롤러는 **기사 하나에 이벤트 하나**를 낸다 (`web-collect.md` §12 확정 7).
-거기에 소스별 실행 요약이 하나 더 붙는다.
+기사 이벤트는 `raw-file-ready`, 소스별 실행 요약은 `collect-run-summary` 에만 발급한다.
+`object_key` 로 이벤트 종류를 분기하지 않는다. 요약 토픽이 비활성이면 기사만 발급한다.
 
-| | 기사 이벤트 | 실행 요약 이벤트 |
+### raw-file-ready — 기사 이벤트
+
+기사 하나에 이벤트 하나다. 기사 객체·장부 스키마·봉투 필드 이름은 그대로다. `run_id` 의 뜻은
+소비 계약([`02 §2`](../spark/docs/02-input-contract.md))과 같이 발급 실행이다.
+
+| 필드 | 타입 | 값 |
 |---|---|---|
-| 언제 | 기사 하나가 MinIO 에 저장된 뒤 | 소스 하나의 실행이 끝날 때마다 (0건·실패에도) |
-| `event_id` | `{source_id}-{article_id}` | `{source_id}-{run_id}` |
-| `object_key` | article.json 키 | **`null`** |
-| `run_id` | **`null`** | `yyyyMMddTHHmmss` (KST) |
-| 하루 몇 건 | 700 건 안팎 | 소스 수 × 실행 수 |
+| `event_id` | string | `{source_id}-{article_id}` |
+| `schema_version` | int | `1` |
+| `bucket` | string | `raw-data` |
+| `object_key` | string | article.json 키 |
+| `raw_object_key` | string \| null | raw 키. 회원 전용 기사는 `null` |
+| `domain` | string | `fashion` \| `dev` (§11 참고) |
+| `source_id` | string | 소스 키 (`vogue` 등) |
+| `article_id` | string \| null | 소스의 기사 식별자 |
+| `run_id` | string | 발급 실행, `yyyyMMddTHHmmss` KST. 필수 |
+| `url` | string \| null | 기사 정식 URL |
+| `title` | string \| null | 기사 제목 |
+| `published_at` | string \| null | ISO-8601, **소스가 준 오프셋 그대로** |
+| `collected_at` | string | ISO-8601 KST. 그 기사를 받은 시각 |
+| `status` | string | 항상 `success` |
+| `record_count` | int | 항상 `1` |
+| `size_bytes` | null | `null` |
+| `checksum` | string \| null | `sha256-` + article.json 의 sha256 |
+| `format` | string \| null | `json` |
+| `compression` | string \| null | `none` |
+| `failure_reason` | string \| null | `null` |
+| `members_only` | bool | 회원 전용 기사면 `true` |
 
-### ⚠️ 분기 기준은 `object_key` 의 null 여부다
+`run_id` 는 **발급 실행**이다. 저장만 되고 못 나간 행은 다음 회차가 내므로 수집
+실행과 달라도 정상이다. 수집 시각은 `collected_at` 에 있다. **파티션 키로 쓰지 않는다.**
+재발급하면 값이 달라져 같은 기사가 다른 파티션에 갈릴 수 있다. 값도 파싱하지 않는다.
+`event_id` 는 결정적인 **중복 판정 함수**다. 파싱해서 `source_id` 를 추출하지 않는다.
 
-```python
-is_article_event = event["object_key"] is not None
-```
+### collect-run-summary — 소스별 실행 요약
 
-**요약 이벤트는 `status: "success"` 인데도 `object_key` 가 `null` 이고 `record_count` 가 0 보다
-클 수 있다.** 팀 계약 발행 규약 4 ("`success` 면 `object_key` 는 항상 유효하다")는 배치 이벤트
-하나만 있던 때의 문장이라 요약 이벤트에는 적용되지 않는다. 이 조합을 계약 위반으로 읽으면
-**정상 실행마다 소스당 하나씩 DLQ 가 쌓인다.**
+토픽을 활성화하면 소스 하나의 한 회차마다 논리적으로 하나를 낸다. 0건·수집 실패에도
+낸다. 전달은 at-least-once라 재시도 중복은 `event_id` 로 제거한다. 공통 식별 5칸과
+수집 결과·발급 통계를 담는 고정 **19개 필드**다. 안 쓰는 기사 봉투 필드는 없다.
 
-요약 이벤트를 없애지 않는 이유는 팀 발행 규약 4·5 가 있는 이유와 같다 — 기사 이벤트만 내면
-"그 소스에 새 글이 없던 것"과 "그 소스 수집이 실패한 것"이 똑같이 "아무것도 안 옴" 으로 보인다.
-
-### 필드
-
-`events.py` 가 정본이다. 두 모양 다 팀 봉투의 칸을 하나도 빼지 않고, 안 쓰는 칸은 `null` 로 둔다.
-
-| 필드 | 타입 | 기사 이벤트 | 요약 이벤트 |
+| 필드 | 타입 | 값 | 어디서 |
 |---|---|---|---|
-| `event_id` | string | `{source_id}-{article_id}` | `{source_id}-{run_id}` |
-| `schema_version` | int | `1` | `1` |
-| `bucket` | string | `raw-data` | `raw-data` |
-| `object_key` | string \| null | article.json 키 | **`null`** |
-| `raw_object_key` | string \| null | raw 키. 회원 전용 기사는 `null` | `null` |
-| `domain` | string | `fashion` \| `dev` (§11 참고) | 같음 |
-| `source_id` | string | 소스 키 (`vogue` 등) | 같음 |
-| `article_id` | string \| null | 소스의 기사 식별자 | `null` |
-| `run_id` | string \| null | **`null`** | `yyyyMMddTHHmmss` (KST) |
-| `url` | string \| null | 기사 정식 URL | `null` |
-| `title` | string \| null | 기사 제목 | `null` |
-| `published_at` | string \| null | ISO-8601, **소스가 준 오프셋 그대로** | `null` |
-| `collected_at` | string | ISO-8601 KST. 그 기사를 받은 시각 | ISO-8601 KST. logical date |
-| `status` | string | 항상 `success` | `success` \| `failed` |
-| `record_count` | int | 항상 `1` | 그 실행 구간에 발급된 기사 수 (0 이상) |
-| `size_bytes` | null | `null` | `null` |
-| `checksum` | string \| null | `sha256-` + article.json 의 sha256 | `null` |
-| `format` | string \| null | `json` | `null` |
-| `compression` | string \| null | `none` | `null` |
-| `failure_reason` | string \| null | `null` | `failed` 일 때만 채운다 |
-| `members_only` | bool \| null | 회원 전용 기사면 `true` | `null` |
+| `schema_version` | int | `1` | 상수 |
+| `event_id` | string | `{source_id}-{run_id}` | |
+| `domain` | string | `fashion` \| `dev` | `SourceStatus.domain` |
+| `source_id` | string | 소스 키 | |
+| `run_id` | string | `yyyyMMddTHHmmss` (KST) | `flow.run_id_of` |
+| `run_started_at` | string | ISO-8601 KST. **logical date** — 재시도해도 같다 | context |
+| `status` | string | `success` \| `failed` | `flow.source_statuses` |
+| `discovered` | int \| null | 발견한 후보 수 | `collect_source` 집계 |
+| `stored` | int \| null | 이번 회차에 새로 저장한 수 | `SourceOutcome.stored` |
+| `skipped` | int \| null | 장부에 이미 있어 안 받은 수 | `SourceOutcome.skipped` |
+| `not_modified` | bool \| null | 조건부 요청이 304 라 목록도 안 받았다 | `SourceOutcome.not_modified` |
+| `failed` | int \| null | 실패 건수 합 | `SourceOutcome.failed` |
+| `failed_by_stage` | object \| null | `{"discover": n, "materialize": n, "store": n}` | `collect_source` 집계 |
+| `failures` | array \| null | 표본. `{stage, article_id, reason}` 앞 10건 | 실패 표본 |
+| `duration_ms` | int \| null | 수집 태스크 소요 | 단조 시계로 측정 |
+| `members_only_stored` | int \| null | raw 없이 저장된 수 | `collect_source` 집계 |
+| `emitted` | int | 이번 회차가 발급한 기사 이벤트 수 | 장부 (`emitted_by_run`) |
+| `emitted_oldest_collected_at` | string \| null | 그중 가장 오래된 `collected_at`, KST. 0건이면 `null` | 장부의 `min(collected_at)` |
+| `failure_reason` | string \| null | `status=failed` 일 때만 | `SourceStatus.failure_reason` |
 
-`raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only` 는 팀 봉투에
-없던 필드다. **추가는 하위 호환이라 `schema_version` 은 그대로다** (§10).
+수집 결과 **9개 필드**(`discovered`, `stored`, `skipped`, `not_modified`, `failed`,
+`failed_by_stage`, `failures`, `duration_ms`, `members_only_stored`)는 XCom에서 온다.
+수집 태스크가 죽어 결과가 없으면 전부 `null`이다. `0`은 관측된 0건이므로 대신 쓰지 않는다.
+`failed_by_stage` 는 세 단계 모두 포함하고, `failures` 는 발견→취득·저장 순서의 앞 10건,
+사유는 앞 200자다. `failed` 와 단계별 건수는 표본이 아닌 전체 실패를 센다.
+`duration_ms` 는 발견부터 저장 확인·장부 기록까지의 단조 시계 경과 시간이다.
+`members_only_stored` 는 회원 전용 기사 중 저장 확인에 성공한 수다.
 
-`url` · `source_id` · `published_at` 은 저작권법 제37조 출처 명시라 기사 이벤트에서 절대 비지
-않는다 (`web-collect.md` 불변식 11). 화면에 기사를 보일 때 이 셋이 필요하다.
+발급 통계는 장부에서 오므로 수집 실패와 독립이다. `emitted` 는 항상 0 이상의 정수이고,
+0건일 때만 `emitted_oldest_collected_at` 이 `null`이다. 이월분이 있으면 `emitted > stored`
+일 수 있다. 같은 실행의 재시도는 장부의 `event_run_id`로 집계하므로 통계가 유지된다.
+`run_started_at` 은 실제 태스크 시작 시각이 아닌 **logical date**의 KST 표기다.
+`failure_reason` 은 `failed` 일 때만 채우며, 수집 태스크 전체 실패의 상세는 Airflow 로그에 있다.
+요약에는 `exclude_none`을 쓰지 않는다.
+
+| 관측 | 해석 |
+|---|---|
+| `discovered=0`, `not_modified=false` | 정상 무소식 또는 구조 변경·차단 의심. 자동 이상 판정은 S15P21A102-199 |
+| `discovered>0`, `skipped=discovered`, `stored=0` | 후보 전부 이미 수집함 |
+| `not_modified=true` | 조건부 요청 304 |
+| `failed_by_stage.discover>0` | 목록·피드 파싱 실패 |
+| `failed_by_stage.materialize` 가 발견 수에 가까움 | 기사 취득·정규화 장애 의심 |
+| `emitted_oldest_collected_at` 이 며칠 전 | 발급 지연. 닫힌 날짜 집계의 재계산 범위에 반영해야 함 |
 
 ### 주의할 점 셋
 
@@ -128,7 +158,7 @@ raw 의 해시는 article.json 안의 `content_sha256` 이다 (§5). 이름이 �
 줄 수와 대조하는 검증은 이 계약에서 성립하지 않는다.
 
 **`collected_at` 은 재처리해도 바뀌지 않는다.** 기사 이벤트는 그 기사를 받은 시각이라, 저장만
-되고 발급 전에 죽은 행을 며칠 뒤에 내보내도 값이 그대로다. 요약 이벤트는 logical date 라
+되고 발급 전에 죽은 행을 며칠 뒤에 내보내도 값이 그대로다. 요약의 `run_started_at`은 logical date라
 재시도해도 같다.
 
 ## 4. 본문은 이벤트에 없다
@@ -289,19 +319,20 @@ docker run --rm --network s15p21a102-data \
 |---|---|
 | 같은 기사를 다시 저장 | 같은 키를 덮어쓴다. `(source, article_id)` 하나가 키 하나로 간다 |
 | 같은 이벤트가 다시 나감 | 있을 수 있다 (at-least-once). `event_id` 로 거른다 |
-| 같은 실행을 재시도 | 같은 `event_id` 로 같은 내용이 나간다. `record_count` 는 장부에서 오므로 줄지 않는다 |
+| 같은 실행을 재시도 | 같은 `event_id` 로 같은 내용이 나간다. 요약의 `emitted` 와 가장 오래된 수집 시각은 장부의 발급 실행에서 온다 |
 | 이벤트가 유실 | `article.json` 이 있는 디렉터리를 훑어 재구성할 수 있다 (§5). Kafka 는 원본이 아니다 |
 
 ## 8. 샘플
 
-[`spark/tests/fixtures/contract/`](../spark/tests/fixtures/contract/) 에 이벤트 3건과 그 이벤트가
-가리키는 객체 2개가 있다. Kafka·MinIO 를 띄우지 않고 파싱·검증 코드를 테스트할 수 있다.
+[`spark/tests/fixtures/contract/`](../spark/tests/fixtures/contract/) 에 이벤트 5건(기사 1, 요약 토픽 2, 이전 봉투 요약 2)과
+기사 이벤트가 가리키는 객체 2개가 있다. Kafka·MinIO 를 띄우지 않고 파싱·검증 코드를 테스트할 수 있다.
 
 | 파일 | 무엇 |
 |---|---|
-| `article-event.json` | 기사 이벤트. `object_key` 가 있다 |
-| `run-summary-success.json` | 실행 요약(성공). `object_key` 가 `null` 이고 `record_count` 가 12 다 |
-| `run-summary-failed.json` | 실행 요약(실패). `failure_reason` 이 있다 |
+| `article-event.json` | 기사 이벤트(`raw-file-ready`). `object_key` 가 있다 |
+| `collect-run-summary-success.json` | 요약 토픽의 실행 요약(성공). `stored=1`, `emitted=12`, 취득 실패 2건과 발급 지연 표본 |
+| `collect-run-summary-failed.json` | 요약 토픽의 실행 요약(실패). 수집 결과 9칸은 `null`, `emitted=0`, `failure_reason` 이 있다 |
+| `run-summary-success.json` · `run-summary-failed.json` | 이전 봉투 요약. 분리 전 `raw-file-ready` 에 나간 요약(7일 보존)을 소비 측이 계속 판별하도록 남긴다. 생성 스크립트가 만들지 않고, S15P21A102-206 이 기사 토픽의 요약 분기를 걷을 때 함께 지운다 |
 | `objects/fashion/vogue/rss/2026/09/03/854414/article.json` | 위 기사 이벤트의 `object_key` 가 가리키는 실물 |
 | `objects/fashion/vogue/rss/2026/09/03/854414/raw.xml` | `raw_object_key` 가 가리키는 실물 |
 
@@ -311,8 +342,7 @@ docker run --rm --network s15p21a102-data \
 **`sha256(article.json)` 이 이벤트의 `checksum` 과 실제로 같다.** checksum 검증 코드를 이
 fixture 로 그대로 테스트할 수 있다. 본문·요약은 저작권 때문에 합성 문장이다.
 
-`run-summary-success.json` 의 `record_count` 가 0 이 아닌 것은 일부러다. §3 의 분기를 안 하면
-이 파일에서 걸린다.
+성공 요약 fixture의 발급 수를 수집 수보다 크게 두어 이월 발급을 구분하는지 확인한다.
 
 ### fixture 갱신
 
@@ -342,22 +372,23 @@ cd pipeline
 
 | 모드 | 무엇을 하나 | 언제 |
 |---|---|---|
-| fixture (기본) | fixture 객체를 `_verify/` 아래 올리고 이벤트 3건을 발행한 뒤, **Spark read 전용 키로** 되읽어 검증한다. 끝에서 지운다 | 언제나. 크롤러를 돌리지 않는다 |
+| fixture (기본) | fixture 객체를 `_verify/` 아래 올리고 기사 토픽에 1건, 활성화된 요약 토픽에 2건을 발행한 뒤, **Spark read 전용 키로** 되읽어 검증한다. 끝에서 지운다 | 언제나. 크롤러를 돌리지 않는다 |
 | `--live` | 토픽에 쌓인 실제 수집 이벤트를 같은 검증에 통과시킨다 | 크롤러를 한 번 돌린 뒤 |
 
 검사 항목:
 
 | 층 | 무엇을 보나 |
 |---|---|
-| Kafka | message key == `source_id` · 소스별로 한 파티션에 모이는지 · **요약 이벤트가 그 소스의 기사들 뒤에 오는지** (§2 의 순서 보장) |
-| 봉투 | 공통 필드 · `schema_version` · 기사/요약 분기 · 기사의 `run_id` 가 `null` · `record_count=1` · 출처 명시 3종 · 요약의 `failure_reason` |
+| Kafka | message key == `source_id` · 토픽별로 같은 소스가 한 파티션에 모이는지 |
+| 봉투 | 공통 필드 · `schema_version` · 토픽별 봉투 · 기사 `run_id`(발급 실행) · `record_count=1` · 출처 명시 · 요약 수집 결과와 발급 통계 |
 | MinIO | `object_key` 와 `raw_object_key` 읽기 · `checksum` 대조 · 봉투와 `article.json` 의 값 일치 · raw 가 없으면 `members_only` 인지 |
 | 권한 | **Spark 키 write 거부** |
 
 Kafka 층을 따로 두는 이유는 봉투만 봐서는 확인할 수 없기 때문이다. 순서 보장은 message key
 와 파티션 배치의 성질이라, 메시지 메타(`key` · `partition` · `offset`)를 함께 봐야 한다.
 
-주소와 키는 `datastore/.env` 에서 읽으므로 포트를 바꿔도 따라간다. `--live` 는 fixture 모드가
+주소와 키는 `datastore/.env`, 선택적인 요약 토픽은 `pipeline/.env`의
+`TRENDIN_KAFKA_TOPIC_RUN_SUMMARY`에서 읽는다. 비어 있으면 요약 검증을 건너뛴다. `--live` 는 fixture 모드가
 남긴 이벤트를 걸러낸다 — 토픽에는 7일 남지만 그 객체는 검증 끝에 지워지기 때문이다.
 
 ## 10. 스키마 변경 통보 절차
@@ -372,6 +403,11 @@ Kafka 층을 따로 두는 이유는 봉투만 봐서는 확인할 수 없기 �
 
 의미 변경을 비호환으로 두는 이유는, 타입이 같으면 소비 측이 조용히 잘못 읽고 그게 몇 주 뒤
 통계의 이상으로만 나타나기 때문이다.
+
+### 이번 변경의 예외 (2026-09-09)
+
+기사 키 이름 변경과 요약 토픽 분리는 비호환 변경이지만, 당시 Spark Job이 뼈대이고
+실제 소비자가 없어 `schema_version=1`을 유지한다. 이 예외를 이후 변경에 적용하지 않는다.
 
 ### 절차
 
@@ -396,7 +432,7 @@ fixture 를 다시 만들어야 하고, 그러면 fixture diff 가 MR 에 남는
 
 | # | 무엇 | 상태 |
 |---|---|---|
-| 1 | **기사별 이벤트 + 요약 이벤트 구조** | `web-collect.md` §12 항목 4·7 에서 결정. 유정균 확인 완료, **소비 측 확인 남음** |
+| 1 | **요약 별도 토픽 이행** | 2026-09-09 재검토. §12의 토픽 생성·유정균 재확인·소비 측 인계가 남음 |
 | 2 | **`domain` 값이 `dev` 인가 `development` 인가** | 크롤러는 `dev` 를 내고, 팀 계약과 [`01 §6`](../spark/docs/01-architecture.md) 은 `development` 를 기대한다. `development` 로 통일하기로 했고 크롤러 쪽 수정이 남았다. `fashion` 은 양쪽이 같다 |
 | 3 | 날짜 파티션이 발행일 | `web-collect.md` §12 항목 6 의 잠정답이 발행일이고 `keys.py` 가 그대로 구현했다. 확정 도장이 남았다 |
 | 4 | consumer group 이름 | §2. 소비 측이 정한다 |
@@ -409,11 +445,46 @@ fixture 를 다시 만들어야 하고, 그러면 fixture diff 가 MR 에 남는
 
 | `02` 의 내용 | 실제 |
 |---|---|
-| `EVENT_SCHEMA` | `raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only` 6 개가 없다. `from_json` 이 버린다 |
-| `run_id` 가 `nullable=False` | 기사 이벤트는 항상 `null` 이다 |
-| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 실행 요약 이벤트가 정확히 그 모양이다 (§3) |
+| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 이제 기사 토픽에는 맞는 규칙이다. 요약은 별도 토픽으로 읽는다 |
 | §3 `record_count` 를 파싱된 줄 수와 대조 | 객체가 jsonl 이 아니라 단일 JSON 객체다 |
 | §6 manifest 모드가 `metadata.json` 을 훑는다 | `metadata.json` 이 없다. `article.json` 이 완료 마커다 (§5) |
 | `format: jsonl` · `compression: gzip` | `json` · `none` |
 
 `02` 는 소비 측 소유 문서라 이 문서가 고치지 않는다. 위 목록을 근거로 갱신해 주면 된다.
+
+## 12. 토픽 생성과 소비 측 인계
+
+**머지 전 유정균 재확인이 필요하다.** 2026-09-07(S15P21A102-158)에 함께 접은 토픽 분리
+결정을 다시 여는 작업이다. 근거 넷은 `web-collect.md` §12에 기록했다. 토픽 생성 완료까지
+구현을 기다릴 필요는 없지만 재확인을 받은 것으로 간주하지 않는다.
+
+| collect-run-summary 생성 요청 | 값 |
+|---|---|
+| partitions | 1 (7소스 × 24회, 하루 168건 기준) |
+| retention.ms | 2592000000 (30일) |
+| cleanup.policy | delete (compact면 소스별 최신 1건만 남음) |
+| segment.ms | 86400000 |
+
+`datastore/` 담당자가 `kafka-init/init.sh`에 토픽별 파티션·보존 설정을 적용하고,
+`.env.example`에 `KAFKA_TOPIC_RUN_SUMMARY` 및 전용 설정을 추가하고 README를 갱신한다.
+`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`이므로 먼저 토픽이 있어야 한다.
+
+생산 측은 기본 비활성(`TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=`)으로 배포할 수 있다.
+이때 기사 이벤트는 그대로 발급되고, 요약은 발급하지 않으며 로그와
+publish 결과의 `summaries=0`, `summary_enabled=false`로 표시한다. 토픽 생성 후
+`.env`를 `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=collect-run-summary`로 채우고
+`docker compose up -d`하면 다음 회차부터 요약을 낸다. 비활성 기간의 요약을 소급 발급하지 않는다.
+
+강민수의 S15P21A102-206에 넘길 변경은 다음과 같다.
+
+- 기사 토픽의 `object_key` 기반 기사/요약 분기를 제거한다. 기사 `run_id`는 이름과 뜻(발급 실행)이
+  그대로다. 기사 `record_count`는 항상 1이며, 수집 건수는 요약의 `stored` 합이다.
+- 재계산 창 W는 `처리일 − published_date`를 기준으로 잡는다.
+  `처리일 − collected_date`(발급·처리 지연)와 `collected_date − published_date`(수집 지연)를
+  함께 고려하며, `emitted_oldest_collected_at`이 오래된 수집분의 늦은 도착을 알려 준다.
+- 수집 상태 원장은 닫힌 날짜에도 늦게 도착한 이벤트로 다시 열릴 수 있어야 한다.
+- 문서와 fixture가 들어 있는 MR을 인계하고, 배포 후 첫 회차 이벤트를 함께 확인한다.
+
+기존 기사 토픽에 나간 요약 196개는 삭제하지 않는다. 기존 7일 보존으로 만료된다.
+그동안 과거 이벤트를 처음부터 읽는 `--live` 검증에는 이전 봉투가 섞여 실패할 수 있다.
+장부 출처 열(주기/백필), 불투명 UUID, status 확장, 소비 측 문서 직접 수정은 이번 범위 밖이다.

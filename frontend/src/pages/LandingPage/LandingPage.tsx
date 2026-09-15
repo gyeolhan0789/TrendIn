@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
-import { useNewTrends } from '../../features/trend/hooks/useNewTrends';
-import { useResurgingTrends } from '../../features/trend/hooks/useResurgingTrends';
-import { useTopTrends } from '../../features/trend/hooks/useTopTrends';
-import type { Trend } from '../../features/trend/types/trend';
+import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
+import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { useTrends } from '../../features/trend/hooks/useTrends';
+import { DEFAULT_PERIOD } from '../../constants/filterCodes';
+import type { Trend, TrendType } from '../../features/trend/types/trend';
 import { landingContents } from './landingContents';
 
 type BoardTone = 'rising' | 'new' | 'resurging';
@@ -16,6 +17,7 @@ interface TrendBoardProps {
   trends: Trend[];
   loading: boolean;
   error: boolean;
+  locked: boolean;
   onRetry: () => void;
 }
 
@@ -27,7 +29,9 @@ function ArrowIcon({ size = 14, color = '#374151', width = 2 }: { size?: number;
   );
 }
 
+/** 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그 자리에 숫자를 지어내지 않습니다. */
 function formatGrowth(trend: Trend) {
+  if (trend.growthRate === null) return '—';
   return `${trend.growthRate > 0 ? '+' : ''}${trend.growthRate}%`;
 }
 
@@ -39,7 +43,7 @@ function formatCompact(count: number) {
 }
 
 /** 시안의 카드 한 장. 머리쪽 그라데이션은 톤별로 CSS가 들고 있습니다. */
-function TrendBoard({ title, tone, trends, loading, error, onRetry }: TrendBoardProps) {
+function TrendBoard({ title, tone, trends, loading, error, locked, onRetry }: TrendBoardProps) {
   const rows = trends.slice(0, 3);
 
   return (
@@ -53,19 +57,25 @@ function TrendBoard({ title, tone, trends, loading, error, onRetry }: TrendBoard
       </div>
       <div className="landing-board-body">
         <h3>{title}</h3>
-        {loading && <p className="landing-board-note">불러오는 중…</p>}
-        {!loading && error && (
+        {/* 트렌드 조회는 토큰을 요구해서, 로그인 전에는 부르지 않고 안내만 둡니다. */}
+        {locked && (
+          <p className="landing-board-note">
+            <Link to="/login">로그인</Link>하면 실시간 순위를 볼 수 있어요.
+          </p>
+        )}
+        {!locked && loading && <p className="landing-board-note">불러오는 중…</p>}
+        {!locked && !loading && error && (
           <p className="landing-board-note">
             불러오지 못했습니다.{' '}
             <button type="button" onClick={onRetry}>다시 시도</button>
           </p>
         )}
-        {!loading && !error && rows.length === 0 && <p className="landing-board-note">아직 집계된 키워드가 없습니다.</p>}
-        {!loading && !error && rows.map((trend, index) => (
+        {!locked && !loading && !error && rows.length === 0 && <p className="landing-board-note">아직 집계된 키워드가 없습니다.</p>}
+        {!locked && !loading && !error && rows.map((trend, index) => (
           <div className="landing-board-row" key={trend.trendId}>
-            <span className="landing-board-rank">{index + 1}</span>
+            <span className="landing-board-rank">{trend.rank ?? index + 1}</span>
             <Link className="landing-board-keyword" to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>
-            {tone === 'new'
+            {tone === 'new' && trend.growthRate === null
               ? <span className="landing-board-badge">NEW</span>
               : <span className="landing-board-delta">{formatGrowth(trend)}</span>}
           </div>
@@ -87,24 +97,38 @@ function recentDays(count = 7) {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const topQuery = useTopTrends();
-  const newQuery = useNewTrends();
-  const resurgingQuery = useResurgingTrends();
+  const session = useAuthSession();
+  // 분야 목록은 로그인 없이도 열려 있지만, 트렌드 조회는 토큰이 있어야 합니다.
+  const domainsQuery = useDomains();
+  const domain = domainsQuery.data?.[0]?.domain;
+  const canLoad = Boolean(session && domain);
+
+  const paramsFor = (type: TrendType) => (canLoad
+    ? { domain: domain as string, type, period: DEFAULT_PERIOD, page: 0, size: 3 }
+    : undefined);
+  const currentQuery = useTrends(paramsFor('CURRENT'));
+  const newQuery = useTrends(paramsFor('NEW'));
+  const risingQuery = useTrends(paramsFor('RISING'));
 
   const [keyword, setKeyword] = useState('');
   const [searchMiss, setSearchMiss] = useState<string>();
 
-  const topTrends = useMemo(() => topQuery.data ?? [], [topQuery.data]);
+  const topTrends = useMemo(() => currentQuery.data?.trends ?? [], [currentQuery.data]);
 
   // 검색 화면이 아직 없어서, 이미 받아 둔 세 목록 안에서 찾아 상세로 보냅니다.
   const searchPool = useMemo(
-    () => [...topTrends, ...(newQuery.data ?? []), ...(resurgingQuery.data ?? [])],
-    [topTrends, newQuery.data, resurgingQuery.data],
+    () => [...topTrends, ...(newQuery.data?.trends ?? []), ...(risingQuery.data?.trends ?? [])],
+    [topTrends, newQuery.data, risingQuery.data],
   );
 
   const goToKeyword = (value: string) => {
     const query = value.trim();
     if (!query) return;
+    // 로그인 전에는 찾아볼 목록 자체가 없어, 검색은 로그인으로 안내합니다.
+    if (!session) {
+      navigate('/login', { state: { from: '/dashboard' } });
+      return;
+    }
     const hit = searchPool.find((trend) => trend.keyword.toLowerCase().includes(query.toLowerCase()));
     if (!hit) {
       setSearchMiss(query);
@@ -194,25 +218,28 @@ export function LandingPage() {
             title="급상승 트렌드"
             tone="rising"
             trends={topTrends}
-            loading={topQuery.isLoading}
-            error={topQuery.isError}
-            onRetry={() => void topQuery.refetch()}
+            loading={currentQuery.isLoading}
+            error={currentQuery.isError}
+            locked={!session}
+            onRetry={() => void currentQuery.refetch()}
           />
           <TrendBoard
             title="신규 트렌드"
             tone="new"
-            trends={newQuery.data ?? []}
+            trends={newQuery.data?.trends ?? []}
             loading={newQuery.isLoading}
             error={newQuery.isError}
+            locked={!session}
             onRetry={() => void newQuery.refetch()}
           />
           <TrendBoard
             title="재급상승 트렌드"
             tone="resurging"
-            trends={resurgingQuery.data ?? []}
-            loading={resurgingQuery.isLoading}
-            error={resurgingQuery.isError}
-            onRetry={() => void resurgingQuery.refetch()}
+            trends={risingQuery.data?.trends ?? []}
+            loading={risingQuery.isLoading}
+            error={risingQuery.isError}
+            locked={!session}
+            onRetry={() => void risingQuery.refetch()}
           />
         </div>
       </section>

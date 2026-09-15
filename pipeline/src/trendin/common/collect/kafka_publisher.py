@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any
 
@@ -21,6 +22,7 @@ logger = logging.getLogger("trendin.collect.kafka")
 
 BOOTSTRAP_ENV = "TRENDIN_KAFKA_BOOTSTRAP"
 TOPIC_ENV = "TRENDIN_KAFKA_TOPIC_RAW_FILE_READY"
+SUMMARY_TOPIC_ENV = "TRENDIN_KAFKA_TOPIC_RUN_SUMMARY"
 
 
 class DeliveryFailed(RuntimeError):
@@ -34,7 +36,7 @@ QUEUE_WAIT_BUDGET = 30.0
 
 
 class KafkaEventPublisher:
-    """`EventPublisher` 의 실구현. 토픽 하나에 기사 이벤트와 요약 이벤트가 함께 흐른다."""
+    """`EventPublisher` 의 실구현. 인스턴스마다 지정한 기사 또는 요약 토픽으로 발급한다."""
 
     def __init__(
         self,
@@ -51,12 +53,12 @@ class KafkaEventPublisher:
         self._errors: list[str] = []
 
     @classmethod
-    def from_env(cls) -> "KafkaEventPublisher":
+    def from_env(cls, *, topic_env: str = TOPIC_ENV) -> "KafkaEventPublisher":
         from confluent_kafka import Producer
 
         bootstrap = require_env(BOOTSTRAP_ENV)
         return cls(
-            topic=require_env(TOPIC_ENV),
+            topic=require_env(topic_env),
             producer=Producer(
                 {
                     "bootstrap.servers": bootstrap,
@@ -67,6 +69,13 @@ class KafkaEventPublisher:
                 }
             ),
         )
+
+    @classmethod
+    def from_env_optional(cls, *, topic_env: str) -> "KafkaEventPublisher | None":
+        """토픽 환경변수가 비면 None. 토픽 생성 전에도 기사 발급은 계속한다."""
+        if not os.environ.get(topic_env, "").strip():
+            return None
+        return cls.from_env(topic_env=topic_env)
 
     def _on_delivery(self, err, msg) -> None:
         if err is not None:

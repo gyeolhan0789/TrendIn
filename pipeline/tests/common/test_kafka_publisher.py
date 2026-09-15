@@ -130,3 +130,33 @@ def test_전달_성공은_기록하지_않는다():
     publisher = make(FakeProducer())
     publisher._on_delivery(None, _Message(b"vogue"))
     publisher.flush()
+
+
+def test_환경변수로_기사와_요약의_발급_토픽을_나눈다(monkeypatch):
+    from trendin.common.collect.kafka_publisher import BOOTSTRAP_ENV, SUMMARY_TOPIC_ENV, TOPIC_ENV
+
+    producers = []
+
+    def producer_factory(config):
+        producer = FakeProducer()
+        producers.append(producer)
+        return producer
+
+    monkeypatch.setattr("confluent_kafka.Producer", producer_factory)
+    monkeypatch.setenv(BOOTSTRAP_ENV, "localhost:9092")
+    monkeypatch.setenv(TOPIC_ENV, "raw-file-ready")
+    monkeypatch.setenv(SUMMARY_TOPIC_ENV, "collect-run-summary")
+    KafkaEventPublisher.from_env().publish("vogue", EVENT)
+    KafkaEventPublisher.from_env_optional(topic_env=SUMMARY_TOPIC_ENV).publish("vogue", EVENT)
+    assert [p.queued[0][0] for p in producers] == ["raw-file-ready", "collect-run-summary"]
+
+
+@pytest.mark.parametrize("topic", [None, "", "   "])
+def test_요약_토픽이_비면_브로커_설정_없이도_퍼블리셔를_만들지_않는다(monkeypatch, topic):
+    from trendin.common.collect.kafka_publisher import BOOTSTRAP_ENV, SUMMARY_TOPIC_ENV
+
+    monkeypatch.delenv(BOOTSTRAP_ENV, raising=False)
+    monkeypatch.delenv(SUMMARY_TOPIC_ENV, raising=False)
+    if topic is not None:
+        monkeypatch.setenv(SUMMARY_TOPIC_ENV, topic)
+    assert KafkaEventPublisher.from_env_optional(topic_env=SUMMARY_TOPIC_ENV) is None

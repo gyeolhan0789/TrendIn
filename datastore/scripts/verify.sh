@@ -1,6 +1,7 @@
 #!/bin/sh
 # datastore 완료 조건 검증. 실패 항목이 있으면 exit 1.
 # AC1~4 는 Jira S15P21A102-156, AC5 는 S15P21A102-157 (토픽 설정 · 보관 정책).
+# curated 버킷 쓰기 · 만료 없음은 S15P21A102-243.
 # Windows 는 Git Bash 에서 돌린다. 검증은 전부 컨테이너 안에서 일어난다.
 set -u
 
@@ -17,6 +18,7 @@ OBJ="_verify/$(date -u +%Y%m%dT%H%M%SZ).txt"
 fail=0
 
 BUCKET=$(sed -n 's/^MINIO_BUCKET=//p' .env);                  BUCKET=${BUCKET:-raw-data}
+CURATED=$(sed -n 's/^MINIO_CURATED_BUCKET=//p' .env);         CURATED=${CURATED:-curated}
 TOPIC=$(sed -n 's/^KAFKA_TOPIC_RAW_FILE_READY=//p' .env);     TOPIC=${TOPIC:-raw-file-ready}
 PARTS=$(sed -n 's/^KAFKA_TOPIC_PARTITIONS=//p' .env);         PARTS=${PARTS:-6}
 POLICY=$(sed -n 's/^KAFKA_TOPIC_CLEANUP_POLICY=//p' .env);    POLICY=${POLICY:-delete}
@@ -75,11 +77,22 @@ check $? "크롤러 키 put"
 [ "$(mc "mc cat crawler/$BUCKET/$OBJ" 2>/dev/null | tr -d '\r\n')" = verify ]; check $? "크롤러 키 get"
 [ "$(mc "mc cat spark/$BUCKET/$OBJ"   2>/dev/null | tr -d '\r\n')" = verify ]; check $? "Spark 키 get"
 # 여기는 성공하면 안 된다. 성공하면 정책이 잘못 붙은 것이다.
+# raw-data 는 원문이고 Spark 는 읽기만 한다. 아래 curated 검증과 짝이다 — 한쪽만 보면
+# 정책이 두 버킷에 통으로 붙은 사고를 잡지 못한다.
 if mc "echo x > /tmp/x && mc cp /tmp/x spark/$BUCKET/_verify/should-fail" >/dev/null 2>&1; then
-  check 1 "Spark 키로 쓰기가 성공했다 — 정책을 확인한다"
+  check 1 "Spark 키로 $BUCKET 쓰기가 성공했다 — 정책을 확인한다"
 else
-  check 0 "Spark 키 write 거부"
+  check 0 "Spark 키 $BUCKET write 거부"
 fi
+
+# curated 는 반대다. ingest 가 정제 결과를 쓰고 extract 가 읽으므로 put · get 이 되어야 하고,
+# 파티션 덮어쓰기(mode=overwrite + partitionOverwriteMode=dynamic)가 옛 part 파일을 지우므로
+# delete 도 되어야 한다. 셋 중 하나라도 막히면 ingest 가 첫 실행이나 첫 재처리에서 죽는다.
+mc "echo verify > /tmp/v && mc cp /tmp/v spark/$CURATED/$OBJ" >/dev/null 2>&1
+check $? "Spark 키 $CURATED put"
+[ "$(mc "mc cat spark/$CURATED/$OBJ" 2>/dev/null | tr -d '\r\n')" = verify ]; check $? "Spark 키 $CURATED get"
+mc "mc rm spark/$CURATED/$OBJ" >/dev/null 2>&1
+check $? "Spark 키 $CURATED delete"
 
 echo "[AC5] 토픽 설정"
 PC=$($DC exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
@@ -100,6 +113,18 @@ ILM=$(mc "mc ilm rule ls admin/$BUCKET 2>/dev/null || mc ilm ls admin/$BUCKET" 2
 [ "$(printf '%s\n' "$ILM" | grep -c 'expire-all')" -eq 1 ]; check $? "lifecycle expire-all 1 개 (중복 없음)"
 mc "mc version info admin/$BUCKET" 2>/dev/null | grep -qiE 'un-versioned|suspended'
 check $? "버전 관리 off"
+# curated 에는 만료 규칙이 없어야 한다 (S15P21A102-243). raw-data 는 90 일 뒤 지워도 되는
+# 수집 원문이지만 curated 는 extract 가 계속 읽는 정제 결과다. 만료를 걸면 옛 ingest_run_id
+# 파티션부터 사라져 재집계와 백필이 조용히 빈 구간을 만든다.
+# 규칙이 하나도 없으면 mc 가 실패하고 출력이 빈다. 'Enabled' 가 보이는 경우만 잡는다.
+CILM=$(mc "mc ilm rule ls admin/$CURATED 2>/dev/null || mc ilm ls admin/$CURATED" 2>/dev/null | tr -d '\r')
+if printf '%s\n' "$CILM" | grep -q 'Enabled'; then
+  check 1 "$CURATED 에 수명 주기 규칙이 붙어 있다 — 정제 결과는 만료되면 안 된다"
+else
+  check 0 "$CURATED 수명 주기 없음"
+fi
+mc "mc version info admin/$CURATED" 2>/dev/null | grep -qiE 'un-versioned|suspended'
+check $? "$CURATED 버전 관리 off"
 # 원문이 이벤트보다 먼저 사라지면 참조가 깨진다. 등호 포함이라 같아도 통과다.
 [ "$((RAW_DAYS * 86400000))" -ge "$RET_MS" ]
 check $? "MinIO 보관 ${RAW_DAYS}일 >= Kafka retention ${RET_MS}ms"
@@ -108,6 +133,9 @@ check $? "MinIO 보관 ${RAW_DAYS}일 >= Kafka retention ${RET_MS}ms"
 # 크롤러 키에는 삭제 권한이 없다. 관리자 키로 지운다 — 크롤러 키로 하면 조용히
 # 실패하고 객체가 수명 주기(90 일)까지 남는다.
 mc "mc rm -r --force admin/$BUCKET/_verify" >/dev/null 2>&1
+# curated 에는 수명 주기가 없어 남으면 영영 남는다. 위 delete 검증이 실패한 경우를 대비해
+# 관리자 키로 한 번 더 지운다.
+mc "mc rm -r --force admin/$CURATED/_verify" >/dev/null 2>&1
 
 [ "$fail" -eq 0 ] && { echo; echo "전부 통과."; exit 0; }
 echo; echo "실패한 항목이 있다. 위 FAIL 을 확인한다."; exit 1

@@ -25,7 +25,7 @@ from trendin.common.collect.flow import (
     store_article,
 )
 from trendin.common.collect.keys import raw_key
-from trendin.common.collect.ledger import InMemoryLedger
+from trendin.common.collect.ledger import EmittedStats, InMemoryLedger
 from trendin.common.collect.session import HostBlocked
 
 KST = timezone(timedelta(hours=9))
@@ -196,7 +196,7 @@ def test_발급은_미발급_행을_전부_보고_발행_뒤에_장부를_적는
         now=NOW,
     )
 
-    assert sent == {"vogue": 2}
+    assert sent == {"vogue": EmittedStats(2, NOW)}
     assert publisher.flushes == 1  # 한 번에 모아 비운다
     assert [k for k, _ in publisher.sent] == ["vogue", "vogue"]  # message key 는 source_id
     assert ledger.pending("fashion") == []  # 다 나갔으니 남은 게 없다
@@ -260,23 +260,26 @@ def test_요약_이벤트는_0건이어도_나가고_죽은_소스는_failed_로
     publisher = RecordingEventPublisher()
     sent = publish_summaries(
         publisher=publisher,
-        bucket="raw-data",
         run_id="20260903T100000",
         logical_date=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
         statuses=[
-            SourceStatus(source="vogue", domain="fashion", status="success"),
+            SourceStatus(source="vogue", domain="fashion", status="success",
+                         outcome=SourceOutcome(source="vogue", domain="fashion")),
             SourceStatus(
                 source="wkorea", domain="fashion", status="failed", failure_reason="죽었다"
             ),
         ],
-        counts={"vogue": 0},
+        counts={},
     )
     assert sent == 2
     by_source = {v["source_id"]: v for _, v in publisher.sent}
     assert by_source["vogue"]["status"] == "success"
-    assert by_source["vogue"]["record_count"] == 0  # 0건도 낸다 (팀 발행 규약 4)
+    assert by_source["vogue"]["emitted"] == 0  # 0건도 낸다 (팀 발행 규약 4)
     assert by_source["wkorea"]["status"] == "failed"
     assert by_source["wkorea"]["failure_reason"]
+    assert by_source["vogue"]["stored"] == 0
+    assert by_source["vogue"]["emitted_oldest_collected_at"] is None
+    assert by_source["wkorea"]["stored"] is None
 
 
 # --- DAG 이 들고 있던 판정 ---------------------------------------------------
@@ -308,15 +311,44 @@ def test_매핑이_한_건이면_dict_하나로_온다():
     assert outcomes_from_xcom(None) == []
 
 
-def test_XCom_에_예외_문자열을_싣지_않는다():
-    """규약 4 — XCom 엔 ID·건수만. 예외 문자열은 길이도 내용도 예측이 안 된다."""
+def test_수집_결과는_단계별_실패와_저장_숫자를_XCom_왕복에도_보존한다(monkeypatch):
+    import json
+
+    ticks = iter([10.0, 31.43])
+    monkeypatch.setattr("trendin.common.collect.flow.time.monotonic", lambda: next(ticks))
     outcome = collect_source(
-        FakeAdapter(["1", "2"], broken=["2"]), ledger=InMemoryLedger(), store=InMemoryObjectStore()
+        FakeAdapter(["1", "2", "3"], broken=["2"], members=["1", "3"]),
+        ledger=InMemoryLedger(),
+        store=InMemoryObjectStore(swallow={"fashion/vogue/rss/2026/09/03/3/article.json"}),
     )
-    payload = outcome.to_dict()
-    assert payload["failed"] == 2
-    assert all(isinstance(v, (str, int, bool)) for v in payload.values())
-    assert "발행일이 없다" not in repr(payload)
+    assert outcome.discovered == 3
+    assert outcome.stored == outcome.members_only_stored == 1
+    assert outcome.failed == 3
+    assert outcome.failed_by_stage == {"discover": 1, "materialize": 1, "store": 1}
+    assert outcome.duration_ms == 21430
+    payload = json.loads(json.dumps(outcome.to_dict()))
+    assert payload["failures"] == [
+        {"stage": "discover", "article_id": "bad", "reason": "깨진 item"},
+        {"stage": "materialize", "article_id": "2", "reason": "발행일이 없다"},
+        {"stage": "store", "article_id": "3", "reason": "저장한 객체가 stat 에 안 잡힌다"},
+    ]
+    assert SourceOutcome.from_dict(payload) == outcome
+
+
+def test_모르는_실패_단계도_세고_수집을_멈추지_않는다():
+    """`Stage` 는 타입 힌트일 뿐이라 새 어댑터가 다른 이름을 내도 런타임엔 막히지 않는다."""
+    from dataclasses import replace
+
+    class OddStage(FakeAdapter):
+        def discover(self, page=None) -> DiscoverResult:
+            result = super().discover(page)
+            odd = Failure(source=SOURCE.key, stage="parse", ref="x", reason="새 단계")  # type: ignore[arg-type]
+            return replace(result, failures=[*result.failures, odd])
+
+    outcome = collect_source(OddStage(["1"]), ledger=InMemoryLedger(), store=InMemoryObjectStore())
+    assert outcome.stored == 1
+    assert outcome.failed == 2
+    assert outcome.failed_by_stage == {"discover": 1, "materialize": 0, "store": 0, "parse": 1}
 
 
 # --- 객체 메타데이터와 키 규칙 (S15P21A102-158) -----------------------------
@@ -383,7 +415,7 @@ def test_저장_확인_조회가_실패하면_없음으로_뭉개지_않는다()
 
 
 def test_발급은_소스별로_이번_실행이_낸_건수를_돌려준다():
-    """요약 이벤트의 `record_count` 가 이 값이다.
+    """요약 이벤트의 `emitted` 가 이 값이다.
 
     장부를 구간으로 다시 세면 실행이 겹칠 때 앞 실행이 낸 것까지 제 몫으로 센다.
     이번에 실제로 보낸 것만 세면 그 일이 안 생긴다.
@@ -398,7 +430,7 @@ def test_발급은_소스별로_이번_실행이_낸_건수를_돌려준다():
         run_id="20260903T110000",
         now=NOW,
     )
-    assert sent == {"vogue": 2}
+    assert sent == {"vogue": EmittedStats(2, NOW)}
 
 
 def test_연달아_두_번_발급하면_두_번째는_0건이다():
@@ -409,7 +441,7 @@ def test_연달아_두_번_발급하면_두_번째는_0건이다():
     kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
     first = publish_pending(run_id="20260903T110000", **kw)
     second = publish_pending(run_id="20260903T120000", **kw)
-    assert first == {"vogue": 2}
+    assert first == {"vogue": EmittedStats(2, NOW)}
     assert second == {}
     assert len(publisher.sent) == 2
 
@@ -449,8 +481,8 @@ def test_재시도해도_요약_건수가_그대로다():
     # 같은 실행의 재시도 — logical date 가 같으니 run_id 도 같다.
     retry = publish_pending(run_id="20260903T110000", now=NOW, **kw)
 
-    assert first == {"vogue": 2}
-    assert retry == {"vogue": 2}, "재시도가 0 을 돌려주면 요약이 0건으로 다시 나간다"
+    assert first == {"vogue": EmittedStats(2, NOW)}
+    assert retry == {"vogue": EmittedStats(2, NOW)}, "재시도에도 발급 통계가 보존된다"
 
 
 def test_다음_실행은_앞_실행이_낸_것을_제_몫으로_세지_않는다():
@@ -485,7 +517,7 @@ def test_밀린_게_묶음보다_많아도_한_회차가_다_비운다():
     """묶음 상한만큼만 내고 끝나면 요약 건수가 시도마다 커진다.
 
     1차 시도가 250 중 100 만 내고 요약 도중 죽으면, 2차 시도가 나머지를 내고 `emitted_by_run`
-    이 250 을 준다 — 같은 `event_id` 로 `record_count` 가 100 이었다가 250 이 된다
+    이 250 을 준다 — 같은 `event_id` 로 `emitted` 가 100 이었다가 250 이 된다
     (팀 발행 규약 3 위반).
     """
     ledger = CountingLedger()
@@ -503,7 +535,7 @@ def test_밀린_게_묶음보다_많아도_한_회차가_다_비운다():
         batch=100,
     )
 
-    assert counts == {"vogue": 250}
+    assert counts == {"vogue": EmittedStats(250, NOW)}
     assert len(publisher.sent) == 250
     # 100·100·50 을 내고, 비었음을 확인하는 한 번이 더 붙는다.
     assert ledger.pending_calls == 4
@@ -519,5 +551,98 @@ def test_다_비운_뒤_재시도해도_건수가_같다():
     first = publish_pending(run_id="20260903T110000", batch=100, **kw)
     retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
 
-    assert first == retry == {"vogue": 250}
+    assert first == retry == {"vogue": EmittedStats(250, NOW)}
     assert len(publisher.sent) == 250, "재시도가 이미 나간 것을 다시 내면 안 된다"
+
+
+def test_실패_표본은_10건_사유는_200자로_제한하되_전체_실패를_센다():
+    class BrokenFeed(FakeAdapter):
+        def discover(self, page=None):
+            return DiscoverResult(candidates=[], failures=[
+                Failure(source="vogue", stage="discover", ref=str(i), reason="가" * 201)
+                for i in range(12)
+            ])
+
+    outcome = collect_source(BrokenFeed([]), ledger=InMemoryLedger(), store=InMemoryObjectStore())
+    assert outcome.failed == 12
+    assert outcome.failed_by_stage == {"discover": 12, "materialize": 0, "store": 0}
+    assert [f.article_id for f in outcome.failures] == [str(i) for i in range(10)]
+    assert all(f.reason == "가" * 200 for f in outcome.failures)
+
+
+def test_304는_발견_0건과_구분하고_실패_없이_빈_결과를_남긴다():
+    class Unchanged(FakeAdapter):
+        def discover(self, page=None):
+            return DiscoverResult(candidates=[], not_modified=True)
+
+    outcome = collect_source(Unchanged([]), ledger=InMemoryLedger(), store=InMemoryObjectStore())
+    assert outcome.not_modified is True
+    assert outcome.discovered == outcome.stored == outcome.skipped == outcome.failed == 0
+    assert outcome.failed_by_stage == {"discover": 0, "materialize": 0, "store": 0}
+    assert outcome.failures == ()
+
+
+@pytest.mark.parametrize("summary_topic", ["", "collect-run-summary"])
+def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_별도_토픽으로_낸다(
+    monkeypatch, caplog, summary_topic,
+):
+    import json
+    import logging
+    from types import SimpleNamespace
+
+    from trendin.common.collect import dag_factory
+    from trendin.common.collect.kafka_publisher import BOOTSTRAP_ENV, SUMMARY_TOPIC_ENV, TOPIC_ENV
+
+    ledger = InMemoryLedger()
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    sent = []
+
+    class Producer:
+        def __init__(self, config):
+            pass
+
+        def produce(self, topic, *, key, value, on_delivery):
+            sent.append((topic, json.loads(value)))
+            on_delivery(None, None)
+
+        def poll(self, timeout):
+            return 0
+
+        def flush(self, timeout):
+            return 0
+
+    # 인프라 어댑터 경계만 대체한다. DAG → flow → 실제 Kafka 봉투 직렬화는 모두 탄다.
+    monkeypatch.setattr(dag_factory.Database, "from_env", lambda: None)
+    monkeypatch.setattr(dag_factory, "PostgresLedger", lambda db: ledger)
+    monkeypatch.setattr(dag_factory.MinioObjectStore, "from_env",
+                        lambda: SimpleNamespace(bucket="raw-data"))
+    monkeypatch.setattr("confluent_kafka.Producer", Producer)
+    monkeypatch.setenv(BOOTSTRAP_ENV, "localhost:9092")
+    monkeypatch.setenv(TOPIC_ENV, "raw-file-ready")
+    monkeypatch.setenv(SUMMARY_TOPIC_ENV, summary_topic)
+    dag = dag_factory.build_collect_dag(
+        dag_id="fashion_summary_test", domain="fashion", schedule=None,
+        source_keys=["vogue"], domain_of=lambda key: "fashion", collect=lambda **kw: None,
+        doc_md="요약 토픽 검증",
+    )
+    publish = dag.get_task("publish").python_callable
+    # 수집 태스크는 죽었지만 이전 회차에 저장된 기사는 발급한다.
+    monkeypatch.setattr(dag_factory.logger, "handlers", [caplog.handler])
+    with caplog.at_level(logging.INFO):
+        result = publish(["vogue"], logical_date=NOW,
+                         ti=SimpleNamespace(xcom_pull=lambda **kw: None))
+    assert result["articles"] == 1
+    assert result["failed_sources"] == ["vogue"]
+    assert sent[0][0] == "raw-file-ready" and sent[0][1]["run_id"]
+    if summary_topic:
+        assert result["summaries"] == 1 and result["summary_enabled"] is True
+        assert sent[1][0] == "collect-run-summary"
+        assert sent[1][1]["stored"] is None and sent[1][1]["emitted"] == 1
+        retry = publish(["vogue"], logical_date=NOW,
+                        ti=SimpleNamespace(xcom_pull=lambda **kw: None))
+        assert retry == result
+        assert sent[2] == sent[1]  # 재시도는 기사 없이 같은 요약만 다시 낸다.
+    else:
+        assert result["summaries"] == 0 and result["summary_enabled"] is False
+        assert len(sent) == 1
+        assert SUMMARY_TOPIC_ENV in caplog.text

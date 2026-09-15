@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+
+    options {
+        gitLabConnection('ssafy-gitlab')
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    stages {
+        stage('Checkout MR source') {
+            steps {
+                script {
+                    if (env.gitlabActionType != 'MERGE' || env.gitlabTargetBranch != 'dev') {
+                        error('This job accepts only merge requests targeting dev')
+                    }
+                    if (!(env.gitlabMergeRequestLastCommit ==~ /[0-9a-fA-F]{40}/)) {
+                        error('GitLab MR payload does not contain a valid commit SHA')
+                    }
+                    if (!(env.gitlabSourceBranch ==~ /[A-Za-z0-9][A-Za-z0-9._\/-]*/)
+                            || env.gitlabSourceBranch.contains('..')) {
+                        error('GitLab MR payload contains an invalid source branch')
+                    }
+                    env.BUILD_COMMIT = env.gitlabMergeRequestLastCommit
+                    env.BUILD_BRANCH = env.gitlabSourceBranch
+
+                    def configuredRemote = scm.userRemoteConfigs[0]
+                    if (configuredRemote.credentialsId != 'gitlab-repo') {
+                        error('CI Job SCM must use the gitlab-repo credential')
+                    }
+
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: env.BUILD_COMMIT]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', honorRefspec: true, noTags: false, reference: '', shallow: false]
+                        ],
+                        userRemoteConfigs: [[
+                            credentialsId: configuredRemote.credentialsId,
+                            refspec: "+refs/heads/${env.BUILD_BRANCH}:refs/remotes/origin/${env.BUILD_BRANCH}",
+                            url: configuredRemote.url
+                        ]]
+                    ])
+                }
+                sh '''
+                    set -eu
+                    test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"
+                '''
+                updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'running'
+            }
+        }
+
+        stage('Gradle test and build') {
+            steps {
+                dir('backend') {
+                    sh './gradlew clean build --no-daemon --console=plain'
+                }
+            }
+        }
+    }
+
+    post {
+        success { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'success' }
+        unstable { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' }
+        aborted { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'canceled' }
+        failure { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' }
+        always {
+            junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
+        }
+    }
+}

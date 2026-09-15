@@ -5,52 +5,77 @@ import { SavedTrendPage } from '../SavedTrendPage/SavedTrendPage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
-import { useTrendAnalysis } from '../../features/trend/hooks/useTrendAnalysis';
-import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
-import { useRelatedKeywords } from '../../features/trend/hooks/useRelatedKeywords';
-import { useRelatedContents } from '../../features/trend/hooks/useRelatedContents';
-import { useSaveTrend } from '../../features/savedTrend/hooks/useSaveTrend';
 import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
+import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
+import { useTrendContents } from '../../features/trend/hooks/useTrendContents';
+import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
+import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
+import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
+import { parsePeriod } from '../../constants/filterCodes';
+import type { PeriodCode } from '../../constants/filterCodes';
+import type { TrendDetail, TrendHistoryPoint } from '../../features/trend/types/trend';
 
-const periodLabels: Record<string, string> = { '24h': '24시간', '7d': '7일', '30d': '30일' };
-const chartShape = [18, 21, 25, 23, 31, 29, 38, 35, 47, 44, 58, 67, 74, 88];
+const periodLabels: Record<PeriodCode, string> = { '24H': '24시간', '7D': '7일', '30D': '30일' };
 
+/** 연관도는 0~100입니다. 높은 쪽을 굵게 보여 주려고 두 단으로 나눕니다. */
+const STRONG_RELATION_SCORE = 75;
+const MEDIUM_RELATION_SCORE = 60;
+
+/*
+ * 서버가 주는 시각은 Asia/Seoul 기준입니다. 보는 사람의 시간대로 바꾸면 자정 경계가 어긋나
+ * 헷갈리므로, 받은 문자열에서 필요한 자리만 잘라 씁니다.
+ */
 function formatMonthDay(value?: string) {
-  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const match = value ? /^(\d{4})-(\d{2})-(\d{2})/.exec(value) : null;
   return match ? `${match[2]}.${match[3]}` : undefined;
 }
 
-function getChartDays(endDate?: string) {
-  if (!endDate) return [];
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return [];
-
-  return chartShape.map((_, index) => {
-    const date = new Date(end);
-    date.setDate(date.getDate() - (chartShape.length - 1 - index));
-    return formatMonthDay(date.toISOString());
-  });
+function formatHour(value: string) {
+  const match = /T(\d{2}):/.exec(value);
+  return match ? `${Number(match[1])}시` : value;
 }
 
-function getChartBarGradient(index: number) {
-  const progress = index / (chartShape.length - 1);
+function formatBucketLabel(point: TrendHistoryPoint, period: PeriodCode) {
+  return period === '24H' ? formatHour(point.bucketStart) : formatMonthDay(point.bucketStart) ?? point.bucketStart;
+}
+
+function formatNumber(value: number | null) {
+  return value === null ? '—' : value.toLocaleString();
+}
+
+function formatGrowthRate(value: number | null) {
+  return value === null ? '—' : `${value > 0 ? '+' : ''}${value}%`;
+}
+
+function getChartBarGradient(index: number, total: number) {
+  const progress = total > 1 ? index / (total - 1) : 1;
   const saturation = Math.round(48 + progress * 24);
   const bottomLightness = Math.round(91 - progress * 46);
   const topLightness = Math.min(96, bottomLightness + 8);
   return `linear-gradient(180deg, hsl(220 ${saturation}% ${topLightness}%), hsl(220 ${saturation}% ${bottomLightness}%))`;
 }
 
-function getKeywordStrength(relevance?: number) {
-  if ((relevance ?? 0) >= 0.75) return ' is-strong';
-  if ((relevance ?? 0) >= 0.6) return ' is-medium';
+function getKeywordStrength(relationScore: number) {
+  if (relationScore >= STRONG_RELATION_SCORE) return ' is-strong';
+  if (relationScore >= MEDIUM_RELATION_SCORE) return ' is-medium';
   return '';
 }
 
+function describeWindow(trend: TrendDetail) {
+  const window = trend.analysisWindow;
+  if (!window) return undefined;
+  return `${formatMonthDay(window.recentStart)} ~ ${formatMonthDay(window.recentEnd)}`;
+}
+
 export function TrendDetailPage() {
-  const { trendId } = useParams();
+  const { trendId: trendIdParam } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const period = searchParams.get('period') ?? '24h';
+  const period = parsePeriod(searchParams.get('period'));
+  // 주소에 트렌드가 아닌 값이 들어올 수 있어, 숫자로 읽히지 않으면 조회하지 않습니다.
+  const parsedTrendId = Number(trendIdParam);
+  const trendId = Number.isInteger(parsedTrendId) && parsedTrendId > 0 ? parsedTrendId : undefined;
+
   // 저장 페이지에서 열었을 때는 목록 위에 드로어를 띄우고, 닫으면 다시 목록으로 돌아갑니다.
   const fromSaved = searchParams.get('from') === 'saved';
   const homePath = fromSaved ? '/saved' : `/${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
@@ -59,17 +84,13 @@ export function TrendDetailPage() {
   const closeTimerRef = useRef<number | null>(null);
   const isClosingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const detailQuery = useTrendDetail(trendId);
-  const analysisQuery = useTrendAnalysis(trendId);
-  const keywordsQuery = useRelatedKeywords(trendId);
-  const contentsQuery = useRelatedContents(trendId);
-  const saveMutation = useSaveTrend();
+
+  const detailQuery = useTrendDetail(trendId, period);
+  const historyQuery = useTrendHistory(trendId, period);
+  const keywordsQuery = useTrendRelatedKeywords(trendId);
+  const contentsQuery = useTrendContents(trendId);
   const trend = detailQuery.data;
-  const periodLabel = periodLabels[period] ?? period;
-  const detailSearch = searchParams.toString() ? `?${searchParams.toString()}` : '';
-  const firstDetectedLabel = formatMonthDay(trend?.firstDetectedAt) ?? '--.--';
-  const chartDays = useMemo(() => getChartDays(trend?.updatedAt ?? trend?.firstDetectedAt), [trend?.firstDetectedAt, trend?.updatedAt]);
+  const periodLabel = periodLabels[period];
 
   const closeDrawer = useCallback(() => {
     if (isClosingRef.current) return;
@@ -99,27 +120,27 @@ export function TrendDetailPage() {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
   }, []);
 
+  const history = useMemo(() => historyQuery.data?.history ?? [], [historyQuery.data]);
   const chartBars = useMemo(() => {
-    if (!trend) return [];
-    const growthFactor = Math.max(0.55, Math.min(1.55, 1 + trend.growthRate / 300));
-    return chartShape.map((value, index) => ({
-      day: chartDays[index],
-      value: Math.round(value * growthFactor),
-      height: Math.min(100, value * growthFactor),
-      color: index === chartShape.length - 1 ? 'is-current' : index >= chartShape.length - 4 ? 'is-recent' : '',
+    const peak = Math.max(...history.map((point) => point.mentionCount), 0);
+    return history.map((point, index) => ({
+      label: formatBucketLabel(point, period),
+      value: point.mentionCount,
+      // 가장 큰 칸을 기준으로 높이를 잡습니다. 전부 0이면 아래에서 따로 안내합니다.
+      height: peak > 0 ? (point.mentionCount / peak) * 100 : 0,
+      isPeak: peak > 0 && point.mentionCount === peak,
+      gradient: getChartBarGradient(index, history.length),
     }));
-  }, [chartDays, trend]);
+  }, [history, period]);
+  const hasMentions = chartBars.some((bar) => bar.value > 0);
 
-  useEffect(() => {
-    if (saveMutation.isSuccess) setIsSaved(true);
-  }, [saveMutation.isSuccess]);
-
-  const contents = contentsQuery.data ?? [];
+  const contents = useMemo(
+    () => contentsQuery.data?.pages.flatMap((page) => page.content) ?? [],
+    [contentsQuery.data],
+  );
   const relatedKeywords = keywordsQuery.data ?? [];
   const timeline = contents.slice(0, 4);
-  const handleSave = () => {
-    if (trend && !isSaved && !saveMutation.isPending) saveMutation.mutate(trend.trendId);
-  };
+  const windowLabel = trend ? describeWindow(trend) : undefined;
 
   let drawerContent: ReactNode;
   if (!trendId || detailQuery.isError) {
@@ -134,64 +155,107 @@ export function TrendDetailPage() {
         <div className="detail-page-inner">
           <nav className="detail-nav" aria-label="상세페이지 메뉴">
             <Link className="detail-back" to={homePath} aria-label={fromSaved ? '저장한 트렌드로 돌아가기' : '홈으로 돌아가기'}>←</Link>
-            <button type="button" className={`detail-save${isSaved ? ' is-saved' : ''}`} onClick={handleSave} aria-label={isSaved ? '저장됨' : '트렌드 저장'} title={isSaved ? '저장됨' : '트렌드 저장'} aria-pressed={isSaved} disabled={isSaved || saveMutation.isPending}>{isSaved ? '★' : '☆'}</button>
+            <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="detail-save" />
           </nav>
 
           <header className="detail-hero">
-            <span className={`detail-category${trend.category === '패션' ? ' detail-category--fashion' : ''}`}>{trend.category}</span>
+            <span className="detail-category">{trend.domain.name}</span>
             <h1>{trend.keyword}</h1>
-            <p>{trend.description ?? '트렌드 설명이 준비 중입니다.'}</p>
+            <p>{trend.description}</p>
           </header>
 
           <section className="detail-kpis" aria-label="트렌드 핵심 지표">
-            <div><span>총 언급량</span><strong>{trend.mentionCount.toLocaleString()}</strong></div>
-            <div><span>{periodLabel} 변화</span><strong className="accent">+{trend.growthRate}%</strong></div>
-            <div className="detail-trend-visual" role="img" aria-label={`${firstDetectedLabel}부터 현재까지의 추이`}>
-              <div className="detail-trend-line" aria-hidden="true">
-                <span className="detail-trend-point detail-trend-point--start" />
-                <span className="detail-trend-point detail-trend-point--current" />
-                <svg className="detail-trend-arrow" viewBox="0 0 22 16" aria-hidden="true"><path d="m2 14 6-6 4 4 8-10M14 2h6v6" /></svg>
-              </div>
-              <div className="detail-trend-labels" aria-hidden="true"><span>{firstDetectedLabel}</span><span>NOW</span></div>
-            </div>
+            <div><span>{periodLabel} 언급량</span><strong>{formatNumber(trend.mentionCount)}</strong></div>
+            <div><span>직전 구간 대비</span><strong className="accent">{formatGrowthRate(trend.growthRate)}</strong></div>
+            <div><span>직전 구간 언급량</span><strong>{formatNumber(trend.previousMentionCount)}</strong></div>
           </section>
+
+          {windowLabel && <p className="detail-card-label">{windowLabel} 집계 · 직전 같은 길이의 구간과 비교</p>}
 
           <section className="detail-chart-card" aria-label={`${trend.keyword} 언급량 차트`}>
             <span className="detail-card-label">언급량 그래프</span>
-            <div className="detail-chart detail-chart--reference" role="img" aria-label={`${trend.keyword} 상대 언급 지수`}>
-              {chartBars.map((bar, index) => <div className="detail-bar-track" key={bar.day ?? index} tabIndex={0} aria-label={`${bar.day ?? '날짜 정보 없음'} ${bar.value.toLocaleString()}건`}><span className={bar.color} style={{ height: `${bar.height}%`, background: getChartBarGradient(index), animationDelay: `${0.48 + index * 0.055}s` }}><b className="detail-bar-tooltip"><span>{bar.value.toLocaleString()}건</span><small>{bar.day ?? '날짜 정보 없음'}</small></b></span></div>)}
-            </div>
-            <div className="chart-axis chart-axis--reference"><span>{chartBars[0]?.day}</span><span>{chartBars.at(-1)?.day}</span></div>
+            {historyQuery.isLoading && <Skeleton count={2} />}
+            {historyQuery.isError && <ErrorState message="언급량 추이를 불러오지 못했습니다." onRetry={() => historyQuery.refetch()} />}
+            {historyQuery.isSuccess && !hasMentions && <EmptyState message="이 구간에 집계된 언급이 없습니다." />}
+            {historyQuery.isSuccess && hasMentions && (
+              <>
+                <div className="detail-chart detail-chart--reference" role="img" aria-label={`${trend.keyword} 구간별 언급량`}>
+                  {chartBars.map((bar) => (
+                    <div className="detail-bar-track" key={bar.label} tabIndex={0} aria-label={`${bar.label} ${bar.value.toLocaleString()}건`}>
+                      <span className={bar.isPeak ? 'is-current' : ''} style={{ height: `${bar.height}%`, background: bar.gradient }}>
+                        <b className="detail-bar-tooltip"><span>{bar.value.toLocaleString()}건</span><small>{bar.label}</small></b>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="chart-axis chart-axis--reference"><span>{chartBars[0]?.label}</span><span>{chartBars.at(-1)?.label}</span></div>
+              </>
+            )}
           </section>
 
           <section className="detail-why-now">
             <span className="detail-card-label">지금 뜨는 이유</span>
-            {analysisQuery.isLoading && <Skeleton count={1} />}
-            {analysisQuery.isError && <ErrorState onRetry={() => analysisQuery.refetch()} />}
-            {analysisQuery.data && <><p className="detail-why-summary">{analysisQuery.data.reason ?? analysisQuery.data.description}</p><p className="detail-why-description">{analysisQuery.data.description}</p></>}
+            {trend.summary && <p className="detail-why-summary">{trend.summary}</p>}
+            {trend.reason && <p className="detail-why-description">{trend.reason}</p>}
+            {!trend.summary && !trend.reason && <p className="detail-why-description">아직 정리된 설명이 없습니다.</p>}
           </section>
 
           <section className="detail-sources">
-            <div className="detail-section-title"><h2>키워드가 언급된 원본 소스</h2><span>{contentsQuery.data?.length ?? 0}건</span></div>
+            <div className="detail-section-title"><h2>키워드가 언급된 원본 소스</h2><span>{contents.length}건{contentsQuery.hasNextPage ? '+' : ''}</span></div>
             {contentsQuery.isLoading && <Skeleton count={4} />}
             {contentsQuery.isError && <ErrorState onRetry={() => contentsQuery.refetch()} />}
-            {contents.length === 0 && !contentsQuery.isLoading && !contentsQuery.isError && <EmptyState />}
-            {contents.slice(0, 4).map((content, index) => <a className="detail-source" href={content.url} target="_blank" rel="noreferrer" key={content.contentId}><span className="detail-source-number">{String(index + 1).padStart(2, '0')}</span><span className="detail-source-copy"><strong>{content.title}</strong><span><b>{content.source ?? '출처 미정'}</b><i>·</i>{content.publishedAt ?? '게시일 미정'}</span></span><span className="detail-source-arrow">↗</span></a>)}
-            {contents.length > 4 && <button type="button" className="detail-more">+ {contents.length - 4}건 더보기</button>}
+            {contentsQuery.isSuccess && contents.length === 0 && <EmptyState />}
+            {contents.map((content, index) => (
+              <a className="detail-source" href={content.url} target="_blank" rel="noreferrer" key={content.contentId}>
+                <span className="detail-source-number">{String(index + 1).padStart(2, '0')}</span>
+                <span className="detail-source-copy">
+                  <strong>{content.title}</strong>
+                  <span><b>{content.source}</b><i>·</i>{formatMonthDay(content.publishedAt) ?? content.publishedAt}</span>
+                </span>
+                <span className="detail-source-arrow">↗</span>
+              </a>
+            ))}
+            {contentsQuery.hasNextPage && (
+              <button type="button" className="detail-more" disabled={contentsQuery.isFetchingNextPage} onClick={() => void contentsQuery.fetchNextPage()}>
+                {contentsQuery.isFetchingNextPage ? '불러오는 중…' : '+ 더보기'}
+              </button>
+            )}
           </section>
 
           <section className="detail-related">
             <div className="detail-section-title"><h2>연관 키워드</h2></div>
             {keywordsQuery.isLoading && <Skeleton count={1} />}
             {keywordsQuery.isError && <ErrorState onRetry={() => keywordsQuery.refetch()} />}
-            {relatedKeywords.length === 0 && !keywordsQuery.isLoading && !keywordsQuery.isError && <EmptyState />}
-            {relatedKeywords.length > 0 && <div className="detail-keyword-list">{relatedKeywords.map((keyword) => <span className={`detail-keyword${getKeywordStrength(keyword.relevance)}`} key={keyword.trendId ?? keyword.keywordId ?? keyword.keyword}><Link to={{ pathname: `/trends/${keyword.trendId ?? keyword.keywordId ?? encodeURIComponent(keyword.keyword)}`, search: detailSearch }}><b>{keyword.keyword}</b></Link><AddInterestKeywordButton keyword={keyword.keyword} trendId={keyword.trendId} /></span>)}</div>}
+            {keywordsQuery.isSuccess && relatedKeywords.length === 0 && <EmptyState />}
+            {relatedKeywords.length > 0 && (
+              <div className="detail-keyword-list">
+                {relatedKeywords.map((keyword) => (
+                  <span className={`detail-keyword${getKeywordStrength(keyword.relationScore)}`} key={keyword.keywordId}>
+                    <b>{keyword.keyword}</b>
+                    <AddInterestKeywordButton keywordId={keyword.keywordId} keyword={keyword.keyword} />
+                  </span>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="detail-timeline">
             <div className="detail-section-title"><h2>타임라인</h2></div>
             {timeline.length === 0 && !contentsQuery.isLoading && <EmptyState />}
-            {timeline.length > 0 && <div className="timeline-list">{timeline.map((content, index) => <div className="timeline-event" key={content.contentId}><span className={`timeline-dot${index === 0 ? ' is-important' : ''}`} /><time>{formatMonthDay(content.publishedAt) ?? '게시일 미정'}</time><div><p>{content.title}</p><a href={content.url} target="_blank" rel="noreferrer">{content.source ?? '원본 소스'} ↗</a></div></div>)}</div>}
+            {timeline.length > 0 && (
+              <div className="timeline-list">
+                {timeline.map((content, index) => (
+                  <div className="timeline-event" key={content.contentId}>
+                    <span className={`timeline-dot${index === 0 ? ' is-important' : ''}`} />
+                    <time>{formatMonthDay(content.publishedAt) ?? content.publishedAt}</time>
+                    <div>
+                      <p>{content.title}</p>
+                      <a href={content.url} target="_blank" rel="noreferrer">{content.source} ↗</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
         </div>

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
     from trendin.common.collect.article import Article
@@ -60,12 +60,16 @@ class Candidate:
     categories: tuple[str, ...] = ()
 
 
+# 실패가 난 단계. 요약의 `failed_by_stage` 키가 된다.
+Stage = Literal["discover", "materialize", "store"]
+
+
 @dataclass(frozen=True, slots=True)
 class Failure:
     """기사 한 건의 실패. 나머지 건은 그대로 간다(불변식 9 의 실패 단위는 기사다)."""
 
     source: str
-    stage: str  # "discover" | "materialize"
+    stage: Stage
     ref: str  # guid 원문이나 article_id
     reason: str
 
