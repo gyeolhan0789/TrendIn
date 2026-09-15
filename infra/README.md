@@ -11,7 +11,9 @@ infra/
 ├── .env.example
 ├── jenkins/
 │   ├── Jenkinsfile.ci
-│   └── Jenkinsfile.cd
+│   ├── Jenkinsfile.cd
+│   ├── Jenkinsfile.frontend-ci
+│   └── Jenkinsfile.frontend-cd
 ├── nginx/
 │   └── trendin.conf
 └── redis/
@@ -72,11 +74,28 @@ Hibernate `ddl-auto: validate`가 최종 Entity 정합성을 확인한다. 기�
 | --- | --- | --- |
 | `trendin-backend-ci` | dev 대상 MR | Gradle 테스트 및 빌드 |
 | `trendin-backend-cd` | dev push | Docker 빌드 및 Backend 배포 |
+| `trendin-frontend-ci` | dev 대상 MR | Frontend production build 검증 |
+| `trendin-frontend-cd` | dev push | Frontend 정적 파일 빌드 및 배포 |
 
 - CI: `infra/jenkins/Jenkinsfile.ci`
 - CD: `infra/jenkins/Jenkinsfile.cd`
 - CD는 Backend만 재배포하며 PostgreSQL과 Redis는 유지한다.
 - 빌드 결과는 GitLab에 `jenkins/backend-ci`, `jenkins/backend-cd` 상태로 전달한다.
+- Frontend CI/CD Script Path는 각각 `infra/jenkins/Jenkinsfile.frontend-ci`,
+  `infra/jenkins/Jenkinsfile.frontend-cd`이며 상태 이름은 `jenkins/frontend-ci`,
+  `jenkins/frontend-cd`이다.
+- Frontend CI Job은 dev 대상 MR의 opened/update 이벤트, CD Job은 dev push 이벤트만 활성화한다.
+  두 Job 모두 SCM Credential `gitlab-repo`, GitLab Connection `ssafy-gitlab`을 사용한다.
+- Frontend 변경(`frontend/**`, Frontend Jenkinsfile, Nginx 설정)이 없으면 Frontend Job은
+  build/deploy 단계를 건너뛴다. 현재 Backend Job에는 경로 필터가 없으므로 Frontend-only 변경에도
+  실행된다. Backend 경로 필터는 별도 작업으로 적용한다.
+- Jenkins에는 Vite 7이 지원하는 Node.js 20.19+ 또는 22.12+와 npm, `rsync`, `curl`이 필요하다.
+  Frontend CD는 EC2 호스트에서 실행하며 Jenkins 사용자가 `/var/www/trendin`을 읽고 쓸 수 있어야 한다.
+  초기 1회 `sudo chown -R root:deploy /var/www/trendin`과
+  `sudo chmod -R g+rwX /var/www/trendin`을 적용하고 Jenkins 사용자를 `deploy` 그룹에 추가한다.
+  Jenkins에는 비밀번호 없이 `/usr/sbin/nginx -t`만 실행할 수 있는 최소 sudo 권한을 부여한다.
+- Frontend CD 전에 #253의 정적 배포용 `infra/nginx/trendin.conf`가 EC2에 적용되어 있어야 한다.
+  `VITE_API_BASE_URL=/api`는 Jenkinsfile에 고정된 공개 경로이며 Secret이 아니다.
 
 ## Nginx
 
