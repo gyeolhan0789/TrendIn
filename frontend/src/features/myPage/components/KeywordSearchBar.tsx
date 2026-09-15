@@ -40,31 +40,31 @@ export function KeywordSearchBar() {
   const searching = trimmed.length > 0 && (searchQuery.isLoading || debouncedQuery.trim() !== trimmed);
 
   return (
-    <div className="mypage-search" ref={wrap}>
-      <div className="mypage-search-field" onClick={() => input.current?.focus()}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+    <div className="keywords-add" ref={wrap}>
+      <div className="keywords-add-field" onClick={() => input.current?.focus()}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.35-4.35" /></svg>
         <input
           ref={input}
           type="text"
           value={query}
           aria-label="키워드 검색"
-          placeholder="등록할 키워드를 찾아보세요"
+          placeholder="키워드를 추가해보세요"
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
         />
       </div>
 
       {open && trimmed.length > 0 && (
-        <div className="mypage-search-menu" role="listbox" aria-label="검색 결과">
-          {searching && <p className="mypage-search-none">찾는 중…</p>}
-          {!searching && searchQuery.isError && <p className="mypage-search-none">키워드를 찾지 못했습니다.</p>}
+        <div className="keywords-add-menu" role="listbox" aria-label="검색 결과">
+          {searching && <p className="keywords-add-none">찾는 중…</p>}
+          {!searching && searchQuery.isError && <p className="keywords-add-none">키워드를 찾지 못했습니다.</p>}
           {/* 서버에 없는 말은 등록할 수 없습니다. 직접 만들어 넣는 길은 두지 않습니다. */}
           {!searching && searchQuery.isSuccess && results.length === 0 && (
-            <p className="mypage-search-none">검색어와 맞는 키워드가 없습니다.</p>
+            <p className="keywords-add-none">검색어와 맞는 키워드가 없습니다.</p>
           )}
           {!searching && results.map((item) => (
-            <div className="mypage-search-row" key={item.keywordId}>
-              <span className="mypage-search-name">
+            <div className="keywords-add-row" key={item.keywordId}>
+              <span className="keywords-add-name">
                 <strong>{item.keyword}</strong>
                 <small>{item.domain.name} · {formatGrowth(item)}</small>
               </span>
@@ -72,7 +72,7 @@ export function KeywordSearchBar() {
             </div>
           ))}
           {!searching && searchQuery.data?.hasNext && (
-            <p className="mypage-search-none">결과가 더 있습니다. 검색어를 조금 더 적어 보세요.</p>
+            <p className="keywords-add-none">결과가 더 있습니다. 검색어를 조금 더 적어 보세요.</p>
           )}
         </div>
       )}
