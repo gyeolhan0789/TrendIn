@@ -41,7 +41,7 @@ pipeline {
                         ],
                         userRemoteConfigs: [[
                             credentialsId: configuredRemote.credentialsId,
-                            refspec: "+refs/heads/${env.BUILD_BRANCH}:refs/remotes/origin/${env.BUILD_BRANCH}",
+                            refspec: "+refs/heads/${env.BUILD_BRANCH}:refs/remotes/origin/${env.BUILD_BRANCH} +refs/heads/dev:refs/remotes/origin/dev",
                             url: configuredRemote.url
                         ]]
                     ])
@@ -50,11 +50,33 @@ pipeline {
                     set -eu
                     test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"
                 '''
-                updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'running'
+            }
+        }
+
+        stage('Check backend changes') {
+            steps {
+                script {
+                    env.BACKEND_CHANGED = sh(returnStdout: true, script: '''
+                        set -eu
+                        base=$(git merge-base origin/dev "$BUILD_COMMIT")
+                        git diff --no-renames --name-only "$base" "$BUILD_COMMIT" > .backend-changes
+                        if grep -Eq '^(backend/|infra/jenkins/Jenkinsfile\.ci$)' .backend-changes; then
+                            printf true
+                        else
+                            printf false
+                        fi
+                    ''').trim()
+                    echo "Backend changes: ${env.BACKEND_CHANGED}"
+                    if (env.BACKEND_CHANGED == 'true') {
+                        env.STATUS_STARTED = 'true'
+                        updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'running'
+                    }
+                }
             }
         }
 
         stage('Gradle test and build') {
+            when { environment name: 'BACKEND_CHANGED', value: 'true' }
             steps {
                 dir('backend') {
                     sh './gradlew clean build --no-daemon --console=plain'
@@ -64,10 +86,10 @@ pipeline {
     }
 
     post {
-        success { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'success' }
-        unstable { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' }
-        aborted { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'canceled' }
-        failure { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' }
+        success { script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'success' } } }
+        unstable { script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' } } }
+        aborted { script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'canceled' } } }
+        failure { script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-ci', state: 'failed' } } }
         always {
             junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
         }
