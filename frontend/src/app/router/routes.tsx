@@ -20,13 +20,13 @@ export const siteRoutes = (
   <>
     <Route path="/dashboard" element={<HomePage />} />
     <Route path="/mypage" element={<MyPage />} />
+    <Route path="/saved" element={<SavedTrendPage />} />
   </>
 );
 
 /* 아직 옛 모양인 화면들. 각자 시안이 나오면 위로 옮겨 갑니다. */
 export const appRoutes = (
   <>
-    <Route path="/saved" element={<SavedTrendPage />} />
     <Route path="/trends/:trendId" element={<TrendDetailPage />} />
   </>
 );

@@ -12,6 +12,7 @@ import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
 import { formatCount, formatGrowth, toneOf } from '../../features/trend/trendFormat';
+import { pageList } from '../../utils/pageList';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
 import { TREND_TYPES } from '../../features/trend/types/trend';
@@ -76,18 +77,6 @@ function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: s
 
 function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
   return <Link className={`explore-keyword ${className}`} to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>;
-}
-
-/** 1쪽과 마지막 쪽은 늘 보이고, 현재 쪽 둘레만 이어 붙입니다. 사이는 …로 접습니다. */
-function pageList(current: number, total: number) {
-  const pages = new Set([1, total, current - 1, current, current + 1]);
-  const shown = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
-  const out: (number | 'gap')[] = [];
-  shown.forEach((page, index) => {
-    if (index > 0 && page - shown[index - 1] > 1) out.push('gap');
-    out.push(page);
-  });
-  return out;
 }
 
 function FeaturedTrend({ trend, period }: { trend: Trend; period: PeriodCode }) {
@@ -392,12 +381,12 @@ export function HomePage() {
         <section className="explore-pagination">
           <span className="explore-total">{pageFromUrl}쪽 · <strong>{trends.length}</strong>개 보는 중</span>
 
-          <div className="explore-pages">
-            <button type="button" disabled={pageFromUrl <= 1} aria-label="이전 쪽" onClick={() => updateParams({ page: String(pageFromUrl - 1) })}>
+          <div className="trendin-pages">
+            <button type="button" className="is-step" disabled={pageFromUrl <= 1} aria-label="이전 쪽" onClick={() => updateParams({ page: String(pageFromUrl - 1) })}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
             {pageList(pageFromUrl, totalPages).map((item, index) => (item === 'gap'
-              ? <span className="explore-page-gap" key={`gap-${index}`}>···</span>
+              ? <span className="trendin-page-gap" key={`gap-${index}`}>···</span>
               : (
                 <button
                   type="button"
@@ -409,7 +398,7 @@ export function HomePage() {
                   {item}
                 </button>
               )))}
-            <button type="button" disabled={!hasNext} aria-label="다음 쪽" onClick={() => updateParams({ page: String(pageFromUrl + 1) })}>
+            <button type="button" className="is-step" disabled={!hasNext} aria-label="다음 쪽" onClick={() => updateParams({ page: String(pageFromUrl + 1) })}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
             </button>
           </div>
