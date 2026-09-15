@@ -16,14 +16,18 @@ import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
 export const landingRoutes = <Route path="/" element={<LandingPage />} />;
 
 /* 새 시안으로 다시 그렸고, 자료를 받으려면 로그인해야 하는 화면들. */
-export const siteRoutes = <Route path="/dashboard" element={<HomePage />} />;
+export const siteRoutes = (
+  <>
+    <Route path="/dashboard" element={<HomePage />} />
+    <Route path="/mypage" element={<MyPage />} />
+  </>
+);
 
 /* 아직 옛 모양인 화면들. 각자 시안이 나오면 위로 옮겨 갑니다. */
 export const appRoutes = (
   <>
     <Route path="/saved" element={<SavedTrendPage />} />
     <Route path="/trends/:trendId" element={<TrendDetailPage />} />
-    <Route path="/mypage" element={<MyPage />} />
   </>
 );
 

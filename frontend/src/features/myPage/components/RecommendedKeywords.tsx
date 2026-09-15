@@ -1,3 +1,4 @@
+import { TagChip } from '../../trend/components/TagChip';
 import { AddInterestKeywordButton } from './AddInterestKeywordButton';
 import type { RecommendedKeyword } from '../types/myPage';
 
@@ -13,20 +14,22 @@ export function RecommendedKeywords({ recommendations }: RecommendedKeywordsProp
   if (recommendations.length === 0) return null;
 
   return (
-    <section className="mypage-recommend" aria-label="추천 키워드">
+    <section className="keywords-recommend" aria-label="추천 키워드">
       <header>
-        <h2>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-          추천 키워드
-        </h2>
-        <span>내 관심 키워드와 함께 언급되는 말</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" /></svg>
+        <h2>추천 키워드</h2>
+        <p>내 관심 키워드와 함께 언급되는 말입니다. 눌러서 바로 등록해 보세요.</p>
       </header>
-      <div className="mypage-recommend-grid">
+
+      <div className="keywords-recommend-grid">
         {recommendations.map((recommendation) => (
-          <div className="mypage-recommend-card" key={recommendation.keywordId}>
+          <div className="keywords-recommend-card" key={recommendation.keywordId}>
             <span>
               <strong>{recommendation.keyword}</strong>
-              <small>{recommendation.domain.name} · 연관도 {recommendation.relationScore}</small>
+              <small>
+                <TagChip label={recommendation.domain.name} />
+                연관도 {recommendation.relationScore}
+              </small>
             </span>
             <AddInterestKeywordButton keywordId={recommendation.keywordId} keyword={recommendation.keyword} />
           </div>
