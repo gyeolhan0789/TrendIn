@@ -450,8 +450,13 @@ class MetricSink:
     def _cast(self, cur: Any, table: str, column: str) -> str:
         """컬럼의 실제 타입으로 캐스트하는 조각. 표가 없으면 빈 문자열이다.
 
-        `text` · `varchar` 계열이면 캐스트가 필요 없고, 네이티브 enum(`metric_period`)이나
-        enum 배열(`trend_type[]`)이면 붙여야 한다 ([08 §4]).
+        스칼라 `text` · `varchar` 계열은 캐스트가 필요 없고, 네이티브 enum(`metric_period`)
+        이나 enum 배열(`trend_type[]`)이면 붙여야 한다 ([08 §4]).
+
+        **배열은 varchar 계열이어도 붙인다.** PostgreSQL 에 `varchar[] = text[]` 연산자가
+        없어서, 스테이징의 `text[]` 와 비교하는 순간 "operator does not exist" 로 죽는다.
+        스칼라에서는 같은 조합이 암묵 캐스트로 지나가기 때문에 배열만 예외가 된다 —
+        서비스 DB 의 `trends.trend_types` 가 `varchar(255)[]` 라 실제로 걸린다.
         """
         cur.execute(COLUMN_TYPE_SQL, (table, column))
         row = cur.fetchone()
@@ -459,7 +464,8 @@ class MetricSink:
             return ""
         actual = str(row[0])
         base = actual.replace("[]", "").split("(")[0].strip()
-        if base in ("text", "character varying", "varchar", "character"):
+        scalar_text = base in ("text", "character varying", "varchar", "character")
+        if scalar_text and not actual.endswith("[]"):
             return ""
         return f"::{actual}"
 

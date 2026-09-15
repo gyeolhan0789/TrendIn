@@ -47,10 +47,14 @@ x-spark-airflow: &spark-airflow
     MINIO_RAW_BUCKET: ${TRENDIN_MINIO_BUCKET:-raw-data}
     MINIO_CURATED_BUCKET: ${TRENDIN_MINIO_CURATED_BUCKET:-curated}
     # Spark 는 JDBC URL 과 계정을 따로 받는다. Airflow 의 AIRFLOW_CONN_APP_DB(postgres://)
-    # 에서 기계적으로 유도할 수 없어서 별도로 준다. 팀 postgres 로 갈 때 이 값만 바꾼다.
+    # 에서 기계적으로 유도할 수 없어서 별도로 준다. 팀 postgres 로 갈 때 이 셋만 바꾼다.
+    #
+    # 비밀번호도 따로 받는다. APP_DB_PASSWORD 는 컴포즈 안 postgres 의 trendin 롤을
+    # 만드는 값이라(docker/postgres-init), 그걸 그대로 쓰면 서비스 DB 의 비밀번호가
+    # 빈 볼륨 초기화 때 로컬 롤에도 박힌다. 비워 두면 종전대로 APP_DB_PASSWORD 를 쓴다.
     APP_DB_URL: ${SPARK_APP_DB_URL:-jdbc:postgresql://postgres:5432/trendin}
     APP_DB_USER: ${SPARK_APP_DB_USER:-trendin}
-    APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in pipeline/.env}
+    APP_DB_PASSWORD: ${SPARK_APP_DB_PASSWORD:-${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in pipeline/.env}}
     CHECKPOINT_ROOT: /opt/airflow/checkpoints
 
 services:

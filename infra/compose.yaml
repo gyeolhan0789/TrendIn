@@ -35,8 +35,11 @@ services:
       POSTGRES_DB: forever102
       POSTGRES_USER: ssafy
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+    # 기본값은 루프백이다. 데이터 EC2 의 파이프라인이 붙어야 할 때만 서버 .env 에서
+    # POSTGRES_BIND_IP 를 그 호스트의 사설 IP 로 채운다. 0.0.0.0 으로 열지 않는다 —
+    # 공인 인터페이스까지 열려 보안 그룹이 유일한 방어선이 된다.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
