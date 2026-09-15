@@ -24,7 +24,6 @@ from trendin.spark.metrics.trends import (
     is_new,
     is_rising,
     judge,
-    union_types,
     zscore,
 )
 
@@ -213,16 +212,22 @@ def test_근거가_없는_행은_판별하지_않는다():
     assert judge(assign_ranks([row(1, 9, 3)]), {}, thresholds()) == {}
 
 
-def test_기간_통합_합집합을_만든다():
-    verdict = {(1, "24H"): (RISING,), (1, "30D"): (CURRENT,), (2, "7D"): (NEW,)}
-    assert union_types(verdict) == {1: (CURRENT, RISING), 2: (NEW,)}
+def test_한_기간의_판정이_다른_기간으로_번지지_않는다():
+    """`trends` 에 합집합을 싣던 때는 번졌다 — `24H` 에서만 급상승한 키워드가 `7D` 목록에서도
+    배지를 달았다. 판정 자리가 `keyword_metrics` 로 옮겨오면서 기간별로 갈린다 ([07 §6]).
+    """
+    rows = assign_ranks([row(1, 9, 3), row(1, 9, 9, period="7D")])
+    found = {(1, "24H"): evidence(quiet=5), (1, "7D"): evidence(quiet=5)}
+    verdict = judge(rows, found, thresholds())
+    assert RISING in verdict[(1, "24H")]
+    assert RISING not in verdict[(1, "7D")]
 
 
-def test_합집합_순서가_고정이다():
-    """배열 값이 실행마다 뒤바뀌면 같은 내용인데도 UPDATE 가 나가고 `updated_at` 이 흔들린다."""
-    first = union_types({(1, "24H"): (NEW, RISING, CURRENT)})
-    second = union_types({(1, "24H"): (CURRENT, NEW, RISING)})
-    assert first == second == {1: (CURRENT, RISING, NEW)}
+def test_배열_차례가_고정이다():
+    """같은 내용인데 값의 차례만 뒤바뀌면 `IS DISTINCT FROM` 이 참이 되어 빈 UPDATE 가 나간다."""
+    rows = assign_ranks([row(1, 9, 3)])
+    verdict = judge(rows, {(1, "24H"): evidence(quiet=0)}, thresholds())
+    assert verdict[(1, "24H")] == (CURRENT, RISING, NEW)
 
 
 def _top(rising: RisingThresholds, top_n: int) -> RisingThresholds:

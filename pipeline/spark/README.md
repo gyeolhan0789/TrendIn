@@ -24,8 +24,10 @@ MinIO curated         →  extract    키워드 추출 · 통합 · 승격 · ke
 
 Airflow 가 `spark-submit` 으로 각 Job 을 깨우고, Job 은 처리 후 스스로 종료한다.
 
-쓰는 서비스 테이블은 일곱 개다 — `contents`, `keywords`, `keyword_contents`, `trends`,
-`keyword_metrics`, `keyword_metric_history`, `keyword_relations`. 나머지 여섯은 건드리지 않는다.
+쓰는 서비스 테이블은 여섯 개다 — `contents`, `keywords`, `keyword_contents`,
+`keyword_metrics`, `keyword_metric_history`, `keyword_relations`. 나머지 일곱은 건드리지 않는다.
+**`trends` 도 그 일곱에 든다** — 트렌드 배지가 `keyword_metrics.trend_types` 로 옮겨오면서
+([07 §6](docs/07-metrics-and-ranking-spec.md)) 그 표에 쓸 것이 없어졌다.
 스키마 기준은 [`docs/erd/erd-00-current.md`](docs/erd/erd-00-current.md) (v2).
 
 ## 어떻게 도나
@@ -247,7 +249,8 @@ src/trendin/spark/    로직. jobs 가 import 한다
 
 MVP 에서 아래는 채우지 않는다. 누락이 아니라 결정이다 — 근거는 [00 §4](docs/00-overview.md).
 
-- `trends.description` · `.summary` · `.reason` → `NULL`
+- `trends` 전체 → 손대지 않음. `description` · `summary` · `reason` 은 AI 설명 에픽 몫이고,
+  `trend_types` 는 `keyword_metrics` 로 옮겨갔다
 - `briefings` · `briefing_trends` · `notifications` → 차후 확장, 손대지 않음
 
 v1 의 `contents.summary` 는 스키마에서 없어졌다 — 결정이 컬럼 부재로 굳었다.
@@ -262,7 +265,9 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | 2 | **`keywords (domain, normalized_name)` UNIQUE** — **나중에 붙일 수 없는 유일한 항목.** 2026-09-09 확인 결과 `Keyword.java` 에 없다 | `extract` — **승격 단계만** |
 | 3 | `period` 값 규약 (varchar 라 코드가 정하는 대로 굳는다) | `aggregate` |
 | 4 | `keyword_metrics (keyword_id, period)` · `keyword_metric_history (keyword_id, bucket_start)` UNIQUE | `aggregate` |
-| 4a | **`trends.trend_types` 의 실제 타입** — 배열 컬럼인지 조인 테이블인지 ([01 §6](docs/01-architecture.md)) | `aggregate` |
+| 4a | ~~**`trends.trend_types` 의 실제 타입**~~ — 적재가 실행 시점에 컬럼 타입을 보고 캐스트를 붙이므로(`io/metrics._cast`) 어느 쪽이든 같게 돈다 | 해결 |
+| 4b | **`keyword_metrics.trend_types` 칸** — 배지를 기간별로 실을 자리. 없으면 `aggregate` 가 시작에서 거부한다 | `aggregate` |
+| 4c | **백엔드 목록 조회를 `keyword_metrics.trend_types` 로 옮기는 일** — `KeywordMetricRepository` 의 세 조회가 아직 `join trends ... = any(trend.trend_types)` 다. 파이프라인이 그 표를 더는 갱신하지 않으므로, 옮기기 전까지 화면의 배지는 마지막으로 쓴 값에 멈춰 있다 | 화면 |
 | 5 | **실제 수집 데이터 샘플** — 임계값을 추측으로 정하면 전부 다시 하게 된다 | 품질 |
 
 **1·2 만 적용되면 `ingest` 와 `extract` 는 착수할 수 있다.** 1을 2보다 먼저 해야 한다 — `create` 상태에서는 2번 제약도 다음 재배포에 함께 날아간다.
@@ -289,7 +294,7 @@ DB 가 초기 버전이라 대부분은 **구현하면서 고쳐도 된다.** �
 | `domain` 값 | enum 상수명. 이벤트 슬러그 `dev` → `DEVELOP`, `fashion` → `FASHION`. `ingest` 가 매핑. **`development` 가 아니다** ([01 §6](docs/01-architecture.md)) |
 | `keywords` 유일성 | `(domain, normalized_name)` 복합 UNIQUE. 단독이면 개발의 `모델` 과 패션의 `모델` 이 충돌한다 |
 | 지표의 키 | `keyword_id`. `trends` 를 거치지 않으므로 **트렌드가 아닌 키워드도 지표와 그래프를 갖는다** |
-| 트렌드 유형 | `trends.trend_types` 배열. `CURRENT`/`NEW`/`RISING` 이고 **복수 가능**하다 ([07 §6](docs/07-metrics-and-ranking-spec.md)) |
+| 트렌드 유형 | `keyword_metrics.trend_types` 배열. `CURRENT`/`NEW`/`RISING` 이고 **복수 가능**하다. 그 행의 기간에 대한 판정이라 `24H` 와 `30D` 가 서로 다른 배지를 갖는다 ([07 §6](docs/07-metrics-and-ranking-spec.md)) |
 | 기준일 | 집계의 마지막 날 D 는 **KST 로 완결된 마지막 날**(기본 = 실행일 전날). 진행 중인 오늘을 쓰면 증가율이 시각에 따라 뒤집힌다 |
 
 백엔드에 부탁할 것 둘 — `@Enumerated(EnumType.STRING)` 명시(JPA 기본값이 `ORDINAL` 이라 컬럼이 int 가 된다), PostgreSQL 네이티브 enum 타입 미사용(Spark JDBC 쓰기가 캐스트 없이 죽는다). [01 §6](docs/01-architecture.md).

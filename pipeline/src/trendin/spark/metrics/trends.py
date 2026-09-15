@@ -4,11 +4,10 @@
 키워드가 `NEW` 이면서 `RISING` 일 수 있고, 새로 등장해서 빠르게 늘고 있는 키워드에 둘 다 붙는
 것이 사실에 맞다. v1 은 우선순위를 두고 하나만 골랐는데 그 제약이 없어졌다.
 
-**판별은 기간별로 하는데 저장 자리에는 기간 구분이 없다** ([07 §6]). `trend_types` 는
-`trends` 에 있고 `trends` 에는 `period` 가 없다. 그래서 여기서 기간별로 판별한 뒤
-`union_types` 가 합집합을 만든다 — `24H` 에서만 `RISING` 인 키워드가 `30D` 목록에서도 배지를
-단다. `keyword_metrics.trend_types` 를 요청해 뒀고([08 §5] 티어 3) 그게 오면 이 합집합이
-필요 없어진다.
+**판별도 저장도 기간별이다.** `keyword_metrics.trend_types` 가 생기면서([08 §5] 티어 3)
+`(keyword_id, period)` 판정이 모양 그대로 자리를 찾았다. 그전에는 `trend_types` 가 `trends` 에
+있었고 그 표에 `period` 가 없어서, `union_types` 가 기간을 합쳐 실었다 — `24H` 에서만
+`RISING` 인 키워드가 `30D` 목록에서도 배지를 다는 상태였다. 그 합집합은 걷어냈다.
 
 **무정보어 제거를 이 파일이 맡는다** ([07 §6]). `요즘`·`매력` 처럼 이 코퍼스에서 늘 흔한 말은
 **자기 과거를 배경으로 놓으면 z ≈ 0** 이다. 사전에 손으로 올리는 대신 이 축이 거른다 — 미리
@@ -37,6 +36,9 @@ NEW = "NEW"
 
 # 백엔드 `TrendType` enum 과 같은 값이어야 한다. 네이티브 enum 배열이라 없는 값을 보내면
 # 캐스트에서 트랜잭션이 죽는다 ([08 §4], `io/metrics.py`).
+#
+# **이 순서가 곧 배열에 실리는 순서다** (`judge` 의 마지막 줄). 같은 내용인데 값의 차례만
+# 뒤바뀌면 `IS DISTINCT FROM` 이 참이 되어 내용 없는 UPDATE 가 나간다.
 TREND_TYPES = (CURRENT, RISING, NEW)
 
 
@@ -81,8 +83,8 @@ def is_current(row: MetricRow, top_n: int) -> bool:
     """**선택 기간의 언급량 TOP 5** ([07 §6] 초기 규칙).
 
     `mention_rank` 가 이미 그 순위이므로 판별에 계산이 없다. 향후 규칙(고정 인기 키워드
-    감점)이 들어오면 순위와 갈리고, 그 시점에는 `keyword_metrics.trend_types` 요청이
-    선택이 아니라 선행 조건이 된다 ([07 §6]).
+    감점)이 들어오면 순위와 갈리지만, 저장 자리는 그때도 그대로다 ([07 §6]) — 판정이 기간별로
+    실리므로 순위와 배지가 따로 놀아도 어느 기간의 판정인지가 남는다.
     """
     return row.mention_rank is not None and row.mention_rank <= top_n
 
@@ -139,9 +141,15 @@ def judge(
 ) -> dict[tuple[int, str], tuple[str, ...]]:
     """기간별 판별. `(keyword_id, period)` → 받은 유형들.
 
+    이 결과가 `keyword_metrics.trend_types` 에 기간별로 그대로 실린다 ([07 §6]). 기간을
+    합치지 않으므로 `24H` 에서만 `RISING` 인 키워드가 `7D` 목록에서 배지를 달지 않는다.
+
     `RISING`·`NEW` 는 조건을 넘은 것 **중 상위 N 개**만 남긴다 ([07 §6]). 자르는 순서는
     백엔드 목록 정렬과 맞춘다 — `RISING` 은 증가율, `NEW` 는 언급량이다. 순서가 다르면
     우리가 고른 5개와 백엔드가 위에 보여주는 5개가 어긋난다.
+
+    **돌려주는 배열의 차례를 `TREND_TYPES` 로 고정한다.** 판별 차례가 이미 그 순서지만,
+    조건이 하나 더 붙는 날 조용히 어긋나는 것을 막으려고 마지막에 한 번 더 세운다.
     """
     verdict: dict[tuple[int, str], list[str]] = {}
     by_scope: dict[tuple[str, str], list[MetricRow]] = {}
@@ -170,20 +178,7 @@ def judge(
         for row in fresh[: thresholds.new_top_n]:
             verdict.setdefault((row.keyword_id, period), []).append(NEW)
 
-    return {key: tuple(types) for key, types in verdict.items()}
-
-
-def union_types(verdict: dict[tuple[int, str], tuple[str, ...]]) -> dict[int, tuple[str, ...]]:
-    """기간을 통합한 합집합 — `trends.trend_types` 에 넣을 값 ([07 §6]).
-
-    **임시방편이다.** 저장 자리에 기간 구분이 없어서 하는 일이고, `keyword_metrics` 에
-    `trend_types` 가 오면 없어진다. 순서를 `TREND_TYPES` 로 고정하는 이유는 배열 값이 실행마다
-    뒤바뀌면 같은 내용인데도 UPDATE 가 나가고 `updated_at` 이 흔들리기 때문이다.
-    """
-    merged: dict[int, set[str]] = {}
-    for (keyword_id, _), types in verdict.items():
-        merged.setdefault(keyword_id, set()).update(types)
     return {
-        keyword_id: tuple(name for name in TREND_TYPES if name in types)
-        for keyword_id, types in merged.items()
+        key: tuple(name for name in TREND_TYPES if name in types)
+        for key, types in verdict.items()
     }

@@ -20,3 +20,71 @@ jdbc:
   # APP_DB_URL 이 이 값을 덮는다 (compose.spark.yaml 의 SPARK_APP_DB_URL).
   url: "jdbc:postgresql://postgres:5432/trendin"
   user: "trendin"
+
+# --- 임계값 ---------------------------------------------------------------
+#
+# **전부 잠정이다.** 목록을 실제로 뽑아 보려고 `local.yaml` 이 채워 둔 값을 그대로 옮겨 왔다
+# (2026-09-15). `base.yaml` 은 이 키들을 계속 `null` 로 둔다 — 거기로 옮기는 것이 확정이고,
+# 값이 여기 있는 동안은 아직 확정이 아니라는 표시다 ([10 §4] S6, [07 §6]).
+#
+# **여기 없는 키는 옮기지 않은 것이다.** `local.yaml` 의 `*.required: false` 는 선행 조건을
+# 건너뛰는 로컬 전용 스위치라 두고 왔다 — 운영은 `base.yaml` 의 `true` 를 그대로 쓴다. 표가
+# 없거나 UNIQUE 가 없으면 시작을 거부하는 쪽이 맞다.
+#
+# **⚠️ 코퍼스가 차면 다시 재야 한다.** 2026-09-15 기준 `corpus_window_days: 30` 이 자르는
+# 최근 30일에 185건뿐이라 `df_min_ratio: 0.003` 이 절대값 0.56 으로 내려앉는다. DF 하한이
+# 사실상 없는 상태라, 한 문서에만 나온 문장 조각까지 후보 표에 올라온다. 하루 700건이면
+# 30일에 21,000건이니 100배 넘게 모자라고, RSS 는 최근 것만 주므로 **시간이 채워야 하는
+# 격차다.** 쌓인 뒤 `spark/scripts/sweep-extract.py` 로 다시 재서 `base.yaml` 로 옮긴다.
+
+extract:
+  corpus_window_days: 30
+  df_min_ratio: 0.003
+  df_max_ratio: 0.3
+  score_weights:
+    c_value: 0.3
+    bm25: 0.4
+    title: 0.3
+    # **이 둘은 `base.yaml` 이 `null` 이 아니라 `0.0` 이다.** 0 은 형태소 분석기 이전의 옛
+    # 동작이라 그대로 두면 라틴 표기 선별률이 16% 로 돌아간다. 2026-09-10 스윕에서 고른
+    # 값이라야 98.6% 다.
+    latin: 0.3
+    proper: 0.15
+  # 승격에는 영향이 없다 — 언급량과 승격 심사는 필터를 통과한 전부를 세고 `selected` 를
+  # 보지 않는다 ([04 §7]). 이 값이 정하는 것은 `keyword_contents`(상세 화면의 관련 콘텐츠)다.
+  per_document_top_k: 30
+  score_floor: 0.2
+  # [05] 의 문턱. 2026-09-09 실데이터(fashion 373건 · 고유 저자 78 · 소스 7)의 분포를 보고
+  # 고른 값이라 근거가 아예 없지는 않지만, 코퍼스가 자라면 함께 올라가야 한다.
+  registry:
+    plural:
+      df_dominance: 5
+    abbreviation:
+      min_documents: 3
+    variant:
+      min_length: 5
+      max_edit_distance: 2
+      df_dominance: 10
+    promote:
+      min_documents: 5
+      min_observed_days: 2
+      min_authors: 3
+      min_representative_ratio: 0.6
+
+aggregate:
+  thresholds:
+    rising:
+      min_growth_amount: 3
+      min_growth_rate: 50
+      min_mention_count: 5
+    new:
+      # `quiet_days` 는 `base.yaml` 이 규격대로 정해 두었으므로 `null` 인 둘만 채운다.
+      # 설정은 사전을 재귀로 합치므로 여기 안 적은 키는 그대로 남는다.
+      windows:
+        "7D": {quiet_max: 2, min_mentions: 10}
+        "30D": {quiet_max: 3, min_mentions: 20}
+    zscore:
+      # 90일 배경. 이 값이 원자료를 며칠치 읽을지도 정한다 — 30D + 90 = 120일이 지평이다.
+      background_days: 90
+      min_background_days: 10
+      min_z: 2.0

@@ -1,4 +1,4 @@
-"""[07] 단계 배선 — 원자료에서 세 표의 행이 나오기까지.
+"""[07] 단계 배선 — 원자료에서 두 표의 행이 나오기까지.
 
 **DB 없이 돈다.** `MetricSink` 자리에 가짜를 끼운다 — `aggregate` 는 Spark 도 쓰지 않으므로
 ([09 §4] 층 1) 이 시험이 배선 전체를 덮는다.
@@ -44,11 +44,10 @@ def thresholds(**overrides) -> AggregateThresholds:
 class FakeSink:
     """`MetricSink` 의 자리. 읽은 것을 그대로 주고 쓴 것을 들고 있는다."""
 
-    def __init__(self, daily, *, covered=None, sources=None, standing=()):
+    def __init__(self, daily, *, covered=None, sources=None):
         self.daily = daily
         self._covered = covered
         self._sources = sources or {}
-        self._standing = set(standing)
         self.written = None
         self.verdict_rows = []
 
@@ -68,9 +67,6 @@ class FakeSink:
 
     def period_sources(self, *, start, end):
         return dict(self._sources)
-
-    def trending_keywords(self):
-        return set(self._standing)
 
     def write(self, **kwargs):
         self.written = kwargs
@@ -203,14 +199,26 @@ def rising_series() -> list[tuple]:
     return rows
 
 
-def test_한_바퀴_돌면_세_표의_행이_나온다():
+# `keyword_metrics` 스테이징 한 줄의 자리 — `io/metrics.METRIC_COLUMNS` 와 같은 차례다.
+PERIOD = 1
+TREND_TYPES = 9
+
+
+def test_한_바퀴_돌면_두_표의_행이_나온다():
     sink = FakeSink(rising_series(), sources={1: 2})
     result = batch.run(sink, thresholds(), today=TODAY, run_id="R1")
     assert result.reference_day == D
     assert result.keywords == 1
-    assert sink.written["metrics"][0][1] == "24H"
+    assert sink.written["metrics"][0][PERIOD] == "24H"
     assert sink.written["history"]
-    assert sink.written["trends"] == [(1, ["CURRENT", "RISING"])]
+    assert "trends" not in sink.written
+
+
+def test_배지가_그_기간의_지표_행에_실린다():
+    """기간을 합치지 않으므로 어느 기간의 판정인지가 행 자체에 남는다 ([07 §6])."""
+    sink = FakeSink(rising_series(), sources={1: 2})
+    batch.run(sink, thresholds(), today=TODAY, run_id="R1")
+    assert sink.written["metrics"][0][TREND_TYPES] == ["CURRENT", "RISING"]
 
 
 def test_판별_이력이_회차별로_남는다():
@@ -219,11 +227,13 @@ def test_판별_이력이_회차별로_남는다():
     assert sink.verdict_rows == [("R1", 1, "24H", ["CURRENT", "RISING"], "2026-09-09")]
 
 
-def test_트렌드에서_내려오면_빈_배열이_올라간다():
-    """행을 지우지 않는다 — `briefing_trends` 가 참조하고 AI 설명도 함께 사라진다 ([07 §6])."""
-    sink = FakeSink([daily(9, D, 1)], sources={9: 2}, standing={7})
+def test_유형을_못_받은_행에는_빈_배열이_실린다():
+    """**그 빈 배열이 배지를 뗀다.** 지표 행과 배지가 한 줄이라, 지금 배지를 든 키워드를 따로
+    읽어 비우는 단계가 없다 ([07 §6]). 여기서는 직전 구간에만 언급이 있어 순위도 유형도 없다.
+    """
+    sink = FakeSink([daily(9, days_before(1), 5)], sources={9: 2})
     batch.run(sink, thresholds(), today=TODAY, run_id="R1")
-    assert (7, []) in sink.written["trends"]
+    assert sink.written["metrics"][0][TREND_TYPES] == []
 
 
 def test_같은_날짜로_두_번_돌려도_같은_행이_나온다():
