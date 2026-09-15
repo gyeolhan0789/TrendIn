@@ -42,6 +42,25 @@ docker compose --env-file infra/.env -f infra/compose.yaml logs --tail=100
 
 PostgreSQL과 Redis는 named volume을 사용하므로 데이터 삭제 방지를 위해 `docker compose down -v`를 사용하지 않는다.
 
+## 데이터 EC2에서 서비스 DB 접근
+
+PostgreSQL은 기본적으로 `127.0.0.1`에만 공개한다. 데이터 EC2 `J15A102A`의 Spark 파이프라인이
+`forever102`에 지표를 적재해야 하므로, `infra/.env`의 `POSTGRES_BIND_IP`를 이 EC2의 사설 IP로 채운다.
+
+`0.0.0.0`은 사용하지 않는다. 공인 인터페이스까지 열려 보안 그룹이 유일한 방어선이 된다.
+
+AWS 보안 그룹에서 5432 인바운드를 데이터 EC2의 **보안 그룹 ID**로만 허용한다. 사설 IP로 지정하면
+인스턴스 재시작으로 주소가 바뀔 때 규칙이 끊어진다.
+
+UFW에는 규칙을 넣지 않는다. Docker가 publish한 포트는 UFW를 우회하므로 열리지도 막히지도 않는다.
+
+PostgreSQL 설정은 변경하지 않는다. 공식 이미지가 컨테이너 안에서 `listen_addresses = '*'`이고
+`pg_hba.conf`에 `host all all all scram-sha-256`이 있어 비밀번호 인증으로 접속한다.
+
+파이프라인은 `forever102`에 자신이 소유한 테이블도 만든다. `collected_article`, `collect_validator`와
+`pl_` 접두사 테이블들이며, 서비스 테이블과는 이름으로 구분한다. 전용 롤을 사용할 경우 `public` 스키마의
+`CREATE` 권한을 명시적으로 부여한다. PostgreSQL 15부터 기본으로 닫혀 있다.
+
 ## Flyway
 
 마이그레이션 파일은 `backend/src/main/resources/db/migration`에서 관리한다.
