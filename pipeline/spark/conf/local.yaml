@@ -2,7 +2,6 @@
 # 컴포즈 안에서 돈다. 그래서 주소가 전부 호스트에 열린 포트다 (09 §2).
 #
 # 포트의 출처:
-#   kafka    datastore/compose.yaml 의 EXTERNAL 리스너 (KAFKA_EXTERNAL_PORT, 기본 29092)
 #   minio    datastore/compose.yaml 의 API 포트 (MINIO_API_PORT, 기본 9000)
 #   postgres pipeline/spark/compose.dev.yaml 이 여는 포트 (APP_DB_PORT, 기본 55432)
 #
@@ -16,19 +15,12 @@ logging:
   level: "INFO"
   spark_level: "WARN"
 
-kafka:
-  bootstrap_servers: "127.0.0.1:29092"
-
 minio:
   endpoint: "http://127.0.0.1:9000"
 
 jdbc:
   url: "jdbc:postgresql://127.0.0.1:55432/trendin"
   user: "trendin"
-
-checkpoint:
-  # 저장소 안. spark/.gitignore 가 뺀다. 지우는 절차는 [02 §6].
-  root: "spark/.checkpoints"
 
 ingest:
   contents:

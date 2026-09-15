@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from trendin.spark.common.config import Config, ConfigError
-from trendin.spark.common.session import checkpoint_dir, spark_options
+from trendin.spark.common.config import Config
+from trendin.spark.common.session import spark_options
 
 
 def make(data: dict) -> Config:
@@ -73,14 +73,3 @@ def test_추가_S3A_옵션은_코드를_고치지_않고_넣는다():
 
     assert options["spark.hadoop.fs.s3a.connection.maximum"] == "32"
 
-
-def test_checkpoint_는_Job_마다_나뉜다():
-    config = make({"checkpoint": {"root": "/var/ckpt/"}})
-
-    assert checkpoint_dir("ingest", config) == "/var/ckpt/ingest"
-    assert checkpoint_dir("extract", config) == "/var/ckpt/extract"
-
-
-def test_checkpoint_root_가_없으면_죽는다():
-    with pytest.raises(ConfigError, match="CHECKPOINT_ROOT"):
-        checkpoint_dir("ingest", make({}))

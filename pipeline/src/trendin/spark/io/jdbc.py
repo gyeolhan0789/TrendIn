@@ -13,9 +13,10 @@ upsert 를 못 하고, 무엇보다 **자기 연결에서 파티션마다 커밋
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Iterator
-from urllib.parse import quote
+from typing import TYPE_CHECKING, Any, Iterator, NamedTuple
+from urllib.parse import quote, urlsplit
 
 from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.logging import get_logger
@@ -28,6 +29,12 @@ log = get_logger(__name__)
 DEFAULT_DRIVER = "org.postgresql.Driver"
 DEFAULT_BATCH_SIZE = 1000
 JDBC_PREFIX = "jdbc:postgresql://"
+DEFAULT_PORT = 5432
+
+# 생산자(수집 DAG)가 쓰는 접속 문자열. Airflow Connection `app_db` 의 값이다
+# (`common/collect/db.URI_ENV`). Spark Job 이 Airflow 컨테이너 안에서 `submit.sh` 로 돌기
+# 때문에 이 프로세스 환경에도 같이 들어온다.
+PRODUCER_URL_ENV = "AIRFLOW_CONN_APP_DB"
 
 
 def jdbc_options(config: Config) -> dict[str, str]:
@@ -63,6 +70,80 @@ def dsn(url: str, user: str, password: str = "") -> str:
 def dsn_from_config(config: Config) -> str:
     options = jdbc_options(config)
     return dsn(options["url"], options["user"], options["password"])
+
+
+class Target(NamedTuple):
+    """접속 문자열이 가리키는 곳. 자격 증명과 옵션은 들어 있지 않다."""
+
+    host: str
+    port: int
+    dbname: str
+
+    def __str__(self) -> str:
+        return f"{self.host}:{self.port}/{self.dbname}"
+
+
+def _target(url: str) -> Target:
+    """접속 문자열에서 `(host, port, dbname)` 만. 자격 증명과 옵션은 버린다.
+
+    계정을 빼는 이유는 양쪽이 다른 계정으로 붙어도 되기 때문이다 — 생산자는 Airflow
+    Connection 의 계정, 소비자는 `jdbc.user` 다. 같은 DB 인지만 본다.
+    """
+    parts = urlsplit(url[len("jdbc:") :] if url.startswith("jdbc:") else url)
+    name = parts.path.lstrip("/")
+    # `parts.port` 는 포트가 숫자가 아니면 여기서 ValueError 를 올린다. 그대로 둔다.
+    if not parts.hostname or not name:
+        raise ValueError(f"host·dbname 을 못 읽었다: {url!r}")
+    return Target(parts.hostname, parts.port or DEFAULT_PORT, name)
+
+
+def assert_producer_database(config: Config) -> None:
+    """생산자와 같은 DB 를 보고 있는지 본다. 아니면 시작하지 않는다 (S15P21A102-247·244).
+
+    **틀린 DB 를 봐도 오류가 안 난다는 것이 문제다.** 장부 뷰는 수집 DAG 이 만들므로 옛 DB
+    에도 남아 있고, 그러면 `collected.view_ready` 가 통과하고 창 질의가 0행을 준다 — "수집이
+    0건이었다" 와 구분되지 않는다. 적재 쪽은 더 나쁘다. `curated`·`contents`·`pl_*` 가 아무도
+    안 읽는 DB 에 쌓이고, 증상은 **"적재는 되는데 조회가 빈다"** 로만 나타난다.
+
+    접속값이 두 벌인 것이 원인이다. 생산자는 `AIRFLOW_CONN_APP_DB`, 소비자는 `APP_DB_URL`
+    로 각자 받는다. 한쪽만 팀 postgres 로 옮기면 그대로 갈린다.
+
+    **환경변수가 없으면 그냥 지나간다.** 호스트에서 `--profile local` 로 손수 돌릴 때는
+    Airflow Connection 이 없는 것이 정상이다 — 검사를 못 하는 것과 검사가 실패한 것은 다르다.
+
+    **읽지 못해도 지나간다.** `AIRFLOW_CONN_APP_DB` 는 URI 말고 JSON 으로도 줄 수 있고,
+    인코딩 안 된 비밀번호가 host 자리를 먹기도 한다. 검사가 파싱에 실패했다는 이유로 멀쩡한
+    실행을 막지 않는다.
+
+    ⚠️ **host 를 문자열로 비교한다.** 같은 DB 를 한쪽은 서비스 이름, 다른 쪽은 IP 로
+    가리키면 멀쩡한 실행이 막힌다. 이름을 풀어서 비교하지 않는 이유는 그 풀이가 컨테이너
+    안팎에서 다른 답을 주기 때문이다 — 틀린 통과보다 틀린 차단이 낫고, 차단은 오류 메시지가
+    양쪽 주소를 그대로 보여 주므로 사람이 5초 안에 판정한다 (S15P21A102-247 코드리뷰).
+    """
+    raw = os.environ.get(PRODUCER_URL_ENV, "").strip()
+    if not raw:
+        log.info("%s 가 없어 생산자 DB 대조를 건너뛴다", PRODUCER_URL_ENV)
+        return
+    try:
+        producer = _target(raw)
+    except ValueError as error:
+        log.warning("%s 를 읽지 못해 대조를 건너뛴다: %s", PRODUCER_URL_ENV, error)
+        return
+
+    url = str(config.require("jdbc.url"))
+    if not url.startswith(JDBC_PREFIX):
+        raise ConfigError(f"jdbc.url 이 {JDBC_PREFIX}... 형태가 아니다: {url!r}")
+    consumer = _target(url)
+
+    if producer != consumer:
+        raise ConfigError(
+            "수집이 쓰는 DB 와 Spark 가 보는 DB 가 다르다 — "
+            f"수집({PRODUCER_URL_ENV})={producer}, Spark(jdbc.url)={consumer}. "
+            "이대로 돌면 장부가 0건으로 보이고 적재는 아무도 안 읽는 DB 에 쌓인다. "
+            "둘이 같은 DB 인데 한쪽만 IP 나 별칭으로 적혀 있다면 주소 표기를 맞춘다 "
+            "(S15P21A102-247)"
+        )
+    log.info("생산자와 같은 DB 다: %s", consumer)
 
 
 @contextmanager

@@ -455,17 +455,10 @@ class FakeContents:
 
 
 def kafka_rows(spark, events):
-    from datetime import datetime, timezone
+    """봉투 사전 목록을 배치가 받는 프레임으로. 발판은 `envelope_support` 가 든다."""
+    from envelope_support import frame_from_events
 
-    from trendin.spark.io.kafka import parse_events
-
-    schema = "key string, value string, partition int, offset long, timestamp timestamp"
-    now = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
-    rows = [
-        (item.get("source_id"), json.dumps(item, ensure_ascii=False), 0, index, now)
-        for index, item in enumerate(events)
-    ]
-    return parse_events(spark.createDataFrame(rows, schema))
+    return frame_from_events(spark, events)
 
 
 def fake_verifier(article_json: str):
@@ -547,7 +540,7 @@ def test_요약_이벤트는_정제를_타지_않는다(spark, event):
 
 def test_재구성한_프레임이_카프카_경로와_같은_칸을_갖는다(spark, event):
     """**이것이 모드 B 의 유일한 위험이다.** [02 §6] 4번이 "이후는 모드 A 와 같은 코드 경로"
-    라고 정했으므로, 재구성한 프레임의 칸이 `io/kafka.parse_events` 의 결과와 어긋나면
+    라고 정했으므로, 재구성한 프레임의 칸이 평시 경로의 결과와 어긋나면
     `process_batch` 가 그 자리에서 죽는다.
 
     칸 이름은 [02 §6] 문구에 없어서 코드로만 지켜지는 계약이다 — 그래서 테스트로 고정한다.
@@ -591,6 +584,27 @@ def test_빈_목록도_프레임이_된다(spark):
     from trendin.spark.ingest import backfill
 
     assert backfill.events_frame(spark, []).count() == 0
+
+
+# --- 평시 경로 프레임 (S15P21A102-247 코드리뷰) -----------------------------
+
+
+def test_평시_경로_프레임에는_판별_칸이_없다(spark, event):
+    """**판별 칸이 붙어 있으면 `classify` 가 통째로 건너뛰어진다.**
+
+    그러면 도메인 허용 목록 검사도 같이 빠지고, 목록 밖 값이 장부에 들어왔을 때 정제
+    단계의 `keywords_domain` 이 `ValueError` 를 올려 배치가 통째로 죽는다. 그 행 하나만
+    DLQ 로 가야 한다.
+
+    칸이 그 밖에는 Kafka 시절과 같아야 한다는 것도 같이 고정한다 — 어긋나면
+    `process_batch` 가 그 자리에서 죽는다.
+    """
+    from trendin.spark.ingest import backfill
+
+    frame = backfill.envelope_frame(spark, [_ENVELOPE])
+
+    assert set(frame.columns) == set(kafka_rows(spark, [event]).columns)
+    assert not {"event_shape", "error_type", "ledger_status", "stage"} & set(frame.columns)
 
 
 # --- 다중 마이크로배치 (리뷰 P1 — curated 유실 · 통계 덮어쓰기) --------------

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from trendin.spark.common.cli import build_parser
+from trendin.spark.common import exit_codes
+from trendin.spark.common.cli import build_parser, run_job
 
 
 def test_공통_인자는_세_Job_이_같다():
@@ -36,7 +37,7 @@ def test_ingest_는_source_와_재처리_범위를_받는다():
     import ingest
 
     parser = build_parser("ingest", ingest.add_arguments)
-    assert parser.parse_args([]).source == "kafka"
+    assert parser.parse_args([]).source == "ledger"
     assert parser.parse_args(["--source", "objects"]).source == "objects"
     with pytest.raises(SystemExit):
         parser.parse_args(["--source", "없는소스"])
@@ -102,7 +103,7 @@ def test_aggregate_는_date_를_받는다():
     assert parser.parse_args(["--date", "2026-09-03"]).date == "2026-09-03"
 
 
-def test_세_진입점의_JOB_이름이_checkpoint_경로가_된다():
+def test_세_진입점의_JOB_이름이_정해져_있다():
     import aggregate
     import extract
     import ingest
@@ -119,3 +120,40 @@ def test_ingest_는_contents_부재_허용_플래그를_받고_기본은_꺼져_
     assert parser.parse_args(["--allow-missing-contents"]).allow_missing_contents is True
     with pytest.raises(SystemExit):
         parser.parse_args(["--require-contents"])
+
+
+# --- 종료 코드 (S15P21A102-247) ---------------------------------------------
+#
+# Airflow 가 이 숫자를 읽는다. `handler` 가 준 값이 프로세스 종료 코드까지 그대로 가지
+# 않으면 `BashOperator` 가 "새로 쓴 것 없음" 을 성공으로 읽고 뒤 단계를 헛되이 깨운다.
+
+
+def run_with(monkeypatch, handler) -> int:
+    """세션과 설정을 대역으로 끼우고 `run_job` 만 돌린다."""
+
+    class Session:
+        def stop(self) -> None:
+            self.stopped = True
+
+    session = Session()
+    monkeypatch.setattr("trendin.spark.common.cli.build_session", lambda *a, **k: session)
+    code = run_job("ingest", handler, argv=["--profile", "local"])
+    assert getattr(session, "stopped", False), "세션을 안 닫으면 프로세스가 안 내려간다"
+    return code
+
+
+def test_아무것도_안_주면_0_이다(monkeypatch):
+    assert run_with(monkeypatch, lambda *a: None) == exit_codes.OK
+
+
+def test_handler_가_준_종료_코드가_그대로_나간다(monkeypatch):
+    """`ingest` 가 "새로 쓴 것이 없다" 를 이 길로 알린다."""
+    got = run_with(monkeypatch, lambda *a: exit_codes.NOTHING_NEW)
+
+    assert got == exit_codes.NOTHING_NEW
+
+
+def test_새_것_없음은_BashOperator_의_skip_코드와_같다():
+    """`skip_on_exit_code` 의 기본값이다. 바꾸면 `spark/dag_factory.py` 가 같이 바뀌어야 한다."""
+    assert exit_codes.NOTHING_NEW == 99
+    assert exit_codes.OK == 0 and exit_codes.CONFIG == 2

@@ -33,7 +33,7 @@
 | 객체 키 필드 | `object_key` · `raw_object_key` | ~~`article_key` · `raw_key`~~ |
 | 이벤트 형태 | **둘** (기사 + 실행 요약) | ~~하나 (기사만)~~ |
 
-근거는 `datastore/compose.yaml` 의 `KAFKA_TOPIC_RAW_FILE_READY`, `kafka_publisher.py` 의 `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY`, `conf/base.yaml` 의 `kafka.topics.raw_file_ready` 가 전부 같은 값을 가리키는 것이다.
+근거는 `datastore/compose.yaml` 의 `KAFKA_TOPIC_RAW_FILE_READY` 와 `kafka_publisher.py` 의 `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY` 가 같은 값을 가리키는 것이다. 소비 측 설정(`conf/base.yaml` 의 `kafka.*`)은 S15P21A102-247 에서 걷혔다 — 이제 소비는 장부 뷰를 읽고 이 절은 발행 쪽 계약의 기록으로 남는다.
 
 **소비 측 확인은 이 문서다.** `web-collect.md` #12-4·#12-7 은 *유정균 확인 완료 (2026-09-07)* 로 닫혔고, 분기 규칙을 소비 계약에 적는 일은 `S15P21A102-206`(강민수) 으로 넘어왔다 — [§2](#2-이벤트-두-형태) 가 그 규칙이다. 함께 열려 있던 *"기사 이벤트의 `run_id` 를 채울지"*(`S15P21A102-205`) 는 **채우는 쪽**으로 끝났다 (아래).
 

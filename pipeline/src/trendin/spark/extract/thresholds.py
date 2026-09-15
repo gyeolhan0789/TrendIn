@@ -146,8 +146,7 @@ class DomainOptions:
 
 
 def lexicon_dir(config: Config) -> str:
-    """사전 디렉터리. `submit.sh` 가 `pipeline/` 에서 실행하므로 상대 경로가 거기 기준이다
-    (`checkpoint.root` 의 `spark/.checkpoints` 와 같은 규약).
+    """사전 디렉터리. `submit.sh` 가 `pipeline/` 에서 실행하므로 상대 경로가 거기 기준이다.
 
     불용어·노이즈 사전과 **형태소 분석기 사용자 사전**(`userdict-{domain}.txt`)이 같은
     디렉터리에 있다. 둘을 나누지 않은 이유는 셋 다 "손으로 고치는 목록" 이고 같은 주기로

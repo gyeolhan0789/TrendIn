@@ -58,6 +58,10 @@ import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import Asset, dag
 
+# 숫자 하나를 위해 import 하는 것이 아니라, Job 쪽과 **같은 값**을 읽으려고 한다. 이 모듈은
+# 아무것도 import 하지 않으므로 pyspark 없는 Airflow 이미지에서도 DagBag 이 읽는다.
+from trendin.spark.common.exit_codes import NOTHING_NEW
+
 # 수집·집계가 모두 KST 기준이다 (불변식 10, [07 §2]).
 KST = "Asia/Seoul"
 
@@ -80,7 +84,17 @@ _COMMAND = 'set -euo pipefail; "$SUBMIT" {job} {args}'
 
 
 class SubmitOperator(BashOperator):
-    """`submit.sh` 를 부르는 BashOperator. 템플릿 파일 탐색만 끈다.
+    """`submit.sh` 를 부르는 BashOperator. 템플릿 파일 탐색을 끄고 종료 코드를 읽는다.
+
+    ## 새로 쓴 것이 없으면 skipped 다
+
+    Job 이 `NOTHING_NEW`(99) 로 끝나면 실패가 아니라 **skipped** 다. `skip_on_exit_code` 의
+    기본값이 마침 99 지만 여기 적어 둔다 — 값이 어디서 오는지 보이지 않으면 Job 쪽 상수를
+    고칠 때 이 자리가 같이 눈에 들어오지 않는다.
+
+    **skipped 는 자산을 갱신하지 않는다.** 그것이 목적이다. `spark_ingest` 가 수집 회차마다
+    깨어나는데 새 기사는 대개 없고, 그때마다 `curated` 자산을 내면 `spark_extract` 가 30일
+    코퍼스를 헛돈다 (S15P21A102-247).
 
     `BashOperator` 의 `template_ext` 는 `(".sh", ".bash")` 다. 템플릿 필드(`bash_command` ·
     `env` · `cwd`)의 값이 그 확장자로 끝나면 Jinja 가 그것을 **읽어올 파일 경로**로 보고
@@ -93,6 +107,10 @@ class SubmitOperator(BashOperator):
     """
 
     template_ext = ()
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("skip_on_exit_code", NOTHING_NEW)
+        super().__init__(**kwargs)
 
 
 def submit_command(job: str, *args: str) -> str:
@@ -123,13 +141,16 @@ def build_spark_dag(
 
     `max_active_runs=1` 은 선택이 아니다. 처리 이력과 DLQ 가 스테이징 테이블을 공유하므로
     ([08 §3]) 두 실행이 겹치면 한쪽 행이 다른 쪽 트랜잭션에 딸려 들어간다.
+
+    태스크가 **성공했을 때만** `outlets` 의 자산이 갱신된다. 죽어도, 새로 쓴 것이 없어
+    skipped 로 끝나도 안 갱신된다 (`SubmitOperator`).
     """
 
     @dag(
         dag_id=dag_id,
         schedule=schedule,
         start_date=start_date or pendulum.datetime(2026, 9, 1, tz=KST),
-        # 켜면 밀린 회차가 한꺼번에 돈다. `ingest` 는 Kafka checkpoint 가, `aggregate` 는
+        # 켜면 밀린 회차가 한꺼번에 돈다. `ingest` 는 장부를 거슬러 읽는 창이, `aggregate` 는
         # 소급 재계산 구간이 이미 "밀린 것" 을 따라잡으므로 회차를 쌓을 이유가 없다.
         catchup=False,
         max_active_runs=1,

@@ -68,6 +68,7 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 | 저장 순서와 `stat` 확인 | `flow.store_article` | 여기 하나뿐이다. 주기 실행과 백필이 같은 함수를 탄다 |
 | 객체 메타데이터 | `flow.object_metadata` | `minio_store._ascii_only` 가 ASCII 를 강제한다 |
 | 장부 컬럼 | `ledger.DDL` | `ledger.PendingArticle` · `events.article_event` — 발급이 장부만 읽고 봉투를 채운다 |
+| 소비 측 창구의 칸과 시각 표기 | `ledger.DDL` 의 `collected_article_event` 뷰 | `events.article_event`(정본) · 소비 측 `ingest/collected.VIEW_COLUMNS` · `tests/common/test_ledger_view.SHARED`. 값이 같은지는 진짜 DB 를 걸어야 나온다 (S15P21A102-247) |
 | 기사·요약 토픽별 이벤트 봉투 | `common/collect/events.py` | 견본 `spark/tests/fixtures/contract/` · `scripts/gen-contract-fixtures.py` |
 | 버킷 · 계정 권한 · 수명주기 | `datastore/minio-init/init.sh` | `datastore/README.md`, `pipeline/.env` 의 `TRENDIN_MINIO_*` |
 | 접속 주소와 자격증명 | 환경변수 `TRENDIN_MINIO_ENDPOINT` · `_BUCKET` · `_ACCESS_KEY` · `_SECRET_KEY` | 코드에 주소를 적지 않는다 |
