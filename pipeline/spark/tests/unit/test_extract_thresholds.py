@@ -81,10 +81,26 @@ def test_사전_디렉터리_기본값():
 # --- 저장소의 실제 conf ----------------------------------------------------------------
 
 
-def test_base_만으로는_시작하지_않는다():
-    """운영이 측정 없이 도는 것을 막는 장치. dev 프로파일은 extract 를 덮지 않는다."""
-    with pytest.raises(ConfigError):
-        ExtractThresholds.from_config(load_config("dev", conf_dir=CONF_DIR, env={}))
+def test_base_는_여전히_비어_있다():
+    """**확정은 `base.yaml` 로 옮기는 일이다** ([09 §7] 항목 5). 프로파일이 잠정값을 채워
+    Job 이 도는 것과, 그 값이 확정된 것은 다르다. 여기가 채워지면 그 구분이 사라진다.
+    """
+    import yaml
+
+    with open(CONF_DIR / "base.yaml", encoding="utf-8") as handle:
+        base = yaml.safe_load(handle)
+    assert base["extract"]["df_min_ratio"] is None
+    assert base["extract"]["score_weights"]["c_value"] is None
+
+
+def test_dev_도_local_과_같은_잠정값으로_돈다():
+    """2026-09-15 에 EC2 에서 처리 단계를 돌리려고 `local.yaml` 값을 `dev.yaml` 로 옮겼다.
+
+    두 프로파일이 갈리면 로컬에서 본 목록과 서버에 쌓이는 것이 달라진다.
+    """
+    dev = ExtractThresholds.from_config(load_config("dev", conf_dir=CONF_DIR, env={}))
+    local = ExtractThresholds.from_config(load_config("local", conf_dir=CONF_DIR, env={}))
+    assert dev == local
 
 
 def test_local_은_잠정값으로_돈다():

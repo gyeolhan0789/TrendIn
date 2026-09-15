@@ -1,11 +1,17 @@
-"""`aggregate` 의 읽기와 적재 — 서비스 테이블 셋 + 판별 이력 하나 ([07 §7], [08 §4]).
+"""`aggregate` 의 읽기와 적재 — 서비스 테이블 둘 + 판별 이력 하나 ([07 §7], [08 §4]).
 
 | 테이블 | 소유 | 쓰는 법 |
 | --- | --- | --- |
 | `keyword_metric_history` | 서비스 | 재계산 구간 W 의 버킷을 덮어쓴다 |
-| `keyword_metrics` | 서비스 | 키워드 × 기간 1행을 덮어쓰고, 이번 구간이 아닌 행을 지운다 |
-| `trends` | 서비스 | `trend_types` 만 갱신. **AI 설명 칸은 건드리지 않는다** ([00 §4]) |
+| `keyword_metrics` | 서비스 | 키워드 × 기간 1행. 배지도 이 줄이고, 옛 구간 행은 지운다 |
 | `pl_trend_type_log` | 파이프라인 | 회차별 판별 이력 ([07 §6]) |
+
+**`trends` 를 더 이상 쓰지 않는다.** 배지가 `keyword_metrics.trend_types` 로 옮겨오면서
+([08 §5] 티어 3) 기간별 판정을 합치지 않고 그대로 싣게 됐고, `trends` 에 남은 칸
+(`description`·`summary`·`reason`)은 전부 AI 설명 에픽 몫이라 이 Job 이 손댈 것이 없다
+([00 §4]). **그 표에 남아 있는 옛 배지를 지우지도 않는다** — 백엔드 목록 조회가 아직
+`trends.trend_types` 를 조인하고 있어서, 우리가 비우면 세 목록이 통째로 빈다. 그 조회가
+새 칸으로 옮겨간 뒤에 한 번 비우는 것이 순서다.
 
 **`ON CONFLICT` 를 쓰지 않는다.** 규격은 그 형태를 적었지만([07 §7]) 그건 유니크 제약이
 있다는 전제이고, **제약은 스키마마다 다르다** — Flyway baseline 의 `keyword_metrics` UNIQUE 는
@@ -26,11 +32,13 @@
 
 **배열·enum 컬럼의 타입을 실행 시점에 본다** ([08 §4]). 스테이징에는 `text`·`text[]` 로 넣고
 MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 그 타입이 스키마마다 다르기 때문이다 —
-`keyword_metrics.period` 는 양쪽 다 네이티브 enum(`metric_period`)이지만,
-`trends.trend_types` 는 Flyway baseline 에서 `varchar(255)[]` 이고 옛 수동 스키마에서는
+`keyword_metrics.period` 는 양쪽 다 네이티브 enum(`metric_period`)이지만, 배열 칸은
+`trends.trend_types` 가 Flyway baseline 에서 `varchar(255)[]` 이고 옛 수동 스키마에서는
 `trend_type[]` 이었다. 백엔드 엔티티가 `@JdbcTypeCode(SqlTypes.ARRAY)` 로 매핑한 결과라
 baseline 쪽이 정본이고, `trend_type` 도메인은 조회의 `cast('CURRENT' as trend_type)` 표현에만
-쓰인다. **배열은 varchar 계열이어도 캐스트를 뺄 수 없다** — 자세한 이유는 `_cast()` 에 적었다.
+쓰인다. **새로 온 `keyword_metrics.trend_types` 도 같은 갈래다** — 어느 쪽으로 선언되든 같게
+돌아야 해서 타입을 묻고 붙인다. **배열은 varchar 계열이어도 캐스트를 뺄 수 없다** — 자세한
+이유는 `_cast()` 에 적었다.
 """
 
 from __future__ import annotations
@@ -55,12 +63,15 @@ CONTENTS = "contents"
 # --- 쓰는 표 ---------------------------------------------------------------
 METRICS = "keyword_metrics"
 HISTORY = "keyword_metric_history"
-TRENDS = "trends"
 TREND_TYPE_LOG = "pl_trend_type_log"
 
 STAGE_METRICS = "pl_stage_keyword_metrics"
 STAGE_HISTORY = "pl_stage_keyword_metric_history"
-STAGE_TRENDS = "pl_stage_trends"
+
+# 트렌드 배지가 사는 칸. **표가 있어도 이 칸은 없을 수 있다** — 백엔드가 나중에 더한
+# 칸이라 옛 스키마로 뜬 DB 에서는 비어 있고, 그때는 적재가 INSERT 에서 죽는다.
+# `trend_column_ready()` 가 시작 전에 본다.
+TREND_COLUMN = "trend_types"
 
 METRIC_COLUMNS = (
     "keyword_id",
@@ -72,14 +83,9 @@ METRIC_COLUMNS = (
     "growth_amount",
     "growth_rate",
     "mention_rank",
+    TREND_COLUMN,
 )
 HISTORY_COLUMNS = ("keyword_id", "bucket_start", "bucket_end", "mention_count")
-TREND_COLUMNS = ("keyword_id", "trend_types")
-
-# `trends.description` 이 `NOT NULL` 이다 (백엔드 엔티티, 2026-09-10 확인). AI 설명은 이
-# 에픽의 범위 밖이라([00 §4]) 새 행에만 빈 문자열을 넣고 **갱신에서는 건드리지 않는다.**
-# 다른 회차가 채운 설명을 우리가 지우지 않는다는 것이 요점이다.
-EMPTY_DESCRIPTION = ""
 
 DDL = f"""
 CREATE TABLE IF NOT EXISTS {TREND_TYPE_LOG} (
@@ -108,17 +114,21 @@ CREATE TABLE IF NOT EXISTS {STAGE_METRICS} (
     previous_mention_count bigint      NOT NULL,
     growth_amount          bigint      NOT NULL,
     growth_rate            numeric,
-    mention_rank           integer
+    mention_rank           integer,
+    -- 그 키워드·그 기간에 받은 유형. 빈 배열이면 "이번엔 아무 유형도 아니다" 이고, 그 값이
+    -- 서비스 테이블로 그대로 건너가 배지를 뗀다.
+    trend_types            text[]      NOT NULL DEFAULT '{{}}'
 );
+-- **지난 회차가 만든 스테이징 표에는 이 칸이 없다.** `CREATE TABLE IF NOT EXISTS` 는 있는
+-- 표를 고치지 않으므로 여기서 따로 붙인다 — 없으면 적재가 INSERT 에서 죽고, 그 실패가
+-- "전에는 됐는데" 로 나타난다. 표를 갓 만든 DB 에서는 아무 일도 하지 않는다.
+ALTER TABLE {STAGE_METRICS}
+    ADD COLUMN IF NOT EXISTS trend_types text[] NOT NULL DEFAULT '{{}}';
 CREATE TABLE IF NOT EXISTS {STAGE_HISTORY} (
     keyword_id    bigint      NOT NULL,
     bucket_start  timestamptz NOT NULL,
     bucket_end    timestamptz NOT NULL,
     mention_count bigint      NOT NULL
-);
-CREATE TABLE IF NOT EXISTS {STAGE_TRENDS} (
-    keyword_id  bigint NOT NULL,
-    trend_types text[] NOT NULL
 );
 """
 
@@ -262,7 +272,6 @@ ON CONFLICT (aggregate_run_id, keyword_id, period) DO UPDATE SET
 SERVICE_TABLES_SQL = (
     f"SELECT to_regclass('{METRICS}') IS NOT NULL"
     f" AND to_regclass('{HISTORY}') IS NOT NULL"
-    f" AND to_regclass('{TRENDS}') IS NOT NULL"
 )
 
 # 컬럼의 실제 타입. 배열이면 `trend_type[]` 같은 형태로 온다.
@@ -291,8 +300,14 @@ WANTED_UNIQUE = {
 }
 
 
-def metrics_merge_sql(period_cast: str, *, prune: bool) -> str:
-    """`keyword_metrics` — 키워드 × 기간 1행 ([07 §7]).
+def metrics_merge_sql(period_cast: str, trend_cast: str, *, prune: bool) -> str:
+    """`keyword_metrics` — 키워드 × 기간 1행 ([07 §7]). 트렌드 배지도 이 행에 실린다.
+
+    **배지를 떼는 일이 따로 없다.** 스테이징이 그 회차의 모든 지표 행을 들고 오고 유형을
+    하나도 못 받은 행은 빈 배열로 오므로, 이 UPDATE 가 배지를 다는 일과 떼는 일을 함께
+    한다. 지표 행이 아예 사라진 키워드(두 구간 다 0)는 아래 DELETE 가 행째로 걷어낸다 —
+    `trends` 를 쓰던 때 "지금 배지를 든 키워드를 따로 읽어 빈 배열로 덮는" 단계가 있었는데,
+    그 단계가 통째로 필요 없어졌다.
 
     **⚠️ 마지막 DELETE 가 유령 행을 지운다.** 두 구간 다 0 이 된 키워드는 스테이징에 없으므로
     갱신되지 않고 지난 회차 값이 그대로 남는다 — `period_start` 가 옛 구간을 가리키는 행이다.
@@ -300,6 +315,11 @@ def metrics_merge_sql(period_cast: str, *, prune: bool) -> str:
     **`prune=False` 는 D 를 과거로 옮겨 돌리는 실행이다** (`--reaggregate`). 그 실행의
     `period_start` 는 옛 구간이라 이 DELETE 가 **최신 행을 전부 지운다.** 백필 보정은
     시계열을 고치는 것이 목적이므로 그 모드에서는 지우지 않는다.
+
+    **⚠️ 지우지 않을 뿐, UPDATE 는 그대로 돈다.** 자연 키가 `(keyword_id, period)` 라
+    겹치는 행은 옛 구간의 값으로 덮인다 — `period_start` 도 배지도 그렇다 (2026-09-15
+    `trendin_baseline` 에서 확인: `7D` 1,577행 중 907행이 옛 구간으로 덮였다). 재집계로
+    시계열을 고친 뒤에는 **최신 D 로 한 번 더 돌려야** 지표와 배지가 제자리로 온다.
     """
     prune_sql = (
         f"""
@@ -318,13 +338,15 @@ UPDATE {METRICS} m
        previous_mention_count = s.previous_mention_count,
        growth_amount          = s.growth_amount,
        growth_rate            = s.growth_rate,
-       mention_rank           = s.mention_rank
+       mention_rank           = s.mention_rank,
+       trend_types            = s.trend_types{trend_cast}
   FROM {STAGE_METRICS} s
  WHERE m.keyword_id = s.keyword_id AND m.period = s.period{period_cast};
 
 INSERT INTO {METRICS} ({', '.join(METRIC_COLUMNS)})
 SELECT s.keyword_id, s.period{period_cast}, s.period_start, s.period_end,
-       s.mention_count, s.previous_mention_count, s.growth_amount, s.growth_rate, s.mention_rank
+       s.mention_count, s.previous_mention_count, s.growth_amount, s.growth_rate,
+       s.mention_rank, s.trend_types{trend_cast}
   FROM {STAGE_METRICS} s
  WHERE NOT EXISTS (
         SELECT 1 FROM {METRICS} m
@@ -334,49 +356,14 @@ TRUNCATE {STAGE_METRICS};
 """
 
 
-def trends_merge_sql(array_cast: str) -> str:
-    """`trends` — `trend_types` 만 쓴다 ([07 §6]).
-
-    **행을 지우지 않는다.** `briefing_trends`·`notifications` 가 참조하고 있고, 나중에 채울
-    `description`·`summary`·`reason` 도 함께 사라진다. 트렌드에서 내려오면 **빈 배열로**
-    갱신한다 — 빈 배열과 `NULL` 을 섞지 않는다는 규약을 백엔드에 전달해야 한다.
-
-    갱신 대상은 스테이징에 있는 키워드 **전부**다. 이번에 유형을 하나도 못 받은 키워드도
-    빈 배열로 스테이징에 들어온다 (`metrics/batch.py`) — 그래야 배지가 실제로 떨어진다.
-
-    **새 행은 유형이 있을 때만 만든다.** 한 번도 트렌드가 아니었던 키워드에 빈 배열 행을
-    미리 깔면 `trends` 가 정규 키워드 전체로 불어난다 — 지표와 그래프는 이 표를 거치지 않으므로
-    그 행이 화면에 주는 것이 없다.
-
-    `updated_at` 은 **값이 바뀔 때만** 건드린다. 매 회차 손대면 백엔드의 `NEW` 목록 정렬
-    (`order by trend.updated_at desc`)이 내용과 무관하게 흔들린다.
-    """
-    return f"""
-UPDATE {TRENDS} t
-   SET trend_types = s.trend_types{array_cast}, updated_at = now()
-  FROM {STAGE_TRENDS} s
- WHERE t.keyword_id = s.keyword_id
-   AND t.trend_types IS DISTINCT FROM s.trend_types{array_cast};
-
-INSERT INTO {TRENDS} (keyword_id, trend_types, description, updated_at)
-SELECT s.keyword_id, s.trend_types{array_cast}, '{EMPTY_DESCRIPTION}', now()
-  FROM {STAGE_TRENDS} s
- WHERE cardinality(s.trend_types) > 0
-   AND NOT EXISTS (SELECT 1 FROM {TRENDS} t WHERE t.keyword_id = s.keyword_id);
-
-TRUNCATE {STAGE_TRENDS};
-"""
-
-
 @dataclass(frozen=True, slots=True)
 class WriteResult:
     history: int
     metrics: int
-    trends: int
 
 
 class MetricSink:
-    """세 서비스 테이블과 판별 이력 한 곳."""
+    """두 서비스 테이블과 판별 이력 한 곳."""
 
     def __init__(self, config: Config) -> None:
         self._config = config
@@ -390,6 +377,18 @@ class MetricSink:
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(SERVICE_TABLES_SQL)
             return bool(cur.fetchone()[0])
+
+    def trend_column_ready(self) -> bool:
+        """`keyword_metrics.trend_types` 가 있는가 ([07 §6]).
+
+        **표가 있다고 칸이 있는 것은 아니다.** 배지가 이 칸으로 옮겨온 것이 나중이라, 그전
+        마이그레이션까지만 올라간 DB 에는 표만 있고 칸이 없다. 그 상태로 적재하면 스테이징을
+        다 채운 뒤 INSERT 에서 `column ... does not exist` 로 죽어서, 실패 지점이 원인과
+        멀어진다. 시작 전에 한 번 묻는다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(COLUMN_TYPE_SQL, (METRICS, TREND_COLUMN))
+            return cur.fetchone() is not None
 
     def warn_missing_constraints(self) -> list[str]:
         """없는 유니크 제약을 크게 남긴다. 돌기는 돌지만 방어가 한 겹 없다."""
@@ -434,54 +433,36 @@ class MetricSink:
         rows = self._query(PERIOD_SOURCES_SQL, (start, end))
         return {int(keyword_id): int(sources) for keyword_id, sources in rows}
 
-    def trending_keywords(self) -> set[int]:
-        """지금 배지를 들고 있는 키워드 ([07 §6] "트렌드에서 내려오면 배열을 비운다").
-
-        이번 회차 지표에서 **아예 빠진** 키워드(두 구간 다 0)까지 덮어야 해서 `trends` 를
-        직접 읽는다. 지표 대상만 보고 비우면 조용해진 키워드의 배지가 영원히 남는다.
-        """
-        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
-            cur.execute(f"SELECT keyword_id FROM {TRENDS} WHERE cardinality(trend_types) > 0")
-            return {int(row[0]) for row in cur.fetchall()}
-
     # --- 적재 ------------------------------------------------------------
     def write(
         self,
         *,
         history: Sequence[tuple],
         metrics: Sequence[tuple],
-        trends: Sequence[tuple],
         history_window: tuple[str, str],
         prune_metrics: bool = True,
     ) -> WriteResult:
-        """세 표를 **한 연결, 한 트랜잭션**으로 쓴다 ([08 §4]).
+        """두 표를 **한 연결, 한 트랜잭션**으로 쓴다 ([08 §4]).
 
-        상세 화면 하나가 `keyword_metric_history`(그래프)와 `keyword_metrics`(숫자)를 함께
-        읽으므로 둘이 같은 회차에서 나와야 화면이 어긋나지 않는다 ([erd §4]).
+        상세 화면 하나가 `keyword_metric_history`(그래프)와 `keyword_metrics`(숫자·배지)를
+        함께 읽으므로 둘이 같은 회차에서 나와야 화면이 어긋나지 않는다 ([erd §4]).
         """
         from psycopg2.extras import execute_values
 
         page = int(self._config.get("jdbc.batch_size", jdbc.DEFAULT_BATCH_SIZE))
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             period_cast = self._cast(cur, METRICS, "period")
-            array_cast = self._cast(cur, TRENDS, "trend_types")
-            cur.execute(f"TRUNCATE {STAGE_HISTORY}, {STAGE_METRICS}, {STAGE_TRENDS}")
+            trend_cast = self._cast(cur, METRICS, TREND_COLUMN)
+            cur.execute(f"TRUNCATE {STAGE_HISTORY}, {STAGE_METRICS}")
             _insert(cur, execute_values, STAGE_HISTORY, HISTORY_COLUMNS, history, page)
             _insert(cur, execute_values, STAGE_METRICS, METRIC_COLUMNS, metrics, page)
-            _insert(cur, execute_values, STAGE_TRENDS, TREND_COLUMNS, trends, page)
             cur.execute(
                 HISTORY_MERGE_SQL,
                 {"window_start": history_window[0], "window_end": history_window[1]},
             )
-            cur.execute(metrics_merge_sql(period_cast, prune=prune_metrics))
-            cur.execute(trends_merge_sql(array_cast))
-        log.info(
-            "지표 적재: 버킷 %d · 기간지표 %d · 트렌드 %d",
-            len(history),
-            len(metrics),
-            len(trends),
-        )
-        return WriteResult(len(history), len(metrics), len(trends))
+            cur.execute(metrics_merge_sql(period_cast, trend_cast, prune=prune_metrics))
+        log.info("지표 적재: 버킷 %d · 기간지표 %d", len(history), len(metrics))
+        return WriteResult(len(history), len(metrics))
 
     def log_verdict(self, rows: Sequence[tuple]) -> int:
         """회차별 판별 이력. 서비스로 나가지 않는다 ([07 §6])."""
@@ -503,7 +484,8 @@ class MetricSink:
         **배열은 varchar 계열이어도 붙인다.** PostgreSQL 에 `varchar[] = text[]` 연산자가
         없어서, 스테이징의 `text[]` 와 비교하는 순간 "operator does not exist" 로 죽는다.
         스칼라에서는 같은 조합이 암묵 캐스트로 지나가기 때문에 배열만 예외가 된다 —
-        서비스 DB 의 `trends.trend_types` 가 `varchar(255)[]` 라 실제로 걸린다.
+        `trends.trend_types` 가 `varchar(255)[]` 라 옛 경로에서 실제로 걸렸고,
+        `keyword_metrics.trend_types` 도 어느 쪽으로 선언되든 같은 이유로 붙인다.
         """
         cur.execute(COLUMN_TYPE_SQL, (table, column))
         row = cur.fetchone()

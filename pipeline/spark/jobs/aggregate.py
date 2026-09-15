@@ -8,8 +8,13 @@ spark/scripts/submit.sh aggregate --profile local --date 2026-08-01 --reaggregat
 ```
 
 **하는 것** — [07] 전부. `pl_keyword_daily_stat` 을 읽어 일 버킷 시계열
-(`keyword_metric_history`), 기간 지표(`keyword_metrics`, `24H`/`7D`/`30D`), 트렌드 유형
-(`trends.trend_types`)을 낸다. 원자료는 **읽기만 하고** 추출 로직은 건드리지 않는다.
+(`keyword_metric_history`), 기간 지표와 트렌드 유형(`keyword_metrics`, `24H`/`7D`/`30D`)을
+낸다. 원자료는 **읽기만 하고** 추출 로직은 건드리지 않는다.
+
+**배지가 기간별이다.** 트렌드 유형이 `keyword_metrics.trend_types` 에 그 기간의 지표 행과
+함께 실린다 ([07 §6]). `trends` 를 쓰던 때는 그 표에 `period` 가 없어 기간을 합쳐 실었고,
+`24H` 에서만 급상승한 키워드가 `30D` 목록에서도 배지를 달았다. **백엔드 목록 조회는 아직
+`trends` 를 조인한다** — 그 조회가 새 칸으로 옮겨오기 전까지 화면은 옛 배지를 보여준다.
 
 **기준일 D 는 어제다.** `--date` 는 "그날 실행한 것처럼" 이고, D = `--date` −
 `aggregate.reference_day_offset` 이다. 진행 중인 오늘을 완결된 어제와 비교하면 증가율이
@@ -114,13 +119,25 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     sink.ensure_schema()
 
     dry_run = bool(args.dry_run)
+    # `ingest.contents.required` · `extract.registry.required` 와 같은 형태다. 없이 돌면
+    # 계산은 되는데 아무 데도 안 남고, 증상이 "화면이 비었다" 로 나타난다.
+    #
+    # **표가 있어도 칸이 없을 수 있다.** 배지 자리가 `keyword_metrics.trend_types` 로 옮겨온
+    # 것이 나중이라, 그전 마이그레이션까지만 올라간 DB 는 표만 있다. 두 경우를 갈라서 남기는
+    # 이유는 조치가 다르기 때문이다 — 앞은 스키마를 세우는 일이고 뒤는 칸 하나를 더하는 일이다.
     if not sink.service_tables_ready():
-        # `ingest.contents.required` · `extract.registry.required` 와 같은 형태다. 없이 돌면
-        # 계산은 되는데 아무 데도 안 남고, 증상이 "화면이 비었다" 로 나타난다.
         message = (
-            "서비스 테이블이 없다 (keyword_metrics · keyword_metric_history · trends) — "
+            "서비스 테이블이 없다 (keyword_metrics · keyword_metric_history) — "
             "백엔드가 아직 스키마를 만들지 않았다 ([08 §5])"
         )
+    elif not sink.trend_column_ready():
+        message = (
+            "keyword_metrics.trend_types 칸이 없다 — 트렌드 배지가 이 칸으로 옮겨왔는데 "
+            "([07 §6]) DB 가 그전 스키마다. 백엔드 마이그레이션이 올라가야 한다 ([08 §5])"
+        )
+    else:
+        message = ""
+    if message:
         allowed = args.allow_missing_service_tables
         if not (allowed or config.get("aggregate.service.required") is False):
             raise ConfigError(
@@ -141,12 +158,12 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
         dry_run=dry_run,
     )
     log.info(
-        "aggregate 끝: D=%s 키워드 %d · 버킷 %d · 기간지표 %d · 트렌드 %d",
+        "aggregate 끝: D=%s 키워드 %d · 버킷 %d · 기간지표 %d · 배지 %d(키워드×기간)",
         result.reference_day,
         result.keywords,
         result.history_rows,
         result.metric_rows,
-        result.trend_rows,
+        result.trend_verdicts,
     )
 
     if not dry_run:

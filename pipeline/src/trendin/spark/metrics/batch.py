@@ -6,8 +6,8 @@
 3. 날짜별 추이      활성 키워드 × 재계산 구간 W 의 버킷. 수집이 없던 날은 행을 만들지 않는다
 4. 기간별 지표      현재·직전 구간 합 → 증가량·증가율 → (domain, period) 순위
 5. 판별 근거        구간 소스 수 · 조용함 창 언급량 · 배경 대비 z
-6. 트렌드 유형      CURRENT · RISING · NEW → 기간 통합 합집합
-7. 적재            세 표를 한 트랜잭션. 판별 이력은 따로
+6. 트렌드 유형      CURRENT · RISING · NEW 를 기간별로. 그 기간의 지표 행에 함께 싣는다
+7. 적재            두 표를 한 트랜잭션. 판별 이력은 따로
 ```
 
 **Spark 를 쓰지 않는다.** `registry/batch.py` 와 같은 이유다 — 입력이 이미 접힌 내부
@@ -47,8 +47,10 @@ KEYWORDS = "aggregate_keywords"  # 원자료에 언급이 있던 정규 키워�
 HISTORY_ROWS = "history_rows"  # 쓴 버킷 행 수
 HISTORY_GAPS = "history_gaps"  # 수집이 없어 건너뛴 (도메인, 날짜)
 METRIC_ROWS = "metric_rows"  # 차원: 기간
-TREND_TYPES = "trend_types"  # 차원: 유형
-TRENDS_CLEARED = "trends_cleared"  # 이번에 배지를 뗀 키워드 수
+# 차원: `기간:유형`. **옛 실행과 이어지지 않는다** — 배지가 `keyword_metrics` 로 옮겨오기
+# 전에는 기간을 합친 뒤 세어서 차원이 유형 이름뿐이었다. 세는 대상이 키워드에서
+# (키워드, 기간) 으로 바뀌었으므로 같은 키로 두면 값이 조용히 뛴 것처럼 보인다.
+TREND_TYPES = "trend_types"
 ZSCORE_BLOCKED = "zscore_blocked"  # z 하한에 걸려 RISING 에서 빠진 수 — 무정보어 제거의 효과
 
 
@@ -101,7 +103,8 @@ class AggregateResult:
     keywords: int
     history_rows: int
     metric_rows: int
-    trend_rows: int
+    # 유형을 하나라도 받은 `(키워드, 기간)` 수. 같은 키워드가 기간마다 따로 세어진다.
+    trend_verdicts: int
     stats: tuple[Stat, ...]
 
 
@@ -354,7 +357,11 @@ def run(
             thresholds=thresholds,
         )
         blocked += zscore_blocked(rows, found, thresholds)
-        verdict.update(trend_rules.judge(rows, found, thresholds))
+        judged = trend_rules.judge(rows, found, thresholds)
+        verdict.update(judged)
+        # **유형을 못 받은 행에는 빈 배열이 실린다.** 그 값이 배지를 떼는 일까지 겸한다 —
+        # 지표 행과 배지가 한 줄이라 "배지를 든 키워드를 따로 읽어 비우는" 단계가 없다
+        # (`io/metrics.metrics_merge_sql`).
         staged_metrics.extend(
             (
                 row.keyword_id,
@@ -366,31 +373,37 @@ def run(
                 row.growth_amount,
                 row.growth_rate,
                 row.mention_rank,
+                list(judged.get((row.keyword_id, row.period), ())),
             )
             for row in rows
         )
         stats.append(Stat(METRIC_ROWS, period, len(rows)))
 
-    union = trend_rules.union_types(verdict)
-    staged_trends, cleared = _trend_rows(sink, series, union, dry_run=dry_run)
-    stats.append(Stat(TRENDS_CLEARED, "", cleared))
+    badged = sum(1 for types in verdict.values() if types)
     stats.append(Stat(ZSCORE_BLOCKED, "", blocked))
-    for name in trend_rules.TREND_TYPES:
-        stats.append(
-            Stat(TREND_TYPES, name, sum(1 for types in union.values() if name in types))
-        )
+    for period in thresholds.periods:
+        for name in trend_rules.TREND_TYPES:
+            stats.append(
+                Stat(
+                    TREND_TYPES,
+                    f"{period}:{name}",
+                    sum(
+                        1
+                        for (_, scope), types in verdict.items()
+                        if scope == period and name in types
+                    ),
+                )
+            )
 
     if dry_run:
         log.warning("--dry-run: 계산만 하고 쓰지 않는다")
         return AggregateResult(
-            reference, len(series), len(buckets), len(staged_metrics), len(staged_trends),
-            tuple(stats),
+            reference, len(series), len(buckets), len(staged_metrics), badged, tuple(stats),
         )
 
     sink.write(
         history=buckets,
         metrics=staged_metrics,
-        trends=staged_trends,
         history_window=(recompute.start_ts, recompute.end_ts),
         prune_metrics=prune_metrics,
     )
@@ -401,28 +414,5 @@ def run(
         ]
     )
     return AggregateResult(
-        reference, len(series), len(buckets), len(staged_metrics), len(staged_trends),
-        tuple(stats),
+        reference, len(series), len(buckets), len(staged_metrics), badged, tuple(stats),
     )
-
-
-def _trend_rows(
-    sink: MetricSink,
-    series: dict[int, Series],
-    union: dict[int, tuple[str, ...]],
-    *,
-    dry_run: bool,
-) -> tuple[list[tuple], int]:
-    """`trends` 스테이징 — 이번에 받은 유형 + **배지를 떼야 하는 키워드**.
-
-    내려온 키워드를 빈 배열로 함께 올리지 않으면 배지가 영원히 남는다 ([07 §6]). 대상은 지금
-    유형을 들고 있는 키워드 전부이고, 그 목록은 `trends` 에서 읽는다 — 이번 회차 지표에서
-    아예 빠진 키워드(두 구간 다 0)까지 덮어야 하기 때문이다.
-    """
-    rows = [(keyword_id, list(types)) for keyword_id, types in sorted(union.items())]
-    if dry_run:
-        return rows, 0
-    standing = sink.trending_keywords()
-    cleared = sorted(standing - set(union))
-    rows.extend((keyword_id, []) for keyword_id in cleared)
-    return rows, len(cleared)

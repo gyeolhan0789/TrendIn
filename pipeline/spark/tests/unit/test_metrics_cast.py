@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from trendin.spark.common.config import Config
-from trendin.spark.io.metrics import MetricSink, trends_merge_sql
+from trendin.spark.io.metrics import MetricSink, metrics_merge_sql
 
 
 class FakeCursor:
@@ -30,7 +30,7 @@ class FakeCursor:
 def cast_for(type_name: str | None) -> str:
     cfg = Config({"jdbc": {"url": "jdbc:postgresql://h/d", "user": "u"}}, profile="test")
     sink = MetricSink(cfg)
-    return sink._cast(FakeCursor(type_name), "trends", "trend_types")
+    return sink._cast(FakeCursor(type_name), "keyword_metrics", "trend_types")
 
 
 def test_스칼라_varchar_는_캐스트하지_않는다():
@@ -46,8 +46,9 @@ def test_스칼라_varchar_는_캐스트하지_않는다():
 )
 def test_varchar_배열도_캐스트한다(actual: str):
     """**스칼라와 갈리는 지점이다.** PostgreSQL 에 `varchar[] = text[]` 연산자가 없어서,
-    캐스트를 빼면 스테이징의 `text[]` 와 비교하는 순간 죽는다. 서비스 DB 의
-    `trends.trend_types` 가 `varchar(255)[]` 라 실제로 걸리는 경로다.
+    캐스트를 빼면 스테이징의 `text[]` 와 비교하는 순간 죽는다. 서비스 DB 의 배열 칸이
+    `varchar(255)[]` 라 실제로 걸리는 경로다 — `trends.trend_types` 가 그랬고,
+    `keyword_metrics.trend_types` 가 어느 쪽으로 선언되든 같은 이유로 붙인다.
     """
     assert cast_for(actual) == f"::{actual}"
 
@@ -68,13 +69,22 @@ def test_컬럼이_없으면_빈_문자열이다():
 # 맞아야 하고, `INSERT ... SELECT` 는 대상 컬럼 타입과 맞아야 한다.
 
 
-def test_trends_MERGE_의_비교와_삽입_양쪽에_캐스트가_실린다():
-    merge = trends_merge_sql("::character varying[]")
+def test_metrics_MERGE_의_갱신과_삽입_양쪽에_배열_캐스트가_실린다():
+    merge = metrics_merge_sql("::metric_period", "::character varying[]", prune=True)
 
     assert "s.trend_types::character varying[]" in merge
-    assert merge.count("::character varying[]") >= 3
+    assert merge.count("::character varying[]") == 2
+
+
+def test_기간_캐스트와_배열_캐스트가_섞이지_않는다():
+    """한 표의 두 컬럼이라 한 번에 만들어진다. 서로의 타입을 붙이면 그 자리에서 죽는다."""
+    merge = metrics_merge_sql("::metric_period", "::trend_type[]", prune=True)
+
+    assert "s.period::metric_period" in merge
+    assert "s.trend_types::trend_type[]" in merge
+    assert "s.period::trend_type[]" not in merge
 
 
 def test_캐스트가_빈_문자열이면_SQL_에_아무것도_붙지_않는다():
     """옛 스키마처럼 캐스트가 필요 없는 경우에도 같은 SQL 이 만들어져야 한다."""
-    assert "::" not in trends_merge_sql("")
+    assert "::" not in metrics_merge_sql("", "", prune=True)
