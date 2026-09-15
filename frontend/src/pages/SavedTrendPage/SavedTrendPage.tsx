@@ -55,7 +55,7 @@ function SavedEmpty() {
     <div className="saved-empty">
       <p>저장한 트렌드는 언급량과 증감을 이어서 보여 줍니다.</p>
       <h2>대시보드에서 마음에 드는 키워드의 북마크를 눌러보세요.</h2>
-      <Link className="saved-empty-action" to="/">오늘의 흐름 살펴보기<span aria-hidden="true">→</span></Link>
+      <Link className="saved-empty-action" to="/dashboard">오늘의 흐름 살펴보기<span aria-hidden="true">→</span></Link>
     </div>
   );
 }

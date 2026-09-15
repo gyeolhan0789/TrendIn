@@ -3,17 +3,17 @@ import { AccountMenu } from '../../features/auth/components/AccountMenu';
 import { NotificationBell } from '../../features/notification/components/NotificationBell';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
+/* 아직 새 시안으로 옮기지 않은 화면들이 쓰는 헤더입니다. 대시보드는 SiteHeader로 넘어갔습니다. */
 export function Header() {
   const location = useLocation();
-  const isHome = location.pathname === '/';
   const session = useAuthSession();
 
   return (
-    <header className={`app-header${isHome ? ' app-header--home' : ''}`}>
+    <header className="app-header">
       <div className="header-inner">
         <NavLink className="brand" to="/" aria-label="TrendIn 홈">TrendIn<span className="brand-dot">.</span></NavLink>
         <nav className="main-nav" aria-label="주요 메뉴">
-          <NavLink to="/" end>대시보드</NavLink>
+          <NavLink to="/dashboard">대시보드</NavLink>
           <NavLink to="/saved">저장한 트렌드</NavLink>
           <NavLink to="/mypage">마이페이지</NavLink>
         </nav>

@@ -1,249 +1,469 @@
 import { useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ErrorState } from '../../components/common/ErrorState';
-import { EmptyState } from '../../components/common/EmptyState';
-import { PageContainer } from '../../components/layout/PageContainer';
+import heroWave from '../../assets/flowing-wave.webp';
 import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
+import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
-import type { Trend, TrendAnalysisWindow, TrendListParams } from '../../features/trend/types/trend';
+import { TREND_TYPES } from '../../features/trend/types/trend';
+import type { Trend, TrendAnalysisWindow, TrendType } from '../../features/trend/types/trend';
 
-const periodCopy: Record<PeriodCode, { description: string; headline: string }> = {
-  '24H': { description: '하루 동안의 트렌드', headline: '하루 동안' },
-  '7D': { description: '일주일 동안의 트렌드', headline: '일주일 동안' },
-  '30D': { description: '한 달 동안의 트렌드', headline: '한 달 동안' },
+const periodLabels: Record<PeriodCode, string> = {
+  '24H': '최근 24시간',
+  '7D': '최근 7일',
+  '30D': '최근 30일',
 };
 
-const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+/** 서버가 가르는 세 갈래. 시안의 '상태' 칸이 이 값을 고릅니다. */
+const typeLabels: Record<TrendType, string> = {
+  CURRENT: '급상승',
+  NEW: '신규',
+  RISING: '재급상승',
+};
 
-function formatDate(date: Date) {
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+const sorts = [
+  { value: 'rank', label: '순위순' },
+  { value: 'growth', label: '급상승순' },
+  { value: 'mentions', label: '언급량순' },
+];
+const pageSizes = [6, 12, 24];
+/** 시안의 큰 카드가 목록의 첫 자리를 가져가고, 나머지가 카드 격자로 갑니다. */
+const FEATURED_COUNT = 1;
+
+const tagTones = ['indigo', 'rose', 'emerald', 'violet', 'amber'] as const;
+
+function toneOf(label: string) {
+  const sum = Array.from(label).reduce((total, char) => total + char.charCodeAt(0), 0);
+  return tagTones[sum % tagTones.length];
 }
 
-/*
- * 분석 구간은 서버가 Asia/Seoul 자정 경계로 잘라 줍니다. 보는 사람의 시간대로 바꾸면
- * 경계가 자정이 아니게 되어 헷갈리므로, 받은 문자열의 날짜 부분을 그대로 씁니다.
- */
+/** 12.4만처럼 짧게 읽히게 줄입니다. */
+function formatCount(count: number) {
+  if (count >= 10_000) return `${(count / 10_000).toFixed(1)}만`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}천`;
+  return count.toLocaleString();
+}
+
+/** 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그 자리에 숫자를 지어내지 않습니다. */
+function formatGrowth(trend: Trend) {
+  if (trend.growthRate === null) return '—';
+  return `${trend.growthRate > 0 ? '+' : ''}${trend.growthRate}%`;
+}
+
 function formatWindowDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   return match ? `${match[2]}.${match[3]}` : value;
 }
 
-function describeWindow(window: TrendAnalysisWindow | null) {
+function describeWindow(window: TrendAnalysisWindow | null | undefined) {
   if (!window) return undefined;
   return `${formatWindowDate(window.recentStart)} ~ ${formatWindowDate(window.recentEnd)} 집계 · 직전 구간과 비교`;
 }
 
-/** 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그때는 숫자 대신 없다고 밝힙니다. */
-function formatGrowthRate(trend: Trend) {
-  if (trend.growthRate === null) return '—';
-  return `${trend.growthRate > 0 ? '+' : ''}${trend.growthRate}%`;
-}
-
-function formatDelta(amount: number) {
-  return `${amount >= 0 ? '+' : ''}${amount.toLocaleString()}건`;
-}
-
-function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
-  const [searchParams] = useSearchParams();
-  const search = searchParams.toString();
+function ArrowIcon({ size = 14, color = 'currentColor', width = 2.5 }: { size?: number; color?: string; width?: number }) {
   return (
-    <Link className={`home-keyword ${className}`} to={{ pathname: `/trends/${trend.trendId}`, search: search ? `?${search}` : '' }}>
-      {trend.keyword}
-    </Link>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" aria-hidden="true">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
   );
 }
 
-function HomeState({ loading, error, empty, onRetry }: { loading: boolean; error: boolean; empty: boolean; onRetry: () => void }) {
-  if (loading) return <div className="home-loading" aria-label="불러오는 중"><span /><span /><span /></div>;
-  if (error) return <ErrorState onRetry={onRetry} />;
-  if (empty) return <EmptyState />;
-  return null;
+function BoltIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" />
+    </svg>
+  );
 }
 
-function Spotlight({ trend }: { trend: Trend }) {
+function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: string }) {
   return (
-    <article className="home-spotlight">
-      <div className="home-spotlight-copy">
-        <div className="home-row-meta">
-          <span className="home-rank home-rank--spot">{String(trend.rank ?? 1).padStart(2, '0')}</span>
-          {trend.trendTypes.includes('RISING') && <span className="home-rise-badge">급상승</span>}
-          {trend.trendTypes.includes('NEW') && <span className="home-blue-badge">새로 등장</span>}
-          <span className="home-muted-meta">{trend.domain.name}</span>
-          <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} />
-        </div>
-        <div className="home-spotlight-title-row">
-          <h3><TrendKeyword trend={trend} className="home-keyword--spotlight" /></h3>
-          <span className="home-growth"><strong>{formatGrowthRate(trend)}</strong><small>직전 구간 대비</small></span>
-        </div>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+function TagChip({ label }: { label: string }) {
+  return <span className={`explore-tag explore-tag--${toneOf(label)}`}>{label}</span>;
+}
+
+function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
+  return <Link className={`explore-keyword ${className}`} to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>;
+}
+
+function FilterSelect({ label, value, options, onChange, disabled = false, title }: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange?: (value: string) => void;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <div className="explore-filter">
+      <span className="explore-filter-label">{label}</span>
+      <div className={`explore-select${disabled ? ' is-disabled' : ''}`} title={title}>
+        <select value={value} disabled={disabled} aria-label={label} onChange={(event) => onChange?.(event.target.value)}>
+          {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
       </div>
-      <div className="home-evidence">
-        <span className="home-evidence-icon" aria-hidden="true">💡</span>
-        <p><span>{trend.description}</span></p>
-        <div className="home-source-list">
-          <span className="home-mention-count">언급량 <strong>{trend.mentionCount.toLocaleString()}건</strong></span>
-          <span>직전 구간 {trend.previousMentionCount.toLocaleString()}건</span>
-          <span>{formatDelta(trend.growthAmount)}</span>
+    </div>
+  );
+}
+
+/** 1쪽과 마지막 쪽은 늘 보이고, 현재 쪽 둘레만 이어 붙입니다. 사이는 …로 접습니다. */
+function pageList(current: number, total: number) {
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  const shown = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+  const out: (number | 'gap')[] = [];
+  shown.forEach((page, index) => {
+    if (index > 0 && page - shown[index - 1] > 1) out.push('gap');
+    out.push(page);
+  });
+  return out;
+}
+
+function FeaturedTrend({ trend, period }: { trend: Trend; period: PeriodCode }) {
+  const historyQuery = useTrendHistory(trend.trendId, period);
+  const relatedQuery = useTrendRelatedKeywords(trend.trendId);
+  const history = historyQuery.data?.history ?? [];
+  const related = relatedQuery.data ?? [];
+
+  return (
+    <article className="explore-featured">
+      <div className="explore-featured-body">
+        <div className="explore-featured-head">
+          <span className="explore-featured-rank">{trend.rank ?? 1}</span>
+          <h2><TrendKeyword trend={trend} className="explore-keyword--lg" /></h2>
+          <TagChip label={trend.domain.name} />
+          <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="explore-bookmark" />
         </div>
+
+        <p className="explore-featured-growth">{formatGrowth(trend)}</p>
+        <p className="explore-featured-growth-label">
+          언급량 증가
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <path d="M7 17l5-5 4 4 5-7" /><path d="M17 7h4v4" />
+          </svg>
+        </p>
+
+        {trend.description && <p className="explore-featured-desc">{trend.description}</p>}
+
+        <div className="explore-featured-stats">
+          <div><span>언급량</span><strong>{formatCount(trend.mentionCount)}</strong></div>
+          <div><span>직전 구간</span><strong>{formatCount(trend.previousMentionCount)}</strong></div>
+          <div><span>증가량</span><strong>{trend.growthAmount > 0 ? '+' : ''}{formatCount(trend.growthAmount)}</strong></div>
+        </div>
+        <p className="explore-featured-meta">{trend.domain.name} · {trend.trendTypes.map((item) => typeLabels[item]).join(' · ')}</p>
+      </div>
+
+      <div className="explore-featured-chart">
+        {/* 큰 카드만 이력을 따로 불러옵니다. 카드마다 부르면 한 쪽에 수십 번이 됩니다. */}
+        {history.length > 0
+          ? (
+            <TrendSparkline
+              points={history.map((point) => point.mentionCount)}
+              width={400}
+              height={100}
+              color="#4F46E5"
+              filled
+              gradientId={`explore-featured-${trend.trendId}`}
+              className="explore-chart-svg"
+            />
+          )
+          : <p className="explore-chart-empty">{historyQuery.isLoading ? '추이를 불러오는 중…' : '표시할 추이가 없습니다.'}</p>}
+        {history.length > 0 && <span className="explore-chart-badge">최근 {formatCount(trend.mentionCount)}</span>}
+      </div>
+
+      <div className="explore-featured-keywords">
+        <span className="explore-featured-keywords-label">연관 키워드</span>
+        {related.slice(0, 4).map((item) => (
+          <span className="explore-chip" key={item.keywordId}>
+            <span>{item.keyword}</span>
+            <AddInterestKeywordButton keywordId={item.keywordId} keyword={item.keyword} />
+          </span>
+        ))}
+        {related.length > 4 && <span className="explore-featured-more">+{related.length - 4}</span>}
+        <Link className="explore-featured-detail" to={`/trends/${trend.trendId}`}>
+          자세히 보기 <ArrowIcon size={12} />
+        </Link>
       </div>
     </article>
   );
 }
 
-function RankingRows({ trends, startRank }: { trends: Trend[]; startRank: number }) {
+function TrendMiniCard({ trend, rank }: { trend: Trend; rank: number }) {
+  const isNew = trend.trendTypes.includes('NEW');
+  const tone = isNew ? 'violet' : toneOf(trend.keyword);
   return (
-    <div className="home-ranking-table">
-      <div className="home-ranking-head"><span>순위</span><span>키워드</span><span>언급량</span><span>직전 구간</span><span>증감</span><span /></div>
-      {trends.map((trend, index) => (
-        <div className="home-ranking-row" key={trend.trendId}>
-          <span className="home-rank">{String(trend.rank ?? startRank + index).padStart(2, '0')}</span>
-          <span className="home-ranking-keyword"><TrendKeyword trend={trend} /><small>{trend.domain.name}</small></span>
-          <span className="home-number">{trend.mentionCount.toLocaleString()}건</span>
-          <span className="home-number">{trend.previousMentionCount.toLocaleString()}건</span>
-          <strong className={trend.growthRate !== null && trend.growthRate < 0 ? 'is-muted' : ''}>{formatGrowthRate(trend)}</strong>
-          <span className="home-row-action"><BookmarkButton trendId={trend.trendId} keyword={trend.keyword} /></span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FreshCard({ trend }: { trend: Trend }) {
-  return (
-    <Link className="home-fresh-card" to={`/trends/${trend.trendId}`}>
-      <span>{trend.keyword}</span>
-      <small>{trend.description}</small>
-    </Link>
+    <article className="explore-card">
+      <div className="explore-card-head">
+        <span className="explore-card-rank">{rank}</span>
+        <TrendKeyword trend={trend} />
+        <TagChip label={trend.domain.name} />
+        <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="explore-bookmark explore-bookmark--sm" />
+      </div>
+      <p className={`explore-card-delta explore-card-delta--${tone}`}>
+        {isNew && trend.growthRate === null ? 'NEW' : formatGrowth(trend)}
+      </p>
+      <p className="explore-card-mentions">언급량 {formatCount(trend.mentionCount)}</p>
+      {/* 카드마다 이력을 부를 수 없어, 이미 받은 직전 구간과 현재 두 값으로 방향만 보여 줍니다. */}
+      <TrendSparkline
+        points={[trend.previousMentionCount, trend.mentionCount]}
+        width={120}
+        height={32}
+        color={trend.growthAmount < 0 ? '#f87171' : '#818cf8'}
+        className="explore-card-chart"
+      />
+    </article>
   );
 }
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [domainMenuOpen, setDomainMenuOpen] = useState(false);
-  const today = useMemo(() => new Date(), []);
-
   const domainsQuery = useDomains();
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
-  // 분야 목록은 서버가 알려 줍니다. 아직 받지 못했으면 고를 분야가 없어 조회를 멈춰 둡니다.
-  const domain = resolveDomainCode(searchParams.get('domain'), domains);
+
   const period = parsePeriod(searchParams.get('period'));
-  const selectedDomain = domains.find((option) => option.domain === domain);
+  const rawType = searchParams.get('status')?.toUpperCase() ?? '';
+  const type: TrendType = (TREND_TYPES as readonly string[]).includes(rawType) ? (rawType as TrendType) : 'CURRENT';
+  const sort = sorts.some((item) => item.value === searchParams.get('sort')) ? searchParams.get('sort')! : 'rank';
+  const size = pageSizes.includes(Number(searchParams.get('size'))) ? Number(searchParams.get('size')) : 6;
+  const query = searchParams.get('q') ?? '';
+  const [draft, setDraft] = useState(query);
 
-  const baseParams: Omit<TrendListParams, 'type'> | undefined = domain ? { domain, period } : undefined;
-  const topQuery = useTrends(baseParams && { ...baseParams, type: 'CURRENT', size: 5 });
-  const newQuery = useTrends(baseParams && { ...baseParams, type: 'NEW', size: 4 });
-  const risingQuery = useTrends(baseParams && { ...baseParams, type: 'RISING', size: 4 });
+  // 분야 목록을 받기 전에는 고를 분야가 없어 조회를 멈춰 둡니다.
+  const domain = resolveDomainCode(searchParams.get('category'), domains);
+  const pageFromUrl = Math.max(1, Number(searchParams.get('page')) || 1);
+  /* 서버 쪽 번호는 0부터입니다. 큰 카드가 한 자리를 쓰므로 그만큼 더 받아야 격자가 찹니다. */
+  const listQuery = useTrends(domain
+    ? { domain, type, period, page: pageFromUrl - 1, size: size + FEATURED_COUNT }
+    : undefined);
 
-  const topTrends = topQuery.data?.trends ?? [];
-  const spotlight = topTrends[0];
-  // 홈 전체를 아우르는 연관 키워드 조회가 없어, 가장 많이 언급된 키워드를 기준으로 보여 줍니다.
-  const relatedQuery = useTrendRelatedKeywords(spotlight?.trendId);
-  const windowLabel = describeWindow(topQuery.data?.analysisWindow ?? null);
-
-  const updateFilter = (key: 'domain' | 'period', value: string) => {
+  const updateParams = (updates: Record<string, string | undefined>) => {
     const next = new URLSearchParams(searchParams);
-    next.set(key, value);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined) next.delete(key);
+      else next.set(key, value);
+    });
+    // 조건이 바뀌면 보던 쪽 번호는 의미가 없어집니다.
+    if (!('page' in updates)) next.delete('page');
     setSearchParams(next);
-    setDomainMenuOpen(false);
   };
 
-  const discoveryLoading = newQuery.isLoading || risingQuery.isLoading;
-  const discoveryError = newQuery.isError || risingQuery.isError;
+  const trends = useMemo(() => {
+    const received = listQuery.data?.trends ?? [];
+    const needle = query.trim().toLowerCase();
+    // 검색은 받아 온 쪽 안에서만 걸러 줍니다. 전체 검색은 별도 화면이 생기면 그리로 옮깁니다.
+    const found = needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
+    if (sort === 'rank') return found;
+    return [...found].sort((a, b) => (sort === 'mentions'
+      ? b.mentionCount - a.mentionCount
+      : (b.growthRate ?? -Infinity) - (a.growthRate ?? -Infinity)));
+  }, [listQuery.data, query, sort]);
+
+  const loading = domainsQuery.isLoading || listQuery.isLoading;
+  const failed = domainsQuery.isError || listQuery.isError;
+  const retry = () => {
+    if (domainsQuery.isError) void domainsQuery.refetch();
+    if (listQuery.isError) void listQuery.refetch();
+  };
+
+  const featured = trends[0];
+  const rest = trends.slice(FEATURED_COUNT);
+  const hasNext = listQuery.data?.hasNext ?? false;
+  // 서버가 전체 개수를 주지 않아, 지금 쪽과 다음 쪽 유무만으로 쪽 번호를 만듭니다.
+  const totalPages = hasNext ? pageFromUrl + 1 : pageFromUrl;
+  const windowLabel = describeWindow(listQuery.data?.analysisWindow);
+
+  const quickTags = useMemo(() => trends.slice(0, 9).map((trend) => trend.keyword), [trends]);
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    updateParams({ q: draft.trim() || undefined });
+  };
+
+  const runQuickTag = (keyword: string) => {
+    setDraft(keyword);
+    updateParams({ q: keyword });
+  };
 
   return (
-    <PageContainer>
-      <div className="home-page">
-        <section className="home-hero">
-          <p>{formatDate(today)} {weekdays[today.getDay()]} · {periodCopy[period].description}</p>
-          <h1>
-            {spotlight
-              ? <>{periodCopy[period].headline} 가장 많이 언급된 건 <span>{spotlight.keyword}</span>, 언급량은 <span>{spotlight.mentionCount.toLocaleString()}건</span>입니다.</>
-              : <>{periodCopy[period].headline}의 트렌드를 모으고 있습니다.</>}
-          </h1>
-        </section>
-
-        <div className="home-filter-bar">
-          <div className="home-category-control">
-            <button type="button" aria-expanded={domainMenuOpen} disabled={domains.length === 0} onClick={() => setDomainMenuOpen((open) => !open)}>
-              <span>{selectedDomain?.name ?? '분야'}</span><i className="home-category-chevron" aria-hidden="true" />
-            </button>
-            {domainMenuOpen && (
-              <div className="home-category-menu">
-                {domains.map((option) => (
-                  <button type="button" key={option.domain} className={option.domain === domain ? 'is-selected' : ''} onClick={() => updateFilter('domain', option.domain)}>
-                    {option.name}
-                  </button>
-                ))}
-              </div>
-            )}
+    <div className="explore-page">
+      <section className="explore-hero">
+        <div>
+          <p className="explore-hero-eyebrow">트렌드를 더 빠르게, 더 깊이</p>
+          <h1>트렌드 탐색</h1>
+          <p className="explore-hero-lead">{windowLabel ?? '다양한 카테고리와 기간별로 급상승하는 트렌드를 탐색해보세요.'}</p>
+        </div>
+        <div className="explore-hero-visual">
+          <img src={heroWave} alt="" />
+          <div className="explore-hero-note">
+            <p>지금 이 순간에도<br />새로운 트렌드가 만들어지고 있어요.</p>
           </div>
-          <div className="home-period-control" aria-label="트렌드 집계 기간">
-            {ANALYSIS_PERIODS.map((value) => (
-              <button type="button" key={value} className={period === value ? 'is-selected' : ''} onClick={() => updateFilter('period', value)}>{value}</button>
+        </div>
+      </section>
+
+      <section className="explore-searchbar">
+        <form onSubmit={submitSearch} role="search">
+          <SearchIcon size={20} color="#9ca3af" />
+          <input
+            type="text"
+            value={draft}
+            placeholder="이 목록에서 키워드를 찾아보세요."
+            aria-label="키워드 검색"
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          {query && (
+            <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); updateParams({ q: undefined }); }}>
+              지우기
+            </button>
+          )}
+          <button type="submit" className="explore-search-go" aria-label="검색">
+            <ArrowIcon size={16} color="#fff" />
+          </button>
+        </form>
+      </section>
+
+      <section className="explore-filters">
+        <FilterSelect
+          label="기간"
+          value={period}
+          options={ANALYSIS_PERIODS.map((code) => ({ value: code, label: periodLabels[code] }))}
+          onChange={(value) => updateParams({ period: value })}
+        />
+
+        <div className="explore-filter">
+          <span className="explore-filter-label">카테고리</span>
+          <div className="explore-chips" role="group" aria-label="카테고리">
+            {domains.map((option) => (
+              <button
+                type="button"
+                key={option.domain}
+                className={`explore-cat${option.domain === domain ? ' is-selected' : ''}`}
+                aria-pressed={option.domain === domain}
+                onClick={() => updateParams({ category: option.domain })}
+              >
+                {option.name}
+              </button>
             ))}
+            {domains.length === 0 && <span className="explore-filter-label">분야를 불러오는 중…</span>}
           </div>
         </div>
 
-        {domainsQuery.isError && <ErrorState message="분야 목록을 불러오지 못했습니다." onRetry={() => domainsQuery.refetch()} />}
-
-        <section className="home-top-section" aria-labelledby="home-top-heading">
-          <h2 id="home-top-heading">지금 눈여겨볼 TOP 5</h2>
-          <HomeState
-            loading={domainsQuery.isLoading || topQuery.isLoading}
-            error={topQuery.isError}
-            empty={topQuery.isSuccess && !spotlight}
-            onRetry={() => topQuery.refetch()}
+        <div className="explore-filters-right">
+          {/* 플랫폼별 집계는 아직 API에 없습니다. 자리만 두고 잠가 둡니다. */}
+          <FilterSelect label="플랫폼" value="all" options={[{ value: 'all', label: '전체' }]} disabled title="준비 중입니다" />
+          <FilterSelect label="정렬" value={sort} options={sorts} onChange={(value) => updateParams({ sort: value })} />
+          <FilterSelect
+            label="상태"
+            value={type}
+            options={TREND_TYPES.map((code) => ({ value: code, label: typeLabels[code] }))}
+            onChange={(value) => updateParams({ status: value })}
           />
-          {spotlight && <><Spotlight trend={spotlight} /><RankingRows trends={topTrends.slice(1)} startRank={2} /></>}
-        </section>
+        </div>
+      </section>
 
-        <HomeState loading={discoveryLoading} error={discoveryError} empty={false} onRetry={() => { void newQuery.refetch(); void risingQuery.refetch(); }} />
-        {!discoveryLoading && !discoveryError && (
-          <section className="home-discovery" aria-label="새로운 발견">
-            <div>
-              <div className="home-discovery-heading"><h2>새로 등장</h2><span className="home-rise-badge">처음 등장한 키워드</span></div>
-              {newQuery.data?.trends.length === 0 && <p className="home-muted-meta">이 구간에 새로 등장한 키워드가 없습니다.</p>}
-              <div className="home-fresh-grid">
-                {newQuery.data?.trends.map((trend) => <FreshCard key={trend.trendId} trend={trend} />)}
-              </div>
+      <section className="explore-main">
+        {loading && <div className="explore-state" aria-label="불러오는 중"><span /><span /><span /></div>}
+        {!loading && failed && (
+          <div className="explore-state is-error" role="alert">
+            <p>트렌드를 불러오지 못했습니다.</p>
+            <button type="button" onClick={retry}>다시 시도</button>
+          </div>
+        )}
+        {!loading && !failed && !featured && (
+          <div className="explore-state" role="status">
+            <p>{query ? `‘${query}’와 맞는 트렌드가 이 쪽에 없습니다.` : '조건에 맞는 트렌드가 없습니다.'}</p>
+          </div>
+        )}
+
+        {!loading && !failed && featured && (
+          <div className="explore-grid">
+            <FeaturedTrend trend={featured} period={period} />
+
+            <div className="explore-cards">
+              {rest.map((trend, index) => (
+                <TrendMiniCard key={trend.trendId} trend={trend} rank={trend.rank ?? index + 2} />
+              ))}
             </div>
-            <div>
-              <div className="home-discovery-heading home-discovery-heading--lined"><h2>다시 급상승</h2><span className="home-blue-badge">언급량이 크게 늘어난 키워드</span></div>
-              {risingQuery.data?.trends.length === 0 && <p className="home-muted-meta">이 구간에 급상승한 키워드가 없습니다.</p>}
-              <div className="home-rising-list">
-                {risingQuery.data?.trends.map((trend) => (
-                  <div className="home-rising-row" key={trend.trendId}>
-                    <span><TrendKeyword trend={trend} /><small>{formatDelta(trend.growthAmount)}</small></span>
-                    <strong>{formatGrowthRate(trend)}</strong>
+
+            <aside className="explore-side">
+              <div className="explore-panel">
+                <div className="explore-panel-head"><BoltIcon /><span>실시간 인기 필터</span></div>
+                <p className="explore-panel-lead">지금 뜨는 키워드로 빠르게 탐색해보세요.</p>
+                {trends.slice(0, 5).map((trend, index) => (
+                  <div className="explore-popular" key={trend.trendId}>
+                    <span className="explore-popular-rank">{trend.rank ?? index + 1}</span>
+                    <TrendKeyword trend={trend} />
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17l5-5-5-5" /></svg>
                   </div>
                 ))}
               </div>
-            </div>
-            <div>
-              <div className="home-discovery-heading home-discovery-heading--lined"><h2>{spotlight?.keyword ?? '연관'} <span>관련 키워드</span></h2></div>
-              {relatedQuery.isError && <ErrorState message="연관 키워드를 불러오지 못했습니다." onRetry={() => relatedQuery.refetch()} />}
-              {relatedQuery.isSuccess && relatedQuery.data.length === 0 && <p className="home-muted-meta">함께 언급된 키워드가 아직 없습니다.</p>}
-              <div className="home-keyword-cloud">
-                {relatedQuery.data?.slice(0, 9).map((related) => (
-                  <span className="home-chip" key={related.keywordId}>
-                    <span>{related.keyword}</span>
-                    <AddInterestKeywordButton keywordId={related.keywordId} keyword={related.keyword} />
-                  </span>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
-        <footer className="home-footer">
-          <span>TrendIn<span>.</span></span>
-          {windowLabel && <p>{windowLabel}</p>}
-        </footer>
-      </div>
-    </PageContainer>
+              <div className="explore-panel">
+                <div className="explore-panel-head"><SearchIcon /><span>빠른 탐색</span></div>
+                <p className="explore-panel-lead">이 목록에서 키워드로 바로 걸러 보세요.</p>
+                <div className="explore-quick">
+                  {quickTags.map((keyword) => (
+                    <button type="button" key={keyword} onClick={() => runQuickTag(keyword)}>{keyword}</button>
+                  ))}
+                </div>
+              </div>
+
+              <Link className="explore-cta" to="/mypage">
+                <span className="explore-cta-glow" />
+                <p><BoltIcon /> 지금, 당신만의<br />관심 키워드를 등록해보세요.</p>
+                <ArrowIcon size={14} color="#4338ca" />
+              </Link>
+            </aside>
+          </div>
+        )}
+      </section>
+
+      {!loading && !failed && featured && (
+        <section className="explore-pagination">
+          <span className="explore-total">{pageFromUrl}쪽 · <strong>{trends.length}</strong>개 보는 중</span>
+
+          <div className="explore-pages">
+            <button type="button" disabled={pageFromUrl <= 1} aria-label="이전 쪽" onClick={() => updateParams({ page: String(pageFromUrl - 1) })}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            {pageList(pageFromUrl, totalPages).map((item, index) => (item === 'gap'
+              ? <span className="explore-page-gap" key={`gap-${index}`}>···</span>
+              : (
+                <button
+                  type="button"
+                  key={item}
+                  className={item === pageFromUrl ? 'is-current' : ''}
+                  aria-current={item === pageFromUrl ? 'page' : undefined}
+                  onClick={() => updateParams({ page: String(item) })}
+                >
+                  {item}
+                </button>
+              )))}
+            <button type="button" disabled={!hasNext} aria-label="다음 쪽" onClick={() => updateParams({ page: String(pageFromUrl + 1) })}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          </div>
+
+          <div className="explore-select">
+            <select value={String(size)} aria-label="한 쪽에 보여 줄 개수" onChange={(event) => updateParams({ size: event.target.value })}>
+              {pageSizes.map((option) => <option key={option} value={option}>{option}개씩 보기</option>)}
+            </select>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
