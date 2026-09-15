@@ -61,7 +61,7 @@ pipeline {
                             printf true
                         else
                             git diff --no-renames --name-only "$DIFF_BASE" "$BUILD_COMMIT" > .frontend-changes
-                            if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile\.frontend-cd$)' .frontend-changes; then
+                            if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile[.]frontend-cd$)' .frontend-changes; then
                                 printf true
                             else
                                 printf false

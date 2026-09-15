@@ -60,7 +60,7 @@ pipeline {
                         set -eu
                         base=$(git merge-base origin/dev "$BUILD_COMMIT")
                         git diff --no-renames --name-only "$base" "$BUILD_COMMIT" > .frontend-changes
-                        if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile\.frontend-ci$)' .frontend-changes; then
+                        if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile[.]frontend-ci$)' .frontend-changes; then
                             printf true
                         else
                             printf false
