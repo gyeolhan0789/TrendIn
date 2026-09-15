@@ -121,10 +121,22 @@ def test_기간이_비면_거부한다():
 
 
 def test_지원하지_않는_버킷_폭은_거부한다():
-    """조용히 하루로 떨어뜨리면 설정에 `1H` 라고 적어 두고 일 버킷을 받게 된다."""
+    """조용히 하루로 떨어뜨리면 설정에 적어 둔 것과 다른 폭을 받게 된다."""
     with pytest.raises(ConfigError) as error:
-        AggregateThresholds.from_config(config(history_bucket="1H"))
-    assert "1H" in str(error.value)
+        AggregateThresholds.from_config(config(history_bucket="15M"))
+    assert "15M" in str(error.value)
+
+
+def test_버킷_폭_기본은_일이다():
+    assert AggregateThresholds.from_config(config()).hourly_history is False
+
+
+def test_시간_버킷을_설정으로_켤_수_있다():
+    """백엔드의 `24H` 화면이 1시간 폭을 기대한다 ([07 §3])."""
+    thresholds = AggregateThresholds.from_config(config(history_bucket="1H"))
+
+    assert thresholds.history_bucket == "1H"
+    assert thresholds.hourly_history is True
 
 
 # --- 지평 -----------------------------------------------------------------

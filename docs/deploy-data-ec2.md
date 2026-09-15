@@ -212,6 +212,64 @@ ssh -i "J15A102T.pem" -N -o ExitOnForwardFailure=yes \
   ubuntu@<데이터 EC2>
 ```
 
+### 적재할 곳에 스키마가 먼저 있어야 한다
+
+**파이프라인은 서비스 테이블에 DDL 을 걸지 않는다.** 그 표의 소유자는 백엔드이고 Spark 는 자기
+`pl_*` 만 만든다. 그래서 적재 대상 DB 에 `contents` 가 없으면 `ingest` 가 그 배치를 통째로
+건너뛴다 — **`curated` 에는 파일이 쓰이고 `contents` 에는 아무것도 없는 상태로 초록불이 켜진다.**
+뒤따르는 `extract` 는 그 기사의 `id` 를 찾지 못한다.
+
+스키마는 백엔드가 Flyway 로 만든다
+(`backend/src/main/resources/db/migration/V1__baseline.sql`). 기존 DB 에는 V1 이 수동으로 적용돼
+있어서 첫 배포에만 `DEV_FLYWAY_BASELINE_ON_MIGRATE=true` 를 거쳐야 하고, 그 절차는
+[infra/README.md](../infra/README.md) "Flyway" 절에 있다.
+
+DAG 을 켜기 전에 기본 EC2 에서 표가 있는지 본다.
+
+```sh
+docker compose --env-file infra/.env -f infra/compose.yaml exec postgres \
+  psql -U ssafy -d forever102 -c \
+  "select tablename from pg_tables where schemaname='public' order by 1"
+```
+
+`contents` · `keywords` · `keyword_contents` · `keyword_metrics` · `keyword_metric_history` ·
+`trends` 여섯이 보여야 한다.
+
+데이터 EC2 에서 그 DB 로 가는 경로는 기본 EC2 쪽 설정이다 — `infra/.env` 의
+`POSTGRES_BIND_IP` 와 보안 그룹을 [infra/README.md](../infra/README.md) "데이터 EC2에서 서비스
+DB 접근" 절대로 맞춘다.
+
+### DAG 은 꺼진 채로 생긴다
+
+`AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION` 이 `true` 라, 배포가 끝나고 목록에 보여도 아무것도
+돌지 않는다. 수집 둘(`fashion_collect` · `dev_collect`)과 Spark 셋(`spark_ingest` ·
+`spark_extract` · `spark_aggregate`)을 UI 에서 켠다.
+
+**Spark 셋은 한꺼번에 켜지 않는다.** `ingest` 를 켜서 `curated` 에 파일이 놓이고 `contents` 에
+기사가 들어가는 것을 확인한 뒤 `extract` 를, 그 결과로 `keywords` 가 채워진 뒤 `aggregate` 를
+켠다. 뒤의 둘은 앞의 결과를 입력으로 받으므로 앞이 비어 있으면 0행으로 끝나는데, **그 0행이
+실패가 아니라 성공으로 보인다.**
+
+Spark DAG 셋은 오버레이(`spark/compose.spark.yaml`)를 얹고 띄웠을 때만 돈다. 기본 compose 로만
+띄우면 `submit.sh: No such file` 로 죽는다.
+
+단계마다 행이 실제로 늘었는지 센다. Airflow 의 초록불은 0행과 구분되지 않는다.
+
+```sh
+docker compose --env-file infra/.env -f infra/compose.yaml exec postgres \
+  psql -U ssafy -d forever102 -c \
+  "select 'contents' t, count(*) from contents
+    union all select 'keywords', count(*) from keywords
+    union all select 'keyword_contents', count(*) from keyword_contents
+    union all select 'keyword_metrics', count(*) from keyword_metrics
+    union all select 'keyword_metric_history', count(*) from keyword_metric_history
+    union all select 'trends', count(*) from trends"
+```
+
+**`keyword_metrics` 에 `24H` 행이 없는 것은 결함이 아닐 수 있다.** 기준일 D 는 어제이고, 그
+하루에 **발행된** 문서가 없으면 그 구간의 지표가 만들어지지 않는다. 백필로 옛 날짜를 채운
+직후에는 `7D` · `30D` 만 나오는 것이 정상이다.
+
 ## 5. 내릴 때와 되돌릴 때
 
 ```sh
@@ -229,9 +287,9 @@ docker compose -f datastore/compose.yaml stop
 
 ## 6. 지금 없는 것
 
-- **Airflow 가 Spark Job 을 부르는 DAG.** 컨테이너 안에 `spark-submit` 과 jar 는 준비되지만,
-  `dags/` 에는 수집 DAG 둘뿐이고 `ingest` · `extract` · `aggregate` 를 깨우는 태스크가 아직 없다.
-  이 배포로 도는 것은 수집까지다.
+- **파이프라인 표를 가르는 스키마.** 지금 구조로 서비스 DB 에 붙이면 `pl_*` 스물여덟 개가
+  `forever102` 의 `public` 에 함께 생긴다. `pipeline` 스키마를 만들고 접속의 `search_path` 를
+  `pipeline,public` 으로 두면 갈라지지만, 스키마 생성과 권한은 서비스 DB 쪽 일이다.
 - **레지스트리.** 이미지를 서버에서 빌드한다. CI 에서 빌드해 올리는 경로로 바꾸려면 compose 의
   `image:` 이름을 전부 바꿔야 한다.
 - **백엔드 · 프론트 CD.** 기본 EC2 쪽은 이 문서의 범위가 아니다.

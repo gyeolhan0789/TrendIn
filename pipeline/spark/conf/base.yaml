@@ -228,8 +228,21 @@ aggregate:
   # 그 밖에서는 `--allow-missing-service-tables` 로만 푼다.
   service:
     required: true
-  # keyword_metric_history 버킷 폭. 지금은 일 버킷만 지원한다 ([07 §3]).
-  history_bucket: "1D"
+  # keyword_metric_history 버킷 폭. `1D` 또는 `1H` ([07 §3]).
+  #
+  # 백엔드는 기간마다 다른 폭을 기대한다 (`AnalysisPeriod.getHistoryBucketDuration`) —
+  # 24H 는 1시간, 7D 는 1일, 30D 는 3일이다. 저장이 일 버킷이면 7D·30D 는 백엔드가 합산해
+  # 맞아떨어지지만 **24H 는 하루치가 첫 한 시간에 몰리고 나머지 23칸이 0 으로 그려진다.**
+  #
+  # `1H` 는 발행 시각을 `contents` 에서 되찾아 시간 버킷을 낸다. 세 기간이 다 이걸로 된다 —
+  # 백엔드는 `bucket_start` 로만 긁어와 자기가 세운 버킷에 합산하고 저장된 `bucket_end` 는
+  # 읽지 않으므로, **가장 잘은 폭 하나만 있으면 된다** (`TrendHistoryService.getHistory`).
+  # 반대로 폭을 섞으면 같은 구간이 두 번 세어진다.
+  #
+  # ⚠️ 그 조인이 `pl_document_candidate` 를 거치므로 **그 표의 보존 지평 밖은 버킷이
+  # 만들어지지 않는다** ([08 §3]). 30D 그래프를 끝까지 덮으려면 보존 기간이 재계산 구간
+  # 이상이어야 한다.
+  history_bucket: "1H"
   # 연관 키워드 기준 기간. 30D 를 제안했고 기획 답변 대기 중 ([06 §3]).
   related_window: "30D"
   # [07 §5]·[07 §6] 의 문턱. **`null` 인 키가 하나라도 있으면 Job 이 시작하지 않는다**

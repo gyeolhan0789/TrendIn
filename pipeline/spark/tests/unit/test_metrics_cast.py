@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from trendin.spark.common.config import Config
-from trendin.spark.io.metrics import MetricSink
+from trendin.spark.io.metrics import MetricSink, trends_merge_sql
 
 
 class FakeCursor:
@@ -60,3 +60,21 @@ def test_네이티브_enum_과_그_배열은_캐스트한다():
 def test_컬럼이_없으면_빈_문자열이다():
     """표가 아직 없는 DB 에서 SQL 을 만들다 터지지 않게 한다."""
     assert cast_for(None) == ""
+
+
+# --- MERGE 에 실제로 실리는지 -------------------------------------------------
+#
+# 판정이 맞아도 SQL 의 한쪽에만 붙이면 여전히 죽는다. `IS DISTINCT FROM` 은 양변의 타입이
+# 맞아야 하고, `INSERT ... SELECT` 는 대상 컬럼 타입과 맞아야 한다.
+
+
+def test_trends_MERGE_의_비교와_삽입_양쪽에_캐스트가_실린다():
+    merge = trends_merge_sql("::character varying[]")
+
+    assert "s.trend_types::character varying[]" in merge
+    assert merge.count("::character varying[]") >= 3
+
+
+def test_캐스트가_빈_문자열이면_SQL_에_아무것도_붙지_않는다():
+    """옛 스키마처럼 캐스트가 필요 없는 경우에도 같은 SQL 이 만들어져야 한다."""
+    assert "::" not in trends_merge_sql("")
