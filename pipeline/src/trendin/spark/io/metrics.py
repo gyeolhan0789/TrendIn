@@ -8,10 +8,11 @@
 | `pl_trend_type_log` | 파이프라인 | 회차별 판별 이력 ([07 §6]) |
 
 **`ON CONFLICT` 를 쓰지 않는다.** 규격은 그 형태를 적었지만([07 §7]) 그건 유니크 제약이
-있다는 전제이고, **2026-09-10 확인 결과 제약이 규격과 다르다** — 백엔드 엔티티의
-`keyword_metrics` UNIQUE 는 `(keyword_id, period, period_start, period_end)` 4열이고
-(우리가 요청한 2열이 아니다), `trends.keyword_id` 에는 아예 없다. `ON CONFLICT` 는 인덱스와
-정확히 맞아야 하므로, 제약이 무엇이든 같게 도는 형태로 짠다.
+있다는 전제이고, **제약은 스키마마다 다르다** — Flyway baseline 의 `keyword_metrics` UNIQUE 는
+`(keyword_id, period, period_start, period_end)` 4열이다 (우리가 요청한 2열이 아니다). 백엔드
+조회가 `period_start` · `period_end` 를 지정해 찾으므로 그쪽이 그 모양을 쓰는 것이고, 우리가
+맞출 일이다. `ON CONFLICT` 는 인덱스와 정확히 맞아야 하므로, 제약이 무엇이든 같게 도는
+형태로 짠다.
 
 ```
 1. UPDATE target FROM stage    (자연 키로 맞춘 행)
@@ -23,11 +24,13 @@
 같은 결과를 낸다. 이미 중복이 쌓여 있어도 UPDATE 가 전부를 같은 값으로 맞춘다. 그 대신
 `warn_missing_constraints()` 가 없는 제약을 크게 남긴다 — 조용히 도는 것이 가장 나쁘다.
 
-**배열·enum 컬럼의 타입을 실행 시점에 본다** ([08 §4]). `trends.trend_types` 는 네이티브 enum
-배열(`trend_type[]`)이고 `keyword_metrics.period` 는 네이티브 enum(`metric_period`)이다 —
-백엔드가 `cast('CURRENT' as trend_type) = any(...)` 로 조회하는 것이 그 증거다. 스테이징에는
-`text`·`text[]` 로 넣고 MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 타입이 나중에 varchar 로
-바뀌어도 이 코드는 그대로 돈다.
+**배열·enum 컬럼의 타입을 실행 시점에 본다** ([08 §4]). 스테이징에는 `text`·`text[]` 로 넣고
+MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 그 타입이 스키마마다 다르기 때문이다 —
+`keyword_metrics.period` 는 양쪽 다 네이티브 enum(`metric_period`)이지만,
+`trends.trend_types` 는 Flyway baseline 에서 `varchar(255)[]` 이고 옛 수동 스키마에서는
+`trend_type[]` 이었다. 백엔드 엔티티가 `@JdbcTypeCode(SqlTypes.ARRAY)` 로 매핑한 결과라
+baseline 쪽이 정본이고, `trend_type` 도메인은 조회의 `cast('CURRENT' as trend_type)` 표현에만
+쓰인다. **배열은 varchar 계열이어도 캐스트를 뺄 수 없다** — 자세한 이유는 `_cast()` 에 적었다.
 """
 
 from __future__ import annotations
@@ -45,6 +48,9 @@ log = get_logger(__name__)
 DAILY_STAT = "pl_keyword_daily_stat"
 DOCUMENT_CANDIDATE = "pl_document_candidate"
 CANDIDATE = "pl_candidate"
+# 시간 버킷이 발행 시각을 되찾는 경로 ([07 §3]). `io/contents.py` 가 소유한다.
+CONTENT_ID_MAP = "pl_content_id_map"
+CONTENTS = "contents"
 
 # --- 쓰는 표 ---------------------------------------------------------------
 METRICS = "keyword_metrics"
@@ -157,6 +163,38 @@ DAILY_VOLUME_SQL = f"""
 SELECT domain, stat_date, sum(doc_count)::bigint AS volume
   FROM {DAILY_STAT}
  WHERE stat_date >= %s AND stat_date < %s
+ GROUP BY 1, 2
+"""
+
+# 시간별 **언급량** — `history_bucket: 1H` 일 때만 쓴다 ([07 §3]).
+#
+# **원자료에는 시각이 없다.** `pl_keyword_daily_stat` 도 `pl_document_candidate` 도 축이
+# `stat_date`(date) 라 `extract` 단계에서 이미 날짜로 접힌다. 그런데 `contents.published_at`
+# 은 시각을 온전히 들고 있으므로, 문서를 거쳐 되살린다 — 스키마를 바꾸지 않고 시간 버킷을
+# 내는 유일한 길이다.
+#
+# **일별 집계와 같은 셈법을 쓴다** (`io/candidates.DAILY_STAT_RECOUNT`). `count(DISTINCT
+# url_hash)` 로 문서를 세고 근사 중복은 뺀다. 별칭은 `pl_candidate.keyword_id` 가 대표를
+# 들고 있어 조인이 겸해서 접는다 (`PERIOD_SOURCES_SQL` 과 같은 방식).
+#
+# `AT TIME ZONE` 을 두 번 거는 이유는 세션 시간대에 기대지 않기 위해서다 ([08 §4]). KST 는
+# 정각 오프셋이라 시간 경계가 UTC 와 같지만, 그 사실에 기대는 코드는 시간대가 바뀌는 날
+# 조용히 어긋난다.
+#
+# **⚠️ `pl_document_candidate` 는 보존 기간이 짧다** ([08 §3]). 그 지평 밖의 시간 버킷은
+# 만들 수 없다 — 시간 버킷이 재계산 구간 W 전체가 아니라 최근 며칠만 채워지는 이유다.
+HOURLY_SQL = f"""
+SELECT c.keyword_id,
+       date_trunc('hour', ct.published_at AT TIME ZONE 'Asia/Seoul')
+           AT TIME ZONE 'Asia/Seoul' AS bucket_start,
+       count(DISTINCT d.url_hash)::bigint AS mentions
+  FROM {DOCUMENT_CANDIDATE} d
+  JOIN {CANDIDATE} c ON c.domain = d.domain AND c.normalized_key = d.normalized_key
+  JOIN {CONTENT_ID_MAP} m ON m.url_hash = d.url_hash
+  JOIN {CONTENTS} ct ON ct.id = m.content_id
+ WHERE c.keyword_id IS NOT NULL
+   AND NOT d.is_dup
+   AND ct.published_at >= %s AND ct.published_at < %s
  GROUP BY 1, 2
 """
 
@@ -382,6 +420,15 @@ class MetricSink:
     def daily_volume(self, *, start: str, end: str) -> tuple[tuple, ...]:
         """`(domain, stat_date, volume)` — z-score 의 분모."""
         return self._query(DAILY_VOLUME_SQL, (start, end))
+
+    def hourly_mentions(self, *, start: str, end: str) -> tuple[tuple, ...]:
+        """`(keyword_id, bucket_start, mentions)` — 발행 시각 기준 반열린 `[start, end)`.
+
+        언급이 있는 시간만 돌아온다. 없는 시간의 0 행은 만들지 않는다 — 백엔드가 버킷을
+        스스로 세우고 저장 행이 없으면 0 으로 그리므로(`TrendHistoryService.getHistory`)
+        화면이 같고, 활성 키워드 × 720 칸을 대부분 0 으로 채우지 않아도 된다.
+        """
+        return self._query(HOURLY_SQL, (start, end))
 
     def period_sources(self, *, start: str, end: str) -> dict[int, int]:
         rows = self._query(PERIOD_SOURCES_SQL, (start, end))

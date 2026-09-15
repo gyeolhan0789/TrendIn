@@ -40,6 +40,7 @@ from trendin.spark.metrics.windows import Window
 log = get_logger(__name__)
 
 ONE_DAY = timedelta(days=1)
+ONE_HOUR = timedelta(hours=1)
 
 # --- 분포 모니터링 지표. **값이 곧 집계 키다** — 바꾸면 옛 실행과 이어지지 않는다. --------
 KEYWORDS = "aggregate_keywords"  # 원자료에 언급이 있던 정규 키워드 수
@@ -156,6 +157,26 @@ def history_rows(
     for domain in {item.domain for item in series.values()}:
         gaps += sum(1 for day in days if (domain, day) not in covered)
     return rows, gaps
+
+
+def hourly_history_rows(hourly: tuple[tuple, ...]) -> list[tuple]:
+    """`keyword_metric_history` 에 쓸 **시간** 버킷 행 ([07 §3], `history_bucket: 1H`).
+
+    일 버킷과 달리 **0 행을 만들지 않는다.** 언급이 있는 시간만 쓴다.
+
+    일 버킷은 "행이 없음" 과 "0" 을 가르려고 수집이 있었던 날에 0 행을 깔았는데, 시간 단위로
+    그러면 활성 키워드 × 720 칸이 거의 다 0 인 행이 된다. 그리고 백엔드가 버킷을 스스로
+    세우고 저장 행이 없는 칸을 0 으로 그리므로(`TrendHistoryService.getHistory`) 화면에
+    나타나는 결과가 같다 — 그 구분은 지금 백엔드에서 실현되지 않는다.
+
+    **한 회차에 두 폭을 섞지 않는다.** 같은 날에 일 행과 시간 행이 함께 있으면 백엔드의
+    합산이 그 날을 두 번 센다. `MetricSink.write` 의 DELETE 가 재계산 구간에서 스테이징에
+    없는 행을 걷어내므로, 폭을 바꾼 첫 회차에 옛 일 행이 사라진다.
+    """
+    return [
+        (keyword_id, bucket_start, bucket_start + ONE_HOUR, int(mentions))
+        for keyword_id, bucket_start, mentions in hourly
+    ]
 
 
 def metric_rows(
@@ -298,9 +319,17 @@ def run(
         )
     }
 
-    buckets, gaps = history_rows(
-        series, window=recompute, active_window=active, covered=covered
-    )
+    if thresholds.hourly_history:
+        # 발행 시각은 `contents` 에만 남아 있다. 원자료(`pl_document_candidate`)의 보존
+        # 지평 밖은 조인이 비어 돌아오므로, 그 구간의 버킷은 만들어지지 않는다 ([08 §3]).
+        buckets = hourly_history_rows(
+            sink.hourly_mentions(start=recompute.start_ts, end=recompute.end_ts)
+        )
+        gaps = 0
+    else:
+        buckets, gaps = history_rows(
+            series, window=recompute, active_window=active, covered=covered
+        )
 
     staged_metrics: list[tuple] = []
     verdict: dict[tuple[int, str], tuple[str, ...]] = {}

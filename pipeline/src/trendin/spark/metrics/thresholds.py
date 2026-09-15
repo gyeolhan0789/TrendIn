@@ -31,9 +31,16 @@ SECTION = "aggregate"
 # 와 같은 자리에 둔다. 이게 "한 매체에서만 쏟아진 키워드" 를 막는 유일한 조건이다.
 MIN_SOURCES = 2
 
-# 지금 지원하는 버킷 폭. `history_bucket` 이 이것과 다르면 거부한다 — 조용히 하루로
-# 떨어뜨리면 설정에 `1H` 라고 적어 두고 일 버킷을 받게 된다 ([07 §3]).
-SUPPORTED_HISTORY_BUCKET = "1D"
+# 지원하는 버킷 폭. 목록에 없는 값은 거부한다 — 조용히 하루로 떨어뜨리면 설정에 적어 둔
+# 것과 다른 것을 받게 된다 ([07 §3]).
+#
+# `1H` 는 백엔드가 `24H` 화면에 요구하는 폭이다 (`AnalysisPeriod.getHistoryBucketDuration`).
+# 일 버킷만 쓰면 하루치가 첫 한 시간에 몰리고 나머지 23칸이 0 으로 그려진다. 원자료
+# (`pl_keyword_daily_stat`)에는 시각이 없지만 `contents.published_at` 에 남아 있어, 문서를
+# 거쳐 되살린다 (`io/metrics.HOURLY_SQL`).
+BUCKET_DAY = "1D"
+BUCKET_HOUR = "1H"
+SUPPORTED_HISTORY_BUCKETS = (BUCKET_DAY, BUCKET_HOUR)
 
 # 측정 없이 정할 수 없어 `base.yaml` 이 `null` 로 두는 키. 전부 있어야 시작한다.
 REQUIRED = (
@@ -102,6 +109,12 @@ class AggregateThresholds:
     # [07 §8] 저자당 일별 기여 상한. `None` = 꺼짐. **켜려면 원자료 재집계가 선행이다** —
     # `pl_keyword_daily_stat` 에 저자별 건수가 없어 지금은 적용할 근거가 없다.
     author_daily_cap: int | None
+    # `keyword_metric_history` 의 버킷 폭. `1D` 또는 `1H` ([07 §3]).
+    history_bucket: str = BUCKET_DAY
+
+    @property
+    def hourly_history(self) -> bool:
+        return self.history_bucket == BUCKET_HOUR
 
     @classmethod
     def from_config(cls, config: Config) -> "AggregateThresholds":
@@ -118,11 +131,11 @@ class AggregateThresholds:
                 f"아는 것은 {', '.join(PERIOD_DAYS)}"
             )
 
-        bucket = str(section.get("history_bucket", SUPPORTED_HISTORY_BUCKET))
-        if bucket != SUPPORTED_HISTORY_BUCKET:
+        bucket = str(section.get("history_bucket", BUCKET_DAY))
+        if bucket not in SUPPORTED_HISTORY_BUCKETS:
             raise ConfigError(
-                f"aggregate.history_bucket 은 {SUPPORTED_HISTORY_BUCKET!r} 만 지원한다 "
-                f"(지금 {bucket!r}). 시간 버킷은 원자료를 시간 단위로 세우는 일이다 ([07 §3])"
+                f"aggregate.history_bucket 은 {', '.join(SUPPORTED_HISTORY_BUCKETS)} 만 "
+                f"지원한다 (지금 {bucket!r})"
             )
 
         windows_config = _lookup(section, "thresholds.new.windows") or {}
@@ -170,6 +183,7 @@ class AggregateThresholds:
                 min_z=float(zscore["min_z"]),
             ),
             author_daily_cap=None if cap is None else int(cap),
+            history_bucket=bucket,
         )
 
     def horizon_days(self) -> int:
