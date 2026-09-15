@@ -71,7 +71,7 @@ def verify(
     통째로 버린다.** 그쪽이 검증을 건너뛰는 것보다 나쁘다고 규격이 정했다. 건너뛴 건수는
     부른 쪽(`ingest/backfill.py`)이 목록 조회 시점에 이미 알고 있어 [03 §7] 에 센다.
 
-    평시 경로(`--source kafka`)에서는 기본값 `True` 다 — 이벤트의 `checksum` 이 없으면
+    평시 경로(`--source ledger`)에서는 기본값 `True` 다 — 봉투의 `checksum` 이 없으면
     `io/contract._check_article` 이 이미 메시지 단계에서 거절한다.
     """
     bucket = event.get("bucket")

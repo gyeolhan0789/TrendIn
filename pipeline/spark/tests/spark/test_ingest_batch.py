@@ -4,16 +4,20 @@
 중복이 실제로 걸러지는지, 거절된 메시지가 두 곳에 다 남는지다. 그건 DataFrame 을 실제로 돌려야
 드러난다.
 
-Kafka · MinIO · PostgreSQL 은 쓰지 않는다. 입력은 인메모리 DataFrame, 싱크는 가짜다.
+MinIO · PostgreSQL 은 쓰지 않는다. 입력은 인메모리 DataFrame, 싱크는 가짜다.
+
+봉투를 만드는 발판은 `envelope_support` 에 있다 — 평시 경로는 장부 뷰에서 타입이 있는
+채로 받지만, 판별이 "칸이 비었다" 와 "파싱이 깨졌다" 를 가르는지 보려면 깨진 JSON 을
+만들 수단이 필요하다.
 """
 
 from __future__ import annotations
 
 import json
 import pathlib
-from datetime import datetime, timezone
 
 import pytest
+from envelope_support import frame_from_events, frame_from_messages
 
 from trendin.spark.ingest.batch import (
     UNPARSEABLE_KEY_PREFIX,
@@ -21,11 +25,8 @@ from trendin.spark.ingest.batch import (
     process_batch,
     with_decision,
 )
-from trendin.spark.io.kafka import parse_events
 
 CONTRACT = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "contract"
-RAW_SCHEMA = "key string, value string, partition int, offset long, timestamp timestamp"
-NOW = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
 
 
 def fixture(name: str) -> dict:
@@ -33,18 +34,8 @@ def fixture(name: str) -> dict:
     return json.loads((CONTRACT / name).read_text(encoding="utf-8"))
 
 
-def kafka_rows(spark, messages):
-    """`(key, value, partition, offset)` 를 Kafka 소스가 주는 형태로 만든다."""
-    rows = [(key, value, part, off, NOW) for key, value, part, off in messages]
-    return spark.createDataFrame(rows, RAW_SCHEMA)
-
-
 def from_events(spark, events, *, partition=0, start=0):
-    messages = [
-        (event.get("source_id"), json.dumps(event, ensure_ascii=False), partition, start + i)
-        for i, event in enumerate(events)
-    ]
-    return parse_events(kafka_rows(spark, messages))
+    return frame_from_events(spark, events, partition=partition, start=start)
 
 
 class FakeLedger:
@@ -125,7 +116,7 @@ def test_JSON_이_아니면_원본이_corrupt_칸에_남는다(spark):
     여기서 원본을 안 넣으면 판별이 `PARSE_ERROR` 가 아니라 "schema_version 이 없다" 로
     나온다. 사유가 틀리면 생산자가 엉뚱한 곳을 본다.
     """
-    parsed = parse_events(kafka_rows(spark, [("vogue", "{ not json", 0, 7)]))
+    parsed = frame_from_messages(spark, [("vogue", "{ not json", 0, 7)])
 
     row = parsed.collect()[0]
     assert row["_corrupt_record"] == "{ not json"
@@ -163,8 +154,8 @@ def test_event_id_가_비면_계약_위반으로_잡고_위치로_키를_만든�
 
 def test_깨진_메시지끼리_처리_이력_키가_겹치지_않는다(spark):
     """같은 키로 뭉치면 두 번째부터 흔적이 사라진다 — DLQ 에 한 건만 남는다."""
-    parsed = parse_events(
-        kafka_rows(spark, [("vogue", "{ bad", 0, 1), ("vogue", "{ also bad", 1, 4)])
+    parsed = frame_from_messages(
+        spark, [("vogue", "{ bad", 0, 1), ("vogue", "{ also bad", 1, 4)]
     )
 
     keys = {row["event_id"] for row in with_decision(parsed).collect()}
@@ -177,7 +168,7 @@ def test_깨진_메시지끼리_처리_이력_키가_겹치지_않는다(spark):
 
 def test_배치_안_중복은_먼저_온_오프셋만_남는다(spark):
     payload = json.dumps(fixture("article-event.json"), ensure_ascii=False)
-    parsed = parse_events(kafka_rows(spark, [("vogue", payload, 0, 9), ("vogue", payload, 0, 4)]))
+    parsed = frame_from_messages(spark, [("vogue", payload, 0, 9), ("vogue", payload, 0, 4)])
 
     rows = deduplicate(with_decision(parsed)).collect()
 

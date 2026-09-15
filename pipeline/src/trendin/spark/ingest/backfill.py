@@ -51,8 +51,7 @@ from trendin.spark.common.logging import get_logger
 from trendin.spark.ingest.routing import COMPLETED, STAGE_NORMALIZE
 from trendin.spark.io import objects as store_io
 from trendin.spark.io.contract import DOMAIN_VALUES, KNOWN_SCHEMA_VERSION
-from trendin.spark.io.kafka import META_COLUMNS
-from trendin.spark.io.schema import CORRUPT_FIELD, EVENT_SCHEMA
+from trendin.spark.io.schema import CORRUPT_FIELD, EVENT_SCHEMA, META_COLUMNS
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
@@ -249,17 +248,17 @@ def _envelope(
     }
 
 
-# 재구성한 봉투 프레임의 칸. `io/kafka.parse_events` 의 결과와 같은 형태여야 한다 —
-# 그 뒤로는 모드 A 와 같은 코드 경로다 ([02 §6] 4번).
+# 재구성한 봉투 프레임의 칸. 평시 경로(`ingest/collected.py`)와 같은 형태여야 한다 —
+# 그 뒤로는 두 경로가 완전히 같은 코드다 ([02 §6] 4번).
 _FRAME_SCHEMA_FIELDS = tuple(field.name for field in EVENT_SCHEMA.fields)
 
 
-def events_frame(spark, envelopes: list[dict[str, Any]]) -> "DataFrame":
-    """재구성한 봉투를 판별 칸까지 채운 프레임으로.
+def envelope_frame(spark, envelopes: list[dict[str, Any]]) -> "DataFrame":
+    """봉투 목록을 판별 **전** 프레임으로. 칸과 타입이 Kafka 시절 `parse_events` 와 같다.
 
-    **`with_decision` 을 타지 않는다.** 그 함수는 `classify` 로 봉투를 검증하는데, 여기서
-    검증할 대상은 우리가 방금 만든 봉투다 (모듈 docstring "봉투 계약 검증을 건너뛴다").
-    그래서 판별 칸을 직접 채운다 — 전부 기사 이벤트이고, 전부 `normalize` 를 목표로 한다.
+    판별 칸을 붙이지 않는 것이 요점이다. 붙일지 말지는 부른 쪽이 정한다 — 평시 경로
+    (`ingest/collected.py`)는 `classify` 를 태워야 하고 백필은 태우면 안 되는데, 그 차이가
+    여기 섞여 있으면 한쪽을 고칠 때 다른 쪽이 딸려 온다.
 
     Kafka 메타 칸(`partition`·`offset`)은 `null`·`-1` 이다. 그 값이 뜻을 갖지 않는 경로라
     처리 이력에도 그렇게 남는 것이 맞다 — 0 을 넣으면 진짜 0번 파티션의 이벤트와 섞인다.
@@ -277,7 +276,7 @@ def events_frame(spark, envelopes: list[dict[str, Any]]) -> "DataFrame":
     schema = StructType(
         [
             StructField("message_key", StringType(), True),
-            # Kafka 경로(`io/kafka.parse_events`)와 같은 타입으로 둔다. 값은 `null` 이지만
+            # Kafka 시절부터 쓰던 타입을 그대로 둔다. 값은 `null` 이지만
             # 타입이 갈리면 두 경로를 같은 코드로 다룰 수 없게 된다.
             StructField("partition", IntegerType(), True),
             StructField("offset", LongType(), True),
@@ -306,6 +305,24 @@ def events_frame(spark, envelopes: list[dict[str, Any]]) -> "DataFrame":
         *META_COLUMNS,
         *[F.col(name) for name in _FRAME_SCHEMA_FIELDS if name != CORRUPT_FIELD],
         F.col(CORRUPT_FIELD),
+    )
+
+
+def events_frame(spark, envelopes: list[dict[str, Any]]) -> "DataFrame":
+    """재구성한 봉투를 판별 칸까지 채운 프레임으로. **백필 전용이다.**
+
+    **`with_decision` 을 타지 않는다.** 그 함수는 `classify` 로 봉투를 검증하는데, 여기서
+    검증할 대상은 우리가 방금 만든 봉투다 (모듈 docstring "봉투 계약 검증을 건너뛴다").
+    그래서 판별 칸을 직접 채운다 — 전부 기사 이벤트이고, 전부 `normalize` 를 목표로 한다.
+
+    평시 경로는 이 함수를 쓰지 않는다. 그쪽 봉투는 뷰가 `url`·`published_at` 까지 내므로
+    `classify` 를 통과할 수 있고, 통과시켜야 허용 목록 밖 도메인이 DLQ 로 간다
+    (S15P21A102-247 코드리뷰).
+    """
+    from pyspark.sql import functions as F
+
+    return envelope_frame(spark, envelopes).select(
+        "*",
         F.lit("ARTICLE").alias("event_shape"),
         F.lit(None).cast("string").alias("error_type"),
         F.lit("").alias("detail"),

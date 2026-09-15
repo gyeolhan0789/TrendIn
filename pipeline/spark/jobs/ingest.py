@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""ingest — Kafka `raw-file-ready` 를 받아 검증하고, 정제해 `curated` · `contents` 에 적재한다.
+"""ingest — 수집 장부를 읽어 검증하고, 정제해 `curated` · `contents` 에 적재한다.
 
 ```sh
 spark-submit --jars "$(ls spark/jars/*.jar | paste -sd,)" spark/jobs/ingest.py --profile local
 ```
 
-**하는 것** — 이벤트 소비, 계약 판별, 중복 제거, MinIO 객체 조회와 checksum 대조, 처리 이력·DLQ
+**하는 것** — 장부 읽기, 봉투 조립, 중복 제거, MinIO 객체 조회와 checksum 대조, 처리 이력·DLQ
 기록([02]), 그리고 텍스트 정제 · 중복 제거 3단계 · `curated` Parquet 쓰기 · `contents` upsert ·
 `pl_batch_stat` 기록([03]). 백필 경로(`--source objects`)도 여기 있다 ([02 §6]).
 
@@ -23,17 +23,17 @@ from pyspark.sql import SparkSession
 
 from trendin.spark.common.cli import main
 from trendin.spark.common.config import Config, ConfigError
+from trendin.spark.common.exit_codes import NOTHING_NEW
 from trendin.spark.common.logging import get_logger
-from trendin.spark.common.session import checkpoint_dir
-from trendin.spark.ingest import backfill
+from trendin.spark.ingest import backfill, collected
 from trendin.spark.ingest.batch import ENVELOPE_COLUMNS, BatchResult, process_batch
 from trendin.spark.ingest.normalize import normalizer
 from trendin.spark.ingest.objects import verifier
+from trendin.spark.io import jdbc
 from trendin.spark.io import objects as store_io
 from trendin.spark.io import stats as stats_io
 from trendin.spark.io.contents import ContentsSink
 from trendin.spark.io.dlq import build_dlq_sink
-from trendin.spark.io.kafka import read_events
 from trendin.spark.io.ledger import Ledger
 from trendin.spark.normalize.documents import KST
 
@@ -58,9 +58,12 @@ def default_run_id() -> str:
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--source",
-        choices=("kafka", "objects"),
-        default="kafka",
-        help="kafka: 이벤트 소비. objects: Kafka 없이 MinIO 프리픽스 스캔으로 재처리 ([02 §6])",
+        choices=("ledger", "objects"),
+        default="ledger",
+        help=(
+            "ledger: 수집 장부 뷰를 읽는 평시 경로. "
+            "objects: MinIO 프리픽스 스캔으로 재처리 ([02 §6])"
+        ),
     )
     # 아래 셋은 --source objects 전용이다. 배치 계약 시절의 --manifest(metadata.json
     # 목록 경로)를 대체한다 — 기사 단위로 가면서 그 파일이 없어졌다 ([02 §3]).
@@ -134,14 +137,26 @@ def _build_contents_sink(config: Config, *, require: bool) -> ContentsSink | Non
     return None
 
 
-def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
-    """단계 호출만 한다. 로직은 `trendin.spark.*` 에 둔다."""
+def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> int | None:
+    """단계 호출만 한다. 로직은 `trendin.spark.*` 에 둔다.
+
+    **새로 쓴 것이 없으면 `NOTHING_NEW` 로 끝난다** (평시 경로만, S15P21A102-247). 그러면
+    Airflow 가 이 태스크를 skipped 로 두고 `curated` 자산이 갱신되지 않아 `spark_extract`
+    가 깨어나지 않는다. 수집 회차마다 자산이 오는데 새 기사는 대개 없어서, 이것이 없으면
+    하루에 수십 번 30일 코퍼스를 다시 돈다 — 결과는 같고 시간만 쓴다.
+    """
     run_id = args.run_id or default_run_id()
 
-    ledger = Ledger(config, job=JOB)
+    # 아무것도 하기 전에 본다. 틀린 DB 는 오류가 아니라 0건과 빈 조회로 나타나서,
+    # 절반쯤 적재한 뒤에 알아채면 어디까지 어느 DB 에 갔는지 되짚어야 한다.
+    jdbc.assert_producer_database(config)
+
+    # `history` 인 이유는 `--source ledger` 의 ledger 가 수집 장부라서다. 이쪽은 처리
+    # 이력(`pl_processing_ledger`)이고 둘은 다른 표다 (S15P21A102-247 코드리뷰).
+    history = Ledger(config, job=JOB)
     dlq = build_dlq_sink(config, job=JOB)
     stats = stats_io.BatchStats(config, job=JOB)
-    ledger.ensure_schema()
+    history.ensure_schema()
     dlq.ensure_schema()
     stats.ensure_schema()
     required = bool(config.get("ingest.contents.required", True))
@@ -159,77 +174,85 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
         stats=run_stats,
     )
 
+    nothing_new = False
     if args.source == "objects":
         _run_backfill(
             spark,
             config,
             args,
             run_id=run_id,
-            ledger=ledger,
+            history=history,
             dlq=dlq,
             run_stats=run_stats,
             normalize=normalize,
         )
     else:
-        _run_kafka(spark, config, args, run_id=run_id, ledger=ledger, dlq=dlq, normalize=normalize)
+        result = _run_ledger(
+            spark, config, args, run_id=run_id, history=history, dlq=dlq, normalize=normalize
+        )
+        # `articles` 는 처리 이력을 통과해 정제까지 간 기사 수다. 0 이면 `curated` 가 그대로라
+        # 뒤 단계가 볼 것이 없다. 정제 필터로 버려진 몫은 여기 세어져 있어서 가끔 헛걸음이
+        # 생기는데, 그 반대(쓴 게 있는데 안 깨움)보다 훨씬 낫다.
+        nothing_new = result.articles == 0
 
     # 마지막이다 — `curated` · `contents` · 처리 이력이 전부 끝난 뒤라, 쓰기가 죽은 실행의
     # 통계는 남지 않는다. 같은 run_id 의 옛 행은 지우고 다시 넣는다.
+    #
+    # 새로 쓴 것이 없는 회차도 적는다. 0 이 적힌 것과 아무것도 안 적힌 것은 다르다.
     stats.replace(run_stats.finalize(), ingest_run_id=run_id)
 
+    if nothing_new:
+        log.info(
+            "새로 쓴 기사가 없다 — 종료 코드 %d 로 끝낸다 (뒤 단계를 깨우지 않는다)",
+            NOTHING_NEW,
+        )
+        return NOTHING_NEW
+    return None
 
-def _run_kafka(
+
+def _run_ledger(
     spark: SparkSession,
     config: Config,
     args: argparse.Namespace,
     *,
     run_id: str,
-    ledger: Ledger,
+    history: Ledger,
     dlq,
     normalize,
-) -> None:
-    """모드 A — Kafka 소비 ([02 §6])."""
-    # 객체 검증 ([02 §3]). 메시지를 통과한 기사 이벤트만 탄다.
+) -> BatchResult:
+    """평시 경로 — 수집 장부의 뷰를 읽는다 (S15P21A102-247).
+
+    **스트림이 아니다.** 창 안의 행을 한 번에 읽어 배치 하나로 돈다. 겹쳐 읽은 몫은 처리
+    이력이 거르므로(`io/ledger.py` 의 중복 차단 2) 오프셋을 따로 들고 있지 않아도 된다 —
+    Kafka 시절 checkpoint 가 하던 일을 이력 하나로 합쳤다. 상태가 하나면 두 상태가 어긋날
+    자리도 없다.
+
+    **계약 판별을 태운다.** 봉투를 우리가 조립했지만 그래도 `classify` 를 거친다. 도메인
+    허용 목록이 거기 있기 때문이다 — 목록 밖 값이 장부에 들어오면 판별 없이는 정제 단계의
+    `keywords_domain` 이 `ValueError` 를 올려 배치가 통째로 죽는다. 판별을 태우면 그 행만
+    DLQ 로 가고 나머지는 처리된다 (S15P21A102-247 코드리뷰).
+
+    백필이 판별을 건너뛰는 것과 갈리는 자리다. 그쪽 봉투는 `url`·`published_at` 이 없어
+    전량이 계약 위반으로 떨어지지만, 뷰는 두 칸을 다 낸다.
+
+    **checksum 은 요구한다.** 장부의 `article_sha256` 이 NOT NULL 이라 평시 경로에서는 늘
+    있다. 없다면 장부가 깨졌다는 뜻이라 통과시킬 이유가 없다 — 메타데이터가 없는 옛 객체를
+    받아 주는 모드 B 와 다른 점이다.
+    """
     verify_objects = verifier(config, columns=ENVELOPE_COLUMNS)
+    log.info("ingest 시작: source=%s run_id=%s force=%s", args.source, run_id, args.force)
 
-    checkpoint = checkpoint_dir(JOB, config)
-    log.info(
-        "ingest 시작: source=%s run_id=%s checkpoint=%s force=%s",
-        args.source,
-        run_id,
-        checkpoint,
-        args.force,
+    result: BatchResult = process_batch(
+        collected.read_events(spark, config),
+        job=JOB,
+        ledger=history,
+        dlq=dlq,
+        verify_objects=verify_objects,
+        normalize=normalize,
+        force=args.force,
     )
-
-    events = read_events(spark, config, job=JOB)
-    totals: list[BatchResult] = []
-
-    def handle(batch, batch_id: int) -> None:
-        # foreachBatch 의 콜백은 드라이버에서 돈다. 배치 DataFrame 은 여러 번 쓰이므로
-        # process_batch 안에서 캐시한다.
-        log.info("배치 %d 시작", batch_id)
-        totals.append(
-            process_batch(
-                batch,
-                job=JOB,
-                ledger=ledger,
-                dlq=dlq,
-                verify_objects=verify_objects,
-                normalize=normalize,
-                force=args.force,
-            )
-        )
-
-    query = (
-        events.writeStream.foreachBatch(handle)
-        # 그때까지 쌓인 것까지 여러 마이크로배치로 나눠 소비하고 스스로 끝난다 ([01 §1]).
-        .trigger(availableNow=True)
-        # 오프셋의 단일 출처. 지우는 것은 [02 §6] 절차를 따를 때만 한다.
-        .option("checkpointLocation", checkpoint)
-        .start()
-    )
-    query.awaitTermination()
-    _log_totals(totals)
+    _log_totals([result])
+    return result
 
 
 def _run_backfill(
@@ -238,7 +261,7 @@ def _run_backfill(
     args: argparse.Namespace,
     *,
     run_id: str,
-    ledger: Ledger,
+    history: Ledger,
     dlq,
     run_stats: stats_io.RunStats,
     normalize,
@@ -289,7 +312,7 @@ def _run_backfill(
     result = process_batch(
         backfill.events_frame(spark, envelopes),
         job=JOB,
-        ledger=ledger,
+        ledger=history,
         dlq=dlq,
         verify_objects=verify_objects,
         normalize=normalize,

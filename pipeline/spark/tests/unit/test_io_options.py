@@ -1,6 +1,6 @@
-"""Kafka · JDBC 옵션 만들기 ([02 §1] · [08 §4]). 브로커도 DB 도 없이 검사한다 ([09 §4] 층 1).
+"""JDBC 옵션과 처리 이력 SQL ([08 §4]). DB 없이 검사한다 ([09 §4] 층 1).
 
-주소를 틀리면 Job 이 뜨긴 하고 아무것도 안 받거나, 엉뚱한 DB 에 쓴다. 둘 다 실패로 안 보인다.
+주소를 틀리면 Job 이 뜨긴 하고 엉뚱한 DB 에 쓴다. 실패로 안 보인다.
 """
 
 from __future__ import annotations
@@ -8,16 +8,11 @@ from __future__ import annotations
 import pytest
 
 from trendin.spark.common.config import Config, ConfigError
-from trendin.spark.io import dlq, jdbc, kafka, ledger
+from trendin.spark.io import dlq, jdbc, ledger
 
 
 def config(**overrides) -> Config:
     data = {
-        "kafka": {
-            "bootstrap_servers": "kafka:9092",
-            "group_id_prefix": "trendin-spark",
-            "topics": {"raw_file_ready": "raw-file-ready"},
-        },
         "jdbc": {
             "url": "jdbc:postgresql://postgres:5432/trendin",
             "user": "trendin",
@@ -25,39 +20,6 @@ def config(**overrides) -> Config:
         },
     }
     return Config(data | overrides, profile="test")
-
-
-# --- Kafka ---------------------------------------------------------------
-
-
-def test_group_은_접두어에_job_이름을_붙인다():
-    """[02 §1] 이 `trendin-spark-ingest` 로 명시했다."""
-    assert kafka.group_id_prefix(config(), job="ingest") == "trendin-spark-ingest"
-
-
-def test_접두어_끝의_하이픈은_겹치지_않는다():
-    cfg = config(
-        kafka={"group_id_prefix": "trendin-spark-", "topics": {}, "bootstrap_servers": "x"}
-    )
-
-    assert kafka.group_id_prefix(cfg, job="ingest") == "trendin-spark-ingest"
-
-
-def test_옵션에_토픽과_브로커와_보장이_들어간다():
-    options = kafka.kafka_options(config(), job="ingest")
-
-    assert options["subscribe"] == "raw-file-ready"
-    assert options["kafka.bootstrap.servers"] == "kafka:9092"
-    assert options["startingOffsets"] == "earliest"
-    # 오프셋이 사라졌을 때 조용히 건너뛰면 그 구간이 통째로 유실된다 ([02 §1]).
-    assert options["failOnDataLoss"] == "true"
-
-
-def test_브로커_주소가_없으면_뜨기_전에_죽는다():
-    cfg = Config({"kafka": {"topics": {"raw_file_ready": "t"}}}, profile="test")
-
-    with pytest.raises(ConfigError):
-        kafka.kafka_options(cfg, job="ingest")
 
 
 # --- JDBC ----------------------------------------------------------------
@@ -76,6 +38,77 @@ def test_비밀번호의_특수문자를_인코딩한다():
     got = jdbc.dsn("jdbc:postgresql://h:5432/d", "u", "p@ss:word")
 
     assert got == "postgresql://u:p%40ss%3Aword@h:5432/d"
+
+
+# --- 생산자와 같은 DB 를 보는가 (S15P21A102-247) -----------------------------
+#
+# 이 모듈 첫 줄이 적어 둔 "주소를 틀리면 Job 이 뜨긴 하고 엉뚱한 DB 에 쓴다. 실패로 안
+# 보인다" 를 실제로 막는 자리다. 접속값이 두 벌(`AIRFLOW_CONN_APP_DB` · `APP_DB_URL`)이라
+# 한쪽만 옮기면 그대로 갈린다.
+
+PRODUCER = jdbc.PRODUCER_URL_ENV
+
+
+def test_같은_DB_면_지나간다(monkeypatch):
+    monkeypatch.setenv(PRODUCER, "postgres://someone:pw@postgres:5432/trendin")
+
+    jdbc.assert_producer_database(config())
+
+
+def test_계정이_달라도_같은_DB_면_지나간다(monkeypatch):
+    """생산자는 Airflow Connection 의 계정, 소비자는 `jdbc.user` 다. 달라도 된다."""
+    monkeypatch.setenv(PRODUCER, "postgres://airflow:other@postgres:5432/trendin")
+
+    jdbc.assert_producer_database(config())
+
+
+def test_포트를_안_적으면_5432_로_본다(monkeypatch):
+    monkeypatch.setenv(PRODUCER, "postgres://u:p@postgres/trendin")
+
+    jdbc.assert_producer_database(config())
+
+
+@pytest.mark.parametrize(
+    "producer",
+    [
+        "postgres://u:p@forever102:5432/trendin",  # 호스트가 다르다 (244 가 옮기는 자리)
+        "postgres://u:p@postgres:5433/trendin",  # 포트가 다르다
+        "postgres://u:p@postgres:5432/forever102",  # DB 이름이 다르다
+    ],
+)
+def test_다른_DB_면_시작도_안_한다(monkeypatch, producer: str):
+    """조용히 0건으로 끝나는 것이 최악이다 — 며칠 뒤 통계의 구멍으로만 드러난다."""
+    monkeypatch.setenv(PRODUCER, producer)
+
+    with pytest.raises(ConfigError, match="다르다"):
+        jdbc.assert_producer_database(config())
+
+
+def test_환경변수가_없으면_그냥_지나간다(monkeypatch):
+    """호스트에서 `--profile local` 로 손수 돌릴 때는 Airflow Connection 이 없는 게 정상이다.
+
+    검사를 **못 하는 것**과 검사가 **실패한 것**은 다르다. 없다고 막으면 로컬이 안 돈다.
+    """
+    monkeypatch.delenv(PRODUCER, raising=False)
+
+    jdbc.assert_producer_database(config())
+
+
+@pytest.mark.parametrize("producer", ['{"conn_type": "postgres"}', "postgres:///socket", "   "])
+def test_읽지_못하는_값이면_막지_않는다(monkeypatch, producer: str):
+    """`AIRFLOW_CONN_*` 는 URI 말고 JSON 으로도 준다. 대조가 파싱에 실패했다는 이유로
+    멀쩡한 실행을 막으면, 고치는 값이 검사받는 값이 아니게 된다."""
+    monkeypatch.setenv(PRODUCER, producer)
+
+    jdbc.assert_producer_database(config())
+
+
+def test_소비자_URL_이_JDBC_형식이_아니면_죽는다(monkeypatch):
+    monkeypatch.setenv(PRODUCER, "postgres://u:p@postgres:5432/trendin")
+    cfg = config(jdbc={"url": "postgresql://postgres:5432/trendin", "user": "trendin"})
+
+    with pytest.raises(ConfigError, match="jdbc:postgresql"):
+        jdbc.assert_producer_database(cfg)
 
 
 def test_비밀번호가_없으면_붙이지_않는다():

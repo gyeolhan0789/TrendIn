@@ -36,25 +36,25 @@ def conf_dir(tmp_path: Path):
 
 def test_프로파일이_base_를_덮는다(conf_dir):
     directory, write = conf_dir
-    write("base", "kafka:\n  bootstrap_servers: base:9092\n  group_id_prefix: trendin\n")
-    write("local", "kafka:\n  bootstrap_servers: local:29092\n")
+    write("base", "minio:\n  endpoint: http://base:9000\n  region: us-east-1\n")
+    write("local", "minio:\n  endpoint: http://127.0.0.1:9000\n")
 
     config = load_config("local", conf_dir=directory, env={})
 
-    assert config.get("kafka.bootstrap_servers") == "local:29092"
+    assert config.get("minio.endpoint") == "http://127.0.0.1:9000"
     # 프로파일이 안 적은 키는 base 에서 살아남는다. 이게 안 되면 프로파일마다
     # 전체를 복사해야 하고, 그 복사본은 반드시 나뉜다.
-    assert config.get("kafka.group_id_prefix") == "trendin"
+    assert config.get("minio.region") == "us-east-1"
 
 
 def test_환경변수가_프로파일을_덮는다(conf_dir):
     directory, write = conf_dir
-    write("base", "kafka:\n  bootstrap_servers: base:9092\n")
-    write("local", "kafka:\n  bootstrap_servers: local:29092\n")
+    write("base", "minio:\n  endpoint: http://base:9000\n")
+    write("local", "minio:\n  endpoint: http://127.0.0.1:9000\n")
 
-    config = load_config("local", conf_dir=directory, env={"KAFKA_BOOTSTRAP_SERVERS": "env:9092"})
+    config = load_config("local", conf_dir=directory, env={"MINIO_ENDPOINT": "http://env:9000"})
 
-    assert config.get("kafka.bootstrap_servers") == "env:9092"
+    assert config.get("minio.endpoint") == "http://env:9000"
 
 
 def test_세_층이_한_번에_섞인다(conf_dir):
@@ -62,7 +62,7 @@ def test_세_층이_한_번에_섞인다(conf_dir):
     directory, write = conf_dir
     write(
         "base",
-        "kafka:\n  bootstrap_servers: base:9092\n  group_id_prefix: trendin\n"
+        "jdbc:\n  url: jdbc:postgresql://base:5432/d\n  user: base\n"
         "minio:\n  endpoint: http://base:9000\n  region: us-east-1\n",
     )
     write("local", "minio:\n  endpoint: http://127.0.0.1:9000\n")
@@ -70,12 +70,12 @@ def test_세_층이_한_번에_섞인다(conf_dir):
     config = load_config(
         "local",
         conf_dir=directory,
-        env={"KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:29092"},
+        env={"APP_DB_URL": "jdbc:postgresql://env:5432/d"},
     )
 
-    assert config.get("kafka.group_id_prefix") == "trendin"  # base 만 적었다
+    assert config.get("jdbc.user") == "base"  # base 만 적었다
     assert config.get("minio.endpoint") == "http://127.0.0.1:9000"  # 프로파일이 이겼다
-    assert config.get("kafka.bootstrap_servers") == "127.0.0.1:29092"  # 환경변수가 이겼다
+    assert config.get("jdbc.url") == "jdbc:postgresql://env:5432/d"  # 환경변수가 이겼다
     assert config.get("minio.region") == "us-east-1"  # 아무도 안 덮었다
 
 
@@ -130,9 +130,9 @@ def test_없던_경로도_환경변수가_만든다(conf_dir):
     write("base", "")
     write("local", "")
 
-    config = load_config("local", conf_dir=directory, env={"CHECKPOINT_ROOT": "/var/ckpt"})
+    config = load_config("local", conf_dir=directory, env={"MINIO_ENDPOINT": "http://ci:9000"})
 
-    assert config.get("checkpoint.root") == "/var/ckpt"
+    assert config.get("minio.endpoint") == "http://ci:9000"
 
 
 def test_환경변수_이름이_설정_경로와_일대일이다():
@@ -231,7 +231,7 @@ def test_저장소_프로파일이_그대로_읽힌다(profile: str):
     assert isinstance(config, Config)
     assert config.profile == profile
     assert config.get("spark.master") == "local[*]"
-    assert config.get("kafka.topics.raw_file_ready") == "raw-file-ready"
+    assert config.get("ingest.ledger.lookback_hours") == 168
     assert config.get("logging.level") in {"DEBUG", "INFO", "WARNING", "ERROR"}
 
 

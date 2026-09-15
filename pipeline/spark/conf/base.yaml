@@ -19,12 +19,6 @@ logging:
   level: "INFO"        # 파이썬 쪽
   spark_level: "WARN"  # JVM 쪽. INFO 로 두면 로그가 사람 눈으로 못 읽을 양이 된다
 
-kafka:
-  bootstrap_servers: ""   # 환경변수 KAFKA_BOOTSTRAP_SERVERS 또는 프로파일이 채운다
-  group_id_prefix: "trendin-spark"
-  topics:
-    raw_file_ready: "raw-file-ready"
-
 minio:
   endpoint: ""      # 비면 S3A 설정을 아예 걸지 않는다
   access_key: ""    # 환경변수 MINIO_ACCESS_KEY
@@ -44,15 +38,16 @@ jdbc:
   # 한 번에 보내는 행 수. 측정 전에는 드라이버 기본값을 쓴다.
   batch_size: 1000
 
-checkpoint:
-  # Job 마다 하위 디렉터리를 판다 ([01 §4]). 환경변수 CHECKPOINT_ROOT.
-  root: ""
-
 # --- Job 별 ---------------------------------------------------------------
 # 알고리즘 임계값은 아직 비어 있다. 실제 수집 데이터의 분포를 재기 전에 정한 숫자는
 # 전부 다시 정하게 된다 (09 §7 항목 5). 04~07 이 숫자를 명시하지 않은 것도 같은 이유다.
 
 ingest:
+  ledger:
+    # 장부 뷰에서 몇 시간을 거슬러 읽을지 (S15P21A102-247). 겹쳐 읽은 몫은 처리 이력이
+    # 거르므로 넉넉한 쪽이 안전하다 — 창이 짧아 빠뜨리면 그 기사는 백필로만 들어온다.
+    # 168시간은 Kafka 보존이던 7일 그대로다. 이 Job 이 그보다 오래 멈추면 백필이 필요하다.
+    lookback_hours: 168
   contents:
     # `contents` 테이블이 없으면 시작하지 않는다 ([03 §8]). 없이 돌면 curated 에만 쓰이고
     # 서비스 테이블은 비어, 증상이 [04] 에서야 "관련 콘텐츠가 비어 있다" 로 나타난다.

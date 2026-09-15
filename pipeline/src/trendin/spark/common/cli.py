@@ -12,6 +12,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from trendin.spark.common.config import Config, ConfigError, load_config
+from trendin.spark.common.exit_codes import CONFIG as EXIT_CONFIG
+from trendin.spark.common.exit_codes import OK as EXIT_OK
 from trendin.spark.common.logging import configure_logging, get_logger
 from trendin.spark.common.session import build_session
 
@@ -20,11 +22,12 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-JobHandler = Callable[["SparkSession", Config, argparse.Namespace], None]
+# `None` 을 주면 0 이다. 숫자를 주면 그 값이 프로세스의 종료 코드가 된다 —
+# `ingest` 가 "새로 쓴 것이 없다" 를 알릴 때 `exit_codes.NOTHING_NEW` 를 그대로 준다.
+# 그 이름을 여기서 다시 내보내지 않는다 — 쓰는 쪽이 `exit_codes` 를 직접 읽으면 값이
+# 어디서 오는지 한 번에 보인다 (S15P21A102-247 코드리뷰).
+JobHandler = Callable[["SparkSession", Config, argparse.Namespace], "int | None"]
 ArgumentHook = Callable[[argparse.ArgumentParser], None]
-
-EXIT_OK = 0
-EXIT_CONFIG = 2
 
 
 def build_parser(job: str, add_arguments: ArgumentHook | None = None) -> argparse.ArgumentParser:
@@ -56,7 +59,11 @@ def run_job(
     argv: list[str] | None = None,
     add_arguments: ArgumentHook | None = None,
 ) -> int:
-    """설정을 읽고 세션을 만들어 `handler` 를 부른다. 끝나면 세션을 닫는다."""
+    """설정을 읽고 세션을 만들어 `handler` 를 부른다. 끝나면 세션을 닫는다.
+
+    `handler` 가 숫자를 주면 그것이 종료 코드다. Airflow 가 그 값을 읽으므로
+    (`spark/dag_factory.SubmitOperator`) 아무 숫자나 쓰지 않고 `exit_codes` 에 적힌 것만 쓴다.
+    """
     args = build_parser(job, add_arguments).parse_args(argv)
     configure_logging(args.log_level or "INFO")
 
@@ -71,12 +78,12 @@ def run_job(
     log.info("job=%s profile=%s 로 시작한다", job, config.profile)
     session = build_session(job, config)
     try:
-        handler(session, config, args)
+        exit_code = handler(session, config, args)
     finally:
-        # Trigger.AvailableNow 는 스스로 끝난다. 세션을 닫아야 프로세스가 내려간다 ([01 §1]).
+        # 스트림이 없으므로 스스로 끝난다. 세션을 닫아야 프로세스가 내려간다 ([01 §1]).
         session.stop()
-    log.info("job=%s 끝", job)
-    return EXIT_OK
+    log.info("job=%s 끝 (종료 코드 %d)", job, exit_code or EXIT_OK)
+    return exit_code or EXIT_OK
 
 
 def main(

@@ -97,12 +97,26 @@ pipeline:verify:
   image:
     name: apache/airflow:3.3.1-python3.12
     entrypoint: [""]
+  # 장부 뷰 테스트(tests/common/test_ledger_view.py)가 진짜 PostgreSQL 을 요구한다
+  # (S15P21A102-247 코드리뷰). 뷰가 내는 `published_at` 은 to_char·date_part·lpad 로
+  # 조립한 문자열이라, 발급 봉투의 isoformat() 과 한 글자라도 다른지는 SQL 을 실제로
+  # 돌려야만 알 수 있다. 서비스가 없으면 그 테스트는 **조용히 건너뛰어진다** — 그러면
+  # CI 가 고정하는 것이 뷰의 칸 이름뿐이 된다.
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
   variables:
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
     # 한글 테스트 이름을 UTF-8로 출력한다.
     PYTHONIOENCODING: "utf-8"
     # 설치 대신 소스 경로를 추가한다. `-e .`는 uid 50000으로 도는 이 이미지에서 권한에 막힌다.
     PYTHONPATH: "$CI_PROJECT_DIR/pipeline/src"
+    POSTGRES_DB: trendin_test
+    POSTGRES_USER: trendin
+    POSTGRES_PASSWORD: trendin
+    # 테스트가 이 이름으로 찾는다. 없으면 skip 이라 CI 가 빨개지지 않는다 — 그래서
+    # 이 한 줄이 빠지면 검증이 사라진 것을 아무도 모른다.
+    TRENDIN_TEST_DB_URL: "postgresql://trendin:trendin@postgres:5432/trendin_test"
   script:
     - cd pipeline
     # pyproject.toml에 고정된 ruff 버전을 사용한다. 안 고정하면 새 릴리스의 규칙에 린트가 깨진다.
@@ -112,6 +126,9 @@ pipeline:verify:
     # 발급 테스트가 `confluent_kafka.Producer` 를 경로로 패치해 모듈이 있어야 한다. 이미지에는 없다.
     - pip install --no-cache-dir pytest "${RUFF_SPEC}" confluent-kafka
     - ruff check .
+    # 뷰 테스트가 skip 으로 새지 않는지 먼저 본다. 서비스가 안 떴거나 변수 이름이 바뀌면
+    # 여기서 멈춘다 — 건너뛴 테스트는 통과와 구분되지 않아 로그만으로는 못 잡는다.
+    - python -c "import psycopg2; psycopg2.connect('$TRENDIN_TEST_DB_URL').close()"
     # Spark 테스트는 별도 잡에서 맡는다. DAG import 검사는 여기 들어 있다.
     - pytest tests
 

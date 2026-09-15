@@ -61,12 +61,89 @@ CREATE INDEX IF NOT EXISTS collected_article_pending_idx
     ON collected_article (domain, collected_at)
     WHERE event_emitted_at IS NULL;
 
+-- 소비 측이 창을 잘라 읽을 때 쓴다 (S15P21A102-247). **위 부분 인덱스로는 안 된다** —
+-- 그쪽은 `event_emitted_at IS NULL` 조건이 붙어 있어서, 그 조건이 없는 질의는 타지 못한다.
+-- 장부는 지우지 않으므로(불변식 13) 인덱스가 없으면 회차마다 영원히 자라는 표를 통째로
+-- 훑는다. 지금은 행이 적어 티가 안 나고, 티가 날 때쯤이면 원인을 되짚기 어렵다.
+--
+-- 정렬 칸(`source`·`article_id`)까지 넣지 않는 이유는 창 안의 행이 한 주치뿐이라
+-- 그 정렬이 싸기 때문이다. 반면 이 인덱스는 기사를 저장할 때마다 갱신된다.
+CREATE INDEX IF NOT EXISTS collected_article_collected_at_idx
+    ON collected_article (collected_at);
+
 -- 요약 이벤트가 "이 실행이 발급한 건수" 를 셀 때 쓴다.
 CREATE INDEX IF NOT EXISTS collected_article_run_idx
     ON collected_article (domain, event_run_id);
 
 -- 실행 구간으로 세던 시절의 인덱스. 읽는 질의가 없어졌다 (S15P21A102-204).
 DROP INDEX IF EXISTS collected_article_emitted_idx;
+
+-- 소비 측(Spark `ingest`)이 읽는 단 하나의 창구다 (S15P21A102-247).
+--
+-- **이 뷰의 칸이 곧 이벤트 봉투다.** Kafka 로 나가던 `events.article_event()` 의 결과와
+-- 같은 값을 같은 이름으로 낸다. 소비 측은 `collected_article` 을 직접 보지 않으므로, 표의
+-- 칸 이름이 바뀌면 여기 정의만 고치면 되고 저쪽은 모르고 지나간다 — 남의 표를 직접 읽을
+-- 때 생기는 "조용히 깨진다" 를 이 한 겹이 막는다.
+--
+-- `published_at` 을 문자열로 내는 이유는 오프셋이다. `timestamptz` 는 순간만 보관하고
+-- 소스가 준 표기를 버리므로 `published_at_offset` 으로 되살려 ISO-8601 로 굳힌다
+-- (`restore_offset` 이 파이썬에서 하던 일과 같다). 팀 시각 규약이 `published_at` 을
+-- "소스가 준 시각을 그대로 보존" 으로 못 박아서, 되살리지 않으면 그 규약이 깨진다.
+--
+-- **소수점 이하를 조건부로 붙인다.** `isoformat()` 은 마이크로초가 0 이면 아예 생략하는데,
+-- `to_char` 로 `.US` 를 늘 붙이면 같은 행이 옛 봉투와 다른 문자열이 된다. 값은 같지만
+-- 계약이 적어 둔 표기와 갈리므로 여기서 맞춘다. 늘 생략하는 쪽은 안 된다 — `collected_at`
+-- 은 수집기가 `now()` 로 찍어서 마이크로초가 실제로 있다.
+--
+-- `collected_at` 은 KST 다. 발급 봉투가 그랬고 KST 는 서머타임이 없어 늘 `+09:00` 이다.
+-- 창을 자를 때 쓰는 값은 `collected_at_ts` 로 따로 낸다 — 문자열로 범위를 자르면
+-- 인덱스를 못 탄다.
+--
+-- `CREATE OR REPLACE` 라서 소비 측이 읽는 중에도 끊기지 않는다. 칸 목록이 바뀌면 이
+-- 문장이 실패하므로 그때는 사람이 DROP 후 재생성한다.
+CREATE OR REPLACE VIEW collected_article_event AS
+SELECT
+    source || '-' || article_id AS event_id,
+    domain,
+    source      AS source_id,
+    article_id,
+    article_key AS object_key,
+    raw_key     AS raw_object_key,
+    url,
+    title,
+    to_char(published_local, 'YYYY-MM-DD"T"HH24:MI:SS')
+        || CASE
+               WHEN mod(date_part('microseconds', published_local)::bigint, 1000000) = 0 THEN ''
+               ELSE '.' || lpad(
+                   mod(date_part('microseconds', published_local)::bigint, 1000000)::text, 6, '0')
+           END
+        || CASE WHEN published_offset < 0 THEN '-' ELSE '+' END
+        || lpad((abs(published_offset) / 60)::text, 2, '0')
+        || ':'
+        || lpad(mod(abs(published_offset), 60)::text, 2, '0')
+        AS published_at,
+    to_char(collected_local, 'YYYY-MM-DD"T"HH24:MI:SS')
+        || CASE
+               WHEN mod(date_part('microseconds', collected_local)::bigint, 1000000) = 0 THEN ''
+               ELSE '.' || lpad(
+                   mod(date_part('microseconds', collected_local)::bigint, 1000000)::text, 6, '0')
+           END
+        || '+09:00'
+        AS collected_at,
+    'sha256-' || article_sha256 AS checksum,
+    members_only,
+    collected_at AS collected_at_ts
+FROM (
+    -- 시각 계산을 한 번만 한다. 포맷 식이 같은 값을 세 번 읽어서, 여기서 묶지 않으면
+    -- 오프셋 식이 여섯 번 되풀이되고 한 곳만 고쳐지는 날이 온다.
+    SELECT
+        a.*,
+        coalesce(a.published_at_offset, 0)::int AS published_offset,
+        a.published_at AT TIME ZONE make_interval(
+            mins => coalesce(a.published_at_offset, 0)) AS published_local,
+        a.collected_at AT TIME ZONE 'Asia/Seoul' AS collected_local
+      FROM collected_article a
+) a;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
     url           text        PRIMARY KEY,

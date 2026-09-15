@@ -15,7 +15,7 @@ from datetime import timedelta
 from typing import Callable, Sequence
 
 import pendulum
-from airflow.sdk import TriggerRule, dag, task
+from airflow.sdk import Asset, TriggerRule, dag, task
 from airflow.sdk.exceptions import AirflowFailException
 
 from trendin.common.collect import flow
@@ -30,6 +30,14 @@ logger = logging.getLogger("trendin.collect.dag")
 
 KST = "Asia/Seoul"
 COLLECT_TASK_ID = "collect_one"
+
+# 수집 한 회차가 끝났다는 신호. `spark_ingest` 가 이것을 받아 깨어난다 (S15P21A102-247).
+# 도메인 DAG 둘이 같은 자산을 내고, 소비 측은 도메인을 가리지 않으므로 어느 쪽이 끝나든
+# 이어 돌면 된다 — 장부 뷰가 하나이고 도메인은 행 안에 있다.
+COLLECTED = Asset("trendin://collected")
+
+SIGNAL_TASK_ID = "signal_collected"
+
 
 CollectFn = Callable[..., flow.SourceOutcome]
 
@@ -150,7 +158,30 @@ def build_collect_dag(
                 "failed_sources": [s.source for s in statuses if s.status == "failed"],
             }
 
+        # 자산은 **발급과 떼어 놓는다** (S15P21A102-247 코드리뷰).
+        #
+        # 소비 측이 읽는 것은 `collected_article` 행이고 그 행은 `collect_one` 이 적는다.
+        # 그런데 자산을 `publish` 에 걸면 Kafka 브로커가 죽었을 때 그 태스크가 실패하고,
+        # 실패한 태스크는 자산을 내지 않는다 — 읽을 행이 다 있는데 `spark_ingest` 만 안
+        # 깨어난다. 읽기는 Kafka 와 무관해졌는데 깨우기만 브로커에 묶여 있는 꼴이다.
+        #
+        # `ALL_DONE` 이라 앞이 실패해도 돈다. 그래도 되는 이유는 이 신호의 뜻이 "수집이
+        # 전부 성공했다" 가 아니라 "이번 회차가 끝났고 장부에 적을 것은 적혔다" 라서다.
+        # 한 소스가 죽어도 다른 소스가 받아 둔 기사는 처리되어야 한다.
+        #
+        # ⚠️ **`publish` 가 사라지면 이 태스크도 자리를 옮긴다.** Kafka 발행을 걷어낼 때
+        # (3단계) 여기가 `collect_one` 바로 뒤가 된다.
+        @task(task_id=SIGNAL_TASK_ID, trigger_rule=TriggerRule.ALL_DONE, outlets=[COLLECTED])
+        def signal_collected() -> None:
+            """이번 회차가 끝났다고 알린다. 하는 일은 자산을 내는 것뿐이다."""
+            logger.info("수집 회차 종료 — %s 자산을 낸다", COLLECTED.name)
+
         keys = list(source_keys)
-        ensure_schema() >> collect_one.expand(source_key=keys) >> publish(keys)
+        (
+            ensure_schema()
+            >> collect_one.expand(source_key=keys)
+            >> publish(keys)
+            >> signal_collected()
+        )
 
     return collect_dag()

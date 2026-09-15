@@ -31,14 +31,9 @@ x-spark-airflow: &spark-airflow
     # jobs · conf · jars · sql. 코드를 고치면 재빌드 없이 다음 실행에 반영된다
     # (./src · ./dags 를 마운트하는 것과 같은 이유 — pipeline/README.md "코드 반영").
     - ./spark:/opt/airflow/spark
-    # checkpoint 는 컨테이너와 함께 사라지면 안 된다. 지우면 Kafka 를 처음부터 다시 읽는다.
-    # 지우는 것은 [02 §6] 의 재처리 절차를 따를 때만 한다.
-    - spark-checkpoints:/opt/airflow/checkpoints
   environment:
     # 컨테이너 안이므로 주소가 서비스 이름이다. 호스트 포트가 필요 없다.
     SPARK_JOB_PROFILE: ${SPARK_JOB_PROFILE:-dev}
-    KAFKA_BOOTSTRAP_SERVERS: ${TRENDIN_KAFKA_BOOTSTRAP:-kafka:9092}
-    KAFKA_TOPIC_RAW_FILE_READY: ${TRENDIN_KAFKA_TOPIC_RAW_FILE_READY:-raw-file-ready}
     MINIO_ENDPOINT: ${TRENDIN_MINIO_ENDPOINT:-http://minio:9000}
     # 크롤러 키(TRENDIN_MINIO_*)가 아니라 Spark 키다. 권한이 다르다 — datastore/.env 의
     # MINIO_SPARK_* 와 같은 값을 pipeline/.env 에 넣는다.
@@ -55,7 +50,6 @@ x-spark-airflow: &spark-airflow
     APP_DB_URL: ${SPARK_APP_DB_URL:-jdbc:postgresql://postgres:5432/trendin}
     APP_DB_USER: ${SPARK_APP_DB_USER:-trendin}
     APP_DB_PASSWORD: ${SPARK_APP_DB_PASSWORD:-${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in pipeline/.env}}
-    CHECKPOINT_ROOT: /opt/airflow/checkpoints
 
 services:
   airflow-apiserver:
@@ -68,7 +62,3 @@ services:
     <<: *spark-airflow
   airflow-cli:
     <<: *spark-airflow
-
-volumes:
-  spark-checkpoints:
-    name: s15p21a102-spark-checkpoints

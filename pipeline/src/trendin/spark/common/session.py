@@ -108,12 +108,6 @@ def _s3a_options(config: Config) -> dict[str, str]:
     return options
 
 
-def checkpoint_dir(job: str, config: Config) -> str:
-    """Job 별 checkpoint 경로. 하나를 지울 때 나머지가 말려들지 않게 나눈다 ([01 §4])."""
-    root = str(config.require("checkpoint.root")).rstrip("/")
-    return f"{root}/{job}"
-
-
 def _as_option(value: object) -> str:
     # Spark 옵션은 전부 문자열이다. YAML 의 true 가 "True" 로 가면 Spark 가 못 읽는다.
     if isinstance(value, bool):

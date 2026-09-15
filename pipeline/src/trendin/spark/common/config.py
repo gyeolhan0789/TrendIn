@@ -46,9 +46,6 @@ class EnvBinding(NamedTuple):
 
 # 환경변수 → 설정 경로. [01 §7](../../../../spark/docs/01-architecture.md) 의 표와 같은 목록이다.
 ENV_BINDINGS: tuple[EnvBinding, ...] = (
-    EnvBinding("KAFKA_BOOTSTRAP_SERVERS", "kafka.bootstrap_servers"),
-    EnvBinding("KAFKA_TOPIC_RAW_FILE_READY", "kafka.topics.raw_file_ready"),
-    EnvBinding("KAFKA_GROUP_ID_PREFIX", "kafka.group_id_prefix"),
     EnvBinding("MINIO_ENDPOINT", "minio.endpoint"),
     EnvBinding("MINIO_ACCESS_KEY", "minio.access_key"),
     EnvBinding("MINIO_SECRET_KEY", "minio.secret_key"),
@@ -57,7 +54,6 @@ ENV_BINDINGS: tuple[EnvBinding, ...] = (
     EnvBinding("APP_DB_URL", "jdbc.url"),
     EnvBinding("APP_DB_USER", "jdbc.user"),
     EnvBinding("APP_DB_PASSWORD", "jdbc.password"),
-    EnvBinding("CHECKPOINT_ROOT", "checkpoint.root"),
     EnvBinding("SPARK_MASTER", "spark.master"),
 )
 

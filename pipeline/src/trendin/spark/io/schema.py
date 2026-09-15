@@ -1,4 +1,4 @@
-"""Kafka 메시지와 `article.json` 의 명시 스키마 ([02 §1·§3]).
+"""이벤트 봉투와 `article.json` 의 명시 스키마 ([02 §1·§3]).
 
 **추론하지 않는다.** `from_json` 에 스키마를 주지 않으면 필드가 하나 빠진 이벤트가 조용히
 `null` 로 들어와 하류에서 터진다. 여기가 그 스키마의 단일 출처다.
@@ -19,6 +19,12 @@ from pyspark.sql.types import (
     StructField,
     StructType,
 )
+
+# 봉투 자체가 아니라 그것이 어디서 왔는지를 담는 칸. Kafka 시절의 이름을 그대로 둔다 —
+# `pl_processing_ledger` 의 `topic_partition`·`topic_offset` 이 이 값을 받고 있고, 이름만
+# 바꾸면 옛 행과 새 행이 같은 뜻의 다른 칸으로 갈린다. 장부 경로에서는 `null`·`-1` 이다
+# (`ingest/backfill.events_frame`).
+META_COLUMNS = ("message_key", "partition", "offset", "kafka_timestamp", "raw_value")
 
 # PERMISSIVE 모드가 파싱 실패를 담는 칸. 스키마에 없으면 Spark 가 채우지 않는다.
 CORRUPT_FIELD = "_corrupt_record"

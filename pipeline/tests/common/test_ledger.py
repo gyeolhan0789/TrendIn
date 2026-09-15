@@ -101,8 +101,9 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 둘 + 인덱스 둘 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
-    assert DDL.count("IF NOT EXISTS") == 6
+    # 테이블 둘 + 인덱스 셋 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
+    # 뷰는 이 셈에 없다. `CREATE OR REPLACE` 라 `IF NOT EXISTS` 를 안 쓴다.
+    assert DDL.count("IF NOT EXISTS") == 7
     assert DDL.count("DROP INDEX IF EXISTS") == 1
 
 
@@ -269,3 +270,108 @@ def test_발급_통계는_가장_오래된_수집_시각을_보존하고_다른_
 def test_Postgres_発급_0건은_빈_통계를_돌려준다():
     db, _ = fake_db([])
     assert PostgresLedger(db).emitted_by_run("fashion", "empty") == {}
+
+
+# --- 소비 측 창구 (S15P21A102-247) ------------------------------------------
+
+# Spark `ingest` 가 뷰에서 읽어 가는 이름. 저쪽은 이 이름들이 이벤트 봉투의 필드와 같은지를
+# 따로 검사한다(`spark/tests/unit/test_collected.py`). 두 목록을 양쪽에 적어 두는 이유는
+# 계약의 양 끝을 각자의 자리에서 고정하기 위해서다 — 한쪽만 고치면 다른 쪽이 깨진다.
+VIEW_OUTPUTS = (
+    "event_id",
+    "domain",
+    "source_id",
+    "article_id",
+    "object_key",
+    "raw_object_key",
+    "url",
+    "title",
+    "published_at",
+    "collected_at",
+    "checksum",
+    "members_only",
+    # 창을 자를 때만 쓴다. 봉투에는 안 들어간다.
+    "collected_at_ts",
+)
+
+
+def view_sql() -> str:
+    """DDL 에서 뷰 정의만 잘라 낸다."""
+    start = DDL.index("CREATE OR REPLACE VIEW collected_article_event")
+    return DDL[start : DDL.index(";", start)]
+
+
+def test_소비_측이_읽을_뷰가_DDL_에_있다():
+    """뷰가 없으면 ingest 가 못 돈다. 수집 DAG 의 스키마 태스크가 이 DDL 을 친다."""
+    assert "CREATE OR REPLACE VIEW collected_article_event" in DDL
+
+
+def test_뷰가_소비_측이_요구하는_이름을_전부_낸다():
+    """하나라도 빠지면 ingest 의 질의가 "그런 칸이 없다" 로 죽는다."""
+    sql = view_sql()
+
+    for name in VIEW_OUTPUTS:
+        assert name in sql, name
+
+
+def test_뷰가_장부에서만_읽는다():
+    """다른 표를 끌어오면 소비 측이 모르는 결합이 생긴다."""
+    assert "FROM collected_article" in view_sql()
+
+
+def test_published_at_의_오프셋을_되살린다():
+    """`timestamptz` 는 순간만 보관한다. 되살리지 않으면 한국 매체의 `+09:00` 이 UTC 로
+    바뀌어 나가고, 팀 시각 규약("소스가 준 시각을 그대로 보존")이 깨진다."""
+    sql = view_sql()
+
+    assert "published_at_offset" in sql
+    assert "make_interval" in sql
+
+
+def test_checksum_은_article_json_의_해시다():
+    """장부의 `content_sha256`(raw 의 해시)과 이름만 비슷한 다른 값이다. 바꿔 쓰면 객체
+    검증이 전건 실패한다."""
+    sql = view_sql()
+
+    assert "'sha256-' || article_sha256" in sql
+    assert "content_sha256" not in sql
+
+
+def test_소수점_이하를_조건부로_붙인다():
+    """`isoformat()` 은 마이크로초가 0 이면 생략한다. `to_char` 로 `.US` 를 늘 붙이면 같은
+    행이 옛 발급 봉투와 다른 문자열이 된다 — 값은 같지만 계약이 적어 둔 표기와 갈린다.
+
+    늘 생략하는 쪽으로 고치면 안 된다. `collected_at` 은 수집기가 `now()` 로 찍어서
+    마이크로초가 실제로 들어 있고, 그러면 그 정밀도를 버린다.
+    """
+    sql = view_sql()
+
+    assert "date_part('microseconds'" in sql
+    assert "'YYYY-MM-DD\"T\"HH24:MI:SS'" in sql
+    # `.US` 를 무조건 붙이던 첫 구현으로 되돌아가는 것을 막는다.
+    assert 'HH24:MI:SS.US' not in sql
+
+
+def test_시각_계산을_한_번만_한다():
+    """포맷 식이 같은 값을 세 번 읽는다. 파생 표로 묶지 않으면 오프셋 식이 여섯 번
+    되풀이되고, 한 곳만 고쳐지는 날이 온다."""
+    sql = view_sql()
+
+    assert sql.count("make_interval") == 1
+    assert sql.count("AT TIME ZONE 'Asia/Seoul'") == 1
+
+
+def test_창을_자르는_질의가_탈_인덱스가_있다():
+    """소비 측이 `collected_at` 범위로 읽는다 (S15P21A102-247).
+
+    `collected_article_pending_idx` 는 `event_emitted_at IS NULL` 이 붙은 부분 인덱스라
+    그 조건이 없는 질의는 타지 못한다. 장부는 지우지 않으므로, 전용 인덱스가 없으면
+    회차마다 영원히 자라는 표를 통째로 훑는다.
+    """
+    assert "collected_article_collected_at_idx" in DDL
+    start = DDL.index("collected_article_collected_at_idx")
+    definition = DDL[start : DDL.index(";", start)]
+
+    assert "(collected_at)" in definition
+    # 부분 인덱스로 만들면 같은 함정에 다시 빠진다.
+    assert "WHERE" not in definition.upper()
