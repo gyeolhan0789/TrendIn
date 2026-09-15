@@ -49,8 +49,6 @@ pipeline {
                     ])
                     sh 'test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"'
                     env.GIT_COMMIT = env.BUILD_COMMIT
-                    env.STATUS_STARTED = 'true'
-                    updateGitlabCommitStatus name: 'jenkins/frontend-ci', state: 'running'
                 }
             }
         }
@@ -62,13 +60,17 @@ pipeline {
                         set -eu
                         base=$(git merge-base origin/dev "$BUILD_COMMIT")
                         git diff --no-renames --name-only "$base" "$BUILD_COMMIT" > .frontend-changes
-                        if grep -Eq '^(frontend/|infra/jenkins/Jenkinsfile.frontend-|infra/nginx/)' .frontend-changes; then
+                        if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile\.frontend-ci$)' .frontend-changes; then
                             printf true
                         else
                             printf false
                         fi
                     ''').trim()
                     echo "Frontend changes: ${env.FRONTEND_CHANGED}"
+                    if (env.FRONTEND_CHANGED == 'true') {
+                        env.STATUS_STARTED = 'true'
+                        updateGitlabCommitStatus name: 'jenkins/frontend-ci', state: 'running'
+                    }
                 }
             }
         }

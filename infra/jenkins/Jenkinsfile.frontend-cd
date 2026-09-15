@@ -46,8 +46,6 @@ pipeline {
                     ])
                     sh 'test "$(git rev-parse HEAD)" = "$BUILD_COMMIT"'
                     env.GIT_COMMIT = env.BUILD_COMMIT
-                    env.STATUS_STARTED = 'true'
-                    updateGitlabCommitStatus name: 'jenkins/frontend-cd', state: 'running'
                 }
             }
         }
@@ -63,7 +61,7 @@ pipeline {
                             printf true
                         else
                             git diff --no-renames --name-only "$DIFF_BASE" "$BUILD_COMMIT" > .frontend-changes
-                            if grep -Eq '^(frontend/|infra/jenkins/Jenkinsfile.frontend-|infra/nginx/)' .frontend-changes; then
+                            if grep -Eq '^(frontend/|infra/nginx/|infra/jenkins/Jenkinsfile\.frontend-cd$)' .frontend-changes; then
                                 printf true
                             else
                                 printf false
@@ -71,6 +69,10 @@ pipeline {
                         fi
                     ''').trim()
                     echo "Frontend changes: ${env.FRONTEND_CHANGED}"
+                    if (env.FRONTEND_CHANGED == 'true') {
+                        env.STATUS_STARTED = 'true'
+                        updateGitlabCommitStatus name: 'jenkins/frontend-cd', state: 'running'
+                    }
                 }
             }
         }

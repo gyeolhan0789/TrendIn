@@ -55,11 +55,37 @@ pipeline {
                 script {
                     env.GIT_COMMIT = env.BUILD_COMMIT
                 }
-                updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'running'
+            }
+        }
+
+        stage('Check backend changes') {
+            steps {
+                script {
+                    env.DIFF_BASE = (env.gitlabBefore ==~ /[0-9a-fA-F]{40}/) ? env.gitlabBefore : ''
+                    env.BACKEND_CHANGED = sh(returnStdout: true, script: '''
+                        set -eu
+                        if [ -z "$DIFF_BASE" ] || ! git cat-file -e "$DIFF_BASE^{commit}" 2>/dev/null; then
+                            printf true
+                        else
+                            git diff --no-renames --name-only "$DIFF_BASE" "$BUILD_COMMIT" > .backend-changes
+                            if grep -Eq '^(backend/|infra/compose\.yaml$|infra/jenkins/Jenkinsfile\.cd$)' .backend-changes; then
+                                printf true
+                            else
+                                printf false
+                            fi
+                        fi
+                    ''').trim()
+                    echo "Backend changes: ${env.BACKEND_CHANGED}"
+                    if (env.BACKEND_CHANGED == 'true') {
+                        env.STATUS_STARTED = 'true'
+                        updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'running'
+                    }
+                }
             }
         }
 
         stage('Validate deployment') {
+            when { environment name: 'BACKEND_CHANGED', value: 'true' }
             steps {
                 sh '''
                     set -eu
@@ -99,6 +125,7 @@ pipeline {
         }
 
         stage('Build bootJar') {
+            when { environment name: 'BACKEND_CHANGED', value: 'true' }
             steps {
                 dir('backend') {
                     sh './gradlew clean bootJar -x test -x asciidoctor --no-daemon --console=plain'
@@ -107,12 +134,14 @@ pipeline {
         }
 
         stage('Docker image build') {
+            when { environment name: 'BACKEND_CHANGED', value: 'true' }
             steps {
                 sh 'BACKEND_IMAGE="$RELEASE_IMAGE" docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" build backend'
             }
         }
 
         stage('Deploy backend') {
+            when { environment name: 'BACKEND_CHANGED', value: 'true' }
             steps {
                 sh '''
                     set -eu
@@ -176,28 +205,30 @@ pipeline {
 
     post {
         success {
-            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'success'
+            script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'success' } }
         }
         unstable {
-            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed'
+            script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed' } }
         }
         aborted {
-            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'canceled'
+            script { if (env.STATUS_STARTED == 'true') { updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'canceled' } }
         }
         always {
             junit allowEmptyResults: true, testResults: 'backend/build/test-results/test/*.xml'
         }
         failure {
             script {
-                sh '''
+                if (env.STATUS_STARTED == 'true') {
+                    sh '''
                         if [ -n "${DEPLOY_ENV_FILE:-}" ] && [ -r "$DEPLOY_ENV_FILE" ]; then
                             docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" ps backend || true
                             docker compose --env-file "$DEPLOY_ENV_FILE" -f "$COMPOSE_FILE" \
                                 logs --no-color --tail=200 backend || true
                         fi
-                '''
+                    '''
+                    updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed'
+                }
             }
-            updateGitlabCommitStatus name: 'jenkins/backend-cd', state: 'failed'
         }
     }
 }

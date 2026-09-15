@@ -105,9 +105,14 @@ Hibernate `ddl-auto: validate`가 최종 Entity 정합성을 확인한다. 기�
   `jenkins/frontend-cd`이다.
 - Frontend CI Job은 dev 대상 MR의 opened/update 이벤트, CD Job은 dev push 이벤트만 활성화한다.
   두 Job 모두 SCM Credential `gitlab-repo`, GitLab Connection `ssafy-gitlab`을 사용한다.
-- Frontend 변경(`frontend/**`, Frontend Jenkinsfile, Nginx 설정)이 없으면 Frontend Job은
-  build/deploy 단계를 건너뛴다. 현재 Backend Job에는 경로 필터가 없으므로 Frontend-only 변경에도
-  실행된다. Backend 경로 필터는 별도 작업으로 적용한다.
+- 각 Job은 checkout 후 변경 경로를 확인하고, 대상 변경이 없으면 build/deploy와 GitLab Commit Status를
+  생성하지 않는다. GitLab Plugin과 GitLab Webhook은 파일 경로 기반 사전 필터를 지원하지 않으므로
+  Jenkins 실행 기록 자체는 짧게 남는다.
+  - Backend CI: `backend/**`, `infra/jenkins/Jenkinsfile.ci`
+  - Backend CD: `backend/**`, `infra/compose.yaml`, `infra/jenkins/Jenkinsfile.cd`
+  - Frontend CI: `frontend/**`, `infra/nginx/**`, `infra/jenkins/Jenkinsfile.frontend-ci`
+  - Frontend CD: `frontend/**`, `infra/nginx/**`, `infra/jenkins/Jenkinsfile.frontend-cd`
+  - 문서와 예시 환경변수, Redis 설정 등 실행 대상에 직접 반영되지 않는 변경은 모두 건너뛴다.
 - Jenkins에는 Vite 7이 지원하는 Node.js 20.19+ 또는 22.12+와 npm, `rsync`, `curl`이 필요하다.
   Frontend CD는 EC2 호스트에서 실행하며 Jenkins 사용자가 `/var/www/trendin`을 읽고 쓸 수 있어야 한다.
   초기 1회 `sudo chown -R root:deploy /var/www/trendin`과
