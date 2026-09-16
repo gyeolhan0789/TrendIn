@@ -36,7 +36,7 @@ Grafana (:3000) ──> Prometheus (:9090)
 | `backend` | `backend/Dockerfile`로 빌드 | PostgreSQL과 Redis 연결, 호스트의 `127.0.0.1:8080`으로 공개 |
 | `postgres` | `postgres:17-bookworm` | `forever102` 데이터베이스 사용, named volume에 데이터 저장 |
 | `redis` | `redis:8-bookworm` | 비밀번호 인증과 AOF/RDB 영속화, named volume에 데이터 저장 |
-| `prometheus` | `prom/prometheus:3.14.0` | 설정 파일에 정의된 대상의 메트릭 수집, named volume에 시계열 데이터 저장 |
+| `prometheus` | `prom/prometheus:v3.14.0` | 설정 파일에 정의된 대상의 메트릭 수집, named volume에 시계열 데이터 저장 |
 | `grafana` | `grafana/grafana:13.2.1` | provisioning으로 Prometheus Data Source 등록, named volume에 설정 저장 |
 
 환경별 비밀번호와 Backend 설정은 Git에 포함되지 않는 `infra/.env`에서 주입하며, 필요한 항목은 `infra/.env.example`에서 확인할 수 있다. PostgreSQL은 데이터 파이프라인 연동 시 지정된 사설 IP로만 공개할 수 있다.

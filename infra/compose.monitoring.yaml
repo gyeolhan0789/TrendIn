@@ -2,7 +2,7 @@ name: s15p21a102-monitoring
 
 services:
   prometheus:
-    image: prom/prometheus:3.14.0
+    image: prom/prometheus:v3.14.0
     restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
