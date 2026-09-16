@@ -10,9 +10,11 @@ import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendListResponse;
 import com.forever102.trend.dto.TrendRelatedKeywordResponse;
 import com.forever102.trend.dto.TrendRegionResponse;
+import com.forever102.trend.dto.TrendRegionJourneyResponse;
 import com.forever102.trend.dto.TrendRegionHistoryResponse;
 import com.forever102.trend.service.TrendHistoryService;
 import com.forever102.trend.service.TrendRegionService;
+import com.forever102.trend.service.TrendRegionJourneyService;
 import com.forever102.trend.service.TrendRegionHistoryService;
 import com.forever102.trend.service.TrendService;
 import jakarta.validation.constraints.Min;
@@ -33,6 +35,7 @@ public class TrendController {
     private final TrendHistoryService trendHistoryService;
     private final TrendRegionService trendRegionService;
     private final TrendRegionHistoryService trendRegionHistoryService;
+    private final TrendRegionJourneyService trendRegionJourneyService;
 
     @GetMapping
     public BaseResponse<TrendListResponse> getTrends(
@@ -79,6 +82,13 @@ public class TrendController {
     ) {
         return BaseResponse.success(trendRegionHistoryService.getHistory(
                 trendId, countryCode, AnalysisPeriod.from(period)));
+    }
+
+    @GetMapping("/{trendId}/regions/journey")
+    public BaseResponse<TrendRegionJourneyResponse> getTrendRegionJourney(
+            @PathVariable @Positive Long trendId
+    ) {
+        return BaseResponse.success(trendRegionJourneyService.getJourney(trendId));
     }
 
     @GetMapping("/{trendId}/contents")

@@ -193,6 +193,20 @@ operation::trends-regions[snippets='http-request,request-headers,path-parameters
 
 operation::trends-region-history[snippets='http-request,request-headers,path-parameters,query-parameters,http-response,response-fields']
 
+[[trends-regions-journey]]
+=== 국가별 최초 관측 흐름 조회
+
+`GET /trends/{trendId}/regions/journey`
+
+`Asia/Seoul` 기준 완료된 최근 30일 동안 `mentionCount > 0`인 데이터가 국가별로
+처음 집계된 날짜를 조회한다. 최초 관측일이 빠른 순서로 반환하며 같은 날짜에는 국가 코드
+오름차순으로 정렬한다. 이 결과는 실제 유행의 전파 경로가 아니라 수집 데이터 기준의 최초
+관측 순서다. 국가별 데이터가 없으면 200과 빈 `regions`를 반환한다.
+
+==== 요청 및 응답
+
+operation::trends-regions-journey[snippets='http-request,request-headers,path-parameters,http-response,response-fields']
+
 [[trends-contents]]
 === 트렌드 관련 콘텐츠 조회
 

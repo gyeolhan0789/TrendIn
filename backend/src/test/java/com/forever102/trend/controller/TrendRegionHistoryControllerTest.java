@@ -22,6 +22,7 @@ import com.forever102.trend.dto.TrendRegionHistoryResponse;
 import com.forever102.trend.dto.TrendRegionHistoryResponse.HistoryPointResponse;
 import com.forever102.trend.service.TrendHistoryService;
 import com.forever102.trend.service.TrendRegionHistoryService;
+import com.forever102.trend.service.TrendRegionJourneyService;
 import com.forever102.trend.service.TrendRegionService;
 import com.forever102.trend.service.TrendService;
 import java.time.OffsetDateTime;
@@ -47,6 +48,7 @@ class TrendRegionHistoryControllerTest {
     @MockitoBean TrendHistoryService trendHistoryService;
     @MockitoBean TrendRegionService trendRegionService;
     @MockitoBean TrendRegionHistoryService trendRegionHistoryService;
+    @MockitoBean TrendRegionJourneyService trendRegionJourneyService;
 
     @Test
     @WithMockUser
