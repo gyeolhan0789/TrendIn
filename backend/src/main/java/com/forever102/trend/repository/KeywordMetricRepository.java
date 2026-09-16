@@ -27,21 +27,19 @@ public interface KeywordMetricRepository extends JpaRepository<KeywordMetric, Lo
             select metric.*
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('CURRENT' as trend_type) = any(trend.trend_types)
+              and cast('CURRENT' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt
-            order by metric.mention_count desc, trend.id asc
+            order by metric.mention_count desc, metric.id asc
             """,
             countQuery = """
             select count(*)
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('CURRENT' as trend_type) = any(trend.trend_types)
+              and cast('CURRENT' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt
@@ -57,21 +55,19 @@ public interface KeywordMetricRepository extends JpaRepository<KeywordMetric, Lo
             select metric.*
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('NEW' as trend_type) = any(trend.trend_types)
+              and cast('NEW' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt
-            order by trend.updated_at desc, trend.id asc
+            order by metric.mention_count desc, metric.id asc
             """,
             countQuery = """
             select count(*)
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('NEW' as trend_type) = any(trend.trend_types)
+              and cast('NEW' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt
@@ -87,21 +83,19 @@ public interface KeywordMetricRepository extends JpaRepository<KeywordMetric, Lo
             select metric.*
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('RISING' as trend_type) = any(trend.trend_types)
+              and cast('RISING' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt
-            order by metric.growth_rate desc nulls last, trend.id asc
+            order by metric.growth_rate desc nulls last, metric.id asc
             """,
             countQuery = """
             select count(*)
             from keyword_metrics metric
             join keywords keyword on keyword.id = metric.keyword_id
-            join trends trend on trend.keyword_id = keyword.id
             where keyword.domain = :domain
-              and cast('RISING' as trend_type) = any(trend.trend_types)
+              and cast('RISING' as trend_type) = any(metric.trend_types)
               and metric.period = cast(:period as metric_period)
               and metric.period_start = :startAt
               and metric.period_end = :endAt

@@ -41,14 +41,10 @@ public class KeywordService {
         List<Long> keywordIds = keywords.stream().map(keyword -> keyword.getId()).toList();
         Map<Long, Trend> trendsByKeywordId = trendRepository.findByKeywordIdIn(keywordIds).stream()
                 .collect(Collectors.toMap(trend -> trend.getKeyword().getId(), Function.identity()));
-        if (trendsByKeywordId.isEmpty()) {
-            return KeywordSearchResponse.from(keywords, Map.of(), Map.of());
-        }
-
         AnalysisWindow window = AnalysisWindow.completed(AnalysisPeriod.HOURS_24, trendClock);
         Map<Long, KeywordMetric> metricsByKeywordId = keywordMetricRepository
                 .findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
-                        trendsByKeywordId.keySet(), AnalysisPeriod.HOURS_24,
+                        keywordIds, AnalysisPeriod.HOURS_24,
                         window.getRecentStart(), window.getRecentEnd()).stream()
                 .collect(Collectors.toMap(metric -> metric.getKeyword().getId(), Function.identity()));
         return KeywordSearchResponse.from(keywords, trendsByKeywordId, metricsByKeywordId);

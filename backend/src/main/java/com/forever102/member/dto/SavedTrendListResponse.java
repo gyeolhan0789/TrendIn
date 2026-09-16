@@ -43,7 +43,8 @@ public record SavedTrendListResponse(
             Trend trend = savedTrend.getTrend();
             return new SavedTrendResponse(savedTrend.getId(), trend.getId(),
                     trend.getKeyword().getId(), trend.getKeyword().getName(),
-                    DomainResponse.from(trend.getKeyword().getDomain()), trend.getTrendTypes(),
+                    DomainResponse.from(trend.getKeyword().getDomain()),
+                    metric == null ? List.of() : metric.getTrendTypes(),
                     trend.getDescription(), metric == null ? null : metric.getMentionCount(),
                     metric == null ? null : metric.getGrowthRate(), savedTrend.getCreatedAt());
         }

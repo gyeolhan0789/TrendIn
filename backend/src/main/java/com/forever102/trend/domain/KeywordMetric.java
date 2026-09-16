@@ -14,6 +14,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -64,11 +66,16 @@ public class KeywordMetric {
     @Column(name = "mention_rank")
     private Integer mentionRank;
 
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trend_types", nullable = false)
+    private TrendType[] trendTypes = new TrendType[0];
+
     @Builder
     public KeywordMetric(Keyword keyword, AnalysisPeriod period,
             OffsetDateTime periodStart, OffsetDateTime periodEnd,
             long mentionCount, long previousMentionCount, long growthAmount,
-            BigDecimal growthRate, Integer mentionRank) {
+            BigDecimal growthRate, Integer mentionRank, List<TrendType> trendTypes) {
         if (mentionCount < 0 || previousMentionCount < 0) {
             throw new IllegalArgumentException("언급량은 0 이상이어야 합니다.");
         }
@@ -87,5 +94,11 @@ public class KeywordMetric {
         this.growthAmount = growthAmount;
         this.growthRate = growthRate;
         this.mentionRank = mentionRank;
+        this.trendTypes = trendTypes == null
+                ? new TrendType[0] : trendTypes.toArray(TrendType[]::new);
+    }
+
+    public List<TrendType> getTrendTypes() {
+        return List.copyOf(Arrays.asList(trendTypes));
     }
 }

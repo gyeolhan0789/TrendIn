@@ -108,7 +108,7 @@ class TrendServiceTest {
         var response = trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_7);
 
         // then
-        assertThat(response.trendTypes()).containsExactly(com.forever102.trend.domain.TrendType.RISING);
+        assertThat(response.trendTypes()).containsExactly(TrendType.RISING);
         assertThat(response.growthAmount()).isEqualTo(307);
         assertThat(response.analysisWindow().recentStart()).isEqualTo(TrendFixture.END.minusDays(7));
         assertThat(response.summary()).contains("발레 스타일");
@@ -116,7 +116,7 @@ class TrendServiceTest {
     }
 
     @Test
-    @DisplayName("요청 기간 지표가 없어도 트렌드 기본 정보와 요약을 반환한다")
+    @DisplayName("요청 기간 지표가 없으면 트렌드 유형은 비고 기본 정보와 요약은 반환한다")
     void returnsBasicInfoWithoutPeriodMetric() {
         // given
         Trend trend = TrendFixture.trend();
@@ -130,7 +130,7 @@ class TrendServiceTest {
 
         // then
         assertThat(response.trendId()).isEqualTo(101L);
-        assertThat(response.trendTypes()).containsExactly(com.forever102.trend.domain.TrendType.RISING);
+        assertThat(response.trendTypes()).isEmpty();
         assertThat(response.mentionCount()).isNull();
         assertThat(response.growthRate()).isNull();
         assertThat(response.analysisWindow()).isNull();

@@ -29,7 +29,8 @@ public record TrendDetailResponse(
         return new TrendDetailResponse(
                 trend.getId(), trend.getKeyword().getId(), trend.getKeyword().getName(),
                 trend.getDescription(), DomainResponse.from(trend.getKeyword().getDomain()),
-                trend.getTrendTypes(), metric == null ? null : metric.getMentionCount(),
+                metric == null ? List.of() : metric.getTrendTypes(),
+                metric == null ? null : metric.getMentionCount(),
                 metric == null ? null : metric.getPreviousMentionCount(),
                 metric == null ? null : metric.getGrowthAmount(),
                 metric == null ? null : metric.getGrowthRate(),
