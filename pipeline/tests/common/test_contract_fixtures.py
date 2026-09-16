@@ -68,7 +68,8 @@ def test_기사_이벤트_fixture_가_봉투_출력과_같다(article_evt):
     """
     rebuilt = article_event(
         _pending_from(article_evt),
-        bucket=article_evt["bucket"], run_id=article_evt["run_id"]
+        bucket=article_evt["bucket"], run_id=article_evt["run_id"],
+        source_country=article_evt["source_country"],
     )
     assert rebuilt == article_evt
 
@@ -197,6 +198,18 @@ def test_요약_fixture는_수집보다_많은_이월_발급을_담는다():
     assert evt["failed"] == 2
     assert len(evt["failures"]) == 2
     assert evt["emitted_oldest_collected_at"] == "2026-09-01T11:10:00+09:00"
+
+
+def test_견본의_소스_국가가_소스_정의와_같다(article_evt):
+    """견본을 손으로 고쳐 코드 표와 갈리면 소비 측이 틀린 국가로 짠다.
+
+    `_pending_from` 이 견본의 값을 되먹여 봉투를 다시 만들기 때문에, 위 대조만으로는
+    `source_country` 가 어떤 값이어도 통과한다. 그 값이 **맞는지**는 여기서 본다.
+    """
+    from trendin.fashion.collect import sources
+
+    assert article_evt["source_country"] == sources.get(article_evt["source_id"]).country
+    assert article_evt["source_country"] == "KR"
 
 
 def test_기사_이벤트의_run_id_는_발급한_실행이다(article_evt):

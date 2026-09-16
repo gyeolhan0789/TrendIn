@@ -25,7 +25,8 @@ def test_route_로_어댑터를_고른다():
 
 def test_모르는_route_는_거부한다():
     source = runner.sources.get("vogue").__class__(
-        key="x", domain="fashion", route="ftp", discover_url="https://x/", allowed_url_prefixes=()
+        key="x", domain="fashion", route="ftp", discover_url="https://x/",
+        allowed_url_prefixes=(), country="XX",
     )
     with pytest.raises(KeyError):
         runner.build_adapter(source, None)

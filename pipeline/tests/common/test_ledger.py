@@ -4,11 +4,13 @@ Postgres 구현은 실제 DB 가 있어야 판정되므로 여기서는 계약�
 DDL 은 발급 봉투가 요구하는 컬럼이 빠지지 않았는지만 본다.
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from trendin.common.collect.article import Article
+from trendin.common.collect.contracts import UNKNOWN_COUNTRY
 from trendin.common.collect.db import Database
 from trendin.common.collect.ledger import (
     DDL,
@@ -101,10 +103,68 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 둘 + 인덱스 셋 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
+    # 테이블 셋 + 인덱스 셋 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
     # 뷰는 이 셈에 없다. `CREATE OR REPLACE` 라 `IF NOT EXISTS` 를 안 쓴다.
-    assert DDL.count("IF NOT EXISTS") == 7
+    assert DDL.count("IF NOT EXISTS") == 8
     assert DDL.count("DROP INDEX IF EXISTS") == 1
+
+
+# --- 소스 국가 참조 표 (S15P21A102-276) --------------------------------------
+
+
+def test_스키마_준비를_두_번_불러도_국가_표가_같다():
+    """DAG 첫 태스크가 매 회차 부른다. 두 번째 호출이 상태를 바꾸면 회차마다 뷰가 흔들린다."""
+    ledger = InMemoryLedger()
+    ledger.ensure_schema({"vogue": "KR", "hn": "XX"})
+    ledger.ensure_schema({"vogue": "KR", "hn": "XX"})
+    assert ledger.countries == {"vogue": "KR", "hn": "XX"}
+
+
+def test_국가가_바뀌면_덮어쓴다():
+    """운영 법인이 바뀌면 코드 표가 정본이고 DB 거울이 따라온다."""
+    ledger = InMemoryLedger()
+    ledger.ensure_schema({"vogue": "US"})
+    ledger.ensure_schema({"vogue": "KR"})
+    assert ledger.countries == {"vogue": "KR"}
+
+
+def test_소스가_사라져도_국가_표의_행은_남는다():
+    """지우면 그 소스로 이미 받아 둔 기사가 뷰에서 전부 `XX` 로 바뀌어 과거 집계가 흔들린다.
+
+    장부는 지우지 않는데(불변식 13) 그 행이 가리키는 국가만 사라지는 셈이다.
+    """
+    ledger = InMemoryLedger()
+    ledger.ensure_schema({"vogue": "KR", "hypebeast": "HK"})
+    ledger.ensure_schema({"vogue": "KR"})
+    assert ledger.countries == {"vogue": "KR", "hypebeast": "HK"}
+
+
+def test_장부가_국가_거울을_통째로_읽어_준다():
+    """발급이 이 값으로 봉투를 채운다. 코드 표를 읽으면 뷰와 갈린다 — 거울은 소스가
+    레지스트리에서 사라져도 지우지 않으므로 코드 표보다 넓다."""
+    ledger = InMemoryLedger()
+    ledger.ensure_schema({"vogue": "KR", "hypebeast": "HK"})
+
+    assert ledger.source_countries() == {"vogue": "KR", "hypebeast": "HK"}
+
+
+def test_거울을_읽은_쪽이_고쳐도_장부가_안_흔들린다():
+    ledger = InMemoryLedger()
+    ledger.ensure_schema({"vogue": "KR"})
+
+    ledger.source_countries()["vogue"] = "US"
+
+    assert ledger.source_countries() == {"vogue": "KR"}
+
+
+def test_뷰의_모르는_국가_기본값이_상수와_같다():
+    """봉투와 뷰가 같은 기사에 같은 국가를 붙인다는 약속을 지키는 장치가 이 일치뿐이다.
+
+    DDL 을 f-string 으로 바꿔 상수를 끼우지 않은 이유는 그 안의 중괄호가 전부 조용히 포맷
+    자리가 되기 때문이다. 그래서 여기서 대조한다 — 상수만 고치고 DDL 을 안 고치면 발급은
+    새 값, 뷰는 옛 값을 내 같은 기사에 국가가 둘이 된다.
+    """
+    assert f"coalesce(country, '{UNKNOWN_COUNTRY}')" in DDL
 
 
 # --- Postgres 구현 -----------------------------------------------------------
@@ -159,6 +219,44 @@ class FakeConnection:
 def fake_db(rows=()) -> tuple[Database, FakeConnection]:
     conn = FakeConnection(rows)
     return Database(uri="postgres://fake", connect=lambda _uri: conn), conn
+
+
+def test_스키마_준비가_표를_만든_뒤에_소스마다_한_줄씩_적는다():
+    """DDL 과 UPSERT 가 한 트랜잭션이다. 표가 생겼는데 값이 안 들어간 채로 끝나면 그 회차의
+    뷰가 전건 `XX` 를 낸다."""
+    db, conn = fake_db()
+    PostgresLedger(db).ensure_schema({"hn": "XX", "vogue": "KR"})
+
+    statements = conn.cursors[0].executed
+    assert "CREATE TABLE IF NOT EXISTS collect_source_country" in statements[0][0]
+    # 매 회차 같은 문장이 같은 차례로 나가야 로그를 견줄 수 있다.
+    assert [params for _sql, params in statements[1:]] == [("hn", "XX"), ("vogue", "KR")]
+    assert conn.committed
+
+
+def test_스키마_준비는_국가_표를_지우지_않는다():
+    """`SourceDef` 에서 사라진 소스의 행을 지우는 문장이 있으면 안 된다.
+
+    "표를 코드와 맞춰야지" 하고 DELETE 를 넣는 것이 정확히 막으려는 일이다 — 지우는 순간
+    그 소스로 이미 받아 둔 기사가 뷰에서 전부 `XX` 가 된다.
+    """
+    db, conn = fake_db()
+    PostgresLedger(db).ensure_schema({"vogue": "KR"})
+
+    for sql, _params in conn.cursors[0].executed:
+        assert "DELETE" not in sql.upper()
+        assert "TRUNCATE" not in sql.upper()
+
+
+def test_국가_거울을_질의_한_번으로_읽는다():
+    """발급이 행마다 묻지 않고 회차마다 한 번 부른다. 소스 수는 한 자리라 전량이 싸다."""
+    db, conn = fake_db([("vogue", "KR"), ("hn", "XX")])
+
+    assert PostgresLedger(db).source_countries() == {"vogue": "KR", "hn": "XX"}
+
+    executed = conn.cursors[0].executed
+    assert len(executed) == 1
+    assert "FROM collect_source_country" in executed[0][0]
 
 
 def test_저장할_때_발행일_오프셋을_따로_남긴다():
@@ -292,6 +390,9 @@ VIEW_OUTPUTS = (
     "members_only",
     # 창을 자를 때만 쓴다. 봉투에는 안 들어간다.
     "collected_at_ts",
+    # 뜻으로는 봉투 칸인데 맨 뒤에 있다. `CREATE OR REPLACE VIEW` 가 칸을 덧붙이는 것만
+    # 허용해서, 중간에 끼우면 이미 뷰가 있는 DB 에서 그 문장이 거절된다.
+    "source_country",
 )
 
 
@@ -314,9 +415,19 @@ def test_뷰가_소비_측이_요구하는_이름을_전부_낸다():
         assert name in sql, name
 
 
-def test_뷰가_장부에서만_읽는다():
-    """다른 표를 끌어오면 소비 측이 모르는 결합이 생긴다."""
-    assert "FROM collected_article" in view_sql()
+def test_뷰가_수집이_소유한_표만_읽는다():
+    """남의 표를 끌어오면 소비 측이 모르는 결합이 생긴다.
+
+    읽어도 되는 것은 이 모듈의 DDL 이 만드는 표뿐이다 — 장부 `collected_article` 과 소스
+    국가 참조 표 `collect_source_country`. 둘 다 수집 DAG 의 스키마 태스크가 만들고 수집이
+    채우므로, 칸이 바뀔 때 뷰 정의와 같은 커밋에서 같이 바뀐다. 백엔드(JPA)나 Spark 의
+    표를 여기 걸면 그쪽 스키마 변경이 이 계약을 조용히 깬다.
+    """
+    read = set(re.findall(r"(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)", view_sql()))
+
+    assert read == {"collected_article", "collect_source_country"}
+    for table in read:
+        assert f"CREATE TABLE IF NOT EXISTS {table}" in DDL, table
 
 
 def test_published_at_의_오프셋을_되살린다():

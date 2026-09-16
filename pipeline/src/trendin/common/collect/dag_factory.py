@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 import pendulum
 from airflow.sdk import Asset, TriggerRule, dag, task
@@ -49,6 +49,12 @@ def build_collect_dag(
     schedule: str,
     source_keys: Sequence[str],
     domain_of: Callable[[str], str],
+    # 소스 키 → 국가 (S15P21A102-276). `domain_of` 와 같은 자리다 — 소스 레지스트리를
+    # 아는 것은 DAG 파일이고, 이 모듈은 도메인 패키지를 import 하지 않는다.
+    #
+    # 쓰는 곳은 `ensure_schema` 태스크 하나다. 발급은 이 표를 안 받는다 — 코드 표를 읽으면
+    # 레지스트리에서 사라진 소스의 미발급 행에서 봉투와 뷰가 갈린다(`flow.publish_pending`).
+    source_countries: Mapping[str, str],
     collect: CollectFn | None,
     doc_md: str,
     start_date=None,
@@ -77,13 +83,16 @@ def build_collect_dag(
     def collect_dag():
         @task
         def ensure_schema() -> None:
-            """장부와 validator 테이블을 멱등하게 만든다.
+            """장부·validator·소스 국가 테이블을 멱등하게 만들고, 국가 표를 코드에 맞춘다.
 
             앱 DB 에 마이그레이션 도구가 없어서 여기가 유일한 자동 적용 경로다.
             `collected_article` 은 JPA 밖이고 지우지 않는다 — S15P21A102-12 에 그 합의가
             적혀야 한다.
+
+            국가 표를 매 회차 다시 넣는 이유도 같다. 소스 정의가 바뀌었을 때 사람이 따로
+            돌려야 하는 문장이 있으면 그 문장이 잊히고, 뷰가 조용히 옛 국가를 낸다.
             """
-            PostgresLedger(Database.from_env()).ensure_schema()
+            PostgresLedger(Database.from_env()).ensure_schema(source_countries)
 
         @task(pool="crawler_pool")
         def collect_one(source_key: str) -> dict:

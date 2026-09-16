@@ -22,7 +22,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Iterable, Sequence, get_args
 
 from trendin.common.collect.article import Article
-from trendin.common.collect.contracts import Candidate, Failure, SourceAdapter, Stage
+from trendin.common.collect.contracts import (
+    UNKNOWN_COUNTRY,
+    Candidate,
+    Failure,
+    SourceAdapter,
+    Stage,
+)
 from trendin.common.collect.events import article_event, run_summary_event
 from trendin.common.collect.keys import ROUTE_EXT, article_key, raw_key
 from trendin.common.collect.ledger import EmittedStats, Ledger
@@ -353,7 +359,14 @@ def publish_pending(
     **밀린 것을 다 비운다.** 묶음 상한에서 끊으면 1차 시도가 100 건, 2차 시도가 250 건을
     세어 같은 `event_id` 로 `emitted` 가 다른 요약이 나간다. 다 비우면 재시도는 낼
     것이 없어 값이 그대로다. `batch` 는 한 번에 메모리에 들 행 수지 한 회차의 상한이 아니다.
+
+    봉투의 `source_country` 는 **장부의 국가 거울**에서 온다. 국가는 기사가 아니라 소스의
+    속성이라 장부 행(`PendingArticle`)에 없고, 소비 측이 읽는 뷰도 같은 거울을 읽는다.
     """
+    # 거울을 회차마다 한 번만 읽는다. 행마다 물으면 만 건에 만 번이다. 이 루프 도중에는
+    # 바뀌지 않는다 — 거울을 고치는 것은 같은 DAG 의 `ensure_schema` 태스크뿐이고 그건
+    # 이 태스크보다 앞에서 끝났다.
+    countries = ledger.source_countries()
     while True:
         rows = ledger.pending(domain, batch)
         if not rows:
@@ -361,7 +374,18 @@ def publish_pending(
         for row in rows:
             # message key 는 `source_id` 다(팀 계약). 같은 소스의 이벤트가 한 파티션에 모여
             # 순서가 보장된다. 요약은 별도 토픽이라 두 토픽 사이 순서는 보장하지 않는다.
-            publisher.publish(row.source, article_event(row, bucket=bucket, run_id=run_id))
+            publisher.publish(
+                row.source,
+                article_event(
+                    row,
+                    bucket=bucket,
+                    run_id=run_id,
+                    # 거울에 없는 소스는 `UNKNOWN_COUNTRY`. 장부 뷰의
+                    # `coalesce(country, 'XX')` 와 같은 값을 내야 한다 — 두 창구가 같은
+                    # 기사에 다른 국가를 붙이면 안 된다.
+                    source_country=countries.get(row.source, UNKNOWN_COUNTRY),
+                ),
+            )
         publisher.flush()
         # 한 묶음을 한 트랜잭션으로 적는다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
         # 절반만 적힌 채로 남는다.

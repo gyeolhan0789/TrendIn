@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Protocol, Sequence
+from typing import Iterable, Mapping, Protocol, Sequence
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.db import Database
@@ -78,6 +78,21 @@ CREATE INDEX IF NOT EXISTS collected_article_run_idx
 -- 실행 구간으로 세던 시절의 인덱스. 읽는 질의가 없어졌다 (S15P21A102-204).
 DROP INDEX IF EXISTS collected_article_emitted_idx;
 
+-- 소스마다 국가 하나 (S15P21A102-276). 국가는 기사가 아니라 **소스의 속성**이라 여기 있다 —
+-- `collected_article` 에 칸으로 넣으면 같은 사실이 행마다 수십만 번 복사된다.
+--
+-- 진실의 자리는 코드의 `SourceDef.country` 고 이 표는 그 거울이다. 뷰가 SQL 안에서 읽어야
+-- 하니까 DB 에도 한 벌이 필요하고, `ensure_schema` 가 매 실행 코드 표에서 UPSERT 한다.
+--
+-- 다른 테이블들과 떨어져 **뷰 바로 앞**에 있는 이유는 뷰가 이 표를 JOIN 하기 때문이다.
+-- `collect_validator` 옆(뷰 뒤)으로 옮기면 빈 DB 에서 뷰 생성이 "relation does not exist"
+-- 로 죽는다 (2026-09-16 postgres:17 실측). 이미 표가 있는 DB 에서는 안 죽어서, 옮겨 놓고
+-- 로컬에서는 멀쩡한 채로 넘어가기 쉽다.
+CREATE TABLE IF NOT EXISTS collect_source_country (
+    source  text PRIMARY KEY,
+    country text NOT NULL
+);
+
 -- 소비 측(Spark `ingest`)이 읽는 단 하나의 창구다 (S15P21A102-247).
 --
 -- **이 뷰의 칸이 곧 이벤트 봉투다.** Kafka 로 나가던 `events.article_event()` 의 결과와
@@ -95,12 +110,23 @@ DROP INDEX IF EXISTS collected_article_emitted_idx;
 -- 계약이 적어 둔 표기와 갈리므로 여기서 맞춘다. 늘 생략하는 쪽은 안 된다 — `collected_at`
 -- 은 수집기가 `now()` 로 찍어서 마이크로초가 실제로 있다.
 --
+-- `source_country` 는 이 뷰가 **다른 표를 읽는 유일한 자리**다 (S15P21A102-276). 읽는 표가
+-- 수집이 소유한 `collect_source_country` 라서 남의 스키마에 묶이지 않는다. 기사가 아니라
+-- 소스의 속성이므로 장부 행에 복사하지 않고 여기서 붙인다.
+--
 -- `collected_at` 은 KST 다. 발급 봉투가 그랬고 KST 는 서머타임이 없어 늘 `+09:00` 이다.
 -- 창을 자를 때 쓰는 값은 `collected_at_ts` 로 따로 낸다 — 문자열로 범위를 자르면
 -- 인덱스를 못 탄다.
 --
 -- `CREATE OR REPLACE` 라서 소비 측이 읽는 중에도 끊기지 않는다. 칸 목록이 바뀌면 이
 -- 문장이 실패하므로 그때는 사람이 DROP 후 재생성한다.
+--
+-- ⚠️ **새 칸은 맨 뒤에만 붙는다.** PostgreSQL 의 `CREATE OR REPLACE VIEW` 는 칸을 덧붙이는
+-- 것만 허용하고, 중간에 끼우면 뒤 칸의 이름을 바꾸는 것으로 읽어 거절한다
+-- (`cannot change name of view column ... to ...`, 2026-09-16 postgres:17 실측).
+-- 그래서 `source_country` 가 뜻으로는 봉투 칸인데도 창 자르기용 `collected_at_ts` 뒤에
+-- 있다. 뜻에 맞게 앞으로 옮기려면 이미 뷰가 있는 DB 마다 사람이 DROP 을 해야 하고, 그동안
+-- 수집 DAG 의 첫 태스크가 매 회차 실패한다.
 CREATE OR REPLACE VIEW collected_article_event AS
 SELECT
     source || '-' || article_id AS event_id,
@@ -132,17 +158,22 @@ SELECT
         AS collected_at,
     'sha256-' || article_sha256 AS checksum,
     members_only,
-    collected_at AS collected_at_ts
+    collected_at AS collected_at_ts,
+    coalesce(country, 'XX') AS source_country
 FROM (
     -- 시각 계산을 한 번만 한다. 포맷 식이 같은 값을 세 번 읽어서, 여기서 묶지 않으면
     -- 오프셋 식이 여섯 번 되풀이되고 한 곳만 고쳐지는 날이 온다.
     SELECT
         a.*,
+        c.country,
         coalesce(a.published_at_offset, 0)::int AS published_offset,
         a.published_at AT TIME ZONE make_interval(
             mins => coalesce(a.published_at_offset, 0)) AS published_local,
         a.collected_at AT TIME ZONE 'Asia/Seoul' AS collected_local
       FROM collected_article a
+      -- `LEFT JOIN` 이라 참조 표에 없는 소스도 행이 사라지지 않는다. 그런 행은 바깥에서
+      -- `XX` 가 되고, 참조 표가 생기기 전에 받아 둔 기사도 소급 채우기 없이 국가를 얻는다.
+      LEFT JOIN collect_source_country c ON c.source = a.source
 ) a;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
@@ -151,6 +182,18 @@ CREATE TABLE IF NOT EXISTS collect_validator (
     last_modified text,
     updated_at    timestamptz NOT NULL
 );
+"""
+
+# 코드 표(`SourceDef.country`)를 DB 거울에 맞춘다. `ensure_schema` 가 DDL 뒤에 돌린다.
+#
+# ⚠️ **DELETE 를 여기 더하지 마라.** `SourceDef` 에서 사라진 소스의 행도 그대로 둔다.
+# 지우면 그 소스로 이미 받아 둔 기사가 전부 뷰에서 `XX` 로 바뀌어 과거 집계가 흔들린다.
+# 장부는 지우지 않는데(불변식 13) 그 행이 가리키는 국가만 사라지는 셈이다.
+# "표를 코드와 맞춰야지" 하고 지우는 것이 정확히 막으려는 일이다.
+_UPSERT_SOURCE_COUNTRY = """
+INSERT INTO collect_source_country (source, country)
+VALUES (%s, %s)
+ON CONFLICT (source) DO UPDATE SET country = EXCLUDED.country
 """
 
 
@@ -188,6 +231,30 @@ class EmittedStats:
 
 class Ledger(Protocol):
     """장부. 발견과 취득 사이, 저장과 발급 사이에 끼어드는 두 자리를 연다."""
+
+    def ensure_schema(self, countries: Mapping[str, str]) -> None:
+        """장부가 쓰는 표와 뷰를 만들고, 소스→국가 참조 표를 코드 표에 맞춘다.
+
+        `countries` 는 `SourceDef.country` 를 소스 키로 모은 것이다. 인자로 받는 이유는
+        장부가 소스 레지스트리를 모르기 때문이다 — 여기서 import 하면 공통 계층이 도메인
+        패키지를 거꾸로 알게 된다.
+
+        여러 번 돌려도 같은 끝 상태여야 한다. DAG 첫 태스크가 매 회차 부른다.
+        """
+        ...
+
+    def source_countries(self) -> dict[str, str]:
+        """소스→국가 거울을 통째로 돌려준다. 발급 봉투의 `source_country` 가 여기서 온다.
+
+        **코드의 `SourceDef` 를 대신 읽으면 뷰와 갈린다.** 거울은 소스가 레지스트리에서
+        사라져도 지우지 않으므로(`_UPSERT_SOURCE_COUNTRY` 의 경고), 그 소스의 미발급 행이
+        장부에 남아 있으면 코드 표에는 없고 거울에는 있는 상태가 된다. 뷰는 거울을 읽으니
+        발급도 거울을 읽어야 같은 기사에 같은 국가가 붙는다.
+
+        소스마다 묻지 않고 전량을 주는 이유는 부르는 자리가 만 건을 도는 루프 앞이라서다.
+        소스 수는 한 자리라 전량이 싸다.
+        """
+        ...
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
         """아직 장부에 없는 id 만 돌려준다.
@@ -285,6 +352,16 @@ class InMemoryLedger:
     def __init__(self) -> None:
         self._rows: dict[tuple[str, str], PendingArticle] = {}
         self._emitted: dict[tuple[str, str], tuple[datetime, str]] = {}
+        # 뷰의 `LEFT JOIN` 이 읽는 참조 표에 해당한다. 만들 표가 없으니 이것만 남는다.
+        self.countries: dict[str, str] = {}
+
+    def ensure_schema(self, countries: Mapping[str, str]) -> None:
+        """Postgres 쪽 UPSERT 와 같은 일을 한다 — 덮어쓰기만 하고 지우지 않는다."""
+        self.countries.update(countries)
+
+    def source_countries(self) -> dict[str, str]:
+        """사본을 준다 — 받은 쪽이 고쳐도 거울이 흔들리지 않게."""
+        return dict(self.countries)
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
         return {aid for aid in article_ids if (source, aid) not in self._rows}
@@ -338,6 +415,10 @@ INSERT INTO collected_article (
 ON CONFLICT (source, article_id) DO NOTHING
 """
 
+_SELECT_SOURCE_COUNTRY = """
+SELECT source, country FROM collect_source_country
+"""
+
 _SELECT_PENDING = """
 SELECT source, article_id, domain, url, title, published_at, published_at_offset,
        collected_at, article_key, article_sha256, raw_key, members_only
@@ -364,10 +445,22 @@ class PostgresLedger:
     def __init__(self, db: Database) -> None:
         self._db = db
 
-    def ensure_schema(self) -> None:
-        """DDL 을 멱등하게 적용한다. DAG 의 첫 태스크가 부른다."""
+    def ensure_schema(self, countries: Mapping[str, str]) -> None:
+        """DDL 을 멱등하게 적용하고 소스→국가 참조 표를 코드 표에 맞춘다. DAG 첫 태스크가 부른다.
+
+        DDL 과 UPSERT 가 한 트랜잭션이다. 표가 생겼는데 값이 안 들어간 중간 상태로 끝나면
+        그 회차의 뷰가 전건 `XX` 를 낸다.
+        """
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(DDL)
+            # 순서를 고정한다. 매 회차 같은 문장이 같은 차례로 나가야 로그를 견줄 수 있다.
+            for source, country in sorted(countries.items()):
+                cur.execute(_UPSERT_SOURCE_COUNTRY, (source, country))
+
+    def source_countries(self) -> dict[str, str]:
+        with self._db.transaction() as conn, conn.cursor() as cur:
+            cur.execute(_SELECT_SOURCE_COUNTRY)
+            return dict(cur.fetchall())
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
         ids = list(dict.fromkeys(article_ids))

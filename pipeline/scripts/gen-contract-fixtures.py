@@ -43,6 +43,8 @@ OUT = PIPELINE / "spark" / "tests" / "fixtures" / "contract"
 
 DOMAIN = "fashion"
 SOURCE = "vogue"
+# 두산매거진이 한국에서 발행한다 (`trendin.fashion.collect.sources`).
+SOURCE_COUNTRY = "KR"
 ROUTE = "rss"
 ARTICLE_ID = "854414"
 URL = "https://www.vogue.co.kr/2026/09/03/some-article/"
@@ -125,7 +127,9 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
     )
 
     events = {
-        "article-event.json": article_event(pending, bucket=BUCKET, run_id=RUN_ID),
+        "article-event.json": article_event(
+            pending, bucket=BUCKET, run_id=RUN_ID, source_country=SOURCE_COUNTRY
+        ),
         "collect-run-summary-success.json": run_summary_event(
             source=SOURCE,
             domain=DOMAIN,
