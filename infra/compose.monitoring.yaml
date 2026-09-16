@@ -31,6 +31,32 @@ services:
     networks:
       - monitoring
 
+  node_exporter:
+    image: prom/node-exporter:v1.11.1
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring
+
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.5
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    networks:
+      - monitoring
+
 volumes:
   prometheus_data:
     name: s15p21a102-prometheus-data
