@@ -57,6 +57,18 @@ UI: http://127.0.0.1:8080 (로컬은 로그인 없이 admin). 서버에서는 SS
 | 로컬 단위 테스트 | `./scripts/dev-setup.sh` 한 번, 이후 `.venv/bin/pytest` |
 | 린트 | `.venv/bin/ruff check .` (AIR 규칙이 Airflow 2 식 import 를 잡는다) |
 
+### GMS AI 연결 확인
+
+`pipeline/.env`의 `GMS_KEY`를 Airflow 서비스에 주입하며, 코드는 키 값을 저장하지 않는다.
+일반 테스트는 실제 GMS를 호출하지 않는다. 연결과 `gpt-5.4-nano`의 JSON 응답을 확인할 때만
+환경변수를 설정해 통합 테스트를 별도로 실행한다.
+
+```sh
+GMS_KEY=<발급받은 키> .venv/bin/pytest tests/ai/test_gms_integration.py
+```
+
+확정된 분석 결과는 `description`, `summary`, `reason` 세 문자열만 가진 JSON 객체다.
+
 `dags test` 는 메타 DB 만 있으면 된다. scheduler·api-server 없이 `docker compose run` 한 번으로 돈다.
 
 ## 수집 운영
