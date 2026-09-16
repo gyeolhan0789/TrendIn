@@ -9,7 +9,11 @@ import com.forever102.trend.dto.TrendDetailResponse;
 import com.forever102.trend.dto.TrendHistoryResponse;
 import com.forever102.trend.dto.TrendListResponse;
 import com.forever102.trend.dto.TrendRelatedKeywordResponse;
+import com.forever102.trend.dto.TrendRegionResponse;
+import com.forever102.trend.dto.TrendRegionHistoryResponse;
 import com.forever102.trend.service.TrendHistoryService;
+import com.forever102.trend.service.TrendRegionService;
+import com.forever102.trend.service.TrendRegionHistoryService;
 import com.forever102.trend.service.TrendService;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
@@ -27,6 +31,8 @@ public class TrendController {
 
     private final TrendService trendService;
     private final TrendHistoryService trendHistoryService;
+    private final TrendRegionService trendRegionService;
+    private final TrendRegionHistoryService trendRegionHistoryService;
 
     @GetMapping
     public BaseResponse<TrendListResponse> getTrends(
@@ -54,6 +60,25 @@ public class TrendController {
             @RequestParam String period
     ) {
         return BaseResponse.success(trendHistoryService.getHistory(trendId, AnalysisPeriod.from(period)));
+    }
+
+    @GetMapping("/{trendId}/regions")
+    public BaseResponse<TrendRegionResponse> getTrendRegions(
+            @PathVariable @Positive Long trendId,
+            @RequestParam String period
+    ) {
+        return BaseResponse.success(
+                trendRegionService.getRegions(trendId, AnalysisPeriod.from(period)));
+    }
+
+    @GetMapping("/{trendId}/regions/{countryCode}/history")
+    public BaseResponse<TrendRegionHistoryResponse> getTrendRegionHistory(
+            @PathVariable @Positive Long trendId,
+            @PathVariable String countryCode,
+            @RequestParam String period
+    ) {
+        return BaseResponse.success(trendRegionHistoryService.getHistory(
+                trendId, countryCode, AnalysisPeriod.from(period)));
     }
 
     @GetMapping("/{trendId}/contents")

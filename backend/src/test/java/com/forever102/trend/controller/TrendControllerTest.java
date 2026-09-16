@@ -34,6 +34,8 @@ import com.forever102.trend.dto.TrendListResponse;
 import com.forever102.trend.dto.TrendRelatedKeywordResponse;
 import com.forever102.trend.dto.TrendRelatedKeywordResponse.RelatedKeywordResponse;
 import com.forever102.trend.service.TrendHistoryService;
+import com.forever102.trend.service.TrendRegionService;
+import com.forever102.trend.service.TrendRegionHistoryService;
 import com.forever102.trend.service.TrendService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -62,6 +64,8 @@ class TrendControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean TrendService trendService;
     @MockitoBean TrendHistoryService trendHistoryService;
+    @MockitoBean TrendRegionService trendRegionService;
+    @MockitoBean TrendRegionHistoryService trendRegionHistoryService;
 
     @Test
     @WithMockUser
