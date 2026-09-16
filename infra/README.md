@@ -15,6 +15,8 @@ Client
 GitLab ── webhook ──> Jenkins ──> CI / CD
 
 Grafana (:3000) ──> Prometheus (:9090)
+                         ├─ node_exporter ──> EC2 시스템 메트릭
+                         └─ cAdvisor ───────> Docker 컨테이너 메트릭
 ```
 
 | 구성 요소 | 역할 |
@@ -25,6 +27,8 @@ Grafana (:3000) ──> Prometheus (:9090)
 | Redis | 인증용 리프레시 토큰 저장 |
 | Prometheus | 모니터링 대상의 메트릭 수집 및 저장 |
 | Grafana | Prometheus 메트릭 조회 및 시각화 기반 제공 |
+| node_exporter | EC2의 CPU, 메모리, 디스크, 네트워크 메트릭 제공 |
+| cAdvisor | Docker 컨테이너별 CPU, 메모리, 네트워크, 파일시스템 메트릭 제공 |
 | Jenkins | GitLab 변경 사항에 대한 Frontend/Backend 빌드와 배포 자동화 |
 
 ## Docker Compose
@@ -38,6 +42,8 @@ Grafana (:3000) ──> Prometheus (:9090)
 | `redis` | `redis:8-bookworm` | 비밀번호 인증과 AOF/RDB 영속화, named volume에 데이터 저장 |
 | `prometheus` | `prom/prometheus:v3.14.0` | 설정 파일에 정의된 대상의 메트릭 수집, named volume에 시계열 데이터 저장 |
 | `grafana` | `grafana/grafana:13.2.1` | provisioning으로 Prometheus Data Source 등록, named volume에 설정 저장 |
+| `node_exporter` | `prom/node-exporter:v1.11.1` | 읽기 전용 host root와 host PID를 사용해 EC2 시스템 메트릭 제공 |
+| `cadvisor` | `ghcr.io/google/cadvisor:v0.60.5` | Docker와 host 정보를 읽기 전용으로 마운트해 컨테이너 메트릭 제공 |
 
 환경별 비밀번호와 Backend 설정은 Git에 포함되지 않는 `infra/.env`에서 주입하며, 필요한 항목은 `infra/.env.example`에서 확인할 수 있다. PostgreSQL은 데이터 파이프라인 연동 시 지정된 사설 IP로만 공개할 수 있다.
 
@@ -73,7 +79,7 @@ Redis 8을 사용하며 Backend 인증용 리프레시 토큰을 저장한다. �
 
 ### Prometheus와 Grafana
 
-Prometheus는 현재 자체 상태 메트릭만 수집하며, 이후 모니터링 업무에서 수집 대상을 추가한다. Grafana는 시작 시 `http://prometheus:9090`을 기본 Data Source로 자동 등록한다. 두 서비스의 데이터는 각각 `s15p21a102-prometheus-data`, `s15p21a102-grafana-data` volume에 보관한다.
+Prometheus는 자체 상태와 함께 `node_exporter:9100`, `cadvisor:8080`을 15초마다 수집한다. exporter 포트는 host에 공개하지 않고 monitoring 네트워크에서만 접근한다. Grafana는 시작 시 `http://prometheus:9090`을 기본 Data Source로 자동 등록한다. Prometheus와 Grafana 데이터는 각각 `s15p21a102-prometheus-data`, `s15p21a102-grafana-data` volume에 보관한다.
 
 `infra/.env`에 Grafana 관리자 비밀번호를 설정한 뒤 저장소 루트에서 다음과 같이 실행한다.
 
@@ -83,7 +89,7 @@ docker compose --env-file infra/.env -f infra/compose.monitoring.yaml up -d
 
 두 포트는 기본적으로 호스트의 loopback에만 바인딩된다. 서버 외부에서는 SSH 터널을 통해 Grafana `http://localhost:3000`, Prometheus `http://localhost:9090`에 접속한다. 기본 포트는 각각 3000, 9090이며 `GRAFANA_PORT`, `PROMETHEUS_PORT`로 변경할 수 있다.
 
-기동 후 `docker compose --env-file infra/.env -f infra/compose.monitoring.yaml ps`로 두 컨테이너 상태를 확인한다. Grafana의 **Connections > Data sources > Prometheus**에서 **Save & test**를 실행하면 연결을 확인할 수 있다. Prometheus의 **Status > Targets**에는 자체 수집 대상 `prometheus`가 표시된다.
+기동 후 `docker compose --env-file infra/.env -f infra/compose.monitoring.yaml ps`로 상태를 확인한다. Prometheus의 **Status > Targets**에는 `prometheus`, `node_exporter`, `cadvisor`가 표시되며, Grafana Explore에서 `up`, `node_uname_info`, `container_last_seen` 등을 조회할 수 있다.
 
 ## 주요 설정 파일
 
