@@ -244,7 +244,7 @@ class TrendControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("요청 기간 지표가 없으면 지표 필드는 null이고 트렌드 정보는 유지한다")
+    @DisplayName("요청 기간 지표가 없으면 지표 필드는 null이고 트렌드 유형은 비운다")
     void returnsNullMetricFields() throws Exception {
         // given
         var trend = TrendFixture.trend();
@@ -254,7 +254,7 @@ class TrendControllerTest {
         // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "30D"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.trendTypes[0]").value("RISING"))
+                .andExpect(jsonPath("$.data.trendTypes").isEmpty())
                 .andExpect(jsonPath("$.data.mentionCount").value(nullValue()))
                 .andExpect(jsonPath("$.data.analysisWindow").value(nullValue()))
                 .andExpect(jsonPath("$.data.summary").isString());

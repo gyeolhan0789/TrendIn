@@ -38,12 +38,11 @@ public record KeywordSearchResponse(
     ) {
         private static KeywordSearchItemResponse from(
                 Keyword keyword, Trend trend, KeywordMetric metric) {
-            if (trend == null) {
-                return new KeywordSearchItemResponse(keyword.getId(), keyword.getName(),
-                        DomainResponse.from(keyword.getDomain()), null, List.of(), null);
-            }
+            // trendId 는 상세 진입 키라 trends 행이 있어야 하지만, 판정과 증감률은 지표 행에서
+            // 오므로 그 행이 아직 없는 키워드도 검색 결과에는 값이 실린다.
             return new KeywordSearchItemResponse(keyword.getId(), keyword.getName(),
-                    DomainResponse.from(keyword.getDomain()), trend.getId(), trend.getTrendTypes(),
+                    DomainResponse.from(keyword.getDomain()), trend == null ? null : trend.getId(),
+                    metric == null ? List.of() : metric.getTrendTypes(),
                     metric == null ? null : metric.getGrowthRate());
         }
     }

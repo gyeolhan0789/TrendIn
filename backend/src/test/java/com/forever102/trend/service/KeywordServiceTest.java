@@ -19,7 +19,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,7 +58,7 @@ class KeywordServiceTest {
                 .willReturn(new PageImpl<>(List.of(keyword), pageable, 1));
         given(trendRepository.findByKeywordIdIn(List.of(50L))).willReturn(List.of(trend));
         given(keywordMetricRepository.findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
-                Set.of(50L), AnalysisPeriod.HOURS_24,
+                List.of(50L), AnalysisPeriod.HOURS_24,
                 TrendFixture.END.minusDays(1), TrendFixture.END)).willReturn(List.of(metric));
 
         // when
@@ -91,7 +90,6 @@ class KeywordServiceTest {
         assertThat(item.trendId()).isNull();
         assertThat(item.trendTypes()).isEmpty();
         assertThat(item.growthRate()).isNull();
-        then(keywordMetricRepository).shouldHaveNoInteractions();
     }
 
     @Test
@@ -150,6 +148,7 @@ class KeywordServiceTest {
                 .growthAmount(25)
                 .growthRate(growthRate)
                 .mentionRank(1)
+                .trendTypes(List.of(TrendType.CURRENT))
                 .build();
     }
 }

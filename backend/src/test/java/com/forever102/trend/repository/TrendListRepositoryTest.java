@@ -54,7 +54,7 @@ class TrendListRepositoryTest {
     }
 
     @Test
-    @DisplayName("NEW는 유형 포함 여부를 필터링하고 갱신 시각 순으로 조회한다")
+    @DisplayName("NEW는 유형 포함 여부를 필터링하고 언급량 순으로 조회한다")
     void findsNewTrends() {
         // when
         var result = find(TrendType.NEW);
@@ -105,6 +105,7 @@ class TrendListRepositoryTest {
                 .growthAmount(mentionCount - 50)
                 .growthRate(new BigDecimal(growthRate))
                 .mentionRank(sequence)
+                .trendTypes(types)
                 .build());
         return trend;
     }

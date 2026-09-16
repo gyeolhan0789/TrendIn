@@ -38,7 +38,7 @@ public final class TrendFixture {
                 .growthRate(previous == 0 ? null : BigDecimal.valueOf(current - previous)
                         .multiply(BigDecimal.valueOf(100))
                         .divide(BigDecimal.valueOf(previous), 1, java.math.RoundingMode.HALF_UP))
-                .mentionRank(1).build();
+                .mentionRank(1).trendTypes(trend.getTrendTypes()).build();
     }
 
     public static AnalysisWindow window(AnalysisPeriod period) {
