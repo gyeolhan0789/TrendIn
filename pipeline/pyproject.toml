@@ -13,6 +13,7 @@ dependencies = [
   "apache-airflow==3.3.1",
   "apache-airflow-providers-standard",
   "apache-airflow-providers-postgres",
+  "httpx",
   # 수집 계층 저장소 클라이언트. Airflow 훅이 아니라 순수 클라이언트를 쓴다 —
   # 태스크 함수는 airflow 를 import 하지 않는다(README 규약 12, S15P21A102-167).
   "boto3",             # MinIO. S3 호환이라 endpoint_url 만 바꾸면 실제 S3 로도 간다
@@ -41,6 +42,9 @@ where = ["src"]
 # spark/scripts/dev-setup.sh(로컬) 와 spark/Dockerfile(컨테이너) 이 한다.
 testpaths = ["tests", "spark/tests"]
 addopts = "-q"
+markers = [
+  "allow_network: 명시적인 외부 연동 테스트에서만 실제 HTTP 요청을 허용",
+]
 
 [tool.ruff]
 target-version = "py312"
