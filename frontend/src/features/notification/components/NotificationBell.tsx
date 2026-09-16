@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import { useUnreadNotificationCount } from '../hooks/useUnreadNotificationCount';
 import { useMarkAllNotificationsAsRead, useMarkNotificationAsRead } from '../hooks/useNotificationMutations';
+import { useTrendDetailLink } from '../../trend/trendDetailLink';
 import type { Notification } from '../types/notification';
 
 const MAX_BADGE_COUNT = 99;
@@ -17,6 +18,7 @@ function formatSentAt(value: string) {
 }
 
 export function NotificationBell() {
+  const openDetail = useTrendDetailLink();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -43,7 +45,8 @@ export function NotificationBell() {
   const openNotification = (notification: Notification) => {
     if (!notification.isRead) markAsRead.mutate(notification.notificationId);
     setOpen(false);
-    navigate(`/trends/${notification.trendId}`);
+    const { to, state } = openDetail(notification.trendId);
+    navigate(to, { state });
   };
 
   return (

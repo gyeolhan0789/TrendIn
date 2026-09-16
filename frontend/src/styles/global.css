@@ -163,14 +163,6 @@ h1 { margin: 0; line-height: 1.25; }
 .page-footer .brand { color: #505763; font-size: 25px; letter-spacing: -1.7px; }
 .page-footer p, .page-footer > span:last-child { color: #68717e; font-size: 12px; }
 .page-footer > span:last-child { margin-left: auto; font-size: 11px; }
-.detail-header, .detail-section { margin-top: 18px; padding: 29px 31px; border: 1px solid var(--line); border-radius: 22px; background: #fff; }
-.detail-header { margin-top: 25px; }
-.detail-header h1 { margin: 8px 0; color: #202226; font-size: clamp(32px, 4vw, 48px); letter-spacing: -1.5px; }
-.detail-header p, .detail-section p { color: #717780; font-size: 12px; line-height: 1.8; }
-.detail-header button { padding: 9px 15px; border: 1px solid #ccd7ff; border-radius: 8px; color: var(--accent); background: #f0f3ff; font-size: 11px; }
-.metric-row { display: flex; gap: 24px; margin: 22px 0 5px; color: #717780; font-size: 11px; }
-.detail-section h2 { margin: 0 0 10px; color: #343a43; font-size: 17px; font-weight: 500; }
-.detail-section ul { padding-left: 18px; color: #717780; font-size: 12px; line-height: 2; }
 .state-box { padding: 25px; border: 1px dashed #cbd3df; border-radius: 12px; color: #858b94; text-align: center; }
 .state-box { color: #68717e; font-size: 12px; }
 .state-box p { margin: 0 0 12px; }
@@ -400,7 +392,8 @@ h1 { margin: 0; line-height: 1.25; }
 }
 
 .drawer-background { min-height: 100vh; }
-.modal-backdrop { display: flex; position: fixed; inset: 0; z-index: 20; justify-content: flex-end; background: #20222642; backdrop-filter: blur(6px); animation: fade-in .4s cubic-bezier(.22, .8, .22, 1) both; }
+/* 뒤에 깔린 화면의 붙박이 머리글(.landing-header, z-index 50)보다 위에 있어야 패널이 가려지지 않습니다. */
+.modal-backdrop { display: flex; position: fixed; inset: 0; z-index: 60; justify-content: flex-end; background: #20222642; backdrop-filter: blur(6px); animation: fade-in .4s cubic-bezier(.22, .8, .22, 1) both; }
 .modal-backdrop.is-closing { pointer-events: none; animation: fade-out .34s cubic-bezier(.4, 0, 1, 1) both; }
 .detail-drawer { width: min(100vw, max(720px, 50vw)); height: 100%; min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 38px 42px; border-left: 1px solid #e1e5eb; outline: none; background: #fff; box-shadow: -10px 0 80px #29292920; animation: drawer-in .46s cubic-bezier(.22, .8, .22, 1) both; }
 .detail-drawer.is-closing { animation: drawer-out .36s cubic-bezier(.4, 0, 1, 1) both; }
@@ -411,106 +404,94 @@ h1 { margin: 0; line-height: 1.25; }
 @keyframes drawer-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
 @keyframes bar-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
-/* Trend detail redesign: the existing modal shell stays intact. */
+/* 트렌드 상세: 오른쪽 패널은 그대로 두고 안쪽만 새 시안으로 그립니다. */
 .detail-drawer-content { width: 100%; min-width: 0; padding-top: 0; }
 .detail-page--drawer { width: 100%; color: #1a1a1a; font-family: "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; -webkit-font-smoothing: antialiased; }
-.detail-page--drawer .detail-page-inner { width: 100%; margin: 0 auto; padding: 0 0 36px; }
+.detail-page--drawer .detail-page-inner { width: 100%; margin: 0 auto; padding: 0 0 20px; }
 .detail-page--drawer .detail-nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid #eef1f5; }
-.detail-page--drawer .detail-back { color: #aaa; font-size: 18px; line-height: 1; }
+.detail-page--drawer .detail-back { padding: 0; color: #aaa; font-size: 18px; line-height: 1; }
 .detail-page--drawer .detail-back:hover { color: #1a5ecf; }
 .detail-page--drawer .detail-save { padding: 0; color: #aaa; font-size: 18px; line-height: 1; }
 .detail-page--drawer .detail-save:hover, .detail-page--drawer .detail-save.is-saved { color: #1a5ecf; }
-.detail-page--drawer .detail-hero { padding: 32px 0 0; }
+.detail-page--drawer .detail-hero { padding: 52px 0 0; }
 .detail-page--drawer .detail-category { display: inline-block; padding: 4px 10px; border-radius: 6px; color: #1a5ecf; background: #eef3ff; font-size: 13px; font-weight: 500; letter-spacing: .3px; }
-.detail-page--drawer .detail-category--fashion { color: #bd5a72; background: #fff0f3; }
 .detail-page--drawer .detail-hero h1 { margin: 18px 0 0; color: #0a0a0a; font-size: 38px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.15; overflow-wrap: anywhere; }
 .detail-page--drawer .detail-hero p { max-width: 560px; margin: 18px 0 0; color: #555; font-size: 15px; font-weight: 400; line-height: 1.85; }
-.detail-page--drawer .detail-kpis { display: flex; align-items: baseline; gap: 28px; padding: 34px 0 36px; margin-top: 8px; }
+.detail-page--drawer .detail-kpis { display: flex; align-items: baseline; gap: 48px; padding: 40px 0 0; margin-top: 8px; }
 .detail-page--drawer .detail-kpis > div { min-width: 0; }
-.detail-page--drawer .detail-kpis > div > span { display: block; margin-bottom: 8px; color: #888; font-size: 12px; white-space: nowrap; }
-.detail-page--drawer .detail-kpis strong { color: #0a0a0a; font: 700 40px/1 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: -2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.detail-page--drawer .detail-kpis > div:not(.detail-kpi-meta) > span { display: block; margin-bottom: 8px; color: #888; font-size: 12px; white-space: nowrap; }
+.detail-page--drawer .detail-kpis strong { color: #0a0a0a; font: 700 48px/1 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: -2.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 증감은 다른 화면과 같은 앰버로 읽습니다. 시안의 파랑은 상세 안 강조색으로만 씁니다. */
 .detail-page--drawer .detail-kpis strong.accent { color: var(--amber) !important; }
-.detail-page--drawer .detail-trend-visual { display: flex; flex: 0 0 165px; flex-direction: column; gap: 8px; align-self: center; margin-left: auto; }
-.detail-page--drawer .detail-trend-line { display: flex; position: relative; align-items: center; height: 16px; }
-.detail-page--drawer .detail-trend-line::before { position: absolute; right: 5px; left: 5px; height: 1px; background: #d5ddec; content: ''; }
-.detail-page--drawer .detail-trend-point { position: absolute; z-index: 1; width: 7px; height: 7px; border-radius: 50%; background: #b9c2d1; }
-.detail-page--drawer .detail-trend-point--start { left: 2px; }
-.detail-page--drawer .detail-trend-point--current { right: 4px; width: 9px; height: 9px; background: #1a5ecf; box-shadow: 0 0 0 3px #e4edff; }
-.detail-page--drawer .detail-trend-arrow { position: absolute; right: 7px; bottom: 9px; width: 21px; height: 16px; overflow: visible; fill: none; stroke: #1a5ecf; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
-.detail-page--drawer .detail-trend-labels { display: flex; justify-content: space-between; padding: 0 0 0 0; color: #8a94a3; font: 500 10px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: .2px; }
-.detail-page--drawer .detail-trend-labels span:last-child { color: #1a5ecf; }
-.detail-page--drawer .detail-chart-card { padding: 0; margin-top: 0; background: transparent; }
+.detail-page--drawer .detail-kpi-meta { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-left: auto; text-align: right; }
+.detail-page--drawer .detail-kpi-meta > span { color: #777; font-size: 13px; white-space: nowrap; }
+.detail-page--drawer .detail-kpi-meta b { color: #1a1a1a; font-weight: 500; font-variant-numeric: tabular-nums; }
+.detail-page--drawer .detail-chart-card { padding: 28px 24px 24px; margin-top: 40px; border-radius: 14px; background: #f6f8fc; }
 .detail-page--drawer .detail-card-label { display: block; color: #1a1a1a; font-size: 14px; font-weight: 600; }
-.detail-page--drawer .detail-chart-card > .detail-card-label { margin-bottom: 12px; font-size: 16px; font-weight: 700; }
-.detail-page--drawer .detail-chart { display: flex; align-items: flex-end; gap: 6px; height: 172px; padding: 22px 20px 0; margin-top: 0; border: 0; border-radius: 14px 14px 0 0; background: #f6f8fc; }
+.detail-page--drawer .detail-chart-card > .detail-card-label { margin-bottom: 16px; color: #888; font-size: 12px; font-weight: 400; }
+.detail-page--drawer .detail-chart { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding-bottom: 1px; }
 .detail-page--drawer .detail-bar-track { display: flex; position: relative; flex: 1; height: 100%; align-items: flex-end; }
-.detail-page--drawer .detail-bar-track > span { display: block; position: relative; width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: #d0daf0; transform-origin: bottom; animation: bar-rise .62s cubic-bezier(.22, .8, .22, 1) both; }
-.detail-page--drawer .detail-bar-track > span.is-current { box-shadow: 0 5px 12px #1a5ecf22; }
-.detail-page--drawer .detail-bar-tooltip { display: block; position: absolute; top: auto; bottom: calc(100% + 8px); left: 50%; z-index: 2; min-width: max-content; padding: 7px 9px; border: 1px solid #c7d6ff; border-radius: 9px; color: #1a5ecf; background: #fff; box-shadow: 0 8px 20px #1a5ecf18; font: 11px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; white-space: nowrap; opacity: 0; pointer-events: none; transform: translateX(-50%); transition: opacity .15s; }
+.detail-page--drawer .detail-bar-track > span { display: block; position: relative; width: 100%; min-height: 3px; border-radius: 3px 3px 0 0; background: #d0daf0; transform-origin: bottom; animation: bar-rise .5s ease-out both; }
+.detail-page--drawer .detail-bar-tooltip { display: block; position: absolute; bottom: calc(100% + 8px); left: 50%; z-index: 2; min-width: max-content; padding: 5px 8px; border-radius: 8px; color: #fff; background: #1a1a1a; font: 500 11px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0; pointer-events: none; transform: translateX(-50%); transition: opacity .15s; }
 .detail-page--drawer .detail-bar-tooltip > span, .detail-page--drawer .detail-bar-tooltip > small { display: block; }
-.detail-page--drawer .detail-bar-tooltip > small { margin-top: 2px; color: #7b8798; font-size: 10px; }
+.detail-page--drawer .detail-bar-tooltip > small { margin-top: 2px; color: #aaa; font-size: 10px; font-weight: 400; }
 .detail-page--drawer .detail-bar-track:first-child .detail-bar-tooltip { left: 0; transform: none; }
 .detail-page--drawer .detail-bar-track:last-child .detail-bar-tooltip { right: 0; left: auto; transform: none; }
 .detail-page--drawer .detail-bar-track:hover { z-index: 1; }
 .detail-page--drawer .detail-bar-track:hover .detail-bar-tooltip, .detail-page--drawer .detail-bar-track:focus-visible .detail-bar-tooltip { opacity: 1; }
 .detail-page--drawer .detail-bar-track:focus-visible { outline: 2px solid #1a5ecf; outline-offset: 3px; border-radius: 4px; }
-.detail-page--drawer .chart-axis--reference { display: flex; justify-content: space-between; padding: 0 20px 18px; margin-top: 0; border-radius: 0 0 14px 14px; color: #aaa; background: #f6f8fc; font: 12px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
-.detail-page--drawer .detail-why-now { padding: 27px 22px 23px; margin-top: 38px; border-radius: 14px; background: linear-gradient(135deg, #f7f9ff 0%, #eff4ff 100%); }
-.detail-page--drawer .detail-why-now .detail-card-label { margin-bottom: 17px; color: #1a5ecf; font-size: 15px; font-weight: 600; letter-spacing: .3px; }
-.detail-page--drawer .detail-why-summary { max-width: 90%; margin: 0; color: #0a0a0a; font: 700 clamp(22px, 3vw, 29px)/1.3 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: -.8px; }
-.detail-page--drawer .detail-why-description { margin: 18px 0 0; color: #555; font-size: 15px; line-height: 1.8; }
+.detail-page--drawer .chart-axis { display: flex; justify-content: space-between; margin-top: 10px; color: #aaa; font-size: 12px; font-variant-numeric: tabular-nums; }
+.detail-page--drawer .detail-why-now { padding: 32px 28px; margin-top: 48px; border-radius: 14px; background: #f0f4ff; }
+.detail-page--drawer .detail-why-now .detail-card-label { margin-bottom: 20px; color: #1a5ecf; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+/* 시안은 짧은 수치를 큼직하게 세웁니다. 문장이 길게 와도 넘치지 않도록 폭에 맞춰 줄입니다. */
+.detail-page--drawer .detail-why-summary { margin: 0; color: #0a0a0a; font: 700 clamp(26px, 4.6vw, 42px)/1.15 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: -1.8px; }
+.detail-page--drawer .detail-why-description { margin: 20px 0 0; color: #555; font-size: 15px; line-height: 1.8; }
 .detail-page--drawer .detail-why-now .skeleton { margin-top: 14px; }
-.detail-page--drawer .detail-sources, .detail-page--drawer .detail-related, .detail-page--drawer .detail-timeline { padding: 44px 0 0; margin-top: 0; border: 0; }
+.detail-page--drawer .detail-sources, .detail-page--drawer .detail-related, .detail-page--drawer .detail-timeline { padding: 52px 0 0; margin-top: 0; border: 0; }
 .detail-page--drawer .detail-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.detail-page--drawer .detail-section-title h2 { margin: 0; color: #1a1a1a; font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+.detail-page--drawer .detail-section-title h2 { margin: 0; color: #1a1a1a; font-size: 14px; font-weight: 600; letter-spacing: -.2px; }
 .detail-page--drawer .detail-section-title > span { color: #888; font-size: 13px; font-weight: 500; }
-.detail-page--drawer .detail-source { display: grid; grid-template-columns: 24px 1fr 16px; gap: 12px; align-items: start; padding: 17px 0; border-top: 1px solid #e5e9f0; }
-.detail-page--drawer .detail-source:hover .detail-source-arrow { color: #1a5ecf; }
-.detail-page--drawer .detail-source-number { padding-top: 2px; color: #bbb; font: 12px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-variant-numeric: tabular-nums; }
+.detail-page--drawer .detail-source { display: grid; grid-template-columns: 24px 1fr 16px; gap: 14px; align-items: start; padding: 18px 8px; border-radius: 10px; transition: background .15s; }
+.detail-page--drawer .detail-source:hover { background: #f4f7fc; }
+.detail-page--drawer .detail-source-number { padding-top: 2px; color: #bbb; font-size: 12px; font-variant-numeric: tabular-nums; }
 .detail-page--drawer .detail-source-copy { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.detail-page--drawer .detail-source-copy > strong { color: #1a1a1a; font-size: 15px; font-weight: 500; line-height: 1.5; letter-spacing: -.3px; overflow-wrap: anywhere; }
-.detail-page--drawer .detail-source-copy > span { display: flex; align-items: center; gap: 8px; color: #8ca2c4; font-size: 13px; }
+.detail-page--drawer .detail-source-copy > strong { color: #1a1a1a; font-size: 15px; font-weight: 500; line-height: 1.45; letter-spacing: -.3px; overflow-wrap: anywhere; }
+.detail-page--drawer .detail-source-copy > span { display: flex; align-items: center; gap: 8px; color: #999; font-size: 13px; }
 .detail-page--drawer .detail-source-copy b { color: #1a5ecf; font-weight: 500; }
 .detail-page--drawer .detail-source-copy i { color: #ccc; font-style: normal; }
-.detail-page--drawer .detail-source-arrow { padding-top: 4px; color: #9eb5dc; font-size: 11px; }
+.detail-page--drawer .detail-source-arrow { padding-top: 4px; color: #ccc; font-size: 11px; }
 .detail-page--drawer .detail-more { padding: 0; margin: 8px 0 0 8px; color: #1a5ecf; font-size: 13px; font-weight: 500; }
 .detail-page--drawer .detail-more:hover { text-decoration: underline; }
-.detail-page--drawer .detail-keyword-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.detail-page--drawer .detail-keyword { display: inline-flex; align-items: center; gap: 2px; padding: 0 8px 0 0; border-radius: 10px; color: #333; background: #f6f8fc; font-size: 14px; letter-spacing: -.2px; }
-.detail-page--drawer .detail-keyword > a { padding: 10px 6px 10px 14px; color: inherit; }
+.detail-page--drawer .detail-related .detail-section-title { margin-bottom: 14px; }
+.detail-page--drawer .detail-keyword-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.detail-page--drawer .detail-keyword { display: inline-flex; align-items: center; gap: 10px; padding: 10px 8px 10px 16px; border-radius: 10px; color: #333; background: #f6f8fc; font-size: 14px; letter-spacing: -.2px; transition: background .15s; }
 .detail-page--drawer .detail-keyword:hover { background: #edf1fa; }
-.detail-page--drawer .detail-keyword.is-medium { background: #f0f5ff; }
-.detail-page--drawer .detail-keyword.is-strong { background: #e7efff; }
-.detail-page--drawer .detail-keyword.is-medium:hover { background: #eaf2ff; }
-.detail-page--drawer .detail-keyword.is-strong:hover { background: #e2ecff; }
 .detail-page--drawer .detail-keyword b { font-weight: 500; }
-.detail-page--drawer .detail-keyword.is-medium b { font-weight: 550; }
-.detail-page--drawer .detail-keyword.is-strong b { font-weight: 600; }
-.detail-page--drawer .detail-timeline { padding-bottom: 0; }
-.detail-page--drawer .timeline-list { position: relative; z-index: 0; isolation: isolate; padding-left: 22px; }
-.detail-page--drawer .timeline-list::before { position: absolute; top: 8px; bottom: 8px; left: 5px; z-index: 1; width: 2px; background: #e4e8f0; content: ''; }
-.detail-page--drawer .timeline-event { display: grid; position: relative; grid-template-columns: 54px 1fr; gap: 14px; padding: 16px 0; }
-.detail-page--drawer .timeline-event:first-child { background: transparent; }
-.detail-page--drawer .timeline-event:first-child::before { position: absolute; top: 0; right: 0; bottom: 0; left: -36px; z-index: -1; border-radius: 8px; background: #f4f7ff; content: ''; }
-.detail-page--drawer .timeline-dot { position: absolute; top: 20px; left: -21px; z-index: 2; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #cbd3df; }
-.detail-page--drawer .timeline-dot.is-important { background: #1a5ecf; }
+.detail-page--drawer .detail-keyword i { color: #888; font: 600 13px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-style: normal; font-variant-numeric: tabular-nums; }
+.detail-page--drawer .detail-keyword.is-strong i { color: var(--amber); }
+.detail-page--drawer .timeline-list { position: relative; padding-left: 22px; }
+.detail-page--drawer .timeline-list::before { position: absolute; top: 8px; bottom: 8px; left: 5px; width: 1.5px; background: #e4e8f0; content: ''; }
+.detail-page--drawer .timeline-event { display: grid; position: relative; grid-template-columns: 64px 1fr; gap: 16px; padding: 18px 0; }
+.detail-page--drawer .timeline-dot { position: absolute; top: 24px; left: -19px; width: 6px; height: 6px; border: 2px solid #fff; border-radius: 50%; background: #d0d8e8; }
+.detail-page--drawer .timeline-event.is-important .timeline-dot { left: -21px; width: 10px; height: 10px; background: #1a5ecf; }
 .detail-page--drawer .timeline-event time { padding-top: 1px; color: #aaa; font: 500 13px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-variant-numeric: tabular-nums; }
-.detail-page--drawer .timeline-event:first-child time { color: #1a1a1a; }
-.detail-page--drawer .timeline-event p { margin: 0; color: #333; font-size: 15px; line-height: 1.7; letter-spacing: -.2px; }
-.detail-page--drawer .timeline-event a { display: inline-block; margin-top: 6px; color: #1a5ecf; font-size: 13px; font-weight: 500; }
+.detail-page--drawer .timeline-event.is-important time { color: #1a1a1a; }
+.detail-page--drawer .timeline-event p { margin: 0; color: #333; font-size: 14px; line-height: 1.7; letter-spacing: -.2px; }
+.detail-page--drawer .timeline-event.is-important p { font-weight: 500; }
+.detail-page--drawer .timeline-event a { display: inline-block; margin-top: 6px; color: #1a5ecf; font-size: 12px; font-weight: 500; }
 .detail-page--drawer .timeline-event a:hover { text-decoration: underline; }
+.detail-page--drawer .detail-foot { padding: 20px 0; margin-top: 72px; color: #bbb; font-size: 11px; }
 
 @media (max-width: 760px) {
-  .detail-page--drawer .detail-hero { padding-top: 28px; }
+  .detail-page--drawer .detail-hero { padding-top: 40px; }
   .detail-page--drawer .detail-hero h1 { font-size: 33px; }
-  .detail-page--drawer .detail-kpis { gap: 20px; }
-  .detail-page--drawer .detail-kpis strong { font-size: 34px; }
-  .detail-page--drawer .detail-trend-visual { flex-basis: 145px; }
+  .detail-page--drawer .detail-kpis { gap: 28px; }
+  .detail-page--drawer .detail-kpis strong { font-size: 38px; }
 }
 @media (max-width: 480px) {
   .detail-page--drawer .detail-kpis { flex-wrap: wrap; gap: 22px 28px; }
-  .detail-page--drawer .detail-trend-visual { width: 100%; flex-basis: auto; align-items: stretch; margin-left: 0; }
-  .detail-page--drawer .detail-why-summary { max-width: 100%; font-size: 23px; }
+  .detail-page--drawer .detail-kpi-meta { width: 100%; align-items: flex-start; margin-left: 0; text-align: left; }
+  .detail-page--drawer .detail-why-summary { letter-spacing: -1px; }
 }
 
 @media (max-width: 760px) {

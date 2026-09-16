@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HomePage } from '../HomePage/HomePage';
 import { SavedTrendPage } from '../SavedTrendPage/SavedTrendPage';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -13,13 +13,16 @@ import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { parsePeriod } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
+import type { TrendDetailLocationState } from '../../features/trend/trendDetailLink';
 import type { TrendDetail, TrendHistoryPoint } from '../../features/trend/types/trend';
 
 const periodLabels: Record<PeriodCode, string> = { '24H': '24시간', '7D': '7일', '30D': '30일' };
 
-/** 연관도는 0~100입니다. 높은 쪽을 굵게 보여 주려고 두 단으로 나눕니다. */
+/** 연관도는 0~100입니다. 높은 쪽만 색을 달리해 눈에 먼저 들어오게 합니다. */
 const STRONG_RELATION_SCORE = 75;
-const MEDIUM_RELATION_SCORE = 60;
+
+/** 시안은 최근 칸일수록 진하게 칠합니다. 마지막 칸이 지금 구간입니다. */
+const RECENT_BAR_COUNT = 4;
 
 /*
  * 서버가 주는 시각은 Asia/Seoul 기준입니다. 보는 사람의 시간대로 바꾸면 자정 경계가 어긋나
@@ -47,18 +50,13 @@ function formatGrowthRate(value: number | null) {
   return value === null ? '—' : `${value > 0 ? '+' : ''}${value}%`;
 }
 
-function getChartBarGradient(index: number, total: number) {
-  const progress = total > 1 ? index / (total - 1) : 1;
-  const saturation = Math.round(48 + progress * 24);
-  const bottomLightness = Math.round(91 - progress * 46);
-  const topLightness = Math.min(96, bottomLightness + 8);
-  return `linear-gradient(180deg, hsl(220 ${saturation}% ${topLightness}%), hsl(220 ${saturation}% ${bottomLightness}%))`;
+function getChartBarColor(index: number, total: number) {
+  if (index === total - 1) return '#1a5ecf';
+  return index >= total - RECENT_BAR_COUNT ? '#93b5e8' : '#d0daf0';
 }
 
 function getKeywordStrength(relationScore: number) {
-  if (relationScore >= STRONG_RELATION_SCORE) return ' is-strong';
-  if (relationScore >= MEDIUM_RELATION_SCORE) return ' is-medium';
-  return '';
+  return relationScore >= STRONG_RELATION_SCORE ? ' is-strong' : '';
 }
 
 function describeWindow(trend: TrendDetail) {
@@ -70,15 +68,21 @@ function describeWindow(trend: TrendDetail) {
 export function TrendDetailPage() {
   const { trendId: trendIdParam } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const period = parsePeriod(searchParams.get('period'));
   // 주소에 트렌드가 아닌 값이 들어올 수 있어, 숫자로 읽히지 않으면 조회하지 않습니다.
   const parsedTrendId = Number(trendIdParam);
   const trendId = Number.isInteger(parsedTrendId) && parsedTrendId > 0 ? parsedTrendId : undefined;
 
-  // 저장 페이지에서 열었을 때는 목록 위에 드로어를 띄우고, 닫으면 다시 목록으로 돌아갑니다.
+  /*
+   * 상세는 보던 화면 위에 뜹니다. 어느 화면에서 열었는지는 링크가 함께 넘겨 주고, 그 화면은
+   * 라우터가 뒤에 그대로 그립니다. 닫을 때는 앞으로 밀어 보내지 않고 왔던 자리로 되돌아갑니다.
+   */
+  const backgroundLocation = (location.state as TrendDetailLocationState | null)?.backgroundLocation;
+  // 주소를 바로 열었으면 돌아갈 자리가 없습니다. 저장 목록에서 온 주소만 그리로 보내고 나머지는 대시보드입니다.
   const fromSaved = searchParams.get('from') === 'saved';
-  const homePath = fromSaved ? '/saved' : `/${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+  const fallbackPath = fromSaved ? '/saved' : '/dashboard';
   const drawerRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const closeTimerRef = useRef<number | null>(null);
@@ -96,8 +100,11 @@ export function TrendDetailPage() {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     setIsClosing(true);
-    closeTimerRef.current = window.setTimeout(() => navigate(homePath), 380);
-  }, [homePath, navigate]);
+    closeTimerRef.current = window.setTimeout(() => {
+      if (backgroundLocation) navigate(-1);
+      else navigate(fallbackPath);
+    }, 380);
+  }, [backgroundLocation, fallbackPath, navigate]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -128,8 +135,9 @@ export function TrendDetailPage() {
       value: point.mentionCount,
       // 가장 큰 칸을 기준으로 높이를 잡습니다. 전부 0이면 아래에서 따로 안내합니다.
       height: peak > 0 ? (point.mentionCount / peak) * 100 : 0,
-      isPeak: peak > 0 && point.mentionCount === peak,
-      gradient: getChartBarGradient(index, history.length),
+      color: getChartBarColor(index, history.length),
+      // 왼쪽부터 차례로 올라오도록 조금씩 늦춥니다.
+      delay: index * 30,
     }));
   }, [history, period]);
   const hasMentions = chartBars.some((bar) => bar.value > 0);
@@ -154,7 +162,7 @@ export function TrendDetailPage() {
       <div className="detail-page detail-page--drawer">
         <div className="detail-page-inner">
           <nav className="detail-nav" aria-label="상세페이지 메뉴">
-            <Link className="detail-back" to={homePath} aria-label={fromSaved ? '저장한 트렌드로 돌아가기' : '홈으로 돌아가기'}>←</Link>
+            <button type="button" className="detail-back" onClick={closeDrawer} aria-label="상세 닫고 보던 화면으로">←</button>
             <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="detail-save" />
           </nav>
 
@@ -167,28 +175,34 @@ export function TrendDetailPage() {
           <section className="detail-kpis" aria-label="트렌드 핵심 지표">
             <div><span>{periodLabel} 언급량</span><strong>{formatNumber(trend.mentionCount)}</strong></div>
             <div><span>직전 구간 대비</span><strong className="accent">{formatGrowthRate(trend.growthRate)}</strong></div>
-            <div><span>직전 구간 언급량</span><strong>{formatNumber(trend.previousMentionCount)}</strong></div>
+            <div className="detail-kpi-meta">
+              {windowLabel && <span><b>{windowLabel}</b> 집계</span>}
+              <span>{trend.previousMentionCount === null ? '직전 구간 집계 없음' : `직전 구간 ${trend.previousMentionCount.toLocaleString()}건`}</span>
+            </div>
           </section>
 
-          {windowLabel && <p className="detail-card-label">{windowLabel} 집계 · 직전 같은 길이의 구간과 비교</p>}
-
           <section className="detail-chart-card" aria-label={`${trend.keyword} 언급량 차트`}>
-            <span className="detail-card-label">언급량 그래프</span>
+            <span className="detail-card-label">언급량 · 최근 {periodLabel}</span>
             {historyQuery.isLoading && <Skeleton count={2} />}
             {historyQuery.isError && <ErrorState message="언급량 추이를 불러오지 못했습니다." onRetry={() => historyQuery.refetch()} />}
             {historyQuery.isSuccess && !hasMentions && <EmptyState message="이 구간에 집계된 언급이 없습니다." />}
             {historyQuery.isSuccess && hasMentions && (
               <>
-                <div className="detail-chart detail-chart--reference" role="img" aria-label={`${trend.keyword} 구간별 언급량`}>
+                <div className="detail-chart" role="img" aria-label={`${trend.keyword} 구간별 언급량`}>
                   {chartBars.map((bar) => (
                     <div className="detail-bar-track" key={bar.label} tabIndex={0} aria-label={`${bar.label} ${bar.value.toLocaleString()}건`}>
-                      <span className={bar.isPeak ? 'is-current' : ''} style={{ height: `${bar.height}%`, background: bar.gradient }}>
+                      <span style={{ height: `${bar.height}%`, background: bar.color, animationDelay: `${bar.delay}ms` }}>
                         <b className="detail-bar-tooltip"><span>{bar.value.toLocaleString()}건</span><small>{bar.label}</small></b>
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="chart-axis chart-axis--reference"><span>{chartBars[0]?.label}</span><span>{chartBars.at(-1)?.label}</span></div>
+                {/* 시안처럼 처음·가운데·끝만 짚어 줍니다. 칸이 둘뿐이면 가운데가 없습니다. */}
+                <div className="chart-axis">
+                  <span>{chartBars[0].label}</span>
+                  {chartBars.length > 2 && <span>{chartBars[Math.floor((chartBars.length - 1) / 2)].label}</span>}
+                  <span>{chartBars[chartBars.length - 1].label}</span>
+                </div>
               </>
             )}
           </section>
@@ -232,6 +246,7 @@ export function TrendDetailPage() {
                 {relatedKeywords.map((keyword) => (
                   <span className={`detail-keyword${getKeywordStrength(keyword.relationScore)}`} key={keyword.keywordId}>
                     <b>{keyword.keyword}</b>
+                    <i title={`연관도 ${keyword.relationScore}점`}>{Math.round(keyword.relationScore)}</i>
                     <AddInterestKeywordButton keywordId={keyword.keywordId} keyword={keyword.keyword} />
                   </span>
                 ))}
@@ -245,8 +260,8 @@ export function TrendDetailPage() {
             {timeline.length > 0 && (
               <div className="timeline-list">
                 {timeline.map((content, index) => (
-                  <div className="timeline-event" key={content.contentId}>
-                    <span className={`timeline-dot${index === 0 ? ' is-important' : ''}`} />
+                  <div className={`timeline-event${index === 0 ? ' is-important' : ''}`} key={content.contentId}>
+                    <span className="timeline-dot" />
                     <time>{formatMonthDay(content.publishedAt) ?? content.publishedAt}</time>
                     <div>
                       <p>{content.title}</p>
@@ -258,6 +273,7 @@ export function TrendDetailPage() {
             )}
           </section>
 
+          <footer className="detail-foot">공개된 글을 모아 자동으로 정리한 분석입니다 · TrendIn</footer>
         </div>
       </div>
     );
@@ -265,7 +281,8 @@ export function TrendDetailPage() {
 
   return (
     <>
-      <div className="drawer-background" aria-hidden="true">{fromSaved ? <SavedTrendPage /> : <HomePage />}</div>
+      {/* 뒤 화면은 라우터가 그립니다. 주소를 바로 열어 뒤가 비어 있을 때만 여기서 기본 화면을 세웁니다. */}
+      {!backgroundLocation && <div className="drawer-background" aria-hidden="true">{fromSaved ? <SavedTrendPage /> : <HomePage />}</div>}
       <div className={`modal-backdrop${isClosing ? ' is-closing' : ''}`} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
         <aside ref={drawerRef} className={`detail-drawer${isClosing ? ' is-closing' : ''}`} role="dialog" aria-modal="true" aria-label="트렌드 상세" tabIndex={-1}>
           <div className="detail-drawer-content">{drawerContent}</div>

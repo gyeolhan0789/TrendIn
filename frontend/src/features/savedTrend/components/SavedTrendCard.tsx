@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { BookmarkButton } from './BookmarkButton';
 import { TagChip } from '../../trend/components/TagChip';
 import { formatCount, formatGrowth } from '../../trend/trendFormat';
+import { useTrendDetailLink } from '../../trend/trendDetailLink';
 import type { SavedTrend } from '../types/savedTrend';
 
 const SURGE_THRESHOLD = 100;
@@ -23,11 +24,13 @@ function formatSavedDate(savedAt: string) {
 }
 
 export function SavedTrendCard({ trend }: { trend: SavedTrend }) {
+  const openDetail = useTrendDetailLink();
+
   return (
     <article className="saved-card">
       <div className="saved-card-head">
         <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="saved-card-bookmark" />
-        <Link className="saved-card-title" to={{ pathname: `/trends/${trend.trendId}`, search: '?from=saved' }}>{trend.keyword}</Link>
+        <Link className="saved-card-title" {...openDetail(trend.trendId, '?from=saved')}>{trend.keyword}</Link>
         <TagChip label={trend.domain.name} />
       </div>
 

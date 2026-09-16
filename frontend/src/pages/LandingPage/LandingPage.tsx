@@ -5,6 +5,7 @@ import heroWave from '../../assets/flowing-wave.webp';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
 import { useTrends } from '../../features/trend/hooks/useTrends';
+import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
 import { DEFAULT_PERIOD } from '../../constants/filterCodes';
 import type { Trend, TrendType } from '../../features/trend/types/trend';
 import { landingContents } from './landingContents';
@@ -44,6 +45,7 @@ function formatCompact(count: number) {
 
 /** 시안의 카드 한 장. 머리쪽 그라데이션은 톤별로 CSS가 들고 있습니다. */
 function TrendBoard({ title, tone, trends, loading, error, locked, onRetry }: TrendBoardProps) {
+  const openDetail = useTrendDetailLink();
   const rows = trends.slice(0, 3);
 
   return (
@@ -74,7 +76,7 @@ function TrendBoard({ title, tone, trends, loading, error, locked, onRetry }: Tr
         {!locked && !loading && !error && rows.map((trend, index) => (
           <div className="landing-board-row" key={trend.trendId}>
             <span className="landing-board-rank">{trend.rank ?? index + 1}</span>
-            <Link className="landing-board-keyword" to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>
+            <Link className="landing-board-keyword" {...openDetail(trend.trendId)}>{trend.keyword}</Link>
             {tone === 'new' && trend.growthRate === null
               ? <span className="landing-board-badge">NEW</span>
               : <span className="landing-board-delta">{formatGrowth(trend)}</span>}
@@ -97,6 +99,7 @@ function recentDays(count = 7) {
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const openDetail = useTrendDetailLink();
   const session = useAuthSession();
   // 분야 목록은 로그인 없이도 열려 있지만, 트렌드 조회는 토큰이 있어야 합니다.
   const domainsQuery = useDomains();
@@ -135,7 +138,8 @@ export function LandingPage() {
       return;
     }
     setSearchMiss(undefined);
-    navigate(`/trends/${hit.trendId}`);
+    const { to, state } = openDetail(hit.trendId);
+    navigate(to, { state });
   };
 
   const submitSearch = (event: FormEvent) => {
@@ -177,7 +181,7 @@ export function LandingPage() {
           <div className="landing-tags">
             <span className="landing-tags-label">🔥 실시간 인기</span>
             {hotTags.map((trend) => (
-              <Link className="landing-tag" key={trend.trendId} to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>
+              <Link className="landing-tag" key={trend.trendId} {...openDetail(trend.trendId)}>{trend.keyword}</Link>
             ))}
             <Link className="landing-tag landing-tag--more" to="/dashboard" aria-label="트렌드 전체 보기">···</Link>
           </div>

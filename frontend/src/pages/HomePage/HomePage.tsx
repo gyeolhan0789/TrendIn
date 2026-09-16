@@ -11,6 +11,7 @@ import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
+import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
 import { formatCount, formatGrowth, toneOf } from '../../features/trend/trendFormat';
 import { pageList } from '../../utils/pageList';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
@@ -76,10 +77,12 @@ function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: s
 }
 
 function TrendKeyword({ trend, className = '' }: { trend: Trend; className?: string }) {
-  return <Link className={`explore-keyword ${className}`} to={`/trends/${trend.trendId}`}>{trend.keyword}</Link>;
+  const openDetail = useTrendDetailLink();
+  return <Link className={`explore-keyword ${className}`} {...openDetail(trend.trendId)}>{trend.keyword}</Link>;
 }
 
 function FeaturedTrend({ trend, period }: { trend: Trend; period: PeriodCode }) {
+  const openDetail = useTrendDetailLink();
   const historyQuery = useTrendHistory(trend.trendId, period);
   const relatedQuery = useTrendRelatedKeywords(trend.trendId);
   const history = historyQuery.data?.history ?? [];
@@ -140,7 +143,7 @@ function FeaturedTrend({ trend, period }: { trend: Trend; period: PeriodCode }) 
           </span>
         ))}
         {related.length > 4 && <span className="explore-featured-more">+{related.length - 4}</span>}
-        <Link className="explore-featured-detail" to={`/trends/${trend.trendId}`}>
+        <Link className="explore-featured-detail" {...openDetail(trend.trendId)}>
           자세히 보기 <ArrowIcon size={12} />
         </Link>
       </div>
