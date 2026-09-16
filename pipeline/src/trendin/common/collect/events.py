@@ -29,7 +29,9 @@ def _kst(value: datetime) -> str:
     return value.astimezone(KST).isoformat()
 
 
-def article_event(row: PendingArticle, *, bucket: str, run_id: str) -> dict[str, Any]:
+def article_event(
+    row: PendingArticle, *, bucket: str, run_id: str, source_country: str
+) -> dict[str, Any]:
     """기사 하나의 이벤트. `stat` 으로 저장을 확인한 뒤에만 만든다.
 
     `collected_at` 은 **그 기사를 받은 시각**이지 이번 실행의 시각이 아니다. 팀 계약이
@@ -39,6 +41,9 @@ def article_event(row: PendingArticle, *, bucket: str, run_id: str) -> dict[str,
     `run_id` 는 발급 실행이다. 수집 실행과 다를 수 있고, 수집 시각은
     `collected_at` 이 든다. 재발급하면 바뀌므로 파티션 키로 쓰지 않는다.
     `event_id` 는 결정적인 중복 판정 함수다. 파싱해서 source 를 추출하지 않는다.
+
+    `source_country` 를 인자로 받는 이유는 그 값이 기사가 아니라 **소스**의 속성이라
+    `PendingArticle` 에 없기 때문이다(`bucket` 과 같은 사정이다).
 
     본문은 싣지 않는다(불변식 6). `url` · `source_id` · `published_at` 은 저작권법
     제37조 출처 명시라 반드시 있다(불변식 11).
@@ -71,6 +76,10 @@ def article_event(row: PendingArticle, *, bucket: str, run_id: str) -> dict[str,
         "compression": "none",
         "failure_reason": None,
         "members_only": row.members_only,
+        # 소스를 발행하는 법인이 있는 나라 (S15P21A102-276). 이 함수가 봉투의 정본이고
+        # 장부 뷰가 그것을 흉내 내므로, 여기 넣지 않으면 뷰만 칸을 낸 꼴이 된다 —
+        # `tests/common/test_ledger_view.py` 가 둘을 대조한다.
+        "source_country": source_country,
     }
 
 

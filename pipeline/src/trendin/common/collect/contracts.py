@@ -14,6 +14,16 @@ if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
     from trendin.common.collect.article import Article
 
 
+# 국가를 판정할 수 없는 소스 (S15P21A102-276). `SourceDef.country` 가 이 값을 들 수 있고,
+# 발급이 장부의 국가 거울에서 소스를 못 찾았을 때 봉투에 내는 값도 이것이다.
+#
+# ⚠️ **장부 뷰의 `coalesce(country, 'XX')` 와 같은 값이어야 한다**(`ledger.DDL`). 봉투와 뷰가
+# 같은 기사에 같은 국가를 붙인다는 약속을 지키는 장치가 두 리터럴의 일치뿐인데, SQL 쪽은
+# 이 상수를 끼워 넣지 않았다 — DDL 을 f-string 으로 바꾸면 그 안의 중괄호가 전부 조용히
+# 포맷 자리가 된다. 대신 `tests/common/test_ledger.py` 가 둘이 같은지 본다.
+UNKNOWN_COUNTRY = "XX"
+
+
 @dataclass(frozen=True, slots=True)
 class SourceDef:
     """소스 하나의 정의. 설계 문서 #1 표의 한 행.
@@ -31,6 +41,13 @@ class SourceDef:
     # 이 소스로 칠 수 있는 URL 의 전부. 어댑터가 손에 쥔 링크를 무심코 치는 걸 막는다.
     # 확정 3(hn 이 링크한 외부 원문은 v1 에서 받지 않는다)을 거는 자리이기도 하다.
     allowed_url_prefixes: tuple[str, ...]
+    # 이 소스를 **발행하는 법인이 있는 나라**. 본사가 아니라 지사 기준이다 — Vogue Korea 는
+    # 본사가 미국이어도 두산매거진이 한국에서 발행하므로 `KR` 이다(설계 문서 #3.2 운영 법인 표).
+    # 표기는 ISO 3166-1 alpha-2 대문자이고, 판정할 수 없으면 `UNKNOWN_COUNTRY` 다.
+    # `null` 을 쓰지 않는 이유는 "아직 안 붙였다"와 "붙일 수 없다"를 구분하지 못하기 때문이다.
+    #
+    # 기본값을 두지 않는다. 기본값이 있으면 소스를 하나 더할 때 국가를 빼먹고도 통과한다.
+    country: str
     guid_param: str = "p"  # guid 쿼리에서 article_id 를 담는 파라미터
     author_field: str = "dc:creator"  # 저자가 실리는 항목 이름
     # 목록 루트 밑으로 함께 도는 하위 섹션 슬러그. 피드 소스는 빈 튜플이다.

@@ -224,6 +224,12 @@ DDL 은 `trendin.common.collect.ledger.DDL` 이고 DAG 의 첫 태스크가 `CRE
 조건부 요청용 `collect_validator(url, etag, last_modified, updated_at)` 도 같은 DDL 이 만든다.
 실행 사이에 ETag 가 남아야 304 가 실제로 듣는다.
 
+소스별 국가는 `collect_source_country(source, country)` 가 든다. 국가는 기사가 아니라 소스의 속성이라
+장부 행에 칸으로 넣지 않고, 소비 측 창구 뷰가 이 표를 `LEFT JOIN` 해 `source_country` 로 낸다 — 없으면
+`XX` 다. 값의 정본은 코드의 `SourceDef.country` 이고 DDL 뒤의 UPSERT 가 DB 거울을 맞춘다. **사라진
+소스의 행은 지우지 않는다.** 지우면 그 소스로 이미 받아 둔 기사가 전부 `XX` 로 바뀌어 과거 집계가
+흔들린다 (S15P21A102-276).
+
 v1 은 장부에 있는 `(source, article_id)` 는 다시 취득하지 않는다. 수정 기사 추적은 범위 밖이다.
 
 장부는 지우지 않는다. MinIO 객체가 보존 기간(#9)을 넘겨 사라진 뒤에도 "언제 어디서 무엇을 받았나"는 장부에 남는다. 그래서 장부의 `url` `title` `published_at` 은 article.json 의 사본이지 참조가 아니다.
@@ -327,6 +333,7 @@ message key는 둘 다 `source_id`다. 같은 토픽의 같은 소스는 한 파
 | 이벤트 | #6 토픽·키·메시지 스키마 v1 | 발급기와 모든 소비자. 스키마 버전을 올린다 |
 | 실행 주기·간격 | #9 파라미터 | 설정값만 |
 | 소스 목록 | #1 표 | 프로필 파일 추가 + 표 한 줄. 어댑터가 이미 있으면 코드 변경이 없다 |
+| 소스별 국가 | `SourceDef.country` 가 정본. ISO 3166-1 alpha-2 대문자, 판정 불가는 `XX`. 기준은 본사가 아니라 발행 법인의 소재지(#3.2) | 그 한 줄. DB 거울과 뷰의 `source_country` 는 스키마 태스크가 따라온다 |
 
 ## 11. 순서
 

@@ -56,46 +56,59 @@ def pending(**over) -> PendingArticle:
 
 def test_기사_이벤트는_event_id_가_기사마다_다르다():
     """팀 봉투의 `{source_id}-{run_id}` 를 그대로 쓰면 한 실행의 기사들이 전부 같아진다."""
-    a = article_event(pending(article_id="1"), bucket="raw-data", run_id=RUN_ID)
-    b = article_event(pending(article_id="2"), bucket="raw-data", run_id=RUN_ID)
+    a = article_event(pending(article_id="1"), bucket="raw-data", run_id=RUN_ID,
+                      source_country="KR")
+    b = article_event(pending(article_id="2"), bucket="raw-data", run_id=RUN_ID,
+                      source_country="KR")
     assert a["event_id"] == "vogue-1"
     assert a["event_id"] != b["event_id"]
 
 
 def test_checksum_은_article_json_의_해시고_접두어가_붙는다():
-    event = article_event(pending(article_sha256="b" * 64), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(article_sha256="b" * 64), bucket="raw-data", run_id=RUN_ID,
+                          source_country="KR")
     assert event["checksum"] == "sha256-" + "b" * 64
     # 소비 측이 `object_key` 를 받아 대조하는 값이라 그 객체의 해시여야 한다.
     assert event["object_key"].endswith("article.json")
 
 
 def test_collected_at_은_기사를_받은_시각이고_KST_오프셋이다():
-    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert event["collected_at"] == "2026-09-03T11:10:00+09:00"
 
 
 def test_published_at_은_소스가_준_오프셋_그대로다():
-    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert event["published_at"] == "2026-09-03T10:00:00+09:00"
+
+
+def test_소스_국가는_인자로_받은_값을_그대로_싣는다():
+    """국가는 기사가 아니라 소스의 속성이라 장부 행에 없다. 그래서 `bucket` 처럼 인자다.
+
+    판정할 수 없는 소스는 `XX` 가 들어온다 — 장부 뷰의 `coalesce(country, 'XX')` 와 같은 값이다.
+    """
+    event = article_event(pending(source="hn"), bucket="raw-data", run_id=RUN_ID,
+                          source_country="XX")
+    assert event["source_country"] == "XX"
 
 
 def test_출처_명시_필드가_빠지지_않는다():
     """저작권법 제37조. 공정이용은 출처 명시 면제 목록에 없다(불변식 11)."""
-    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     for field in ("url", "source_id", "published_at"):
         assert event[field]
 
 
 def test_본문은_싣지_않는다():
     """불변식 6 — 이벤트에 본문이 없고 키만 있다."""
-    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert "body_text" not in event
     assert "summary" not in event
 
 
 def test_회원_전용은_raw_키가_null_이다():
     row = pending(members_only=True, raw_key=None)
-    event = article_event(row, bucket="raw-data", run_id=RUN_ID)
+    event = article_event(row, bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert event["raw_object_key"] is None
     assert event["members_only"] is True
     # article.json 은 있으므로 발급 자체는 된다 — 제목·URL·발행일은 남는다.
@@ -136,10 +149,11 @@ def test_실패_사유와_상태를_검증한다(status, reason):
 
 
 def test_기사_이벤트의_run_id_는_발급_실행이다():
-    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    event = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert event["run_id"] == RUN_ID
     assert event["collected_at"] == "2026-09-03T11:10:00+09:00"
-    again = article_event(pending(), bucket="raw-data", run_id="20260904T110000")
+    again = article_event(pending(), bucket="raw-data", run_id="20260904T110000",
+                          source_country="KR")
     assert event["event_id"] == again["event_id"]
 
 
@@ -161,7 +175,7 @@ def test_죽은_소스의_수집_결과는_null이고_발급_통계는_보존된
 
 def test_기사_봉투는_소비_계약의_필드를_다_채운다():
     required = _event_schema_fields()
-    article = article_event(pending(), bucket="raw-data", run_id=RUN_ID)
+    article = article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
     for name, nullable in required.items():
         assert name in article
         if not nullable:
@@ -183,6 +197,8 @@ def test_기사_봉투가_소비_측_판별을_그대로_통과한다():
     """
     from trendin.spark.io.contract import EventShape, classify
 
-    article = classify(article_event(pending(), bucket="raw-data", run_id=RUN_ID))
+    article = classify(
+        article_event(pending(), bucket="raw-data", run_id=RUN_ID, source_country="KR")
+    )
     assert article.error_type is None, article.detail
     assert article.shape is EventShape.ARTICLE

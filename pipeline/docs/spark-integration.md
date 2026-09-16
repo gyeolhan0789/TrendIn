@@ -91,6 +91,7 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 | `compression` | string \| null | `none` |
 | `failure_reason` | string \| null | `null` |
 | `members_only` | bool | 회원 전용 기사면 `true` |
+| `source_country` | string | 소스를 발행하는 법인이 있는 나라. ISO 3166-1 alpha-2 대문자, 판정 불가는 `XX`. `null` 없음 |
 
 `run_id` 는 **발급 실행**이다. 저장만 되고 못 나간 행은 다음 회차가 내므로 수집
 실행과 달라도 정상이다. 수집 시각은 `collected_at` 에 있다. **파티션 키로 쓰지 않는다.**

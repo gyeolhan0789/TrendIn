@@ -11,7 +11,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from trendin.common.collect.article import Article
-from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
+from trendin.common.collect.contracts import (
+    UNKNOWN_COUNTRY,
+    Candidate,
+    DiscoverResult,
+    Failure,
+    SourceDef,
+)
 from trendin.common.collect.doubles import InMemoryObjectStore, RecordingEventPublisher
 from trendin.common.collect.flow import (
     SourceOutcome,
@@ -37,7 +43,11 @@ SOURCE = SourceDef(
     route="rss",
     discover_url="https://www.vogue.co.kr/category/fashion/feed/",
     allowed_url_prefixes=("https://www.vogue.co.kr/",),
+    country="KR",
 )
+# 장부의 국가 거울에 들어가는 것. `dag_factory` 의 `ensure_schema` 태스크가 소스 레지스트리에서
+# 만들어 넘기는 것과 같은 모양이고, 발급은 코드 표가 아니라 그 거울을 읽는다.
+COUNTRIES = {SOURCE.key: SOURCE.country}
 
 
 def make_article(article_id: str, *, members_only: bool = False) -> Article:
@@ -212,7 +222,7 @@ def test_두_번째_발급은_아무것도_내지_않는다():
             publisher=publisher,
             bucket="raw-data",
             domain="fashion",
-            run_id="20260903T110000",
+                run_id="20260903T110000",
             now=NOW,
         )
     assert len(publisher.sent) == 1
@@ -233,7 +243,7 @@ def test_발행이_실패하면_장부를_적지_않는다():
             publisher=Broken(),
             bucket="raw-data",
             domain="fashion",
-            run_id="20260903T110000",
+                run_id="20260903T110000",
             now=NOW,
         )
     assert len(ledger.pending("fashion")) == 1  # 다음 실행이 이어 낸다
@@ -438,7 +448,8 @@ def test_연달아_두_번_발급하면_두_번째는_0건이다():
     ledger = InMemoryLedger()
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
     publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion",
+              now=NOW)
     first = publish_pending(run_id="20260903T110000", **kw)
     second = publish_pending(run_id="20260903T120000", **kw)
     assert first == {"vogue": EmittedStats(2, NOW)}
@@ -460,6 +471,83 @@ def test_기사_이벤트에_그_발급_실행의_run_id_가_박힌다():
     )
     _key, event = publisher.sent[0]
     assert event["run_id"] == "20260903T110000"
+
+
+def test_레지스트리에서_사라진_소스도_거울에_적힌_국가로_나간다():
+    """봉투와 뷰는 같은 기사에 같은 국가를 붙여야 한다. 뷰가 읽는 것은 DB 거울이다.
+
+    `SourceDef` 에서 소스를 빼도 거울의 행은 남긴다 — 지우면 그 소스로 이미 받아 둔 기사가
+    뷰에서 전부 `XX` 가 된다. 그러면 그 소스의 미발급 행이 장부에 남아 있을 때, 발급이 코드
+    레지스트리를 읽으면 봉투만 `XX` 를 내고 뷰는 옛 국가를 내 두 창구가 갈린다.
+    """
+    ledger = InMemoryLedger()
+    ledger.ensure_schema(COUNTRIES)  # 소스가 레지스트리에 있던 회차
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    # 소스를 `SourceDef` 에서 뺀 회차. 거울의 행은 지우지 않으므로 그대로 남는다.
+    ledger.ensure_schema({})
+
+    publisher = RecordingEventPublisher()
+    publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+    )
+
+    _key, event = publisher.sent[0]
+    assert event["source_country"] == "KR"
+
+
+def test_거울에_없는_소스는_XX_로_나간다():
+    """뷰의 `coalesce(country, 'XX')` 와 같은 값이다 — 두 창구가 갈리면 안 된다."""
+    ledger = InMemoryLedger()  # `ensure_schema` 를 안 불러 거울이 비어 있다
+    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+    )
+
+    _key, event = publisher.sent[0]
+    assert event["source_country"] == UNKNOWN_COUNTRY
+
+
+def test_거울은_회차마다_한_번만_읽는다():
+    """행마다 물으면 만 건에 만 번이다. 국가는 회차 도중에 바뀌지 않는다."""
+
+    class CountingCountries(InMemoryLedger):
+        def __init__(self) -> None:
+            super().__init__()
+            self.country_calls = 0
+
+        def source_countries(self) -> dict[str, str]:
+            self.country_calls += 1
+            return super().source_countries()
+
+    ledger = CountingCountries()
+    ledger.ensure_schema(COUNTRIES)
+    collect_source(FakeAdapter([str(i) for i in range(250)]), ledger=ledger,
+                   store=InMemoryObjectStore())
+    publisher = RecordingEventPublisher()
+    publish_pending(
+        ledger=ledger,
+        publisher=publisher,
+        bucket="raw-data",
+        domain="fashion",
+        run_id="20260903T110000",
+        now=NOW,
+        batch=100,
+    )
+
+    assert len(publisher.sent) == 250
+    assert ledger.country_calls == 1, "묶음마다 다시 읽으면 안 된다"
+    assert {e["source_country"] for _k, e in publisher.sent} == {"KR"}
 
 
 def test_재시도해도_요약_건수가_그대로다():
@@ -546,7 +634,8 @@ def test_다_비운_뒤_재시도해도_건수가_같다():
     adapter = FakeAdapter([str(i) for i in range(250)])
     collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
     publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion",
+              now=NOW)
 
     first = publish_pending(run_id="20260903T110000", batch=100, **kw)
     retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
@@ -622,7 +711,8 @@ def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_
     monkeypatch.setenv(SUMMARY_TOPIC_ENV, summary_topic)
     dag = dag_factory.build_collect_dag(
         dag_id="fashion_summary_test", domain="fashion", schedule=None,
-        source_keys=["vogue"], domain_of=lambda key: "fashion", collect=lambda **kw: None,
+        source_keys=["vogue"], domain_of=lambda key: "fashion",
+        source_countries={"vogue": "KR"}, collect=lambda **kw: None,
         doc_md="요약 토픽 검증",
     )
     publish = dag.get_task("publish").python_callable

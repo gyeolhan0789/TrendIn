@@ -8,6 +8,11 @@ website" 에 접근·수집하는 것을 금지하고 RSS 예외가 없다(확�
 `guid_param` 과 `author_field` 는 지금 5소스가 모두 같은 값이지만 열로 남긴다. 2026-09-03
 실측에서 소스가 하나 늘자(hypebeast) 이 둘이 `?post=` 와 `<author>` 로 갈렸다. 열을 없애면
 다음 소스에서 어댑터 코드에 분기가 생긴다.
+
+`country` 는 일곱 소스가 모두 `KR` 이다. 근거는 설계 문서 #3.2 의 운영 법인 표 —
+vogue·gqkorea·wkorea·allure 는 두산매거진, marieclaire 는 (주)엠씨케이퍼블리싱,
+harpersbazaar·cosmopolitan 은 허스트중앙(유) 가 한국에서 발행한다. 본사가 아니라 **발행
+법인의 소재지**라서 Vogue 와 Harper's Bazaar 도 미국이 아니라 한국이다.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ RSS_SOURCES: tuple[SourceDef, ...] = (
         route="rss",
         discover_url="https://www.vogue.co.kr/category/fashion/feed/",
         allowed_url_prefixes=("https://www.vogue.co.kr/",),
+        country="KR",
     ),
     SourceDef(
         key="gqkorea",
@@ -28,6 +34,7 @@ RSS_SOURCES: tuple[SourceDef, ...] = (
         route="rss",
         discover_url="https://www.gqkorea.co.kr/category/style/feed/",
         allowed_url_prefixes=("https://www.gqkorea.co.kr/",),
+        country="KR",
     ),
     SourceDef(
         key="wkorea",
@@ -35,6 +42,7 @@ RSS_SOURCES: tuple[SourceDef, ...] = (
         route="rss",
         discover_url="https://www.wkorea.com/category/fashion/feed/",
         allowed_url_prefixes=("https://www.wkorea.com/",),
+        country="KR",
     ),
     SourceDef(
         key="allure",
@@ -42,6 +50,7 @@ RSS_SOURCES: tuple[SourceDef, ...] = (
         route="rss",
         discover_url="https://www.allurekorea.com/category/style/feed/",
         allowed_url_prefixes=("https://www.allurekorea.com/",),
+        country="KR",
     ),
     SourceDef(
         key="marieclaire",
@@ -49,6 +58,7 @@ RSS_SOURCES: tuple[SourceDef, ...] = (
         route="rss",
         discover_url="https://www.marieclairekorea.com/category/fashion/feed/",
         allowed_url_prefixes=("https://www.marieclairekorea.com/",),
+        country="KR",
     ),
 )
 
@@ -62,6 +72,7 @@ LISTING_SOURCES: tuple[SourceDef, ...] = (
         route="listing",
         discover_url="https://www.harpersbazaar.co.kr/fashion",
         allowed_url_prefixes=("https://www.harpersbazaar.co.kr/",),
+        country="KR",
         listing_sections=("news", "style", "trend", "sports", "watchnjewelry"),
     ),
     SourceDef(
@@ -70,6 +81,7 @@ LISTING_SOURCES: tuple[SourceDef, ...] = (
         route="listing",
         discover_url="https://www.cosmopolitan.co.kr/fashion",
         allowed_url_prefixes=("https://www.cosmopolitan.co.kr/",),
+        country="KR",
         listing_sections=("trends", "item", "howto", "celebstyle", "watchandjewelry"),
     ),
 )

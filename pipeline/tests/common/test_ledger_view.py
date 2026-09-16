@@ -34,6 +34,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 KST = timezone(timedelta(hours=9))
+# 뷰가 `LEFT JOIN` 으로 읽는 참조 표의 내용. 이 파일의 기사는 전부 vogue 다.
+COUNTRIES = {"vogue": "KR"}
 BUCKET = "raw-data"
 RUN_ID = "20260903T110000"
 SHA = "a" * 64
@@ -54,6 +56,10 @@ SHARED = (
     "collected_at",
     "checksum",
     "members_only",
+    # 뷰에서는 `collected_at_ts` 뒤에 있다 — `CREATE OR REPLACE VIEW` 가 칸을 덧붙이는 것만
+    # 허용해서다. 여기서는 읽는 차례가 아니라 **봉투와 같아야 하는 칸**을 모으는 목록이라
+    # 뜻이 같은 것끼리 둔다.
+    "source_country",
 )
 
 
@@ -63,6 +69,7 @@ def make_article(
     published_at: datetime,
     collected_at: datetime,
     members_only: bool = False,
+    source: str = "vogue",
 ) -> Article:
     """`tests/common/test_events.py` 의 `pending()` 과 같은 값으로 둔다.
 
@@ -71,14 +78,14 @@ def make_article(
     """
     return Article(
         domain="fashion",
-        source="vogue",
+        source=source,
         route="rss",
         article_id=article_id,
         url=f"https://www.vogue.co.kr/2026/09/03/{article_id}/",
         title="제목",
         published_at=published_at,
         collected_at=collected_at,
-        raw_key=None if members_only else f"fashion/vogue/rss/2026/09/03/{article_id}/raw.xml",
+        raw_key=None if members_only else f"fashion/{source}/rss/2026/09/03/{article_id}/raw.xml",
         content_sha256=None if members_only else "c" * 64,
         members_only=members_only or None,
     )
@@ -89,10 +96,21 @@ def ledger():
     """빈 장부와 뷰. 테이블을 비우고 시작해 테스트끼리 섞이지 않게 한다."""
     db = Database(os.environ[DB_URL_ENV].strip())
     store = PostgresLedger(db)
-    store.ensure_schema()
+    # 빈 매핑으로 한 번 — 표만 만들고 아무것도 적지 않는다. 참조 표는 UPSERT 만 하고
+    # 지우지 않으므로(`ledger._UPSERT_SOURCE_COUNTRY` 의 경고) 비우지 않으면 앞 테스트가
+    # 넣은 행이 남는다.
+    store.ensure_schema({})
     with db.transaction() as conn, conn.cursor() as cur:
         cur.execute("TRUNCATE collected_article")
+        cur.execute("TRUNCATE collect_source_country")
+    store.ensure_schema(COUNTRIES)
     return store, db
+
+
+def country_rows(db: Database) -> dict:
+    with db.transaction() as conn, conn.cursor() as cur:
+        cur.execute("SELECT source, country FROM collect_source_country")
+        return dict(cur.fetchall())
 
 
 def view_row(db: Database) -> dict:
@@ -109,12 +127,14 @@ def envelope(article: Article) -> dict:
         to_pending(article, article_key=key_of(article), article_sha256=SHA),
         bucket=BUCKET,
         run_id=RUN_ID,
+        # 참조 표에 없는 소스는 뷰가 `XX` 를 내므로 봉투 쪽도 같은 기본값을 쓴다.
+        source_country=COUNTRIES.get(article.source, "XX"),
     )
     return {name: full[name] for name in SHARED}
 
 
 def key_of(article: Article) -> str:
-    return f"fashion/vogue/rss/2026/09/03/{article.article_id}/article.json"
+    return f"fashion/{article.source}/rss/2026/09/03/{article.article_id}/article.json"
 
 
 def store(ledger, article: Article) -> None:
@@ -280,3 +300,96 @@ def test_창을_자르는_질의가_인덱스를_탄다(ledger):
     assert row is not None, "창을 자르는 인덱스가 없다"
     # 부분 인덱스면 `event_emitted_at IS NULL` 이 없는 질의가 타지 못한다.
     assert "WHERE" not in row[0].upper()
+
+
+# --- 소스 국가 (S15P21A102-276) ----------------------------------------------
+
+
+def test_뷰가_참조_표에서_소스의_국가를_붙인다(ledger):
+    """국가는 소스의 속성이라 장부 행에 없다. 뷰가 `LEFT JOIN` 으로 붙인다."""
+    store_, db = ledger
+    article = make_article(
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        collected_at=datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc),
+    )
+    store(store_, article)
+
+    row = view_row(db)
+    assert row == envelope(article)
+    assert row["source_country"] == "KR"
+
+
+def test_참조_표에_없는_소스는_XX_다(ledger):
+    """`LEFT JOIN` 이라 행이 사라지지 않는다. 행이 사라지면 그 기사가 소비 측에서 통째로
+    증발하는데, 모르는 국가 하나 때문에 기사를 잃는 것은 훨씬 나쁜 거래다."""
+    store_, db = ledger
+    article = make_article(
+        source="hypebeast",
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        collected_at=datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc),
+    )
+    store(store_, article)
+
+    row = view_row(db)
+    assert row == envelope(article)
+    assert row["source_country"] == "XX"
+
+
+def test_장부가_국가_거울을_진짜로_읽어_온다(ledger):
+    """발급이 이 값으로 봉투를 채운다(`flow.publish_pending`). 가짜 DB 로만 보면 SQL 오타가
+    안 잡힌다 — 질의가 틀려도 미리 넣어 둔 행이 그대로 돌아온다."""
+    store_, _db = ledger
+
+    assert store_.source_countries() == COUNTRIES
+
+
+def test_레지스트리에서_사라진_소스도_봉투와_뷰가_같은_국가를_낸다(ledger):
+    """국가의 정본은 코드의 `SourceDef` 지만 **발급은 거울을 읽는다.**
+
+    거울은 소스가 레지스트리에서 사라져도 지우지 않는다 — 지우면 그 소스로 이미 받아 둔
+    기사가 뷰에서 전부 `XX` 가 된다. 그래서 발급이 코드 표를 읽으면 그 소스의 미발급 행에서
+    봉투는 `XX`, 뷰는 옛 국가를 내 두 창구가 갈린다.
+    """
+    store_, db = ledger
+    store_.ensure_schema({"hypebeast": "HK"})  # 소스가 레지스트리에 있던 회차
+    article = make_article(
+        source="hypebeast",
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        collected_at=datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc),
+    )
+    store(store_, article)
+    store_.ensure_schema(COUNTRIES)  # hypebeast 를 뺀 회차
+
+    # 발급이 읽는 값과 뷰가 내는 값이 같은 국가를 가리킨다.
+    assert store_.source_countries()["hypebeast"] == "HK"
+    assert view_row(db)["source_country"] == "HK"
+
+
+
+
+def test_스키마_준비를_두_번_불러도_같은_끝_상태다(ledger):
+    """DAG 첫 태스크가 매 회차 부른다. UPSERT 가 아니면 두 번째 호출이 유일키에서 죽는다.
+
+    메모리 구현으로는 이걸 못 본다 — 유일키가 없어 두 번째 쓰기가 그냥 덮어써진다.
+    """
+    store_, db = ledger
+    store_.ensure_schema(COUNTRIES)
+
+    assert country_rows(db) == COUNTRIES
+
+
+def test_소스가_사라져도_국가_표의_행은_남는다(ledger):
+    """`SourceDef` 에서 빠진 소스의 행을 지우면 그 소스로 이미 받아 둔 기사가 뷰에서 전부
+    `XX` 로 바뀌어 과거 집계가 흔들린다. 그래서 UPSERT 만 하고 DELETE 는 하지 않는다."""
+    store_, db = ledger
+    store_.ensure_schema({"hypebeast": "HK"})
+
+    assert country_rows(db) == {"vogue": "KR", "hypebeast": "HK"}
+
+
+def test_국가가_바뀌면_덮어쓴다(ledger):
+    """운영 법인이 바뀌면 코드 표가 정본이고 DB 거울이 따라온다."""
+    store_, db = ledger
+    store_.ensure_schema({"vogue": "US"})
+
+    assert country_rows(db) == {"vogue": "US"}

@@ -2,3 +2,6 @@
 .env
 .env.*
 !.env.example
+
+# 작업용 워크트리. 스킬이 여는 자리라 저장소에 들어갈 것이 아니다.
+.claude/worktrees/

@@ -30,6 +30,7 @@ SYNTHETIC_P = SourceDef(
     route="rss",
     discover_url="https://example.test/feed/",
     allowed_url_prefixes=("https://example.test/",),
+    country="XX",
 )
 SYNTHETIC_POST = SourceDef(
     key="synthetic",
@@ -37,6 +38,7 @@ SYNTHETIC_POST = SourceDef(
     route="rss",
     discover_url="https://example.test/feed/",
     allowed_url_prefixes=("https://example.test/",),
+    country="XX",
     guid_param="post",
     author_field="author",
 )
