@@ -4,6 +4,7 @@ import com.forever102.member.domain.Domain;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -25,17 +26,20 @@ public record TrendDetailResponse(
         String reason
 ) {
 
-    public static TrendDetailResponse from(Trend trend, KeywordMetric metric, AnalysisPeriod period) {
+    public static TrendDetailResponse from(Trend trend, KeywordMetric metric, AnalysisPeriod period,
+            TrendAnalysis analysis) {
         return new TrendDetailResponse(
                 trend.getId(), trend.getKeyword().getId(), trend.getKeyword().getName(),
-                trend.getDescription(), DomainResponse.from(trend.getKeyword().getDomain()),
+                analysis == null ? null : analysis.getDescription(),
+                DomainResponse.from(trend.getKeyword().getDomain()),
                 metric == null ? List.of() : metric.getTrendTypes(),
                 metric == null ? null : metric.getMentionCount(),
                 metric == null ? null : metric.getPreviousMentionCount(),
                 metric == null ? null : metric.getGrowthAmount(),
                 metric == null ? null : metric.getGrowthRate(),
                 metric == null ? null : AnalysisWindowResponse.from(metric, period),
-                trend.getSummary(), trend.getReason());
+                analysis == null ? null : analysis.getSummary(),
+                analysis == null ? null : analysis.getReason());
     }
 
     public record DomainResponse(Domain code, String name) {

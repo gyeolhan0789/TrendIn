@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
+import { trendDetailSearch } from '../../constants/filterCodes';
 
 /**
  * 상세를 열기 직전에 보던 화면입니다.
@@ -22,7 +23,7 @@ export function useTrendDetailLink() {
 
   return useCallback(
     (trendId: number, search = '') => ({
-      to: { pathname: `/trends/${trendId}`, search },
+      to: { pathname: `/trends/${trendId}`, search: trendDetailSearch(location.search, search) },
       state: { backgroundLocation: location } satisfies TrendDetailLocationState,
     }),
     [location],

@@ -81,6 +81,7 @@ class TrendControllerTest {
         given(trendService.getTrends(
                 Domain.FASHION, TrendType.RISING, AnalysisPeriod.DAYS_7, 0, 5))
                 .willReturn(TrendListResponse.from(result, Map.of(81L, trend),
+                        Map.of(101L, TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7)),
                         TrendFixture.window(AnalysisPeriod.DAYS_7)));
 
         // when & then
@@ -204,7 +205,8 @@ class TrendControllerTest {
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_7))
                 .willReturn(TrendDetailResponse.from(trend,
-                        TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123), AnalysisPeriod.DAYS_7));
+                        TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123),
+                        AnalysisPeriod.DAYS_7, TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7)));
 
         // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "7D")
@@ -216,6 +218,8 @@ class TrendControllerTest {
                 .andExpect(jsonPath("$.data.trendTypes[0]").value("RISING"))
                 .andExpect(jsonPath("$.data.analysisWindow.recentStart").value("2026-08-24T00:00:00+09:00"))
                 .andExpect(jsonPath("$.data.growthRate").value(249.6))
+                .andExpect(jsonPath("$.data.description").value(
+                        TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7).getDescription()))
                 .andExpect(jsonPath("$.data.summary").isString())
                 .andExpect(jsonPath("$.data.reason").isString())
                 .andExpect(jsonPath("$.data.firstDetectedAt").doesNotExist())
@@ -255,7 +259,7 @@ class TrendControllerTest {
         // given
         var trend = TrendFixture.trend();
         given(trendService.getTrendDetail(101L, AnalysisPeriod.DAYS_30))
-                .willReturn(TrendDetailResponse.from(trend, null, AnalysisPeriod.DAYS_30));
+                .willReturn(TrendDetailResponse.from(trend, null, AnalysisPeriod.DAYS_30, null));
 
         // when & then
         mockMvc.perform(get("/trends/{trendId}", 101L).queryParam("period", "30D"))
@@ -263,7 +267,9 @@ class TrendControllerTest {
                 .andExpect(jsonPath("$.data.trendTypes").isEmpty())
                 .andExpect(jsonPath("$.data.mentionCount").value(nullValue()))
                 .andExpect(jsonPath("$.data.analysisWindow").value(nullValue()))
-                .andExpect(jsonPath("$.data.summary").isString());
+                .andExpect(jsonPath("$.data.description").value(nullValue()))
+                .andExpect(jsonPath("$.data.summary").value(nullValue()))
+                .andExpect(jsonPath("$.data.reason").value(nullValue()));
     }
 
     @Test

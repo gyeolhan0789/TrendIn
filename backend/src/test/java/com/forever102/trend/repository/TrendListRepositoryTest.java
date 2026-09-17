@@ -92,7 +92,7 @@ class TrendListRepositoryTest {
             int sequence, long mentionCount, String growthRate) {
         Keyword keyword = new Keyword(keywordName, domain);
         entityManager.persist(keyword);
-        Trend trend = new Trend(keyword, types, keywordName + " 설명", null, null,
+        Trend trend = new Trend(keyword,
                 TrendFixture.END.plusHours(sequence));
         entityManager.persist(trend);
         entityManager.persist(KeywordMetric.builder()

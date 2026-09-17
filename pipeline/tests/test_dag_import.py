@@ -12,12 +12,13 @@ EXPECTED_DAG_IDS = {
     "dev_example",
     "fashion_collect",
     "dev_collect",
-    # Spark 세 단계 (2026-09-10). **목록에 있는 것이 시험의 요점이다** — Airflow 의 안전 모드
+    # Spark 네 단계. **목록에 있는 것이 시험의 요점이다** — Airflow 의 안전 모드
     # 탐색은 파일에 `dag` 과 `airflow` 가 둘 다 없으면 import 오류도 없이 건너뛴다. 그때
     # `import_errors` 는 비어 있고 DAG 만 사라지므로, 이름을 적어 두지 않으면 아무도 모른다.
     "spark_ingest",
     "spark_extract",
     "spark_aggregate",
+    "spark_analyze",
 }
 
 
@@ -37,7 +38,7 @@ def test_dag_ids_carry_scope_prefix():
     """DAG 이름은 **무엇에 매인 것인지**로 시작한다.
 
     도메인에 매인 것은 `fashion_`·`dev_` 다 — 소스가 도메인별이라 수집이 그렇다.
-    `spark_` 는 도메인에 매이지 않은 것이다. Spark Job 셋 중 도메인을 아는 것은 `extract`
+    `spark_` 는 도메인에 매이지 않은 것이다. Spark Job 중 도메인을 아는 것은 `extract`
     뿐이고(`ingest` 는 토픽 하나를 소비, `aggregate` 는 `--domain` 인자가 없다) 그 하나도
     DAG 이 아니라 **태스크**로 나뉜다. 그래서 접두를 도메인으로 붙일 수 없다.
     """
@@ -62,13 +63,21 @@ def test_spark_태스크는_새_것_없음을_skip_으로_읽는다():
     from trendin.spark.common.exit_codes import NOTHING_NEW
 
     bag = load_bag()
-    for dag_id in ("spark_ingest", "spark_extract", "spark_aggregate"):
+    for dag_id in ("spark_ingest", "spark_extract", "spark_aggregate", "spark_analyze"):
         for task in bag.dags[dag_id].tasks:
             # `BashOperator` 가 값을 목록으로 정규화한다 (`99` → `[99]`). 어느 쪽으로 와도
             # 같게 보도록 펴서 비교한다 — 정규화 방식은 Airflow 사정이라 바뀔 수 있다.
             codes = task.skip_on_exit_code
             codes = [codes] if isinstance(codes, int) else sorted(codes or ())
             assert codes == [NOTHING_NEW], f"{dag_id}.{task.task_id} → {codes!r}"
+
+
+def test_aggregate_완료_자산을_발행한다():
+    from trendin.spark.dag_factory import METRICS
+
+    bag = load_bag()
+    aggregate = bag.dags["spark_aggregate"]
+    assert any(asset.uri == METRICS.uri for task in aggregate.tasks for asset in task.outlets)
 
 
 def test_수집_DAG_이_ingest_를_깨울_자산을_낸다():

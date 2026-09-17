@@ -11,7 +11,7 @@ import { useTrendContents } from '../../features/trend/hooks/useTrendContents';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
-import { parsePeriod } from '../../constants/filterCodes';
+import { parsePeriod, SAVED_TREND_PERIOD } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
 import type { TrendDetailLocationState } from '../../features/trend/trendDetailLink';
 import type { TrendDetail, TrendHistoryPoint } from '../../features/trend/types/trend';
@@ -70,7 +70,8 @@ export function TrendDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const period = parsePeriod(searchParams.get('period'));
+  const period = parsePeriod(searchParams.get('period')
+    ?? (searchParams.get('from') === 'saved' ? SAVED_TREND_PERIOD : null));
   // 주소에 트렌드가 아닌 값이 들어올 수 있어, 숫자로 읽히지 않으면 조회하지 않습니다.
   const parsedTrendId = Number(trendIdParam);
   const trendId = Number.isInteger(parsedTrendId) && parsedTrendId > 0 ? parsedTrendId : undefined;
@@ -169,7 +170,7 @@ export function TrendDetailPage() {
           <header className="detail-hero">
             <span className="detail-category">{trend.domain.name}</span>
             <h1>{trend.keyword}</h1>
-            <p>{trend.description}</p>
+            <p>{trend.description ?? '아직 정리된 설명이 없습니다.'}</p>
           </header>
 
           <section className="detail-kpis" aria-label="트렌드 핵심 지표">

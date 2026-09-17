@@ -5,6 +5,7 @@ import com.forever102.trend.domain.AnalysisWindow;
 import com.forever102.trend.domain.Keyword;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -20,10 +21,11 @@ public record TrendListResponse(
         AnalysisWindowResponse analysisWindow
 ) {
     public static TrendListResponse from(
-            Page<KeywordMetric> metrics, Map<Long, Trend> trendsByKeywordId, AnalysisWindow window) {
+            Page<KeywordMetric> metrics, Map<Long, Trend> trendsByKeywordId,
+            Map<Long, TrendAnalysis> analysesByTrendId, AnalysisWindow window) {
         return new TrendListResponse(metrics.getContent().stream()
                 .map(metric -> TrendItemResponse.from(
-                        trendsByKeywordId.get(metric.getKeyword().getId()), metric))
+                        trendsByKeywordId.get(metric.getKeyword().getId()), metric, analysesByTrendId))
                 .toList(), metrics.getNumber(), metrics.getSize(), metrics.hasNext(),
                 AnalysisWindowResponse.from(window));
     }
@@ -41,12 +43,12 @@ public record TrendListResponse(
             long growthAmount,
             BigDecimal growthRate
     ) {
-        private static TrendItemResponse from(Trend trend, KeywordMetric metric) {
-            // 판정은 지표 행에 실린다. trends 행은 AI 설명(description)과 상세 진입 키만 들고
-            // 있고 파이프라인이 만들지 않으므로, 아직 없는 키워드도 목록에는 오를 수 있다.
+        private static TrendItemResponse from(Trend trend, KeywordMetric metric,
+                Map<Long, TrendAnalysis> analysesByTrendId) {
+            TrendAnalysis analysis = trend == null ? null : analysesByTrendId.get(trend.getId());
             Keyword keyword = metric.getKeyword();
             return new TrendItemResponse(trend == null ? null : trend.getId(), keyword.getId(),
-                    keyword.getName(), trend == null ? null : trend.getDescription(),
+                    keyword.getName(), analysis == null ? null : analysis.getDescription(),
                     DomainResponse.from(keyword.getDomain()), metric.getTrendTypes(),
                     metric.getMentionRank(), metric.getMentionCount(), metric.getPreviousMentionCount(),
                     metric.getGrowthAmount(), metric.getGrowthRate());

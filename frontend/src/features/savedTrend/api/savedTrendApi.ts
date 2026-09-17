@@ -2,7 +2,7 @@ import { apiClient } from '../../../api/client';
 import type { ApiResponse, Page } from '../../../api/apiResponse';
 import { unwrap } from '../../../api/apiResponse';
 import { API_ENDPOINTS } from '../../../constants/apiEndpoints';
-import { DEFAULT_PERIOD } from '../../../constants/filterCodes';
+import { SAVED_TREND_PERIOD } from '../../../constants/filterCodes';
 import type { SavedTrend, SavedTrendList } from '../types/savedTrend';
 
 /**
@@ -14,7 +14,7 @@ const MAX_SAVED_TRENDS = 200;
 export async function getSavedTrends(): Promise<SavedTrendList> {
   const data = await unwrap(apiClient.get<ApiResponse<Page<SavedTrend>>>(API_ENDPOINTS.members.savedTrends, {
     // 지표는 기간마다 달라지는데 이 화면에는 기간을 고르는 자리가 없어 기본 기간으로 받습니다.
-    params: { period: DEFAULT_PERIOD, page: 0, size: MAX_SAVED_TRENDS },
+    params: { period: SAVED_TREND_PERIOD, page: 0, size: MAX_SAVED_TRENDS },
   }));
   return { trends: data.content, hasNext: data.hasNext };
 }

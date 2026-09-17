@@ -103,12 +103,28 @@ def test_aggregate_는_date_를_받는다():
     assert parser.parse_args(["--date", "2026-09-03"]).date == "2026-09-03"
 
 
-def test_세_진입점의_JOB_이름이_정해져_있다():
+def test_analyze_는_전체_기간을_기본으로_단일_기간도_받는다():
+    import analyze
+
+    parser = build_parser("analyze", analyze.add_arguments)
+    assert parser.parse_args([]).period is None
+    assert parser.parse_args(["--period", "24H"]).period == "24H"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--period", "14D"])
+
+
+def test_네_진입점의_JOB_이름이_정해져_있다():
     import aggregate
+    import analyze
     import extract
     import ingest
 
-    assert {ingest.JOB, extract.JOB, aggregate.JOB} == {"ingest", "extract", "aggregate"}
+    assert {ingest.JOB, extract.JOB, aggregate.JOB, analyze.JOB} == {
+        "ingest",
+        "extract",
+        "aggregate",
+        "analyze",
+    }
 
 
 def test_ingest_는_contents_부재_허용_플래그를_받고_기본은_꺼져_있다():

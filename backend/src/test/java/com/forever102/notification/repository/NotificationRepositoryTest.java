@@ -214,7 +214,7 @@ class NotificationRepositoryTest {
     }
 
     private Trend persistTrend(Keyword keyword) {
-        Trend trend = new Trend(keyword, List.of(TrendType.RISING), "설명", null, null,
+        Trend trend = new Trend(keyword,
                 OffsetDateTime.parse("2026-09-10T00:00:00+09:00"));
         entityManager.persist(trend);
         return trend;

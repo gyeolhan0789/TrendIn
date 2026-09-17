@@ -23,6 +23,7 @@ import com.forever102.trend.domain.Trend;
 import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.TrendRepository;
+import com.forever102.trend.repository.TrendAnalysisRepository;
 import java.time.Clock;
 import java.time.ZoneOffset;
 import java.sql.SQLException;
@@ -41,6 +42,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class SavedTrendServiceTest {
+    @Mock TrendAnalysisRepository analysisRepository;
 
     @Mock SavedTrendRepository savedTrendRepository;
     @Mock MemberRepository memberRepository;
@@ -54,7 +56,7 @@ class SavedTrendServiceTest {
     void setUp() {
         clock = Clock.fixed(TrendFixture.END.plusHours(12).toInstant(), ZoneOffset.UTC);
         service = new SavedTrendService(savedTrendRepository, memberRepository, trendRepository,
-                keywordMetricRepository, clock);
+                keywordMetricRepository, clock, analysisRepository);
     }
 
     @Test
@@ -191,6 +193,8 @@ class SavedTrendServiceTest {
         given(keywordMetricRepository.findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
                 List.of(81L), AnalysisPeriod.DAYS_7,
                 window.getRecentStart(), window.getRecentEnd())).willReturn(List.of(metric));
+        given(analysisRepository.findByTrendIdInAndPeriod(List.of(101L), AnalysisPeriod.DAYS_7))
+                .willReturn(List.of(TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7)));
 
         // when
         SavedTrendListResponse response = service.getSavedTrends(1L, AnalysisPeriod.DAYS_7, 0, 20);
@@ -200,6 +204,7 @@ class SavedTrendServiceTest {
             assertThat(item.savedTrendId()).isEqualTo(15L);
             assertThat(item.mentionCount()).isEqualTo(430L);
             assertThat(item.growthRate()).isEqualByComparingTo("249.6");
+            assertThat(item.description()).contains("발레 슈즈");
         });
     }
 
@@ -208,7 +213,6 @@ class SavedTrendServiceTest {
     void keepsSavedTrendWithoutCurrentType() {
         // given
         Trend trend = TrendFixture.trend();
-        ReflectionTestUtils.setField(trend, "trendTypes", new TrendType[0]);
         SavedTrend savedTrend = savedTrend(trend, 15L);
         PageRequest pageable = PageRequest.of(0, 20);
         AnalysisWindow window = AnalysisWindow.completed(AnalysisPeriod.HOURS_24, clock);
@@ -226,6 +230,7 @@ class SavedTrendServiceTest {
             assertThat(item.trendTypes()).isEmpty();
             assertThat(item.mentionCount()).isNull();
             assertThat(item.growthRate()).isNull();
+            assertThat(item.description()).isNull();
         });
     }
 

@@ -13,6 +13,8 @@ import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
+import com.forever102.trend.repository.TrendAnalysisRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
@@ -37,6 +39,7 @@ public class SavedTrendService {
     private final TrendRepository trendRepository;
     private final KeywordMetricRepository keywordMetricRepository;
     private final Clock trendClock;
+    private final TrendAnalysisRepository trendAnalysisRepository;
 
     public SavedTrendListResponse getSavedTrends(
             Long memberId,
@@ -47,7 +50,7 @@ public class SavedTrendService {
         Page<SavedTrend> savedTrends = savedTrendRepository
                 .findAllByMemberIdOrderByCreatedAtDescIdDesc(memberId, PageRequest.of(page, size));
         if (savedTrends.isEmpty()) {
-            return SavedTrendListResponse.from(savedTrends, Map.of());
+            return SavedTrendListResponse.from(savedTrends, Map.of(), Map.of());
         }
 
         AnalysisWindow window = AnalysisWindow.completed(period, trendClock);
@@ -59,7 +62,10 @@ public class SavedTrendService {
                         period, window.getRecentStart(), window.getRecentEnd())
                 .stream()
                 .collect(Collectors.toMap(metric -> metric.getKeyword().getId(), Function.identity()));
-        return SavedTrendListResponse.from(savedTrends, metricsByKeywordId);
+        Map<Long, TrendAnalysis> analyses = trendAnalysisRepository.findByTrendIdInAndPeriod(
+                        savedTrends.stream().map(saved -> saved.getTrend().getId()).toList(), period)
+                .stream().collect(Collectors.toMap(a -> a.getTrend().getId(), Function.identity()));
+        return SavedTrendListResponse.from(savedTrends, metricsByKeywordId, analyses);
     }
 
     @Transactional

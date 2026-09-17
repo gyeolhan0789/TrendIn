@@ -18,7 +18,7 @@ export interface Trend {
   trendId: number;
   keywordId: number;
   keyword: string;
-  description: string;
+  description: string | null;
   domain: TrendDomainRef;
   /** 한 트렌드가 여러 갈래에 동시에 들 수 있습니다. */
   trendTypes: TrendType[];
@@ -69,7 +69,7 @@ export interface TrendDetail {
   trendId: number;
   keywordId: number;
   keyword: string;
-  description: string;
+  description: string | null;
   domain: TrendDomainRef;
   trendTypes: TrendType[];
   /** 요청한 기간의 지표가 아직 쌓이지 않았으면 지표와 분석 구간이 함께 비어 옵니다. */

@@ -131,7 +131,7 @@ class KeywordServiceTest {
     }
 
     private Trend trend(Long id, Keyword keyword) {
-        Trend trend = new Trend(keyword, List.of(TrendType.CURRENT), "설명", null, null,
+        Trend trend = new Trend(keyword,
                 TrendFixture.END);
         ReflectionTestUtils.setField(trend, "id", id);
         return trend;

@@ -52,7 +52,7 @@ class KeywordMetricRepositoryTest {
     private Trend persistTrend(String name) {
         Keyword keyword = new Keyword(name, Domain.FASHION);
         entityManager.persist(keyword);
-        Trend trend = new Trend(keyword, List.of(TrendType.RISING), "짧은 설명", "상세 요약", "주목 이유",
+        Trend trend = new Trend(keyword,
                 TrendFixture.END);
         entityManager.persist(trend);
         return trend;
