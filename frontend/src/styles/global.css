@@ -784,14 +784,25 @@ h1 { margin: 0; line-height: 1.25; }
 /* 새 시안 화면들이 함께 쓰는 조각: 드롭다운 한 칸, 불러오는 중·실패 표시, 분야 태그. */
 .trendin-filter { display: flex; align-items: center; gap: 8px; }
 .trendin-filter-label { color: var(--lp-muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
-/* 시안의 드롭다운 버튼 모양. 실제로는 select라서 키보드·모바일 조작이 그대로 됩니다. */
+/*
+ * 시안의 드롭다운 한 칸. 칸 모양은 그대로 두고, 눌렀을 때 내려오는 목록만 화면이 직접 그립니다.
+ * 브라우저가 그리는 select 목록은 운영체제마다 생김새가 달라 시안과 맞출 수 없기 때문입니다.
+ */
 .trendin-select { display: flex; position: relative; align-items: center; padding: 0 12px 0 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; transition: background .15s; }
 .trendin-select:hover:not(.is-disabled) { background: #f9fafb; }
-.trendin-select select { padding: 8px 22px 8px 0; border: 0; appearance: none; background: transparent; color: inherit; font-size: 13px; cursor: pointer; }
-.trendin-select select:focus { outline: none; }
-.trendin-select > svg { position: absolute; right: 12px; pointer-events: none; }
+.trendin-select-value { padding: 8px 22px 8px 0; border: 0; background: transparent; color: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-value:focus { outline: none; }
+.trendin-select:focus-within { border-color: var(--lp-indigo); }
+.trendin-select > svg { position: absolute; right: 12px; pointer-events: none; transition: transform .15s; }
+.trendin-select.is-open > svg { transform: rotate(180deg); }
 .trendin-select.is-disabled { background: #f9fafb; color: #b6bac1; cursor: default; }
-.trendin-select.is-disabled select { cursor: default; }
+.trendin-select.is-disabled .trendin-select-value { cursor: default; }
+
+/* 내려오는 목록. 검색 상자 아래에 뜨는 목록과 같은 흰 카드입니다. 칸보다 좁아지지 않게만 잡고 글에 맞춰 늘립니다. */
+.trendin-select-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 100%; width: max-content; max-width: 280px; margin: 0; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); list-style: none; }
+.trendin-select-row { padding: 8px 12px; border-radius: 8px; color: #374151; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-row.is-active { background: #f5f3ff; }
+.trendin-select-row.is-selected { color: var(--lp-indigo); font-weight: 600; }
 
 .trendin-state { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 64px 0; color: var(--lp-faint); font-size: 14px; }
 .trendin-state > span { width: 7px; height: 7px; border-radius: 50%; background: #c4b5fd; animation: trend-loading 1s infinite ease-in-out; }
