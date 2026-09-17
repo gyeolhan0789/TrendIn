@@ -1381,10 +1381,12 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-cards.is-single { max-width: 720px; margin-right: auto; margin-left: auto; }
 /*
  * 고를 것 둘을 나란히. 키가 달라도 두 장이 같은 높이로 서야 줄이 맞습니다.
- * 남는 높이를 먹되 끝없이 자라지는 않게 막습니다. 아주 높은 창에서 카드만 커지면 되레 허전합니다.
+ *
+ * 카드는 제 내용만큼만 높습니다. 남는 높이는 위아래 auto 마진이 반씩 나눠 가져, 소개·단계
+ * 표시와도 버튼과도 고르게 떨어집니다. 카드를 늘려 채우면 안이 텅 빈 큰 상자가 됩니다.
  */
-.onboarding-columns { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr 1fr; max-height: 330px; gap: 18px; }
-.onboarding-cards.is-single .onboarding-card { flex: 1; min-height: 0; max-height: 330px; }
+.onboarding-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: auto 0; }
+.onboarding-cards.is-single .onboarding-card { margin: auto 0; }
 .onboarding-card { display: flex; flex-direction: column; padding: 24px 30px; border-radius: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 8px 32px rgba(0, 0, 0, .03); }
 .onboarding-card-head { display: flex; align-items: center; gap: 12px; }
 .onboarding-card-step { display: grid; flex-shrink: 0; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: #eef2ff; color: var(--lp-indigo); font-size: 13px; font-weight: 700; }
@@ -1452,8 +1454,8 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-loading { display: grid; place-items: center; padding: 60px 0; }
 .onboarding-page .onboarding-alert { padding: 12px 15px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
 
-/* auto 가 남는 높이를 다 먹어 버튼을 바닥에 붙입니다. 카드와의 최소 간격은 위 gap 이 지킵니다. */
-.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: auto; padding-top: 22px; }
+/* 카드의 아래쪽 auto 마진이 남는 높이를 먹어, 버튼은 그대로 바닥에 남습니다. */
+.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; padding-top: 22px; }
 .onboarding-later { display: flex; align-items: center; gap: 8px; padding: 13px 30px; border: 1.5px solid #d1d5db; border-radius: 12px; background: #fff; color: var(--lp-muted); font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s; }
 .onboarding-later:hover:not(:disabled) { border-color: #b0b5bf; background: #f9fafb; }
 .onboarding-done { display: flex; align-items: center; gap: 8px; padding: 13px 44px; border-radius: 12px; background: var(--lp-indigo); color: #fff; font-size: 15px; font-weight: 600; transition: background .15s; }
