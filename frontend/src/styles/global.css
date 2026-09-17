@@ -1348,10 +1348,10 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-avatar { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #eef2ff; }
 
 /*
- * 2쪽은 카드가 한 장뿐이라 위로 몰리면 아래가 휑합니다. 남는 높이를 위아래로 나눠 가운데에
- * 세웁니다. safe 를 붙여야 내용이 넘칠 때 위쪽이 잘리지 않고 시작점에 붙습니다.
+ * 소개와 단계 표시는 위에, 버튼은 바닥에 붙이고, 남는 높이는 가운데 카드가 먹습니다.
+ * 전부 가운데로 모으면 위아래가 똑같이 비어 화면을 덜 쓰게 됩니다.
  */
-.onboarding-main { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: safe center; width: 100%; max-width: 1000px; margin: 0 auto; padding: 28px 40px 24px; }
+.onboarding-main { display: flex; flex: 1; flex-direction: column; align-items: center; width: 100%; max-width: 1000px; margin: 0 auto; padding: 24px 40px 28px; }
 
 .onboarding-hero { max-width: 640px; text-align: center; }
 .onboarding-page .onboarding-eyebrow { margin-bottom: 10px; color: var(--lp-indigo); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; }
@@ -1375,11 +1375,16 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-steps li.is-idle .onboarding-step-text strong { color: var(--lp-faint); font-weight: 500; }
 .onboarding-steps li.is-idle .onboarding-step-text small { color: #c4c9d1; }
 
-.onboarding-cards { display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 44px; }
+/* 남는 높이를 받아 카드에 내주고, 버튼은 아래(margin-top: auto)로 밀어냅니다. */
+.onboarding-cards { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 16px; width: 100%; margin-top: 44px; }
 /* 2쪽의 알림 카드 한 장. 두 단 너비를 다 쓰면 늘어져 보여 가운데로 좁힙니다. */
 .onboarding-cards.is-single { max-width: 720px; margin-right: auto; margin-left: auto; }
-/* 고를 것 둘을 나란히. 키가 달라도 두 장이 같은 높이로 서야 줄이 맞습니다. */
-.onboarding-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+/*
+ * 고를 것 둘을 나란히. 키가 달라도 두 장이 같은 높이로 서야 줄이 맞습니다.
+ * 남는 높이를 먹되 끝없이 자라지는 않게 막습니다. 아주 높은 창에서 카드만 커지면 되레 허전합니다.
+ */
+.onboarding-columns { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr 1fr; max-height: 460px; gap: 18px; }
+.onboarding-cards.is-single .onboarding-card { flex: 1; min-height: 0; max-height: 460px; }
 .onboarding-card { display: flex; flex-direction: column; padding: 24px 30px; border-radius: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 8px 32px rgba(0, 0, 0, .03); }
 .onboarding-card-head { display: flex; align-items: center; gap: 12px; }
 .onboarding-card-step { display: grid; flex-shrink: 0; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: #eef2ff; color: var(--lp-indigo); font-size: 13px; font-weight: 700; }
@@ -1417,6 +1422,8 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-search-row small { color: var(--lp-faint); font-size: 12px; }
 
 .onboarding-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+/* 담은 키워드 줄이 카드의 남는 높이를 받습니다. 칩은 늘어난 칸 위쪽에 그대로 붙어 있습니다. */
+.onboarding-chips--mine { flex: 1; min-height: 0; align-content: flex-start; }
 .onboarding-chips-label { color: var(--lp-faint); font-size: 13px; font-weight: 500; }
 .onboarding-chip { padding: 7px 15px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: var(--lp-muted); font-size: 13px; transition: border-color .15s, background .15s, color .15s; }
 .onboarding-chip:hover:not(:disabled) { border-color: #c7d2fe; background: #f5f3ff; color: var(--lp-indigo); }
@@ -1425,8 +1432,9 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-chip.is-mine button { display: grid; place-items: center; padding: 2px; border-radius: 50%; color: currentColor; opacity: .6; }
 .onboarding-chip.is-mine button:hover:not(:disabled) { opacity: 1; }
 
-.onboarding-notifs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.onboarding-notif { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; border: 1.5px solid #f3f4f6; border-radius: 16px; background: #fafafa; text-align: left; transition: border-color .15s, background .15s; }
+/* 카드가 늘어난 만큼 칸들도 함께 자랍니다. 1fr 이라야 두 줄이 남는 높이를 반씩 나눠 갖습니다. */
+.onboarding-notifs { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 12px; }
+.onboarding-notif { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border: 1.5px solid #f3f4f6; border-radius: 16px; background: #fafafa; text-align: left; transition: border-color .15s, background .15s; }
 .onboarding-notif.is-on { border-color: #e0e7ff; background: #fafbff; }
 .onboarding-notif:hover { border-color: #c7d2fe; }
 .onboarding-notif-icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 12px; font-size: 18px; }
@@ -1438,7 +1446,7 @@ h1 { margin: 0; line-height: 1.25; }
  * `.trendin-ui p` 의 keep-all 이 닿지 않아 여기서 따로 겁니다.
  */
 .onboarding-notif-text small { margin-top: 4px; color: var(--lp-faint); font-size: 12px; line-height: 1.5; text-wrap: balance; word-break: keep-all; }
-.onboarding-notif-switch { display: block; position: relative; flex: 0 0 44px; width: 44px; height: 24px; margin-top: 4px; border-radius: 12px; background: #d1d5db; transition: background .2s; }
+.onboarding-notif-switch { display: block; position: relative; flex: 0 0 44px; width: 44px; height: 24px; border-radius: 12px; background: #d1d5db; transition: background .2s; }
 .onboarding-notif.is-on .onboarding-notif-switch { background: var(--lp-indigo); }
 .onboarding-notif-switch i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); transition: left .2s; }
 .onboarding-notif.is-on .onboarding-notif-switch i { left: 22px; }
@@ -1446,7 +1454,8 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-loading { display: grid; place-items: center; padding: 60px 0; }
 .onboarding-page .onboarding-alert { padding: 12px 15px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
 
-.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 22px; }
+/* auto 가 남는 높이를 다 먹어 버튼을 바닥에 붙입니다. 카드와의 최소 간격은 위 gap 이 지킵니다. */
+.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: auto; padding-top: 22px; }
 .onboarding-later { display: flex; align-items: center; gap: 8px; padding: 13px 30px; border: 1.5px solid #d1d5db; border-radius: 12px; background: #fff; color: var(--lp-muted); font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s; }
 .onboarding-later:hover:not(:disabled) { border-color: #b0b5bf; background: #f9fafb; }
 .onboarding-done { display: flex; align-items: center; gap: 8px; padding: 13px 44px; border-radius: 12px; background: var(--lp-indigo); color: #fff; font-size: 15px; font-weight: 600; transition: background .15s; }
@@ -1472,7 +1481,7 @@ h1 { margin: 0; line-height: 1.25; }
   .onboarding-domain { padding: 15px 8px; }
   .onboarding-notif { padding: 14px 18px; }
 }
-@media (max-height: 640px) {
+@media (max-height: 660px) {
   .onboarding-header { height: 54px; }
   .onboarding-main { padding-top: 14px; padding-bottom: 14px; }
   .onboarding-hero h1 { font-size: 22px; }
@@ -1493,12 +1502,11 @@ h1 { margin: 0; line-height: 1.25; }
   .onboarding-later, .onboarding-done { padding-top: 11px; padding-bottom: 11px; }
 }
 /* 여기서부터는 소개와 단계 설명을 접습니다. 고를 카드가 먼저 보여야 합니다. */
-@media (max-height: 530px) {
+@media (max-height: 560px) {
   .onboarding-hero { display: none; }
   .onboarding-steps { margin-top: 0; }
   .onboarding-step-text small { display: none; }
   .onboarding-notif-text small { display: none; }
-  .onboarding-notif { align-items: center; }
 }
 /* 두 단이 좁아지면 고를 것 둘을 위아래로 되돌립니다. 좁은 칸에 욱여넣는 것보다 낫습니다. */
 @media (max-width: 900px) {
