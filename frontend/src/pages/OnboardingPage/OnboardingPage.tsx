@@ -37,7 +37,7 @@ const NOTIFICATION_OPTIONS = [
   { id: 'surging', icon: '🔥', title: '급상승 알림', desc: '지금 뜨는 트렌드를 가장 빠르게 알려드려요.', tint: '#fef2f2' },
   { id: 'new', icon: '🆕', title: '신규 트렌드 알림', desc: '새롭게 등장한 트렌드를 알려드려요.', tint: '#eef2ff' },
   { id: 'resurging', icon: '📈', title: '재급상승 알림', desc: '다시 주목받는 트렌드를 알려드려요.', tint: '#f0fdf4' },
-  { id: 'interest', icon: '🔖', title: '관심 키워드만 받기', desc: '내가 선택한 키워드의 트렌드만 모아보세요.', tint: '#fefce8' },
+  { id: 'interest', icon: '🔖', title: '관심 키워드 알림', desc: '내가 선택한 키워드의 트렌드를 알려드려요.', tint: '#fefce8' },
 ];
 
 /** 글자를 칠 때마다 보내지 않고, 잠시 멈춘 뒤의 값으로만 찾습니다. */
