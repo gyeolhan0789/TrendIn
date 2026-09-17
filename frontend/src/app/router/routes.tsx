@@ -5,6 +5,8 @@ import { LoginPage } from '../../pages/LoginPage/LoginPage';
 import { MyPage } from '../../pages/MyPage/MyPage';
 import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
 import { OnboardingPage } from '../../pages/OnboardingPage/OnboardingPage';
+import { PasswordResetPage } from '../../pages/PasswordResetPage/PasswordResetPage';
+
 import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
@@ -42,6 +44,8 @@ export const authRoutes = (
   <>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/signup" element={<SignUpPage />} />
+    <Route path="/password-reset" element={<PasswordResetPage />} />
+
     <Route path="/onboarding" element={<OnboardingPage />} />
     <Route path="/oauth/:provider/callback" element={<OAuthCallbackPage />} />
   </>

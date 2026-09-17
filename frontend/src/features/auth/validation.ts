@@ -54,7 +54,17 @@ export function validateLoginPassword(password: string): string | undefined {
   return undefined;
 }
 
+/**
+ * 메일로 받은 인증번호. 맞는 번호인지는 서버만 알고, 여기서는 빈 칸만 거릅니다.
+ * 자릿수를 짐작해 막으면, 서버가 형식을 바꾸는 날 맞는 번호까지 함께 막힙니다.
+ */
+export function validateVerificationCode(code: string): string | undefined {
+  if (!code.trim()) return '인증번호를 입력해 주세요.';
+  return undefined;
+}
+
 export function validatePasswordConfirm(password: string, confirm: string): string | undefined {
+
   if (!confirm) return '비밀번호를 한 번 더 입력해 주세요.';
   if (password !== confirm) return '비밀번호가 일치하지 않습니다.';
   return undefined;

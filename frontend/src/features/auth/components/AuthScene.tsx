@@ -8,10 +8,14 @@ import { Link } from 'react-router-dom';
  *
  * 높이는 .auth-scene 이 100dvh 안에 가두고, 창이 낮아지면 소개 쪽 여백부터 걷습니다.
  * 그래서 어느 화면을 붙이든 스크롤 없이 한 화면에 들어옵니다.
+ *
+ * className 은 그 여백을 화면마다 한 번 더 조일 자리입니다. 카드가 가장 큰 비밀번호 재설정만
+ * 낮은 창에서 공통값으로는 모자라, 자기 이름을 걸고 제 몫을 더 걷어 갑니다.
  */
-export function AuthScene({ children }: { children: ReactNode }) {
+export function AuthScene({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="trendin-ui auth-scene">
+    <div className={`trendin-ui auth-scene${className ? ` ${className}` : ''}`}>
+
       {/* 시안의 물결 배경. 장식이라 읽히지 않게 두고 클릭도 통과시킵니다. */}
       <div className="auth-scene-wave" aria-hidden="true">
         <svg viewBox="0 0 800 320" preserveAspectRatio="none" fill="none">
@@ -41,17 +45,10 @@ export function AuthScene({ children }: { children: ReactNode }) {
           </svg>
           TrendIn
         </Link>
-        <Link className="auth-scene-home" to="/">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-          홈으로
-        </Link>
       </header>
 
       <div className="auth-scene-main">
         <section className="auth-scene-hero">
-          <p className="auth-scene-hero-eyebrow">REAL-TIME TREND INSIGHTS</p>
           <h1>지금,<br />세상을 움직이는<br /><span>트렌드</span>를 담다</h1>
           <p className="auth-scene-hero-lead">수많은 데이터 속에서 중요한 흐름을 찾아,<br />더 빠르고, 더 깊이 있게.</p>
 
@@ -101,11 +98,8 @@ export function AuthScene({ children }: { children: ReactNode }) {
           </ul>
 
           <div className="auth-scene-hero-foot">
-            <div>
-              <p>지금도,<br />새로운 트렌드가 만들어지고 있어요.</p>
-              <span className="auth-scene-hero-progress" aria-hidden="true"><i /></span>
-            </div>
-            <p className="auth-scene-hero-side">DISCOVER<br />ANALYZE<br />BE INSPIRED</p>
+            <p>지금도,<br />새로운 트렌드가 만들어지고 있어요.</p>
+            <span className="auth-scene-hero-progress" aria-hidden="true"><i /></span>
           </div>
         </section>
 
