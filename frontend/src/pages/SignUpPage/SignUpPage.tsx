@@ -166,6 +166,8 @@ export function SignUpPage() {
   const checkedCurrent = checkedEmail === normalizedEmail;
   const available = checkedCurrent ? availabilityQuery.data : undefined;
   const checkingEmail = checkedCurrent && availabilityQuery.isFetching;
+  // 다시 부르는 중이면 아직 실패라고 하지 않습니다. 앞선 실패가 남아 있을 뿐입니다.
+  const checkFailed = checkedCurrent && availabilityQuery.isError && !checkingEmail;
 
   const takenError = available === false ? '이미 가입된 이메일입니다.' : undefined;
   const emailError = errors.email ?? takenError;
@@ -176,11 +178,10 @@ export function SignUpPage() {
     if (available === true) {
       return <span className="signup-ok"><CheckIcon />사용할 수 있는 이메일입니다.</span>;
     }
-    /*
-     * 확인이 실패하면(null) 눌렀는데 아무 일도 안 난 것처럼 보입니다. 막지는 않되 그 사실은
-     * 알립니다. 중복은 가입 응답의 409가 최종적으로 가려내므로 그대로 진행해도 됩니다.
-     */
-    if (available === null) return '지금은 확인할 수 없습니다. 그대로 가입을 진행해도 됩니다.';
+    // 확인이 실패하면 실패했다고 말합니다. 못 한 일을 한 것처럼 넘기지 않습니다.
+    if (checkFailed) {
+      return <span className="signup-fail">이메일을 확인하지 못했습니다. 다시 시도해 주세요.</span>;
+    }
     return undefined;
   })();
 
