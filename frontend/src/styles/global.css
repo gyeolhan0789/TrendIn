@@ -1383,14 +1383,12 @@ h1 { margin: 0; line-height: 1.25; }
  * 고를 것 둘을 나란히. 키가 달라도 두 장이 같은 높이로 서야 줄이 맞습니다.
  * 남는 높이를 먹되 끝없이 자라지는 않게 막습니다. 아주 높은 창에서 카드만 커지면 되레 허전합니다.
  */
-.onboarding-columns { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr 1fr; max-height: 460px; gap: 18px; }
-.onboarding-cards.is-single .onboarding-card { flex: 1; min-height: 0; max-height: 460px; }
+.onboarding-columns { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr 1fr; max-height: 330px; gap: 18px; }
+.onboarding-cards.is-single .onboarding-card { flex: 1; min-height: 0; max-height: 330px; }
 .onboarding-card { display: flex; flex-direction: column; padding: 24px 30px; border-radius: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 8px 32px rgba(0, 0, 0, .03); }
 .onboarding-card-head { display: flex; align-items: center; gap: 12px; }
 .onboarding-card-step { display: grid; flex-shrink: 0; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: #eef2ff; color: var(--lp-indigo); font-size: 13px; font-weight: 700; }
 .onboarding-card-head h2 { font-size: 19px; font-weight: 700; letter-spacing: -.5px; }
-/* 오른쪽 끝에 붙는 안내·링크. 카드마다 둘 중 하나만 옵니다. */
-.onboarding-card-note { margin-left: auto; color: var(--lp-faint); font-size: 13px; }
 .onboarding-card-link { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--lp-indigo); font-size: 13px; font-weight: 500; white-space: nowrap; }
 .onboarding-card-link:hover:not(:disabled) { color: #3730a3; }
 .onboarding-card-link:disabled { color: #c7d2fe; }

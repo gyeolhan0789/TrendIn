@@ -73,7 +73,6 @@ function DomainCard({ options, selected, disabled, onToggle }: DomainCardProps) 
       <div className="onboarding-card-head">
         <span className="onboarding-card-step" aria-hidden="true">1</span>
         <h2>관심 분야 선택</h2>
-        <span className="onboarding-card-note">여러 개 고를 수 있어요.</span>
       </div>
       <p className="onboarding-card-desc">관심 있는 분야를 선택해주세요. (복수 선택 가능)</p>
 
