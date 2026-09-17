@@ -36,6 +36,9 @@
 `는`/JX 로 옳게 가른다. **한글이 없는 표기는 분석기가 어디를 잘랐는지와 무관하게 영문
 분류기를 다시 태운다** — `ES2023` → VERSION, `os.path` → CODE.
 
+`ja` · `zh` · `fr` · `it` 는 정제 필터가 `curated` 에 넣지 않아 여기까지 오지 않는다
+(`normalize/filters.UNSUPPORTED_LANG`).
+
 **pyspark 를 import 하지 않는다** ([09 §4] 층 1).
 """
 

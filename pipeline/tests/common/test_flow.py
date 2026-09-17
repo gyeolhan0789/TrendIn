@@ -50,7 +50,9 @@ SOURCE = SourceDef(
 COUNTRIES = {SOURCE.key: SOURCE.country}
 
 
-def make_article(article_id: str, *, members_only: bool = False) -> Article:
+def make_article(
+    article_id: str, *, members_only: bool = False, paywalled: bool = False
+) -> Article:
     published = datetime(2026, 9, 3, 10, 0, tzinfo=KST)
     return Article(
         domain=SOURCE.domain,
@@ -63,23 +65,25 @@ def make_article(article_id: str, *, members_only: bool = False) -> Article:
         collected_at=NOW,
         raw_key=(
             None
-            if members_only
+            if members_only or paywalled
             else raw_key(SOURCE.domain, SOURCE.key, SOURCE.route, published, article_id)
         ),
-        content_sha256=None if members_only else "c" * 64,
+        content_sha256=None if members_only or paywalled else "c" * 64,
         members_only=members_only or None,
+        paywalled=paywalled or None,
     )
 
 
 class FakeAdapter:
     """후보를 주는 대로 내놓는 어댑터. `broken` 에 든 id 는 취득에서 터진다."""
 
-    def __init__(self, ids, *, broken=(), raises=None, members=()) -> None:
+    def __init__(self, ids, *, broken=(), raises=None, members=(), paywalled=()) -> None:
         self.source = SOURCE
         self._ids = list(ids)
         self._broken = set(broken)
         self._raises = raises
         self._members = set(members)
+        self._paywalled = set(paywalled)
         self.materialized: list[str] = []
 
     def discover(self, page=None) -> DiscoverResult:
@@ -105,7 +109,9 @@ class FakeAdapter:
         if candidate.article_id in self._broken:
             raise ValueError("발행일이 없다")
         return b"<item/>", make_article(
-            candidate.article_id, members_only=candidate.article_id in self._members
+            candidate.article_id,
+            members_only=candidate.article_id in self._members,
+            paywalled=candidate.article_id in self._paywalled,
         )
 
 
@@ -343,6 +349,22 @@ def test_수집_결과는_단계별_실패와_저장_숫자를_XCom_왕복에도
         {"stage": "store", "article_id": "3", "reason": "저장한 객체가 stat 에 안 잡힌다"},
     ]
     assert SourceOutcome.from_dict(payload) == outcome
+
+
+def test_유료_표시_저장은_회원_전용과_따로_센다():
+    outcome = collect_source(
+        FakeAdapter(["1", "2", "3"], members=["1"], paywalled=["2", "3"]),
+        ledger=InMemoryLedger(),
+        store=InMemoryObjectStore(),
+    )
+    assert (outcome.stored, outcome.members_only_stored, outcome.paywalled_stored) == (3, 1, 2)
+
+
+def test_유료_표시_칸이_없는_옛_XCom_도_읽는다():
+    """배포 직후 재시도는 이 칸이 생기기 전 태스크가 남긴 XCom 을 읽는다."""
+    old = SourceOutcome(source="vogue", domain="fashion", stored=1).to_dict()
+    del old["paywalled_stored"]
+    assert SourceOutcome.from_dict(old).paywalled_stored == 0
 
 
 def test_모르는_실패_단계도_세고_수집을_멈추지_않는다():

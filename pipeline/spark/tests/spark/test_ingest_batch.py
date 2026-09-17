@@ -104,6 +104,8 @@ def test_메시지_칸이_펴진다(spark):
     assert row["event_id"] == "vogue-854414"
     assert row["object_key"] == "fashion/vogue/rss/2026/09/03/854414/article.json"
     assert row["members_only"] is False
+    assert row["paywalled"] is False
+    assert row["source_country"] == "KR"
     assert row["record_count"] == 1
     # message key 는 메시지 밖 정보다. 계약이 순서 보장을 여기에 걸어 뒀다.
     assert row["message_key"] == "vogue"

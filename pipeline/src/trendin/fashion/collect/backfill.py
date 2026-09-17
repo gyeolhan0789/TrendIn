@@ -109,7 +109,7 @@ def walk_pages(
 
         fresh = [c for c in candidates if c.article_id in new_ids]
         # 주기 실행과 **같은** 루프다. 따로 짜면 저장 확인·장부 기록 순서가 두 벌로 갈린다.
-        page_stored, _members_only, failures = flow.store_candidates(
+        page_stored, _members_only, _paywalled, failures = flow.store_candidates(
             adapter, fresh, ledger=ledger, store=store
         )
         total += len(fresh)

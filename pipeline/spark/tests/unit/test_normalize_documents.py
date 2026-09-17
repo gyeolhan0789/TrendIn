@@ -64,6 +64,22 @@ def test_fixture_기사가_표준_문서가_된다(article, event):
     assert document.dup_of is None
 
 
+def test_유료_표시와_소스_국가를_싣는다(article, event):
+    """`paywalled` 는 article.json 에서, `source_country` 는 그 파일에 없어 봉투에서 온다."""
+    document = build(article, event, paywalled=True)
+
+    assert (document.members_only, document.paywalled) == (False, True)
+    assert document.source_country == "KR"
+
+
+def test_백필_봉투에는_소스_국가가_없다(article, event):
+    """모드 B 는 객체 키에서 봉투를 재구성해 국가를 모른다. 지어내지 않는다."""
+    document = build_document(article, event | {"source_country": None}, ingest_run_id=RUN_ID)
+
+    assert document.source_country is None
+    assert document.paywalled is False
+
+
 def test_categories_를_채운다(article, event):
     """[03 §1] 이 요구하는 칸이고, 이 스토리에서 `ARTICLE_SCHEMA` 에 더했다."""
     assert build(article, event).categories == ["fashion", "runway"]

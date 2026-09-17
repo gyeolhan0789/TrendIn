@@ -24,7 +24,9 @@ KST = timezone(timedelta(hours=9))
 NOW = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
 
 
-def make_article(article_id="1", source="vogue", domain="fashion", members_only=False) -> Article:
+def make_article(
+    article_id="1", source="vogue", domain="fashion", members_only=False, paywalled=False
+) -> Article:
     return Article(
         domain=domain,
         source=source,
@@ -34,9 +36,14 @@ def make_article(article_id="1", source="vogue", domain="fashion", members_only=
         title="제목",
         published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
         collected_at=NOW,
-        raw_key=None if members_only else f"{domain}/{source}/rss/2026/09/03/{article_id}/raw.xml",
-        content_sha256=None if members_only else "c" * 64,
+        raw_key=(
+            None
+            if members_only or paywalled
+            else f"{domain}/{source}/rss/2026/09/03/{article_id}/raw.xml"
+        ),
+        content_sha256=None if members_only or paywalled else "c" * 64,
         members_only=members_only or None,
+        paywalled=paywalled or None,
     )
 
 
@@ -90,12 +97,21 @@ def test_members_only_는_None_이_아니라_불리언으로_적힌다():
     """`Article.members_only` 는 `True | None` 이다. 장부 컬럼은 NOT NULL 이라 여기서 좁힌다."""
     row = to_pending(make_article("1"), article_key="k", article_sha256="a" * 64)
     assert row.members_only is False
+    assert row.paywalled is False
+
+
+def test_유료_표시_행은_raw_키가_없다():
+    row = to_pending(make_article("1", paywalled=True), article_key="k", article_sha256="a" * 64)
+    assert row.raw_key is None
+    assert row.paywalled is True
+    assert row.members_only is False
 
 
 def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
     for column in (
         "article_sha256",
         "members_only",
+        "paywalled",
         "event_emitted_at",
         "event_run_id",
         "article_key",
@@ -103,9 +119,9 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 셋 + 인덱스 셋 + 칸을 여는 ALTER 둘, 그리고 걷어내는 DROP 하나.
+    # 테이블 셋 + 인덱스 셋 + 칸을 여는 ALTER 셋, 그리고 걷어내는 DROP 하나.
     # 뷰는 이 셈에 없다. `CREATE OR REPLACE` 라 `IF NOT EXISTS` 를 안 쓴다.
-    assert DDL.count("IF NOT EXISTS") == 8
+    assert DDL.count("IF NOT EXISTS") == 9
     assert DDL.count("DROP INDEX IF EXISTS") == 1
 
 
@@ -277,7 +293,7 @@ def test_읽을_때_소스가_준_오프셋을_되살린다():
         [
             (
                 "vogue", "1", "fashion", "https://x/", "제목",
-                stored_utc, 540, NOW, "k", "a" * 64, "r", False,
+                stored_utc, 540, NOW, "k", "a" * 64, "r", False, False,
             )
         ]
     )
@@ -292,7 +308,7 @@ def test_오프셋이_없는_옛_행은_지어내지_않는다():
         [
             (
                 "vogue", "1", "fashion", "https://x/", "제목",
-                stored_utc, None, NOW, "k", "a" * 64, "r", False,
+                stored_utc, None, NOW, "k", "a" * 64, "r", False, False,
             )
         ]
     )
@@ -393,6 +409,7 @@ VIEW_OUTPUTS = (
     # 뜻으로는 봉투 칸인데 맨 뒤에 있다. `CREATE OR REPLACE VIEW` 가 칸을 덧붙이는 것만
     # 허용해서, 중간에 끼우면 이미 뷰가 있는 DB 에서 그 문장이 거절된다.
     "source_country",
+    "paywalled",
 )
 
 

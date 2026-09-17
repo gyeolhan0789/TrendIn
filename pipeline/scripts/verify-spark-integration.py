@@ -129,7 +129,7 @@ def verify_summary_event(event: dict, *, label: str) -> None:
     check((event.get("emitted_oldest_collected_at") is None) == (emitted == 0),
           f"{label} 요약: 발급 0건일 때만 가장 오래된 수집 시각이 null")
     collection = ("discovered", "stored", "skipped", "not_modified", "failed", "failed_by_stage",
-                  "failures", "duration_ms", "members_only_stored")
+                  "failures", "duration_ms", "members_only_stored", "paywalled_stored")
     check(all(key in event for key in collection), f"{label} 요약: 수집 결과 필드가 있다")
     if status == "failed":
         check(all(event.get(key) is None for key in collection), f"{label} 요약: 죽은 수집은 null")
@@ -189,11 +189,11 @@ def verify_article_event(event: dict, *, spark_s3, bucket: str, label: str) -> N
     if raw_key:
         read_object(spark_s3, bucket, raw_key, label=f"{label} 기사: raw_object_key 읽기")
     else:
-        # 회원 전용 기사는 raw 를 저장하지 않는다 (불변식 2).
+        # 회원 전용·유료 표시 기사는 raw 를 저장하지 않는다 (불변식 2).
         check(
-            event.get("members_only") is True,
-            f"{label} 기사: raw 가 없으면 members_only 다",
-            f"members_only={event.get('members_only')}",
+            event.get("members_only") is True or event.get("paywalled") is True,
+            f"{label} 기사: raw 가 없으면 members_only 나 paywalled 다",
+            f"members_only={event.get('members_only')} paywalled={event.get('paywalled')}",
         )
 
 

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS collected_article (
     content_sha256      text,
     article_sha256      text        NOT NULL,
     members_only        boolean     NOT NULL DEFAULT false,
+    paywalled           boolean     NOT NULL DEFAULT false,
     collected_at        timestamptz NOT NULL,
     event_emitted_at    timestamptz,
     event_run_id        text,
@@ -55,6 +56,10 @@ ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS published_at_offset small
 
 -- 어느 실행이 이 행을 발급했나. 요약 이벤트의 건수를 이 값으로 센다 (S15P21A102-204).
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS event_run_id text;
+
+-- 유료 표시 (2026-09-17). 이미 있는 행은 판별(S15P21A102-285)이 생기기 전에 받은 것이라
+-- false 로 채운다. 뷰가 이 칸을 읽으므로 뷰 정의보다 앞이어야 한다.
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS paywalled boolean NOT NULL DEFAULT false;
 
 -- 발급 태스크가 미발급 행만 훑는다. 장부는 계속 자라고 미발급은 늘 소수다.
 CREATE INDEX IF NOT EXISTS collected_article_pending_idx
@@ -125,8 +130,9 @@ CREATE TABLE IF NOT EXISTS collect_source_country (
 -- 것만 허용하고, 중간에 끼우면 뒤 칸의 이름을 바꾸는 것으로 읽어 거절한다
 -- (`cannot change name of view column ... to ...`, 2026-09-16 postgres:17 실측).
 -- 그래서 `source_country` 가 뜻으로는 봉투 칸인데도 창 자르기용 `collected_at_ts` 뒤에
--- 있다. 뜻에 맞게 앞으로 옮기려면 이미 뷰가 있는 DB 마다 사람이 DROP 을 해야 하고, 그동안
--- 수집 DAG 의 첫 태스크가 매 회차 실패한다.
+-- 있고, `paywalled` 도 `members_only` 옆이 아니라 맨 뒤에 있다. 뜻에 맞게 앞으로 옮기려면
+-- 이미 뷰가 있는 DB 마다 사람이 DROP 을 해야 하고, 그동안 수집 DAG 의 첫 태스크가 매 회차
+-- 실패한다.
 CREATE OR REPLACE VIEW collected_article_event AS
 SELECT
     source || '-' || article_id AS event_id,
@@ -159,7 +165,8 @@ SELECT
     'sha256-' || article_sha256 AS checksum,
     members_only,
     collected_at AS collected_at_ts,
-    coalesce(country, 'XX') AS source_country
+    coalesce(country, 'XX') AS source_country,
+    paywalled
 FROM (
     -- 시각 계산을 한 번만 한다. 포맷 식이 같은 값을 세 번 읽어서, 여기서 묶지 않으면
     -- 오프셋 식이 여섯 번 되풀이되고 한 곳만 고쳐지는 날이 온다.
@@ -219,6 +226,7 @@ class PendingArticle:
     article_sha256: str
     raw_key: str | None
     members_only: bool
+    paywalled: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +348,7 @@ def to_pending(article: Article, *, article_key: str, article_sha256: str) -> Pe
         article_sha256=article_sha256,
         raw_key=article.raw_key,
         members_only=bool(article.members_only),
+        paywalled=bool(article.paywalled),
     )
 
 
@@ -405,12 +414,12 @@ class InMemoryLedger:
 _INSERT = """
 INSERT INTO collected_article (
     source, article_id, domain, route, url, title, published_at, published_at_offset,
-    raw_key, article_key, content_sha256, article_sha256, members_only, collected_at
+    raw_key, article_key, content_sha256, article_sha256, members_only, paywalled, collected_at
 ) VALUES (
     %(source)s, %(article_id)s, %(domain)s, %(route)s, %(url)s, %(title)s,
     %(published_at)s, %(published_at_offset)s,
     %(raw_key)s, %(article_key)s, %(content_sha256)s, %(article_sha256)s,
-    %(members_only)s, %(collected_at)s
+    %(members_only)s, %(paywalled)s, %(collected_at)s
 )
 ON CONFLICT (source, article_id) DO NOTHING
 """
@@ -421,7 +430,7 @@ SELECT source, country FROM collect_source_country
 
 _SELECT_PENDING = """
 SELECT source, article_id, domain, url, title, published_at, published_at_offset,
-       collected_at, article_key, article_sha256, raw_key, members_only
+       collected_at, article_key, article_sha256, raw_key, members_only, paywalled
 FROM collected_article
 WHERE event_emitted_at IS NULL AND domain = %s
 ORDER BY collected_at, source, article_id
@@ -493,6 +502,7 @@ class PostgresLedger:
                     "content_sha256": article.content_sha256,
                     "article_sha256": article_sha256,
                     "members_only": bool(article.members_only),
+                    "paywalled": bool(article.paywalled),
                     "collected_at": article.collected_at,
                 },
             )
@@ -515,6 +525,7 @@ class PostgresLedger:
                 article_sha256=r[9],
                 raw_key=r[10],
                 members_only=r[11],
+                paywalled=r[12],
             )
             for r in rows
         ]

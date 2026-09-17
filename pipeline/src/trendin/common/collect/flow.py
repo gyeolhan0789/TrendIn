@@ -88,6 +88,7 @@ class SourceOutcome:
     failures: tuple[FailureBrief, ...] = ()
     duration_ms: int = 0
     members_only_stored: int = 0
+    paywalled_stored: int = 0
 
     def to_dict(self) -> dict:
         """XCom 으로 넘길 수 있는 모양.
@@ -176,10 +177,10 @@ def store_candidates(
     *,
     ledger: Ledger,
     store: ObjectStore,
-) -> tuple[int, int, list[Failure]]:
+) -> tuple[int, int, int, list[Failure]]:
     """후보를 취득·정규화해 저장하고 장부에 적는다.
 
-    저장 건수·회원 전용 저장 건수·실패 목록을 돌려준다.
+    저장 건수·회원 전용 저장 건수·유료 표시 저장 건수·실패 목록을 돌려준다.
 
     주기 실행과 백필이 같은 루프를 쓴다. 백필이 제 루프를 따로 두면 저장 확인·장부 기록
     순서가 두 벌로 갈리고, 한쪽만 고쳐지는 날이 온다.
@@ -187,6 +188,7 @@ def store_candidates(
     source = adapter.source
     stored = 0
     members_only_stored = 0
+    paywalled_stored = 0
     failures: list[Failure] = []
 
     for candidate in candidates:
@@ -209,6 +211,7 @@ def store_candidates(
         if store_article(article, raw, store=store, ledger=ledger):
             stored += 1
             members_only_stored += int(bool(article.members_only))
+            paywalled_stored += int(bool(article.paywalled))
         else:
             logger.warning("%s: 저장 확인 실패 %s", source.key, article.article_id)
             failures.append(
@@ -219,7 +222,7 @@ def store_candidates(
                     reason="저장한 객체가 stat 에 안 잡힌다",
                 )
             )
-    return stored, members_only_stored, failures
+    return stored, members_only_stored, paywalled_stored, failures
 
 
 def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore) -> SourceOutcome:
@@ -235,7 +238,7 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
     new_ids = ledger.filter_new(source.key, [c.article_id for c in result.candidates])
     fresh = [c for c in result.candidates if c.article_id in new_ids]
 
-    stored, members_only_stored, failures = store_candidates(
+    stored, members_only_stored, paywalled_stored, failures = store_candidates(
         adapter, fresh, ledger=ledger, store=store
     )
     for failure in result.failures:
@@ -263,6 +266,7 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
         ),
         duration_ms=int((time.monotonic() - started) * 1000),
         members_only_stored=members_only_stored,
+        paywalled_stored=paywalled_stored,
     )
 
 

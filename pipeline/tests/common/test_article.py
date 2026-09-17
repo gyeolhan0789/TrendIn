@@ -110,3 +110,26 @@ def test_회원_전용에_본문을_실을_수_없다():
     """불변식 2 — HTML 에 텍스트가 실려 있어도 저장하지 않는다."""
     with pytest.raises(ValidationError, match="body_text"):
         Article(**MEMBERS, body_text="회원 전용 본문")
+
+
+PAYWALLED = {k: v for k, v in MEMBERS.items() if k != "members_only"} | {"paywalled": True}
+
+
+def test_유료_표시는_raw_없이_만들어진다():
+    article = Article(**PAYWALLED)
+    assert article.paywalled is True
+    assert article.raw_key is None and article.content_sha256 is None
+    dumped = article.to_json_dict()
+    assert dumped["paywalled"] is True
+    assert "raw_key" not in dumped and "content_sha256" not in dumped
+
+
+def test_유료_표시에_본문을_실을_수_없다():
+    with pytest.raises(ValidationError, match="body_text"):
+        Article(**PAYWALLED, body_text="유료 본문")
+
+
+def test_유료_표시가_없으면_article_json_에_키가_없다():
+    """판별이 없는 지금 모든 기사가 여기다. 키가 생기면 같은 기사의 article.json 바이트가
+    바뀌어 이미 저장한 객체와 해시가 갈린다(불변식 7)."""
+    assert "paywalled" not in Article(**FULL).to_json_dict()

@@ -49,6 +49,7 @@ def pending(**over) -> PendingArticle:
         article_sha256="a" * 64,
         raw_key="fashion/vogue/rss/2026/09/03/854414/raw.xml",
         members_only=False,
+        paywalled=False,
     )
     base.update(over)
     return PendingArticle(**base)
@@ -111,11 +112,19 @@ def test_회원_전용은_raw_키가_null_이다():
     event = article_event(row, bucket="raw-data", run_id=RUN_ID, source_country="KR")
     assert event["raw_object_key"] is None
     assert event["members_only"] is True
+    assert event["paywalled"] is False
     # article.json 은 있으므로 발급 자체는 된다 — 제목·URL·발행일은 남는다.
     assert event["object_key"]
 
 
-def test_요약은_수집과_발급을_구분하고_고정_19개_필드로_나간다():
+def test_유료_표시는_raw_키가_null_이다():
+    row = pending(paywalled=True, raw_key=None)
+    event = article_event(row, bucket="raw-data", run_id=RUN_ID, source_country="KR")
+    assert event["raw_object_key"] is None
+    assert (event["members_only"], event["paywalled"]) == (False, True)
+
+
+def test_요약은_수집과_발급을_구분하고_고정_20개_필드로_나간다():
     from trendin.common.collect.flow import SourceOutcome
     from trendin.common.collect.ledger import EmittedStats
 
@@ -131,7 +140,7 @@ def test_요약은_수집과_발급을_구분하고_고정_19개_필드로_나�
         "status": "success", "discovered": 10, "stored": 1, "skipped": 9,
         "not_modified": False, "failed": 0,
         "failed_by_stage": {"discover": 0, "materialize": 0, "store": 0}, "failures": [],
-        "duration_ms": 0, "members_only_stored": 0, "emitted": 12,
+        "duration_ms": 0, "members_only_stored": 0, "paywalled_stored": 0, "emitted": 12,
         "emitted_oldest_collected_at": "2026-09-01T09:00:00+09:00", "failure_reason": None,
     }
 
@@ -167,7 +176,8 @@ def test_죽은_소스의_수집_결과는_null이고_발급_통계는_보존된
         failure_reason="태스크 실패",
     )
     for name in ("discovered", "stored", "skipped", "not_modified", "failed",
-                 "failed_by_stage", "failures", "duration_ms", "members_only_stored"):
+                 "failed_by_stage", "failures", "duration_ms", "members_only_stored",
+                 "paywalled_stored"):
         assert name in event and event[name] is None
     assert event["emitted"] == 2
     assert event["emitted_oldest_collected_at"] == "2026-09-01T00:00:00+09:00"

@@ -63,6 +63,8 @@ VIEW_COLUMNS = (
     "collected_at",
     "checksum",
     "members_only",
+    "paywalled",
+    "source_country",
 )
 
 SELECT_SQL = f"""

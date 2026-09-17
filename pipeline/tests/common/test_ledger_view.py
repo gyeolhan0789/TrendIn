@@ -60,6 +60,7 @@ SHARED = (
     # 허용해서다. 여기서는 읽는 차례가 아니라 **봉투와 같아야 하는 칸**을 모으는 목록이라
     # 뜻이 같은 것끼리 둔다.
     "source_country",
+    "paywalled",
 )
 
 
@@ -69,6 +70,7 @@ def make_article(
     published_at: datetime,
     collected_at: datetime,
     members_only: bool = False,
+    paywalled: bool = False,
     source: str = "vogue",
 ) -> Article:
     """`tests/common/test_events.py` 의 `pending()` 과 같은 값으로 둔다.
@@ -85,9 +87,14 @@ def make_article(
         title="제목",
         published_at=published_at,
         collected_at=collected_at,
-        raw_key=None if members_only else f"fashion/{source}/rss/2026/09/03/{article_id}/raw.xml",
-        content_sha256=None if members_only else "c" * 64,
+        raw_key=(
+            None
+            if members_only or paywalled
+            else f"fashion/{source}/rss/2026/09/03/{article_id}/raw.xml"
+        ),
+        content_sha256=None if members_only or paywalled else "c" * 64,
         members_only=members_only or None,
+        paywalled=paywalled or None,
     )
 
 
@@ -244,6 +251,21 @@ def test_회원_전용_기사는_raw_키가_비어_있다(ledger):
     assert row == envelope(article)
     assert row["raw_object_key"] is None
     assert row["members_only"] is True
+
+
+def test_유료_표시_기사는_raw_키가_비어_있다(ledger):
+    store_, db = ledger
+    article = make_article(
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        collected_at=datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc),
+        paywalled=True,
+    )
+    store(store_, article)
+
+    row = view_row(db)
+    assert row == envelope(article)
+    assert row["raw_object_key"] is None
+    assert (row["members_only"], row["paywalled"]) == (False, True)
 
 
 def test_checksum_은_article_json_의_해시다(ledger):

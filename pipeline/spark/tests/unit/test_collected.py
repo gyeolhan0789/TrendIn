@@ -132,7 +132,7 @@ def test_창_안의_행이_봉투가_된다(monkeypatch):
         "fashion/vogue/rss/2026/09/03/123/article.json", None,
         "https://example.test/a", "제목",
         "2026-09-03T10:00:00.000000+09:00", "2026-09-03T11:00:00.000000+09:00",
-        "sha256-abc", False,
+        "sha256-abc", False, False, "KR",
     )
     monkeypatch.setattr(collected.jdbc, "connection", fake_connection([row]))
 
@@ -142,6 +142,8 @@ def test_창_안의_행이_봉투가_된다(monkeypatch):
     assert envelopes[0]["event_id"] == "vogue-123"
     assert envelopes[0]["bucket"] == "raw-data"
     assert envelopes[0]["members_only"] is False
+    assert envelopes[0]["paywalled"] is False
+    assert envelopes[0]["source_country"] == "KR"
 
 
 def test_뷰가_없으면_조용히_0건이_아니라_죽는다(monkeypatch):

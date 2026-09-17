@@ -55,6 +55,7 @@ def _pending_from(evt: dict) -> PendingArticle:
         article_sha256=evt["checksum"].removeprefix("sha256-"),
         raw_key=evt["raw_object_key"],
         members_only=evt["members_only"],
+        paywalled=evt["paywalled"],
     )
 
 
@@ -83,6 +84,7 @@ SHARED_FIELDS = (
     ("source_id", "source"),
     ("article_id", "article_id"),
     ("members_only", "members_only"),
+    ("paywalled", "paywalled"),
     ("raw_object_key", "raw_key"),
 )
 
@@ -170,7 +172,7 @@ def test_요약_이벤트_fixture_가_봉투_출력과_같다(name):
 
     evt = load(name)
     fields = ("discovered", "stored", "skipped", "not_modified", "failed", "failed_by_stage",
-              "failures", "duration_ms", "members_only_stored")
+              "failures", "duration_ms", "members_only_stored", "paywalled_stored")
     outcome = None
     if evt["status"] == "success":
         outcome = SourceOutcome.from_dict({

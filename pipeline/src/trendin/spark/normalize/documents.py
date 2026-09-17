@@ -54,6 +54,8 @@ class Document:
     author: str | None
     categories: list[str] = field(default_factory=list)
     members_only: bool = False
+    paywalled: bool = False
+    source_country: str | None = None
     published_at: datetime | None = None
     published_date: date | None = None
     ingest_run_id: str = ""
@@ -143,7 +145,8 @@ def build_document(
     이벤트를 객체 키에서 재구성하므로 `title` 같은 칸이 애초에 없다 ([02 §6]).
 
     예외는 `collected_at` 이다. 둘 다 있고 같은 값이지만 이벤트 쪽을 우선한다 — `contents`
-    로 나가는 값이 이벤트의 `collected_at` 이라고 [03 §8] 이 못 박았다.
+    로 나가는 값이 이벤트의 `collected_at` 이라고 [03 §8] 이 못 박았다. `source_country` 는
+    `article.json` 에 아예 없어 이벤트에서만 온다.
     """
     adapter = adapter_for(article.get("route"))
     texts = adapter.texts(article)
@@ -179,6 +182,8 @@ def build_document(
         author=_text(article.get("author")),
         categories=_categories(article.get("categories")),
         members_only=bool(article.get("members_only") or False),
+        paywalled=bool(article.get("paywalled") or False),
+        source_country=_text(event.get("source_country")),
         published_at=published_at,
         published_date=_to_kst_date(published_at),
         ingest_run_id=ingest_run_id,

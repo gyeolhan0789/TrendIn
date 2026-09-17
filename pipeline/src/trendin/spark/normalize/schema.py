@@ -6,8 +6,8 @@
 조용히 `null` 을 채운다 — 필드가 이름으로 맞춰지기 때문에 빠진 칸이 오류가 아니라 빈 값이
 된다. `test_normalize_schema.py` 가 두 정의를 대조해 그걸 막는다.
 
-**`curated` 로 나가는 칸과 나가지 않는 칸을 여기서 가른다.** [03 §1] 표가 정한 것이 스물
-하나고, 나머지 다섯은 필터와 [03 §7] 집계만 읽는 내부 값이다.
+**`curated` 로 나가는 칸과 나가지 않는 칸을 여기서 가른다.** [03 §1] 표가 정한 스물하나에
+유료 표시·소스 국가 둘을 더해 스물셋이고, 나머지 다섯은 필터와 [03 §7] 집계만 읽는 내부 값이다.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
-# [03 §1] 표의 스물한 칸. Parquet 에 이 순서로 쓴다.
+# [03 §1] 표의 스물한 칸에 `paywalled`·`source_country` 를 더한 스물세 칸.
+# Parquet 에 이 순서로 쓴다.
 CURATED_COLUMNS = (
     "url_hash",
     "source_id",
@@ -42,6 +43,8 @@ CURATED_COLUMNS = (
     "author",
     "categories",
     "members_only",
+    "paywalled",
+    "source_country",
     "published_at",
     "published_date",
     "ingest_run_id",
@@ -94,6 +97,9 @@ DOCUMENT_SCHEMA = StructType(
         StructField("author", StringType(), True),
         StructField("categories", ArrayType(StringType()), True),
         StructField("members_only", BooleanType(), True),
+        StructField("paywalled", BooleanType(), True),
+        # 봉투에서 온다. article.json 에 없는 소스의 속성이라서다. 백필(모드 B)은 `null` 이다.
+        StructField("source_country", StringType(), True),
         # 소스가 준 시각을 원본 보존한다 ([03 §3]).
         StructField("published_at", TimestampType(), True),
         # `published_at` 의 KST date. 파티션 키다.

@@ -118,6 +118,8 @@ EVENT_SCHEMA = StructType([
     StructField("compression",    StringType(),  True),
     StructField("failure_reason", StringType(),  True),
     StructField("members_only",   BooleanType(), True),
+    StructField("paywalled",      BooleanType(), True),
+    StructField("source_country", StringType(),  True),   # 백필 봉투는 null
     # PERMISSIVE 모드가 파싱 실패를 담는 칸. 스키마에 없으면 Spark 가 채우지 않는다.
     StructField("_corrupt_record", StringType(), True),
 ])
@@ -129,7 +131,7 @@ EVENT_SCHEMA = StructType([
 
 `mode="FAILFAST"` 가 아니라 `PERMISSIVE` + `_corrupt_record` 로 받아서, 파싱 실패한 것만 DLQ 로 보내고 나머지는 처리한다. 이벤트 하나가 깨졌다고 배치 전체를 버릴 이유가 없다.
 
-**팀 이벤트 규격에 없는 필드 여섯** — `raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only`. `data-pipeline-design.md` §5 의 규격은 15 칸이고 우리 것은 21 칸이다. 추가는 하위 호환이라 `schema_version` 은 1 그대로다 (`web-collect.md` #6). `url` · `published_at` 은 저작권법 제37조 출처 명시라 기사 이벤트에 **항상** 있다 (불변식 11).
+**팀 이벤트 규격에 없는 필드 여덟** — `raw_object_key` · `article_id` · `url` · `title` · `published_at` · `members_only` · `paywalled` · `source_country`. `data-pipeline-design.md` §5 의 규격은 15 칸이고 우리 것은 23 칸이다. 추가는 하위 호환이라 `schema_version` 은 1 그대로다 (`web-collect.md` #6). `url` · `published_at` 은 저작권법 제37조 출처 명시라 기사 이벤트에 **항상** 있다 (불변식 11).
 
 **`size_bytes` 는 늘 `null` 이다.** 생산자 수집 이력이 객체 크기를 들고 있지 않다 (`events.py`: *"소비 측이 대조에 쓰는 건 checksum 이다"*). 그래서 크기 대조 검증은 없다.
 
@@ -315,9 +317,9 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 
 **결과 — dev 도메인은 제목만으로 키워드를 뽑아야 한다.** [04](04-keyword-extraction-spec.md) 가 본문 기반 통계를 전제하는데 dev 쪽 입력에는 본문이 없다. 임계값 조정으로 덮을 문제가 아니라 도메인별로 추출 경로가 갈리는 문제다. [00 §7](00-overview.md) 한계 항목으로 올렸다.
 
-**`body_withheld` 를 이벤트에서 못 받는다.** `web-collect.md` #6 은 이 필드를 *"소비 측이 소스 목록을 참조하지 않고 기사 하나만 보고 본문 유무를 판별할 수 있어야 해서 있다"* 고 적었지만, `events.py` 는 `members_only` 만 싣고 `body_withheld` 는 싣지 않는다. **생산 측 문서와 구현이 어긋난 자리다** — 고칠 권한이 이쪽에 없으므로 담당 1 에게 알린다. 그래서 지금은 본문 유무를 이벤트만으로 판별할 수 없고, `article.json` 을 읽어 `body_text` 존재를 본다 — `contract.has_body()` 가 그 판별이다.
+**본문 유무는 `article.json` 의 `body_text` 로 본다.** `contract.has_body()` 가 그 판별이다. 이벤트의 `members_only` · `paywalled` 는 본문이 없는 *이유*이고, `hn` 은 둘 다 `false` 인데 본문이 없어서 유무 판별로는 못 쓴다.
 
-기사 이벤트는 어차피 객체를 읽으므로 실질적 비용은 없다. 다만 "이벤트만 보고 건너뛴다" 는 최적화는 못 한다. 담당 1 에게 `body_withheld` 발행을 요청할지는 그 최적화가 필요해질 때 정한다.
+생산 측 문서에 있던 `body_withheld`(본문 승인 전이면 `true`)는 2026-09-17 게이트2 폐지와 함께 철회됐다 (`web-collect.md` #5.3). 구현된 적이 없어 이쪽에서 바뀌는 동작은 없다.
 
 ## 4. 수집 상태
 

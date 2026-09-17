@@ -91,6 +91,7 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 | `compression` | string \| null | `none` |
 | `failure_reason` | string \| null | `null` |
 | `members_only` | bool | 회원 전용 기사면 `true` |
+| `paywalled` | bool | 유료 표시(`isAccessibleForFree=false`) 기사면 `true`. 2026-09-17 추가. 판별은 285 라 그 전까지 늘 `false` (`web-collect.md` #5.3) |
 | `source_country` | string | 소스를 발행하는 법인이 있는 나라. ISO 3166-1 alpha-2 대문자, 판정 불가는 `XX`. `null` 없음 |
 
 `run_id` 는 **발급 실행**이다. 저장만 되고 못 나간 행은 다음 회차가 내므로 수집
@@ -102,7 +103,7 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 
 토픽을 활성화하면 소스 하나의 한 회차마다 논리적으로 하나를 낸다. 0건·수집 실패에도
 낸다. 전달은 at-least-once라 재시도 중복은 `event_id` 로 제거한다. 공통 식별 5칸과
-수집 결과·발급 통계를 담는 고정 **19개 필드**다. 안 쓰는 기사 봉투 필드는 없다.
+수집 결과·발급 통계를 담는 고정 **20개 필드**다. 안 쓰는 기사 봉투 필드는 없다.
 
 | 필드 | 타입 | 값 | 어디서 |
 |---|---|---|---|
@@ -122,17 +123,18 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 | `failures` | array \| null | 표본. `{stage, article_id, reason}` 앞 10건 | 실패 표본 |
 | `duration_ms` | int \| null | 수집 태스크 소요 | 단조 시계로 측정 |
 | `members_only_stored` | int \| null | raw 없이 저장된 수 | `collect_source` 집계 |
+| `paywalled_stored` | int \| null | 유료 표시로 raw 없이 저장된 수. 2026-09-17 추가 | `collect_source` 집계 |
 | `emitted` | int | 이번 회차가 발급한 기사 이벤트 수 | 장부 (`emitted_by_run`) |
 | `emitted_oldest_collected_at` | string \| null | 그중 가장 오래된 `collected_at`, KST. 0건이면 `null` | 장부의 `min(collected_at)` |
 | `failure_reason` | string \| null | `status=failed` 일 때만 | `SourceStatus.failure_reason` |
 
-수집 결과 **9개 필드**(`discovered`, `stored`, `skipped`, `not_modified`, `failed`,
-`failed_by_stage`, `failures`, `duration_ms`, `members_only_stored`)는 XCom에서 온다.
+수집 결과 **10개 필드**(`discovered`, `stored`, `skipped`, `not_modified`, `failed`,
+`failed_by_stage`, `failures`, `duration_ms`, `members_only_stored`, `paywalled_stored`)는 XCom에서 온다.
 수집 태스크가 죽어 결과가 없으면 전부 `null`이다. `0`은 관측된 0건이므로 대신 쓰지 않는다.
 `failed_by_stage` 는 세 단계 모두 포함하고, `failures` 는 발견→취득·저장 순서의 앞 10건,
 사유는 앞 200자다. `failed` 와 단계별 건수는 표본이 아닌 전체 실패를 센다.
 `duration_ms` 는 발견부터 저장 확인·장부 기록까지의 단조 시계 경과 시간이다.
-`members_only_stored` 는 회원 전용 기사 중 저장 확인에 성공한 수다.
+`members_only_stored` 는 회원 전용 기사 중 저장 확인에 성공한 수다. `paywalled_stored` 는 유료 표시 기사에서 같은 수를 센다.
 
 발급 통계는 장부에서 오므로 수집 실패와 독립이다. `emitted` 는 항상 0 이상의 정수이고,
 0건일 때만 `emitted_oldest_collected_at` 이 `null`이다. 이월분이 있으면 `emitted > stored`
@@ -231,18 +233,21 @@ article.json 에만 있다. 이벤트 크기를 1KB 안팎으로 유지하려는
 | `url` `title` | string | 반드시 있다 |
 | `published_at` | string | 소스가 준 오프셋 그대로 |
 | `collected_at` | string | **UTC (`Z`)**. 봉투는 KST 오프셋이다 — 표기가 다르고 같은 순간이다 |
-| `raw_key` | string | raw 의 키. 회원 전용이면 없다 |
-| `content_sha256` | string | **raw 의** sha256. 회원 전용이면 없다 |
-| `modified_at` `summary` `body_text` `author` `members_only` `extra` | | 없을 수 있다 |
+| `raw_key` | string | raw 의 키. 회원 전용이거나 유료 표시면 없다 |
+| `content_sha256` | string | **raw 의** sha256. 회원 전용이거나 유료 표시면 없다 |
+| `modified_at` `summary` `body_text` `author` `members_only` `paywalled` `extra` | | 없을 수 있다 |
 | `categories` | array | 소스가 붙인 분류. 목록 소스는 발견한 섹션 슬러그 |
 
 **⚠️ 값이 없는 필드는 `null` 이 아니라 키 자체가 없다.** `model_dump_json(exclude_none=True)`
 이라서다. `doc["summary"]` 는 `KeyError` 를 낸다 — `doc.get("summary")` 를 쓰거나 스키마에
 nullable 로 선언해 읽어라.
 
+**`body_text` · `summary` 는 HTML 조각이다** (2026-09-17 합의, 수집 코드 변경은 285). 수집은 소스별 잡음(회원 마스크·관련기사·`figcaption`·`script` 등)만 걷어내고, 태그 제거·엔티티 디코드·공백 정리는 소비 측이 한다. 텍스트 안의 `<` `&` 는 이스케이프돼 오므로 태그를 먼저 지우고 엔티티를 나중에 풀어야 `<문라이트>` 같은 표기가 산다. 그 전에 저장된 객체는 평문이고 다시 만들지 않는다. 경계 표는 `web-collect.md` #5.3.
+
 **회원 전용 기사** (`members_only: true`) 는 `body_text` 가 없고 raw 객체 자체를 저장하지 않는다.
 기사 페이지 HTML 에 본문이 실려 오기 때문에 raw 를 저장하면 본문을 저장하는 것이 된다
 (`web-collect.md` §12 항목 2). 제목·URL·발행일·요약은 남는다. 전체의 7.4% 다.
+**유료 표시 기사** (`paywalled: true`) 도 같다 — 칸은 2026-09-17 추가, 판별은 285.
 
 ### 완료 판정 — `metadata.json` 은 없다
 
@@ -382,7 +387,7 @@ cd pipeline
 |---|---|
 | Kafka | message key == `source_id` · 토픽별로 같은 소스가 한 파티션에 모이는지 |
 | 봉투 | 공통 필드 · `schema_version` · 토픽별 봉투 · 기사 `run_id`(발급 실행) · `record_count=1` · 출처 명시 · 요약 수집 결과와 발급 통계 |
-| MinIO | `object_key` 와 `raw_object_key` 읽기 · `checksum` 대조 · 봉투와 `article.json` 의 값 일치 · raw 가 없으면 `members_only` 인지 |
+| MinIO | `object_key` 와 `raw_object_key` 읽기 · `checksum` 대조 · 봉투와 `article.json` 의 값 일치 · raw 가 없으면 `members_only` 나 `paywalled` 인지 |
 | 권한 | **Spark 키 write 거부** |
 
 Kafka 층을 따로 두는 이유는 봉투만 봐서는 확인할 수 없기 때문이다. 순서 보장은 message key
