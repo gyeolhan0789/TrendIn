@@ -32,7 +32,18 @@ COPY --chown=airflow:0 versions.sh /tmp/versions.sh
 # constraints 가 고정한 패키지를 건드리지 않는다.
 # PyPI 에 sdist(434 MB)만 있어서 휠을 직접 빌드한다 — 이 단계만 2~3분 걸린다.
 RUN . /tmp/versions.sh \
- && pip install --no-cache-dir "pyspark==${SPARK_VERSION}" \
+ && pip install --no-cache-dir "pyspark==${SPARK_VERSION}"
+
+# 실체 인식 ([04 §2], `extract/entities.py`). torch 를 CPU 휠로 **먼저** 깔아야 gliner 가
+# 그것을 그대로 쓴다 — 순서를 바꾸면 CUDA 런타임이 딸려와 이미지가 3 GB 넘게 커진다.
+RUN . /tmp/versions.sh \
+ && pip install --no-cache-dir --index-url "${TORCH_CPU_INDEX}" torch \
+ && pip install --no-cache-dir "gliner==${GLINER_VERSION}"
+
+# 모델 가중치를 이미지에 굽는다. 런타임에 받으면 executor 마다 HuggingFace 로 나가고,
+# 망이 막힌 환경에서는 그 실패가 "후보가 0개" 로만 나타난다 ([09 §7]).
+RUN . /tmp/versions.sh \
+ && python -c "from gliner import GLiNER; GLiNER.from_pretrained('${GLINER_MODEL}')" \
  && rm /tmp/versions.sh
 
 # checkpoint 디렉터리를 이미지 안에 미리 만든다. 도커는 빈 named volume 을 마운트할 때
@@ -42,4 +53,4 @@ RUN mkdir -p /opt/airflow/checkpoints
 
 # 설정은 yaml 로 읽는다. Airflow 가 이미 PyYAML 을 갖고 있어서 따로 설치하지 않는다 —
 # 없어지면 여기서 빌드가 실패해야 한다. 런타임에 발견하면 원인 찾기가 훨씬 어렵다.
-RUN python -c "import yaml, pyspark; print('pyspark', pyspark.__version__)"
+RUN python -c "import yaml, pyspark, gliner, kiwipiepy; print('pyspark', pyspark.__version__)"

@@ -2,29 +2,28 @@
   "fashion-allure-353915.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 90,
-      "doc_len": 111,
+      "candidates": 24,
+      "doc_len": 661,
       "dropped": {
-        "NOISE": 1,
-        "SHAPE": 4
+        "LABEL": 1
       },
-      "keys_digest": "7a8363b14b22de6b",
+      "keys_digest": "09649808970358eb",
       "top": [
-        "가방 | 가방 | TERM | n1 tf3 t0",
-        "로맨스 | 로맨스 | TERM | n1 tf3 t0",
-        "가을 | 가을 | TERM | n1 tf2 t1",
-        "관능 | 관능 | TERM | n1 tf2 t0",
-        "레이스 | 레이스 | TERM | n1 tf2 t0",
-        "로에베 | 로에베 | TERM | n1 tf2 t0",
-        "무드 | 무드 | TERM | n1 tf2 t0",
-        "블랙 | 블랙 | TERM | n1 tf2 t0",
-        "빈티지 | 빈티지 | TERM | n1 tf2 t0",
-        "자연 | 자연 | TERM | n1 tf2 t0",
-        "정리 | 정리 | TERM | n1 tf2 t0",
-        "bags | BAGS | ACRONYM | n1 tf1 t0",
-        "balenciaga | Balenciaga | TERM | n1 tf1 t0",
-        "chanel | Chanel | TERM | n1 tf1 t0",
-        "dior | Dior | TERM | n1 tf1 t0"
+        "로맨스 | 로맨스 | 패션 스타일 | 0.25 n1 tf2 t0",
+        "로에베 | 로에베 | 브랜드 | 0.92 n1 tf2 t0",
+        "2026 f/w | 2026 F/W | 컬렉션 또는 행사 | 0.48 n2 tf1 t0",
+        "balenciaga | Balenciaga | 브랜드 | 0.89 n1 tf1 t0",
+        "chanel | Chanel | 브랜드 | 0.96 n1 tf1 t0",
+        "dior | Dior | 브랜드 | 0.98 n1 tf1 t0",
+        "gothic romance | GOTHIC ROMANCE | 패션 스타일 | 0.91 n2 tf1 t0",
+        "retro faux fur | RETRO FAUX FUR | 패션 스타일 | 0.67 n3 tf1 t0",
+        "tod | Tod | 인물 | 0.19 n1 tf1 t0",
+        "undone bags | UNDONE BAGS | 의류 품목 | 0.46 n2 tf1 t0",
+        "가방 | 가방 | 의류 품목 | 0.23 n1 tf1 t0",
+        "고딕 로맨스 | 고딕 로맨스 | 패션 스타일 | 0.76 n2 tf1 t0",
+        "디올 | 디올 | 브랜드 | 0.97 n1 tf1 t0",
+        "러플 | 러플 | 소재 | 0.22 n1 tf1 t0",
+        "롱 코트 | 롱 코트 | 의류 품목 | 0.32 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -48,28 +47,26 @@
   "fashion-allure-353917.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 92,
-      "doc_len": 110,
-      "dropped": {
-        "SHAPE": 4
-      },
-      "keys_digest": "762eab8b376537bb",
+      "candidates": 22,
+      "doc_len": 716,
+      "dropped": {},
+      "keys_digest": "c5cb73bec6c9d249",
       "top": [
-        "부츠 | 부츠 | TERM | n1 tf3 t0",
-        "chloe | CHLOE | ACRONYM | n1 tf2 t0",
-        "라벤더 | 라벤더 | TERM | n1 tf2 t0",
-        "사이하이 | 사이하이 | TERM | n1 tf2 t0",
-        "사이하이 부츠 | 사이하이 부츠 | NGRAM | n2 tf2 t0",
-        "실루엣 | 실루엣 | TERM | n1 tf2 t0",
-        "완성 | 완성 | TERM | n1 tf2 t0",
-        "자유 | 자유 | TERM | n1 tf2 t0",
-        "존재감 | 존재감 | TERM | n1 tf2 t0",
-        "체크 | 체크 | TERM | n1 tf2 t0",
-        "팬츠 | 팬츠 | TERM | n1 tf2 t0",
-        "핑크 | 핑크 | TERM | n1 tf2 t0",
-        "acne | ACNE | ACRONYM | n1 tf1 t0",
-        "acne studios | ACNE STUDIOS | NGRAM | n2 tf1 t0",
-        "balenciaga | Balenciaga | TERM | n1 tf1 t0"
+        "chloe | Chloe | 브랜드 | 0.86 n1 tf2 t0",
+        "f/w | F/W | 패션 스타일 | 0.35 n1 tf2 t0",
+        "사이하이 부츠 | 사이하이 부츠 | 의류 품목 | 0.31 n2 tf2 t0",
+        "2026 f/w | 2026 F/W | 패션 스타일 | 0.33 n2 tf1 t0",
+        "acne studios | ACNE STUDIOS | 브랜드 | 0.84 n2 tf1 t0",
+        "balenciaga | Balenciaga | 브랜드 | 0.95 n1 tf1 t0",
+        "bold checks | BOLD CHECKS | 패션 스타일 | 0.54 n2 tf1 t0",
+        "etro | ETRO | 브랜드 | 0.84 n1 tf1 t0",
+        "gabriela hearst | GABRIELA HEARST | 브랜드 | 0.40 n2 tf1 t0",
+        "givenchy | Givenchy | 브랜드 | 0.88 n1 tf1 t0",
+        "mugler | Mugler | 브랜드 | 0.75 n1 tf1 t0",
+        "pale pink lavender | PALE PINK & LAVENDER | 소재 | 0.44 n3 tf1 t0",
+        "statement thigh highs | STATEMENT THIGH-HIGHS | 의류 품목 | 0.28 n3 tf1 t0",
+        "라벤더 | 라벤더 | 소재 | 0.42 n1 tf1 t0",
+        "러플과 비딩 | 러플과 비딩 | 소재 | 0.41 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -93,29 +90,22 @@
   "fashion-allure-354567.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 62,
-      "doc_len": 110,
+      "candidates": 9,
+      "doc_len": 750,
       "dropped": {
-        "NOISE": 1,
-        "SHAPE": 3
+        "LABEL": 1
       },
-      "keys_digest": "90d739261a2e2091",
+      "keys_digest": "04f10dffa288f53b",
       "top": [
-        "레드 | 레드 | TERM | n1 tf9 t0",
-        "블루 | 블루 | TERM | n1 tf9 t0",
-        "가을 | 가을 | TERM | n1 tf6 t1",
-        "조합 | 조합 | TERM | n1 tf5 t0",
-        "퍼플 | 퍼플 | TERM | n1 tf4 t0",
-        "니트 | 니트 | TERM | n1 tf3 t0",
-        "miu | Miu | TERM | n1 tf2 t0",
-        "prada | Prada | TERM | n1 tf2 t0",
-        "가방 | 가방 | TERM | n1 tf2 t0",
-        "데님 | 데님 | TERM | n1 tf2 t0",
-        "매치 | 매치 | TERM | n1 tf2 t0",
-        "버건디 | 버건디 | TERM | n1 tf2 t0",
-        "사용 | 사용 | TERM | n1 tf2 t0",
-        "셔츠 | 셔츠 | TERM | n1 tf2 t0",
-        "유행 | 유행 | TERM | n1 tf2 t1"
+        "prada | Prada | 브랜드 | 1.00 n1 tf2 t0",
+        "celine | Celine | 브랜드 | 0.98 n1 tf1 t0",
+        "레드 가방 | 레드 가방 | 의류 품목 | 0.20 n2 tf1 t0",
+        "레드 스카프 | 레드 스카프 | 의류 품목 | 0.16 n2 tf1 t0",
+        "레드 스커트 | 레드 스커트 | 의류 품목 | 0.18 n2 tf1 t0",
+        "버건디 | 버건디 | 의류 품목 | 0.15 n1 tf1 t0",
+        "블루 데님 | 블루 데님 | 의류 품목 | 0.18 n2 tf1 t0",
+        "블루 드레스 | 블루 드레스 | 의류 품목 | 0.15 n2 tf1 t0",
+        "블루 셔츠 | 블루 셔츠 | 의류 품목 | 0.24 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -139,28 +129,26 @@
   "fashion-cosmopolitan-1887708.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 148,
-      "doc_len": 124,
-      "dropped": {
-        "SHAPE": 5
-      },
-      "keys_digest": "05a8aef2ad9b90c7",
+      "candidates": 33,
+      "doc_len": 725,
+      "dropped": {},
+      "keys_digest": "f50322c2f57aa511",
       "top": [
-        "descente | Descente. | TERM | n1 tf8 t0",
-        "러닝 | 러닝 | TERM | n1 tf5 t1",
-        "스니커즈 | 스니커즈 | TERM | n1 tf5 t0",
-        "델타프로 | 델타프로 | TERM | n1 tf4 t0",
-        "브라톱 | 브라톱 | TERM | n1 tf4 t0",
-        "양말 | 양말 | TERM | n1 tf4 t0",
-        "레깅스 | 레깅스 | TERM | n1 tf3 t0",
-        "브라톱 10 | 브라톱 10 | VERSIONED | n2 tf3 t0",
-        "쇼트 | 쇼트 | TERM | n1 tf3 t0",
-        "러닝 델타프로 | 러닝 델타프로 | NGRAM | n2 tf2 t0",
-        "레깅스 12 | 레깅스 12 | VERSIONED | n2 tf2 t0",
-        "롱 브라톱 | 롱 브라톱 | NGRAM | n2 tf2 t0",
-        "롱 브라톱 10 | 롱 브라톱 10 | VERSIONED | n3 tf2 t0",
-        "미디엄서포트 | 미디엄서포트 | TERM | n1 tf2 t0",
-        "미디엄서포트 롱 | 미디엄서포트 롱 | NGRAM | n2 tf2 t0"
+        "descente | Descente | 브랜드 | 1.00 n1 tf8 t0",
+        "델타프로 | 델타프로 | 브랜드 | 1.00 n1 tf4 t0",
+        "양말 | 양말 | 의류 품목 | 0.86 n1 tf4 t0",
+        "러닝 | 러닝 | 의류 품목 | 0.41 n1 tf2 t0",
+        "미디엄서포트 롱 브라톱 | 미디엄서포트 롱 브라톱 | 의류 품목 | 0.74 n3 tf2 t0",
+        "숄더백 | 숄더백 | 의류 품목 | 0.30 n1 tf2 t0",
+        "9인치 타이츠 | 9인치 타이츠 | 의류 품목 | 0.32 n2 tf1 t0",
+        "exp v2 스니커즈 | EXP V2 스니커즈 | 의류 품목 | 0.27 n3 tf1 t0",
+        "김민지 | 김민지 | 인물 | 0.79 n1 tf1 t1",
+        "나일론 볼캡 | 나일론 볼캡 | 의류 품목 | 0.56 n2 tf1 t0",
+        "데상트 | 데상트 | 브랜드 | 0.78 n1 tf1 t1",
+        "라이트서포트 쇼트 브라톱 | 라이트서포트 쇼트 브라톱 | 의류 품목 | 0.40 n3 tf1 t0",
+        "러닝 경량 선바이저 | 러닝 경량 선바이저 | 의류 품목 | 0.50 n3 tf1 t0",
+        "러닝 후드 티셔츠 | 러닝 후드 티셔츠 | 의류 품목 | 0.53 n3 tf1 t0",
+        "리트모 70 스니커즈 | 리트모 70 스니커즈 | 의류 품목 | 0.37 n3 tf1 t0"
       ]
     },
     "normalize": {
@@ -184,29 +172,28 @@
   "fashion-cosmopolitan-1892435.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 126,
-      "doc_len": 142,
+      "candidates": 20,
+      "doc_len": 956,
       "dropped": {
-        "NOISE": 1,
-        "SHAPE": 8
+        "LABEL": 2
       },
-      "keys_digest": "1302b30f2074ff86",
+      "keys_digest": "a8ef16801da52f42",
       "top": [
-        "와이드 | 와이드 | TERM | n1 tf8 t1",
-        "와이드 팬츠 | 와이드 팬츠 | NGRAM | n2 tf6 t1",
-        "팬츠 | 팬츠 | TERM | n1 tf6 t1",
-        "getty | Getty | TERM | n1 tf3 t0",
-        "getty images | Getty Images | NGRAM | n2 tf3 t0",
-        "images | Images | TERM | n1 tf3 t0",
-        "데님 | 데님 | TERM | n1 tf3 t0",
-        "매치 | 매치 | TERM | n1 tf3 t0",
-        "스타일링 | 스타일링 | TERM | n1 tf3 t0",
-        "조합 | 조합 | TERM | n1 tf3 t0",
-        "autumn | Autumn | TERM | n1 tf2 t0",
-        "winter | Winter | TERM | n1 tf2 t0",
-        "winter 2025 | Winter 2025 | VERSIONED | n2 tf2 t0",
-        "가능 | 가능 | TERM | n1 tf2 t0",
-        "겨울 | 겨울 | TERM | n1 tf2 t0"
+        "와이드 팬츠 | 와이드 팬츠 | 의류 품목 | 1.00 n2 tf6 t1",
+        "autumn/winter 2025 | Autumn/Winter 2025 | 컬렉션 또는 행사 | 0.27 n2 tf2 t0",
+        "배기 | 배기 | 패션 스타일 | 0.73 n1 tf2 t0",
+        "2025 f/w | 2025 F/W | 컬렉션 또는 행사 | 0.82 n2 tf1 t0",
+        "balenciaga | Balenciaga | 브랜드 | 0.98 n1 tf1 t0",
+        "chloé | Chloé | 브랜드 | 0.97 n1 tf1 t0",
+        "edward berthelot | Edward Berthelot | 인물 | 0.94 n2 tf1 t0",
+        "peter white | Peter White | 인물 | 0.93 n2 tf1 t0",
+        "t바 발레 플랫 | T바 발레 플랫 | 의류 품목 | 0.53 n3 tf1 t0",
+        "끌로에 | 끌로에 | 브랜드 | 0.74 n1 tf1 t0",
+        "더블 데님 | 더블 데님 | 의류 품목 | 0.33 n2 tf1 t0",
+        "레이스 블라우스 | 레이스 블라우스 | 패션 스타일 | 0.37 n2 tf1 t0",
+        "발렌시아가 | 발렌시아가 | 브랜드 | 0.97 n1 tf1 t0",
+        "보이프렌드 | 보이프렌드 | 패션 스타일 | 0.53 n1 tf1 t0",
+        "와이드 데님 | 와이드 데님 | 의류 품목 | 0.26 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -230,28 +217,25 @@
   "fashion-cosmopolitan-1893297.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 97,
-      "doc_len": 115,
-      "dropped": {
-        "SHAPE": 3
-      },
-      "keys_digest": "ee6f0e8e178c9b22",
+      "candidates": 14,
+      "doc_len": 674,
+      "dropped": {},
+      "keys_digest": "7b14a6c975b146e9",
       "top": [
-        "주얼리 | 주얼리 | TERM | n1 tf8 t2",
-        "겨울 | 겨울 | TERM | n1 tf4 t1",
-        "반클리프 | 반클리프 | TERM | n1 tf4 t0",
-        "반클리프 아펠 | 반클리프 아펠 | NGRAM | n2 tf4 t0",
-        "스노우 | 스노우 | TERM | n1 tf4 t0",
-        "아펠 | 아펠 | TERM | n1 tf4 t0",
-        "눈송이 | 눈송이 | TERM | n1 tf3 t0",
-        "쇼파드 | 쇼파드 | TERM | n1 tf3 t0",
-        "스노우 플레이크 | 스노우 플레이크 | NGRAM | n2 tf3 t0",
-        "플레이크 | 플레이크 | TERM | n1 tf3 t0",
-        "결정 | 결정 | TERM | n1 tf2 t0",
-        "네크리스 | 네크리스 | TERM | n1 tf2 t0",
-        "눈꽃 | 눈꽃 | TERM | n1 tf2 t0",
-        "다이아몬드 | 다이아몬드 | TERM | n1 tf2 t0",
-        "반클리프 아펠 주얼리 | 반클리프 아펠 주얼리 | NGRAM | n3 tf2 t0"
+        "반클리프 아펠 | 반클리프 아펠 | 브랜드 | 1.00 n2 tf4 t0",
+        "스노우 플레이크 | 스노우 플레이크 | 패션 스타일 | 1.00 n2 tf4 t0",
+        "쇼파드 | 쇼파드 | 브랜드 | 0.57 n1 tf3 t0",
+        "다이아몬드 | 다이아몬드 | 소재 | 0.87 n1 tf2 t0",
+        "아이스 큐브 | 아이스 큐브 | 패션 스타일 | 0.71 n2 tf2 t0",
+        "얼음 | 얼음 | 소재 | 0.52 n1 tf2 t0",
+        "겨울 파티 룩 | 겨울 파티 룩 | 컬렉션 또는 행사 | 0.53 n3 tf1 t0",
+        "메종 | 메종 | 브랜드 | 0.94 n1 tf1 t0",
+        "블랙 드레스 | 블랙 드레스 | 의류 품목 | 0.22 n2 tf1 t0",
+        "연말 모임 | 연말 모임 | 컬렉션 또는 행사 | 0.53 n2 tf1 t0",
+        "크리스마스 디너 | 크리스마스 디너 | 컬렉션 또는 행사 | 0.50 n2 tf1 t0",
+        "파베르제 | 파베르제 | 의류 품목 | 0.20 n1 tf1 t0",
+        "화이트 골드 | 화이트 골드 | 소재 | 0.62 n2 tf1 t0",
+        "화이트 니트 | 화이트 니트 | 의류 품목 | 0.30 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -275,15 +259,14 @@
   "fashion-cosmopolitan-1896897.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 2,
-      "doc_len": 4,
-      "dropped": {
-        "SHAPE": 1
-      },
-      "keys_digest": "69bf71e4ef0265cb",
+      "candidates": 3,
+      "doc_len": 31,
+      "dropped": {},
+      "keys_digest": "3483fbde466edb87",
       "top": [
-        "넥라인 | 넥라인 | TERM | n1 tf1 t1",
-        "목걸이 | 목걸이 | TERM | n1 tf1 t1"
+        "넥라인별 | 넥라인별 | 패션 스타일 | 0.34 n1 tf1 t1",
+        "목걸이 | 목걸이 | 의류 품목 | 0.66 n1 tf1 t1",
+        "스타일 | 스타일 | 패션 스타일 | 0.34 n1 tf1 t1"
       ]
     },
     "normalize": {
@@ -307,28 +290,26 @@
   "fashion-cosmopolitan-1897378.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 113,
-      "doc_len": 140,
-      "dropped": {
-        "SHAPE": 5
-      },
-      "keys_digest": "bf4fcdfb6d52abae",
+      "candidates": 16,
+      "doc_len": 1045,
+      "dropped": {},
+      "keys_digest": "c347eac35aef841d",
       "top": [
-        "백팩 | 백팩 | TERM | n1 tf5 t0",
-        "가방 | 가방 | TERM | n1 tf4 t1",
-        "일상 | 일상 | TERM | n1 tf4 t0",
-        "자연 | 자연 | TERM | n1 tf3 t0",
-        "spring | Spring | TERM | n1 tf2 t0",
-        "summer | Summer | TERM | n1 tf2 t0",
-        "summer 2026 | Summer 2026 | VERSIONED | n2 tf2 t0",
-        "계절 | 계절 | TERM | n1 tf2 t0",
-        "데일리 | 데일리 | TERM | n1 tf2 t0",
-        "상황 | 상황 | TERM | n1 tf2 t0",
-        "스타일링 | 스타일링 | TERM | n1 tf2 t0",
-        "역할 | 역할 | TERM | n1 tf2 t0",
-        "준비 | 준비 | TERM | n1 tf2 t0",
-        "중요 | 중요 | TERM | n1 tf2 t0",
-        "지금 | 지금 | TERM | n1 tf2 t0"
+        "백팩 | 백팩 | 의류 품목 | 0.74 n1 tf11 t0",
+        "데일리 | 데일리 | 패션 스타일 | 0.62 n1 tf2 t0",
+        "에디터 | 에디터 | 인물 | 0.31 n1 tf2 t0",
+        "gabe gordon | Gabe Gordon | 인물 | 0.47 n2 tf1 t0",
+        "isabel marant | Isabel Marant | 브랜드 | 0.96 n2 tf1 t0",
+        "off white | Off-White | 브랜드 | 0.96 n2 tf1 t0",
+        "디테일 백팩 | 디테일 백팩 | 의류 품목 | 0.19 n2 tf1 t0",
+        "미니 | 미니 | 패션 스타일 | 0.24 n1 tf1 t0",
+        "미니멀 | 미니멀 | 패션 스타일 | 0.19 n1 tf1 t0",
+        "비즈니스 | 비즈니스 | 패션 스타일 | 0.54 n1 tf1 t0",
+        "소재 | 소재 | 소재 | 0.62 n1 tf1 t0",
+        "여행지 | 여행지 | 컬렉션 또는 행사 | 0.21 n1 tf1 t0",
+        "직장인 | 직장인 | 인물 | 0.25 n1 tf1 t0",
+        "토트백 | 토트백 | 의류 품목 | 0.19 n1 tf1 t1",
+        "트래블 | 트래블 | 패션 스타일 | 0.63 n1 tf1 t0"
       ]
     },
     "normalize": {
@@ -352,29 +333,26 @@
   "fashion-cosmopolitan-1907987.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 103,
-      "doc_len": 160,
-      "dropped": {
-        "NOISE": 1,
-        "SHAPE": 6
-      },
-      "keys_digest": "6f9d22d07590b0f2",
+      "candidates": 19,
+      "doc_len": 999,
+      "dropped": {},
+      "keys_digest": "541fc9179d5c8c18",
       "top": [
-        "부츠 | 부츠 | TERM | n1 tf17 t1",
-        "미들 | 미들 | TERM | n1 tf8 t0",
-        "미들 부츠 | 미들 부츠 | NGRAM | n2 tf8 t0",
-        "가을 | 가을 | TERM | n1 tf6 t0",
-        "인스타그램 | 인스타그램 | TERM | n1 tf5 t0",
-        "스웨이드 | 스웨이드 | TERM | n1 tf4 t0",
-        "스커트 | 스커트 | TERM | n1 tf4 t0",
-        "전소미 | 전소미 | TERM | n1 tf4 t0",
-        "제니 | 제니 | TERM | n1 tf4 t0",
-        "활용 | 활용 | TERM | n1 tf4 t0",
-        "쇼츠 | 쇼츠 | TERM | n1 tf3 t0",
-        "스웨이드 부츠 | 스웨이드 부츠 | NGRAM | n2 tf3 t0",
-        "스타일링 | 스타일링 | TERM | n1 tf3 t0",
-        "윈터 | 윈터 | TERM | n1 tf3 t0",
-        "깃털 | 깃털 | TERM | n1 tf2 t0"
+        "미들 부츠 | 미들 부츠 | 의류 품목 | 0.60 n2 tf8 t0",
+        "스웨이드 | 스웨이드 | 소재 | 1.00 n1 tf4 t0",
+        "시어 스커트 | 시어 스커트 | 의류 품목 | 0.63 n2 tf4 t0",
+        "전소미 | 전소미 | 브랜드 | 1.00 n1 tf4 t0",
+        "제니 | 제니 | 브랜드 | 1.00 n1 tf4 t0",
+        "윈터 | 윈터 | 브랜드 | 1.00 n1 tf3 t0",
+        "jennierubyjane | jennierubyjane | 브랜드 | 0.49 n1 tf2 t0",
+        "깃털 | 깃털 | 소재 | 0.26 n1 tf2 t0",
+        "예지 | 예지 | 브랜드 | 1.00 n1 tf2 t0",
+        "워커 | 워커 | 의류 품목 | 0.47 n1 tf2 t0",
+        "somsomi0309 | somsomi0309 | 브랜드 | 0.16 n1 tf1 t0",
+        "롤라팔루자 | 롤라팔루자 | 컬렉션 또는 행사 | 0.34 n1 tf1 t0",
+        "미니 쇼츠 | 미니 쇼츠 | 의류 품목 | 0.28 n2 tf1 t0",
+        "미니 쇼츠와 | 미니 쇼츠와 | 의류 품목 | 0.32 n2 tf1 t0",
+        "블랙 레더 부츠 | 블랙 레더 부츠 | 의류 품목 | 0.18 n3 tf1 t0"
       ]
     },
     "normalize": {
@@ -414,28 +392,19 @@
           "initials_match": false
         }
       ],
-      "candidates": 99,
-      "doc_len": 126,
-      "dropped": {
-        "SHAPE": 3
-      },
-      "keys_digest": "2b5f551c4186940b",
+      "candidates": 8,
+      "doc_len": 813,
+      "dropped": {},
+      "keys_digest": "3dfcaa36ccd5195c",
       "top": [
-        "아크테릭스 | 아크테릭스 | TERM | n1 tf10 t1",
-        "아웃도어 | 아웃도어 | TERM | n1 tf6 t0",
-        "시스템 | 시스템 | TERM | n1 tf4 t1",
-        "시작 | 시작 | TERM | n1 tf3 t0",
-        "제로 | 제로 | TERM | n1 tf3 t1",
-        "혁신 | 혁신 | TERM | n1 tf3 t0",
-        "system | System | TERM | n1 tf2 t1",
-        "미래 | 미래 | TERM | n1 tf2 t0",
-        "산업 | 산업 | TERM | n1 tf2 t0",
-        "시스템 제로 | 시스템 제로 | NGRAM | n2 tf2 t1",
-        "시점 | 시점 | TERM | n1 tf2 t0",
-        "알렉스 | 알렉스 | TERM | n1 tf2 t0",
-        "챕터 | 챕터 | TERM | n1 tf2 t1",
-        "친환경 | 친환경 | TERM | n1 tf2 t1",
-        "3차원 | 3차원 | TERM | n1 tf1 t0"
+        "아크테릭스 | 아크테릭스 | 브랜드 | 1.00 n1 tf10 t1",
+        "alex plante | Alex Plante | 인물 | 0.93 n2 tf1 t0",
+        "무봉제 | 무봉제 | 소재 | 0.40 n1 tf1 t0",
+        "스페로 | 스페로 | 의류 품목 | 0.53 n1 tf1 t0",
+        "심 테이프 | 심 테이프 | 소재 | 0.21 n2 tf1 t0",
+        "알렉스 플란테 | 알렉스 플란테 | 인물 | 0.93 n2 tf1 t0",
+        "에디터 | 에디터 | 인물 | 0.15 n1 tf1 t0",
+        "하네스 | 하네스 | 소재 | 0.19 n1 tf1 t0"
       ]
     },
     "normalize": {
@@ -459,28 +428,16 @@
   "fashion-gqkorea-397697.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 94,
-      "doc_len": 133,
-      "dropped": {
-        "SHAPE": 5
-      },
-      "keys_digest": "eb4d45edd6132b4e",
+      "candidates": 5,
+      "doc_len": 769,
+      "dropped": {},
+      "keys_digest": "dcd05c4d80e87706",
       "top": [
-        "자스민 | 자스민 | TERM | n1 tf10 t1",
-        "퍼퓸 | 퍼퓸 | TERM | n1 tf6 t1",
-        "드 퍼퓸 | 드 퍼퓸 | NGRAM | n2 tf5 t1",
-        "쟈스망 | 쟈스망 | TERM | n1 tf5 t1",
-        "쟝주 | 쟝주 | TERM | n1 tf5 t1",
-        "에스프리 | 에스프리 | TERM | n1 tf4 t1",
-        "에스프리 드 | 에스프리 드 | NGRAM | n2 tf4 t1",
-        "에스프리 드 퍼퓸 | 에스프리 드 퍼퓸 | NGRAM | n3 tf4 t1",
-        "쟝주 에스프리 | 쟝주 에스프리 | NGRAM | n2 tf4 t1",
-        "쟝주 에스프리 드 | 쟝주 에스프리 드 | NGRAM | n3 tf4 t1",
-        "디올 | 디올 | TERM | n1 tf3 t1",
-        "라 콜렉시옹 | 라 콜렉시옹 | NGRAM | n2 tf3 t1",
-        "라 콜렉시옹 프리베 | 라 콜렉시옹 프리베 | NGRAM | n3 tf3 t1",
-        "콜렉시옹 | 콜렉시옹 | TERM | n1 tf3 t1",
-        "콜렉시옹 프리베 | 콜렉시옹 프리베 | NGRAM | n2 tf3 t1"
+        "디올 | 디올 | 브랜드 | 1.00 n1 tf4 t1",
+        "new 라 콜렉시옹 | NEW 라 콜렉시옹 | 컬렉션 또는 행사 | 0.23 n3 tf1 t1",
+        "스트로베리 | 스트로베리 | 소재 | 0.28 n1 tf1 t0",
+        "프란시스 커정 | 프란시스 커정 | 인물 | 0.67 n2 tf1 t0",
+        "프랑스 그라스 | 프랑스 그라스 | 컬렉션 또는 행사 | 0.24 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -504,29 +461,13 @@
   "fashion-gqkorea-398310.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 97,
-      "doc_len": 126,
-      "dropped": {
-        "NOISE": 1,
-        "SHAPE": 5
-      },
-      "keys_digest": "a2d23f397385d94d",
+      "candidates": 2,
+      "doc_len": 943,
+      "dropped": {},
+      "keys_digest": "c02416df9c1801d0",
       "top": [
-        "모발 | 모발 | TERM | n1 tf6 t0",
-        "머리 | 머리 | TERM | n1 tf5 t1",
-        "하루 | 하루 | TERM | n1 tf4 t1",
-        "두피 | 두피 | TERM | n1 tf3 t0",
-        "머리카락 | 머리카락 | TERM | n1 tf3 t0",
-        "샴푸 | 샴푸 | TERM | n1 tf3 t0",
-        "탈모 | 탈모 | TERM | n1 tf3 t0",
-        "드 마르코 | 드 마르코 | NGRAM | n2 tf2 t0",
-        "마르코 | 마르코 | TERM | n1 tf2 t0",
-        "모근 | 모근 | TERM | n1 tf2 t0",
-        "윤기 | 윤기 | TERM | n1 tf2 t0",
-        "정수리 | 정수리 | TERM | n1 tf2 t0",
-        "la | LA | ACRONYM | n1 tf1 t0",
-        "건강 | 건강 | TERM | n1 tf1 t0",
-        "경향 | 경향 | TERM | n1 tf1 t0"
+        "빈센트 드 마르코 | 빈센트 드 마르코 | 인물 | 0.89 n3 tf1 t0",
+        "천연 오일 | 천연 오일 | 소재 | 0.59 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -550,29 +491,26 @@
   "fashion-gqkorea-398573.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 126,
-      "doc_len": 130,
-      "dropped": {
-        "NOISE": 1,
-        "SHAPE": 7
-      },
-      "keys_digest": "81495ac685830b78",
+      "candidates": 17,
+      "doc_len": 831,
+      "dropped": {},
+      "keys_digest": "32f88421af57bd2f",
       "top": [
-        "남자 | 남자 | TERM | n1 tf3 t1",
-        "옷차림 | 옷차림 | TERM | n1 tf3 t0",
-        "블레이저 | 블레이저 | TERM | n1 tf2 t0",
-        "스타일스 | 스타일스 | TERM | n1 tf2 t0",
-        "에이셉 라키 | 에이셉 라키 | TERM | n1 tf2 t0",
-        "엘로디 | 엘로디 | TERM | n1 tf2 t0",
-        "제이콥 | 제이콥 | TERM | n1 tf2 t0",
-        "제이콥 엘로디 | 제이콥 엘로디 | NGRAM | n2 tf2 t0",
-        "조합 | 조합 | TERM | n1 tf2 t0",
-        "질감 | 질감 | TERM | n1 tf2 t0",
-        "핀스트라이프 | 핀스트라이프 | TERM | n1 tf2 t0",
-        "해리 | 해리 | TERM | n1 tf2 t0",
-        "해리 스타일스 | 해리 스타일스 | NGRAM | n2 tf2 t0",
-        "헤링본 | 헤링본 | TERM | n1 tf2 t0",
-        "j.뮤저헤링본 | J.뮤저헤링본 | TERM | n1 tf1 t0"
+        "에이셉 라키 | 에이셉 라키 | 인물 | 1.00 n2 tf2 t0",
+        "제이콥 엘로디 | 제이콥 엘로디 | 인물 | 1.00 n2 tf2 t0",
+        "해리 스타일스 | 해리 스타일스 | 브랜드 | 1.00 n2 tf2 t0",
+        "헤링본 | 헤링본 | 브랜드 | 0.96 n1 tf2 t0",
+        "j.뮤저헤링본 | J.뮤저헤링본 | 인물 | 0.34 n1 tf1 t0",
+        "드리스 반 노튼 | 드리스 반 노튼 | 인물 | 0.59 n3 tf1 t0",
+        "디올 | 디올 | 브랜드 | 0.86 n1 tf1 t0",
+        "랄프 로렌 | 랄프 로렌 | 인물 | 0.75 n2 tf1 t0",
+        "세이브 카키오가닉 헴프 스트라이프 크루 티 | 세이브 카키오가닉 헴프 스트라이프 크루 티 | 의류 품목 | 0.18 n6 tf1 t0",
+        "아우터 뱅크스 | 아우터 뱅크스 | 브랜드 | 0.49 n2 tf1 t0",
+        "울 블레이저 | 울 블레이저 | 패션 스타일 | 0.21 n2 tf1 t0",
+        "이선 호크 | 이선 호크 | 소재 | 0.28 n2 tf1 t0",
+        "조시 브롤린 | 조시 브롤린 | 인물 | 0.86 n2 tf1 t0",
+        "카우보이 부츠 | 카우보이 부츠 | 의류 품목 | 0.24 n2 tf1 t0",
+        "커리도어와이드 트윌 팬츠 | 커리도어와이드 트윌 팬츠 | 의류 품목 | 0.28 n3 tf1 t0"
       ]
     },
     "normalize": {
@@ -596,28 +534,25 @@
   "fashion-harpersbazaar-1890871.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 112,
-      "doc_len": 173,
-      "dropped": {
-        "SHAPE": 5
-      },
-      "keys_digest": "421ddfec8f0ce72c",
+      "candidates": 14,
+      "doc_len": 979,
+      "dropped": {},
+      "keys_digest": "a067520585b4a294",
       "top": [
-        "플리스 | 플리스 | TERM | n1 tf18 t1",
-        "겨울 | 겨울 | TERM | n1 tf7 t0",
-        "미우미우 | 미우미우 | TERM | n1 tf5 t1",
-        "가을 | 가을 | TERM | n1 tf4 t0",
-        "샌디 | 샌디 | TERM | n1 tf4 t1",
-        "미우미우 2025 | 미우미우 2025 | VERSIONED | n2 tf3 t0",
-        "방식 | 방식 | TERM | n1 tf3 t0",
-        "스커트 | 스커트 | TERM | n1 tf3 t0",
-        "거리 | 거리 | TERM | n1 tf2 t0",
-        "런웨이 | 런웨이 | TERM | n1 tf2 t0",
-        "매력 | 매력 | TERM | n1 tf2 t0",
-        "아우터 | 아우터 | TERM | n1 tf2 t1",
-        "요즘 | 요즘 | TERM | n1 tf2 t0",
-        "재킷 | 재킷 | TERM | n1 tf2 t0",
-        "코트 | 코트 | TERM | n1 tf2 t0"
+        "플리스 | 플리스 | 패션 스타일 | 1.00 n1 tf17 t1",
+        "미우미우 | 미우미우 | 브랜드 | 1.00 n1 tf5 t1",
+        "샌디 리앙 | 샌디 리앙 | 브랜드 | 1.00 n2 tf4 t1",
+        "f/w | F/W | 컬렉션 또는 행사 | 0.30 n1 tf1 t0",
+        "걸리 무드 | 걸리 무드 | 의류 품목 | 0.17 n2 tf1 t0",
+        "데님 팬츠 | 데님 팬츠 | 패션 스타일 | 0.23 n2 tf1 t0",
+        "레더 스커트와 부츠 | 레더 스커트와 부츠 | 의류 품목 | 0.19 n3 tf1 t0",
+        "새틴 미니스커트 | 새틴 미니스커트 | 패션 스타일 | 0.49 n2 tf1 t0",
+        "엠마 코린 | 엠마 코린 | 인물 | 0.82 n2 tf1 t0",
+        "체크 스커트 | 체크 스커트 | 의류 품목 | 0.20 n2 tf1 t0",
+        "테일러드 코트 | 테일러드 코트 | 의류 품목 | 0.29 n2 tf1 t0",
+        "트레이닝 팬츠 | 트레이닝 팬츠 | 의류 품목 | 0.17 n2 tf1 t0",
+        "플라워 프린트 풀 스커트 | 플라워 프린트 풀 스커트 | 패션 스타일 | 0.22 n4 tf1 t0",
+        "플리스만한 | 플리스만한 | 패션 스타일 | 0.78 n1 tf1 t0"
       ]
     },
     "normalize": {
@@ -641,26 +576,25 @@
   "fashion-harpersbazaar-1892058.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 65,
-      "doc_len": 102,
+      "candidates": 14,
+      "doc_len": 702,
       "dropped": {},
-      "keys_digest": "86f07ebdd2bfaa51",
+      "keys_digest": "3ff8fc04cee2bd52",
       "top": [
-        "홀리데이 | 홀리데이 | TERM | n1 tf5 t1",
-        "룰루레몬 | 룰루레몬 | TERM | n1 tf3 t0",
-        "마음 | 마음 | TERM | n1 tf3 t0",
-        "기능 | 기능 | TERM | n1 tf2 t0",
-        "보온 | 보온 | TERM | n1 tf2 t0",
-        "사랑 | 사랑 | TERM | n1 tf2 t0",
-        "선물 | 선물 | TERM | n1 tf2 t1",
-        "선물 아이디어 | 선물 아이디어 | NGRAM | n2 tf2 t1",
-        "아이디어 | 아이디어 | TERM | n1 tf2 t1",
-        "액세서리 | 액세서리 | TERM | n1 tf2 t0",
-        "일상 | 일상 | TERM | n1 tf2 t0",
-        "특별 | 특별 | TERM | n1 tf2 t1",
-        "합리 | 합리 | TERM | n1 tf2 t0",
-        "accessories | Accessories | TERM | n1 tf1 t0",
-        "가족 | 가족 | TERM | n1 tf1 t0"
+        "룰루레몬 | 룰루레몬 | 브랜드 | 1.00 n1 tf3 t0",
+        "accessories | Accessories | 의류 품목 | 0.35 n1 tf1 t0",
+        "가족 | 가족 | 인물 | 0.38 n1 tf1 t0",
+        "뛰어난 소재 | 뛰어난 소재 | 소재 | 0.77 n2 tf1 t0",
+        "스쿠버 컬렉션 | 스쿠버 컬렉션 | 의류 품목 | 0.45 n2 tf1 t0",
+        "액세서리 | 액세서리 | 의류 품목 | 0.22 n1 tf1 t0",
+        "연인 | 연인 | 인물 | 0.45 n1 tf1 t0",
+        "와이드레그 팬츠 | 와이드레그 팬츠 | 의류 품목 | 0.52 n2 tf1 t0",
+        "인도신 블루 | 인도신 블루 | 소재 | 0.74 n2 tf1 t0",
+        "친구 | 친구 | 인물 | 0.36 n1 tf1 t0",
+        "포그 그린 | 포그 그린 | 소재 | 0.48 n2 tf1 t0",
+        "홀리데이 시즌 | 홀리데이 시즌 | 컬렉션 또는 행사 | 0.26 n2 tf1 t0",
+        "홀리데이 캠페인 | 홀리데이 캠페인 | 컬렉션 또는 행사 | 0.66 n2 tf1 t0",
+        "홀리데이 컬렉션 | 홀리데이 컬렉션 | 패션 스타일 | 0.17 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -684,28 +618,20 @@
   "fashion-harpersbazaar-1892629.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 53,
-      "doc_len": 45,
-      "dropped": {
-        "SHAPE": 3
-      },
-      "keys_digest": "9e910941739cfb2f",
+      "candidates": 9,
+      "doc_len": 218,
+      "dropped": {},
+      "keys_digest": "d71c06cd90808ae7",
       "top": [
-        "pxg | PXG. | ACRONYM | n1 tf3 t1",
-        "골프 | 골프 | TERM | n1 tf2 t0",
-        "자신감 | 자신감 | TERM | n1 tf2 t1",
-        "필드 | 필드 | TERM | n1 tf2 t1",
-        "a라인 | A라인 | TERM | n1 tf1 t0",
-        "a라인 랩스커트 | A라인 랩스커트 | NGRAM | n2 tf1 t0",
-        "골프 슈즈 | 골프 슈즈 | NGRAM | n2 tf1 t0",
-        "골프 웨어 | 골프 웨어 | NGRAM | n2 tf1 t0",
-        "넥 스웨터 | 넥 스웨터 | NGRAM | n2 tf1 t0",
-        "뉴 하이 | 뉴 하이 | NGRAM | n2 tf1 t0",
-        "뉴 하이 넥 | 뉴 하이 넥 | NGRAM | n3 tf1 t0",
-        "니삭스 | 니삭스 | TERM | n1 tf1 t0",
-        "다운 | 다운 | TERM | n1 tf1 t0",
-        "디테일 | 디테일 | TERM | n1 tf1 t0",
-        "랩스커트 | 랩스커트 | TERM | n1 tf1 t0"
+        "pxg | PXG | 브랜드 | 1.00 n1 tf3 t1",
+        "a라인 랩스커트 | A라인 랩스커트 | 의류 품목 | 0.72 n2 tf1 t0",
+        "오리지널 투어 스파이크 골프 슈즈 | 오리지널 투어 스파이크 골프 슈즈 | 의류 품목 | 0.73 n5 tf1 t0",
+        "오버 니삭스 | 오버 니삭스 | 의류 품목 | 0.37 n2 tf1 t0",
+        "윈드프루프 뉴 하이 넥 스웨터 | 윈드프루프 뉴 하이 넥 스웨터 | 의류 품목 | 0.73 n5 tf1 t0",
+        "패딩 버킷백 | 패딩 버킷백 | 의류 품목 | 0.55 n2 tf1 t0",
+        "퍼 이어머프 모자 | 퍼 이어머프 모자 | 의류 품목 | 0.47 n3 tf1 t0",
+        "푸퍼 다운 베스트 | 푸퍼 다운 베스트 | 의류 품목 | 0.74 n3 tf1 t0",
+        "화이트 퍼 | 화이트 퍼 | 소재 | 0.59 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -740,28 +666,21 @@
           "initials_match": false
         }
       ],
-      "candidates": 90,
-      "doc_len": 128,
-      "dropped": {
-        "SHAPE": 8
-      },
-      "keys_digest": "4f4089a53197b2f1",
+      "candidates": 10,
+      "doc_len": 809,
+      "dropped": {},
+      "keys_digest": "38530dcd2cf8238e",
       "top": [
-        "공기 | 공기 | TERM | n1 tf6 t0",
-        "레이어 | 레이어 | TERM | n1 tf5 t1",
-        "메쉬 | 메쉬 | TERM | n1 tf5 t1",
-        "베이스 | 베이스 | TERM | n1 tf5 t1",
-        "베이스 레이어 | 베이스 레이어 | NGRAM | n2 tf5 t1",
-        "망사 | 망사 | TERM | n1 tf4 t0",
-        "메쉬 베이스 | 메쉬 베이스 | NGRAM | n2 tf4 t1",
-        "메쉬 베이스 레이어 | 메쉬 베이스 레이어 | NGRAM | n3 tf4 t1",
-        "겨울 | 겨울 | TERM | n1 tf3 t1",
-        "구조 | 구조 | TERM | n1 tf3 t0",
-        "보온 | 보온 | TERM | n1 tf3 t1",
-        "한겨울 | 한겨울 | TERM | n1 tf3 t0",
-        "base | base | TERM | n1 tf2 t0",
-        "base layer | base layer | NGRAM | n2 tf2 t0",
-        "layer | layer | TERM | n1 tf2 t0"
+        "메쉬 베이스 레이어 | 메쉬 베이스 레이어 | 의류 품목 | 1.00 n3 tf4 t1",
+        "러닝 | 러닝 | 패션 스타일 | 0.64 n1 tf2 t1",
+        "망사 구조 | 망사 구조 | 소재 | 0.37 n2 tf2 t0",
+        "fishnet base layer | fishnet base layer | 의류 품목 | 0.31 n3 tf1 t0",
+        "mesh base layer | mesh base layer | 의류 품목 | 0.34 n3 tf1 t0",
+        "공극 | 공극 | 소재 | 0.39 n1 tf1 t0",
+        "망사 이너웨어 | 망사 이너웨어 | 의류 품목 | 0.26 n2 tf1 t0",
+        "알프스 산악 가이드들 | 알프스 산악 가이드들 | 인물 | 0.21 n3 tf1 t0",
+        "주요 브랜드 | 주요 브랜드 | 브랜드 | 0.59 n2 tf1 t0",
+        "피쉬넷 베이스 레이어 | 피쉬넷 베이스 레이어 | 의류 품목 | 0.56 n3 tf1 t0"
       ]
     },
     "normalize": {
@@ -785,21 +704,13 @@
   "fashion-harpersbazaar-1895820.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 10,
-      "doc_len": 7,
+      "candidates": 2,
+      "doc_len": 27,
       "dropped": {},
-      "keys_digest": "1412d43c8db6c2b2",
+      "keys_digest": "bafafda67ec10023",
       "top": [
-        "메달리스트 | 메달리스트 | TERM | n1 tf1 t1",
-        "복싱 | 복싱 | TERM | n1 tf1 t1",
-        "여자 | 여자 | TERM | n1 tf1 t1",
-        "여자 복싱 | 여자 복싱 | NGRAM | n2 tf1 t1",
-        "올림픽 | 올림픽 | TERM | n1 tf1 t1",
-        "올림픽 메달리스트 | 올림픽 메달리스트 | NGRAM | n2 tf1 t1",
-        "임애지 | 임애지 | TERM | n1 tf1 t1",
-        "한국 | 한국 | TERM | n1 tf1 t1",
-        "한국 여자 | 한국 여자 | NGRAM | n2 tf1 t1",
-        "한국 여자 복싱 | 한국 여자 복싱 | NGRAM | n3 tf1 t1"
+        "임애 | 임애 | 인물 | 0.89 n1 tf1 t1",
+        "한국 여자 복싱 최초의 올림픽 메달리스트 | 한국 여자 복싱 최초의 올림픽 메달리스트 | 인물 | 0.16 n6 tf1 t1"
       ]
     },
     "normalize": {
@@ -823,20 +734,13 @@
   "fashion-harpersbazaar-1895823.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 9,
-      "doc_len": 8,
+      "candidates": 2,
+      "doc_len": 32,
       "dropped": {},
-      "keys_digest": "a190c30a8ae70bb6",
+      "keys_digest": "aeaf1ce64b160850",
       "top": [
-        "opbf | OPBF | ACRONYM | n1 tf1 t1",
-        "opbf 챔피언 | OPBF 챔피언 | NGRAM | n2 tf1 t1",
-        "wbo | WBO | ACRONYM | n1 tf1 t1",
-        "wbo 아시아 | WBO 아시아 | NGRAM | n2 tf1 t1",
-        "아시아 | 아시아 | TERM | n1 tf1 t1",
-        "윤덕노 | 윤덕노 | TERM | n1 tf1 t1",
-        "챔피언 | 챔피언 | TERM | n1 tf1 t1",
-        "태평양 | 태평양 | TERM | n1 tf1 t1",
-        "한국 | 한국 | TERM | n1 tf1 t1"
+        "opbf 챔피언 | OPBF 챔피언 | 인물 | 0.57 n2 tf1 t1",
+        "윤덕노 | 윤덕노 | 인물 | 0.88 n1 tf1 t1"
       ]
     },
     "normalize": {
@@ -866,28 +770,19 @@
           "initials_match": false
         }
       ],
-      "candidates": 107,
-      "doc_len": 143,
-      "dropped": {
-        "SHAPE": 1
-      },
-      "keys_digest": "783a1aae776815ba",
+      "candidates": 8,
+      "doc_len": 943,
+      "dropped": {},
+      "keys_digest": "f28a6ee203097529",
       "top": [
-        "비통 | 비통 | TERM | n1 tf9 t1",
-        "루이 | 루이 | TERM | n1 tf8 t1",
-        "루이 비통 | 루이 비통 | NGRAM | n2 tf8 t1",
-        "시간 | 시간 | TERM | n1 tf7 t1",
-        "모노그램 | 모노그램 | TERM | n1 tf5 t0",
-        "트렁크 | 트렁크 | TERM | n1 tf4 t0",
-        "가방 | 가방 | TERM | n1 tf3 t0",
-        "리페어 | 리페어 | TERM | n1 tf3 t0",
-        "물건 | 물건 | TERM | n1 tf3 t0",
-        "수선 | 수선 | TERM | n1 tf3 t0",
-        "스피디 | 스피디 | TERM | n1 tf3 t0",
-        "워크숍 | 워크숍 | TERM | n1 tf3 t0",
-        "케어 | 케어 | TERM | n1 tf3 t0",
-        "관리 | 관리 | TERM | n1 tf2 t0",
-        "루이 비통 케어 | 루이 비통 케어 | NGRAM | n3 tf2 t0"
+        "루이 비통 | 루이 비통 | 브랜드 | 1.00 n2 tf8 t1",
+        "모노그램 | 모노그램 | 패션 스타일 | 0.39 n1 tf5 t0",
+        "백과 트렁크 | 백과 트렁크 | 의류 품목 | 0.32 n2 tf3 t0",
+        "georges vuitton | Georges Vuitton | 인물 | 0.59 n2 tf1 t0",
+        "lv | LV | 브랜드 | 0.77 n1 tf1 t0",
+        "조르주 비통 | 조르주 비통 | 인물 | 0.64 n2 tf1 t0",
+        "파리 남성 패션위크 | 파리 남성 패션위크 | 컬렉션 또는 행사 | 0.30 n3 tf1 t0",
+        "플로럴 모티프 | 플로럴 모티프 | 패션 스타일 | 0.80 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -911,28 +806,25 @@
   "fashion-marieclaire-559187.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 51,
-      "doc_len": 69,
-      "dropped": {
-        "SHAPE": 4
-      },
-      "keys_digest": "fd56642c10115893",
+      "candidates": 14,
+      "doc_len": 432,
+      "dropped": {},
+      "keys_digest": "0879e954b4e7fe84",
       "top": [
-        "레이스 | 레이스 | TERM | n1 tf3 t0",
-        "드레스 | 드레스 | TERM | n1 tf2 t0",
-        "리본 | 리본 | TERM | n1 tf2 t0",
-        "매력 | 매력 | TERM | n1 tf2 t0",
-        "반전 | 반전 | TERM | n1 tf2 t0",
-        "볼륨 | 볼륨 | TERM | n1 tf2 t0",
-        "스커트 | 스커트 | TERM | n1 tf2 t0",
-        "완성 | 완성 | TERM | n1 tf2 t0",
-        "장식 | 장식 | TERM | n1 tf2 t0",
-        "inside | inside | TERM | n1 tf1 t1",
-        "mc | MC | ACRONYM | n1 tf1 t1",
-        "mc inside | MC inside | NGRAM | n2 tf1 t1",
-        "가을 | 가을 | TERM | n1 tf1 t0",
-        "곡선 | 곡선 | TERM | n1 tf1 t0",
-        "구조 | 구조 | TERM | n1 tf1 t0"
+        "레이스 | 레이스 | 소재 | 0.96 n1 tf3 t0",
+        "mc | MC | 인물 | 0.17 n1 tf1 t1",
+        "검은 리본 | 검은 리본 | 패션 스타일 | 0.21 n2 tf1 t0",
+        "노란 스커트 | 노란 스커트 | 의류 품목 | 0.22 n2 tf1 t0",
+        "디올 | 디올 | 브랜드 | 0.98 n1 tf1 t0",
+        "런웨이 | 런웨이 | 컬렉션 또는 행사 | 0.16 n1 tf1 t0",
+        "블루종 | 블루종 | 의류 품목 | 0.49 n1 tf1 t0",
+        "샤넬 | 샤넬 | 브랜드 | 0.99 n1 tf1 t0",
+        "세실리에 반센 | 세실리에 반센 | 브랜드 | 0.37 n2 tf1 t0",
+        "에르뎀 | 에르뎀 | 브랜드 | 0.96 n1 tf1 t0",
+        "자카드 플로럴 드레스 | 자카드 플로럴 드레스 | 의류 품목 | 0.62 n3 tf1 t0",
+        "재킷 | 재킷 | 의류 품목 | 0.33 n1 tf1 t0",
+        "진주 | 진주 | 패션 스타일 | 0.23 n1 tf1 t0",
+        "페플럼 | 페플럼 | 소재 | 0.52 n1 tf1 t0"
       ]
     },
     "normalize": {
@@ -972,28 +864,28 @@
           "initials_match": false
         }
       ],
-      "candidates": 100,
-      "doc_len": 111,
+      "candidates": 22,
+      "doc_len": 662,
       "dropped": {
-        "SHAPE": 2
+        "LABEL": 1
       },
-      "keys_digest": "8a6850c7f316c1ef",
+      "keys_digest": "575aa8b14b4d9c75",
       "top": [
-        "캠페인 | 캠페인 | TERM | n1 tf4 t0",
-        "막스마라 | 막스마라 | TERM | n1 tf3 t0",
-        "시선 | 시선 | TERM | n1 tf3 t0",
-        "장면 | 장면 | TERM | n1 tf3 t0",
-        "포착 | 포착 | TERM | n1 tf3 t0",
-        "mara | MARA | ACRONYM | n1 tf2 t0",
-        "miu | MIU | ACRONYM | n1 tf2 t0",
-        "영화 | 영화 | TERM | n1 tf2 t0",
-        "일상 | 일상 | TERM | n1 tf2 t0",
-        "특별 | 특별 | TERM | n1 tf2 t0",
-        "barry | Barry | TERM | n1 tf1 t0",
-        "barry jenkins | Barry Jenkins | NGRAM | n2 tf1 t0",
-        "ghertner | Ghertner | TERM | n1 tf1 t0",
-        "inside | inside | TERM | n1 tf1 t1",
-        "jenkins | Jenkins | TERM | n1 tf1 t0"
+        "막스마라 | 막스마라 | 브랜드 | 1.00 n1 tf3 t0",
+        "2026 f/w | 2026 F/W | 컬렉션 또는 행사 | 0.50 n2 tf1 t0",
+        "barry jenkins | Barry Jenkins | 인물 | 0.42 n2 tf1 t0",
+        "karim sadli | Karim Sadli | 인물 | 0.47 n2 tf1 t0",
+        "lulu tenney | Lulu Tenney | 인물 | 0.70 n2 tf1 t0",
+        "mara mara | MARA MARA | 브랜드 | 0.77 n2 tf1 t0",
+        "miu miu | MIU MIU | 브랜드 | 0.94 n2 tf1 t0",
+        "prada | PRADA | 브랜드 | 0.99 n1 tf1 t0",
+        "zoë ghertner | Zoë Ghertner | 인물 | 0.45 n2 tf1 t0",
+        "가죽 | 가죽 | 소재 | 0.97 n1 tf1 t0",
+        "룰루 테 | 룰루 테 | 인물 | 0.54 n2 tf1 t0",
+        "배리 젠킨스 | 배리 젠킨스 | 인물 | 0.37 n2 tf1 t0",
+        "샤오웬주 | 샤오웬주 | 인물 | 0.59 n1 tf1 t0",
+        "슈즈 | 슈즈 | 의류 품목 | 0.49 n1 tf1 t0",
+        "워시드 캐시미어 | 워시드 캐시미어 | 패션 스타일 | 0.46 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -1023,28 +915,18 @@
           "initials_match": false
         }
       ],
-      "candidates": 65,
-      "doc_len": 94,
-      "dropped": {
-        "SHAPE": 3
-      },
-      "keys_digest": "b2f027641c674e76",
+      "candidates": 7,
+      "doc_len": 616,
+      "dropped": {},
+      "keys_digest": "2fd0363f35ba65b4",
       "top": [
-        "여왕 | 여왕 | TERM | n1 tf7 t1",
-        "브로치 | 브로치 | TERM | n1 tf6 t1",
-        "엘리자베스 | 엘리자베스 | TERM | n1 tf5 t1",
-        "비밀 | 비밀 | TERM | n1 tf4 t1",
-        "왼쪽 | 왼쪽 | TERM | n1 tf3 t0",
-        "메시지 | 메시지 | TERM | n1 tf2 t1",
-        "비밀 메시지 | 비밀 메시지 | NGRAM | n2 tf2 t1",
-        "비밀 언어 | 비밀 언어 | NGRAM | n2 tf2 t0",
-        "암호 | 암호 | TERM | n1 tf2 t1",
-        "언어 | 언어 | TERM | n1 tf2 t0",
-        "일부 | 일부 | TERM | n1 tf2 t0",
-        "트럼프 | 트럼프 | TERM | n1 tf2 t0",
-        "활용 | 활용 | TERM | n1 tf2 t0",
-        "royal | Royal | TERM | n1 tf1 t0",
-        "가치 | 가치 | TERM | n1 tf1 t0"
+        "엘리자베스 2세 여왕 | 엘리자베스 2세 여왕 | 인물 | 1.00 n3 tf5 t1",
+        "브로치 | 브로치 | 의류 품목 | 0.94 n1 tf4 t1",
+        "royal collection | Royal Collection | 브랜드 | 0.65 n2 tf1 t0",
+        "도널드 트럼프 | 도널드 트럼프 | 인물 | 0.83 n2 tf1 t0",
+        "라펠 | 라펠 | 의류 품목 | 0.18 n1 tf1 t0",
+        "브로치의 비밀 언어 | 브로치의 비밀 언어 | 패션 스타일 | 0.20 n3 tf1 t0",
+        "영국 왕실 컬렉션 | 영국 왕실 컬렉션 | 브랜드 | 0.85 n3 tf1 t0"
       ]
     },
     "normalize": {
@@ -1068,18 +950,13 @@
   "fashion-vogue-854787.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 5,
-      "doc_len": 6,
-      "dropped": {
-        "SHAPE": 1
-      },
-      "keys_digest": "2def367e52343c9a",
+      "candidates": 2,
+      "doc_len": 24,
+      "dropped": {},
+      "keys_digest": "1ed63712097826eb",
       "top": [
-        "까르띠에 | 까르띠에 | TERM | n1 tf1 t1",
-        "르 쾨르 | 르 쾨르 | NGRAM | n2 tf1 t1",
-        "쾨르 | 쾨르 | TERM | n1 tf1 t1",
-        "팔레트 | 팔레트 | TERM | n1 tf1 t1",
-        "피에르 | 피에르 | TERM | n1 tf1 t1"
+        "까르띠에의 팔레트 | 까르띠에의 팔레트 | 의류 품목 | 0.32 n2 tf1 t1",
+        "르 쾨르 데 피에르 | 르 쾨르 데 피에르 | 브랜드 | 0.84 n4 tf1 t1"
       ]
     },
     "normalize": {
@@ -1103,15 +980,13 @@
   "fashion-vogue-854842.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 4,
-      "doc_len": 4,
+      "candidates": 2,
+      "doc_len": 16,
       "dropped": {},
-      "keys_digest": "23ea51931e228e5c",
+      "keys_digest": "3c6a1f877b998b25",
       "top": [
-        "꽃물결 | 꽃물결 | TERM | n1 tf1 t1",
-        "디올 | 디올 | TERM | n1 tf1 t1",
-        "선사 | 선사 | TERM | n1 tf1 t1",
-        "황홀 | 황홀 | TERM | n1 tf1 t1"
+        "꽃물결 | 꽃물결 | 패션 스타일 | 0.28 n1 tf1 t1",
+        "디올 | 디올 | 브랜드 | 0.99 n1 tf1 t1"
       ]
     },
     "normalize": {
@@ -1135,16 +1010,12 @@
   "fashion-vogue-854860.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 3,
-      "doc_len": 4,
-      "dropped": {
-        "SHAPE": 1
-      },
-      "keys_digest": "aef6cfffd3e39145",
+      "candidates": 1,
+      "doc_len": 21,
+      "dropped": {},
+      "keys_digest": "e2e8274213377547",
       "top": [
-        "나비 | 나비 | TERM | n1 tf1 t1",
-        "정원 | 정원 | TERM | n1 tf1 t1",
-        "티파니앤코 | 티파니앤코 | TERM | n1 tf1 t1"
+        "티파니앤코 | 티파니앤코 | 브랜드 | 0.36 n1 tf1 t1"
       ]
     },
     "normalize": {
@@ -1168,28 +1039,26 @@
   "fashion-wkorea-450438.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 92,
-      "doc_len": 115,
-      "dropped": {
-        "SHAPE": 7
-      },
-      "keys_digest": "abe58f944f8b9b1c",
+      "candidates": 17,
+      "doc_len": 864,
+      "dropped": {},
+      "keys_digest": "e1037630e033853b",
       "top": [
-        "스커트 | 스커트 | TERM | n1 tf16 t2",
-        "볼륨 | 볼륨 | TERM | n1 tf5 t1",
-        "볼륨 스커트 | 볼륨 스커트 | NGRAM | n2 tf5 t1",
-        "후디 | 후디 | TERM | n1 tf4 t0",
-        "가을 | 가을 | TERM | n1 tf3 t1",
-        "니트 | 니트 | TERM | n1 tf3 t0",
-        "맥시 | 맥시 | TERM | n1 tf3 t0",
-        "반팔 | 반팔 | TERM | n1 tf3 t0",
-        "상의 | 상의 | TERM | n1 tf3 t0",
-        "치마 | 치마 | TERM | n1 tf3 t0",
-        "핑크 | 핑크 | TERM | n1 tf3 t0",
-        "맥시 스커트 | 맥시 스커트 | NGRAM | n2 tf2 t0",
-        "미디 | 미디 | TERM | n1 tf2 t0",
-        "반팔 티 | 반팔 티 | NGRAM | n2 tf2 t0",
-        "버블 | 버블 | TERM | n1 tf2 t0"
+        "볼륨 스커트 | 볼륨 스커트 | 의류 품목 | 0.89 n2 tf5 t1",
+        "후디 | 후디 | 의류 품목 | 0.64 n1 tf4 t0",
+        "상의 | 상의 | 의류 품목 | 0.26 n1 tf3 t0",
+        "반팔 티 | 반팔 티 | 의류 품목 | 0.46 n2 tf2 t0",
+        "버블 스커트 | 버블 스커트 | 의류 품목 | 0.74 n2 tf2 t0",
+        "티셔츠 | 티셔츠 | 의류 품목 | 0.36 n1 tf2 t0",
+        "흰 스커트 | 흰 스커트 | 의류 품목 | 0.21 n2 tf2 t0",
+        "마틀라세 | 마틀라세 | 인물 | 0.17 n1 tf1 t0",
+        "맥시 | 맥시 | 의류 품목 | 0.28 n1 tf1 t0",
+        "맥시 스커트 | 맥시 스커트 | 의류 품목 | 0.63 n2 tf1 t0",
+        "미디든 맥시 | 미디든 맥시 | 패션 스타일 | 0.32 n2 tf1 t0",
+        "세실리아 반센빠삐용 | 세실리아 반센빠삐용 | 인물 | 0.70 n2 tf1 t0",
+        "스웨이드 재킷 | 스웨이드 재킷 | 의류 품목 | 0.18 n2 tf1 t0",
+        "심카이 코린 | 심카이 코린 | 인물 | 0.61 n2 tf1 t0",
+        "아르켓 와이드 코튼 스커트 | 아르켓 와이드 코튼 스커트 | 의류 품목 | 0.38 n4 tf1 t0"
       ]
     },
     "normalize": {
@@ -1213,28 +1082,13 @@
   "fashion-wkorea-450454.json": {
     "extract": {
       "abbreviations": [],
-      "candidates": 33,
-      "doc_len": 46,
-      "dropped": {
-        "SHAPE": 2
-      },
-      "keys_digest": "bb065a0a6526371d",
+      "candidates": 2,
+      "doc_len": 323,
+      "dropped": {},
+      "keys_digest": "f29fe241ad7e0283",
       "top": [
-        "셀린 디옹 | 셀린 디옹 | TERM | n1 tf4 t1",
-        "디바 | 디바 | TERM | n1 tf3 t0",
-        "공연 | 공연 | TERM | n1 tf2 t0",
-        "파리 | 파리 | TERM | n1 tf2 t0",
-        "person | Person | TERM | n1 tf1 t0",
-        "person syndrome | Person Syndrome | NGRAM | n2 tf1 t0",
-        "sps | SPS | ACRONYM | n1 tf1 t0",
-        "stiff | Stiff | TERM | n1 tf1 t0",
-        "syndrome | Syndrome | TERM | n1 tf1 t0",
-        "가운데 | 가운데 | TERM | n1 tf1 t0",
-        "강직인간증후군 | 강직인간증후군 | TERM | n1 tf1 t0",
-        "경신 | 경신 | TERM | n1 tf1 t1",
-        "기대 | 기대 | TERM | n1 tf1 t0",
-        "당장 | 당장 | TERM | n1 tf1 t0",
-        "등장 | 등장 | TERM | n1 tf1 t0"
+        "셀린 디옹 | 셀린 디옹 | 인물 | 1.00 n2 tf4 t1",
+        "현실적인 스타일 | 현실적인 스타일 | 패션 스타일 | 0.63 n2 tf1 t0"
       ]
     },
     "normalize": {
@@ -1269,28 +1123,20 @@
           "initials_match": false
         }
       ],
-      "candidates": 73,
-      "doc_len": 106,
-      "dropped": {
-        "SHAPE": 3
-      },
-      "keys_digest": "eb0355aaa329ab8b",
+      "candidates": 9,
+      "doc_len": 706,
+      "dropped": {},
+      "keys_digest": "b8e480bc6d35fae6",
       "top": [
-        "메시카 | 메시카 | TERM | n1 tf7 t1",
-        "가치 | 가치 | TERM | n1 tf5 t1",
-        "다이아몬드 | 다이아몬드 | TERM | n1 tf4 t0",
-        "주얼리 | 주얼리 | TERM | n1 tf3 t0",
-        "투명도 | 투명도 | TERM | n1 tf3 t0",
-        "messika | Messika | TERM | n1 tf2 t0",
-        "가치 기준 | 가치 기준 | NGRAM | n2 tf2 t0",
-        "기준 | 기준 | TERM | n1 tf2 t0",
-        "발견 | 발견 | TERM | n1 tf2 t0",
-        "보츠와나 | 보츠와나 | TERM | n1 tf2 t0",
-        "블루 | 블루 | TERM | n1 tf2 t0",
-        "블루 다이아몬드 | 블루 다이아몬드 | TERM | n1 tf2 t0",
-        "여정 | 여정 | TERM | n1 tf2 t0",
-        "오카방고 | 오카방고 | TERM | n1 tf2 t0",
-        "오카방고 블루 | 오카방고 블루 | NGRAM | n2 tf2 t0"
+        "다이아몬드 | 다이아몬드 | 패션 스타일 | 0.68 n1 tf5 t0",
+        "메시카 | 메시카 | 브랜드 | 1.00 n1 tf5 t1",
+        "messika | Messika | 브랜드 | 0.97 n1 tf2 t0",
+        "오카방고 블루 | 오카방고 블루 | 패션 스타일 | 0.98 n2 tf2 t0",
+        "okavango blue | Okavango Blue | 패션 스타일 | 0.62 n2 tf1 t0",
+        "메시카와 | 메시카와 | 브랜드 | 0.76 n1 tf1 t0",
+        "메시카의 | 메시카의 | 브랜드 | 0.84 n1 tf1 t0",
+        "무브 | 무브 | 패션 스타일 | 0.60 n1 tf1 t0",
+        "원석 | 원석 | 소재 | 0.46 n1 tf1 t0"
       ]
     },
     "normalize": {
@@ -1320,28 +1166,19 @@
           "initials_match": false
         }
       ],
-      "candidates": 100,
-      "doc_len": 170,
-      "dropped": {
-        "SHAPE": 5
-      },
-      "keys_digest": "47d05df788f7b1fb",
+      "candidates": 8,
+      "doc_len": 1009,
+      "dropped": {},
+      "keys_digest": "cd39ca044c17fbc8",
       "top": [
-        "크리스 | 크리스 | TERM | n1 tf11 t1",
-        "아틀리에 | 아틀리에 | TERM | n1 tf9 t0",
-        "샘플 | 샘플 | TERM | n1 tf4 t0",
-        "시작 | 시작 | TERM | n1 tf4 t1",
-        "완성 | 완성 | TERM | n1 tf4 t0",
-        "크리믈러 | 크리믈러 | TERM | n1 tf4 t0",
-        "크리스 아틀리에 | 크리스 아틀리에 | NGRAM | n2 tf4 t0",
-        "건축 | 건축 | TERM | n1 tf3 t0",
-        "과정 | 과정 | TERM | n1 tf3 t0",
-        "원단 | 원단 | TERM | n1 tf3 t0",
-        "자수 | 자수 | TERM | n1 tf3 t0",
-        "제작 | 제작 | TERM | n1 tf3 t0",
-        "고향 | 고향 | TERM | n1 tf2 t0",
-        "관계 | 관계 | TERM | n1 tf2 t0",
-        "구조 | 구조 | TERM | n1 tf2 t0"
+        "아크리스 | 아크리스 | 브랜드 | 1.00 n1 tf13 t1",
+        "아틀리에 | 아틀리에 | 의류 품목 | 1.00 n1 tf8 t0",
+        "원단 | 원단 | 소재 | 0.84 n1 tf3 t0",
+        "알버트 크리믈러 | 알버트 크리믈러 | 인물 | 0.70 n2 tf2 t0",
+        "앨리스 크리믈러 쇼흐 | 앨리스 크리믈러-쇼흐 | 인물 | 0.97 n3 tf2 t0",
+        "akris | Akris | 브랜드 | 0.66 n1 tf1 t0",
+        "장크트갈렌을 | 장크트갈렌을 | 소재 | 0.19 n1 tf1 t0",
+        "장크트갈렌이 | 장크트갈렌이 | 소재 | 0.85 n1 tf1 t0"
       ]
     },
     "normalize": {

@@ -28,7 +28,7 @@ import unicodedata
 _JOINERS = re.compile(r"[\s\-_‐-―]+")
 
 # 앞뒤에서 떼는 구두점. **`#` 은 뗀다** — 해시태그 `#vibecoding` 과 본문의 `vibecoding` 은
-# 같은 것이고, 해시태그였다는 사실은 후보의 `kind` 가 따로 들고 간다 (`extract/candidates.py`).
+# 같은 것이다.
 # `+` 와 `#` 은 **뒤에서는 떼지 않는다** — `C++` · `C#` 은 그 문자가 이름의 일부다.
 _LEADING = re.compile(r"^[^\w]+")
 _TRAILING = re.compile(r"[^\w+#]+$")

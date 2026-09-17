@@ -28,14 +28,16 @@ spark/scripts/submit.sh aggregate --profile local --date 2026-08-01 --reaggregat
 없어 [05] 가 승격을 건너뛰면 원자료의 `keyword_id` 가 전부 `NULL` 이고, 지표를 걸 대상이
 없다 ([10 §7.5] 선행 차단). 그때는 크게 남기고 0 행으로 끝낸다.
 
-**연관 키워드([06])는 여기 없다.** 문서 단위 동시출현은 원자료에 문서 정체성이 없어 리더가
-두 벌이 되고, 기준 기간이 기획 답변 대기다 ([10 §7.3] B2).
+**연관 키워드([06])가 여기 붙었다** ([10 §7.3] B2). 원자료 대신 `keyword_contents` 를 읽어
+같은 문서에 함께 나온 정도를 자카드로 재고, 기준 기간은 지표의 가장 긴 `30D` 와 맞췄다.
+산식과 포함 관계 제외의 근거는 `metrics/relations.py` 에 있다.
 """
 
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime
+import re
+from datetime import date, datetime, time, timedelta
 
 from pyspark.sql import SparkSession
 
@@ -46,6 +48,7 @@ from trendin.spark.common.run_id import default_run_id
 from trendin.spark.io import stats as stats_io
 from trendin.spark.io.metrics import MetricSink
 from trendin.spark.metrics import batch
+from trendin.spark.metrics.relations import RelationThresholds
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.normalize.documents import KST
 
@@ -166,10 +169,73 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
         result.trend_verdicts,
     )
 
+    # 연관 키워드 ([06]). **지표 뒤에 온다** — 재료가 `keyword_contents` 라 지표와 서로
+    # 기대지 않지만, 승격이 막히면 둘 다 쓸 것이 없다는 사정이 같다.
+    if not dry_run:
+        _rebuild_relations(sink, config, reference_day=result.reference_day)
+        _rebuild_country_metrics(sink, config)
+
     if not dry_run:
         stats = stats_io.BatchStats(config, job=JOB)
         stats.ensure_schema()
         stats.replace(result.stats, ingest_run_id=run_id)
+
+
+# 국가 코드의 형식. DB 제약(`^[A-Z]{2}$`)과 같은 규칙을 미리 본다 — 여기서 막지 않으면
+# 증상이 `ck_keyword_country_daily_metrics_country_code` 위반으로 적재 끝에서야 나온다.
+_COUNTRY_CODE = re.compile(r"^[A-Z]{2}$")
+
+# 상류에 국가가 없을 때 쓰는 값. ISO 3166-1 의 사용자 지정 영역이라 "미지정" 을 뜻한다.
+# **`KR` 로 굳히지 않는다** — 지금 매체가 전부 한국판이라 그렇게 넣어도 맞지만, 그러면
+# "기사가 어디서 왔는가" 를 실제로 아는 것처럼 보이게 된다.
+DEFAULT_COUNTRY = "XX"
+
+
+def _rebuild_country_metrics(sink: MetricSink, config: Config) -> None:
+    """원자료를 국가 축으로 옮긴다 (`io/metrics.COUNTRY_SQL` 의 주석).
+
+    상류가 진짜 국가를 주기 시작하면 `aggregate.country.code` 를 그 값으로 바꾸는 것이
+    아니라, 원자료에 국가 칸을 더하고 이 함수가 그 칸을 읽도록 고치는 것이 순서다. 설정
+    한 줄은 그때까지 표를 비워 두지 않으려는 임시 값이다.
+    """
+    code = str(config.get("aggregate.country.code", DEFAULT_COUNTRY))
+    if not _COUNTRY_CODE.match(code):
+        raise ConfigError(
+            f"aggregate.country.code 는 대문자 두 글자여야 한다 (ISO 3166-1 alpha-2): {code!r}"
+        )
+    if not sink.country_table_ready():
+        log.warning("keyword_country_daily_metrics 가 없다 — 국가별 언급량을 건너뛴다")
+        return
+    written = sink.rebuild_country_metrics(country_code=code)
+    log.info("국가별 일 언급량 %d행 — country_code=%s", written, code)
+
+
+def _rebuild_relations(sink: MetricSink, config: Config, *, reference_day: date) -> None:
+    """창 안의 동시출현으로 `keyword_relations` 를 다시 만든다.
+
+    **창의 끝이 D 의 자정이다.** 지표가 D 까지를 완결된 구간으로 보므로([07 §4]) 연관만
+    오늘을 포함하면 둘이 다른 시기를 말하게 된다.
+    """
+    thresholds = RelationThresholds.from_config(config)
+    if not sink.relations_ready():
+        log.warning(
+            "keyword_relations 또는 keyword_contents 가 없다 — 연관을 건너뛴다 ([08 §5])"
+        )
+        return
+    since = datetime.combine(
+        reference_day - timedelta(days=thresholds.window_days - 1), time.min, KST
+    )
+    until = datetime.combine(reference_day + timedelta(days=1), time.min, KST)
+    written = sink.rebuild_relations(since=since, until=until, thresholds=thresholds)
+    log.info(
+        "연관 키워드 %d행 — 최근 %d일(%s~%s) · 공기 하한 %d · 키워드당 상위 %d",
+        written,
+        thresholds.window_days,
+        since.date(),
+        reference_day,
+        thresholds.min_co_occurrence,
+        thresholds.top_n,
+    )
 
 
 def _with_periods(thresholds: AggregateThresholds, periods: tuple[str, ...]):

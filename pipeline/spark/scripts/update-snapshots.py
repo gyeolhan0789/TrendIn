@@ -10,11 +10,26 @@
 **의도한 변경이면 이 스크립트를 돌려 갱신하고 diff 를 커밋에 남긴다.** 목적은 변경을 막는
 것이 아니라 **의도하지 않은 변경을 드러내는 것**이다 ([09 §4]).
 
-**코퍼스 통계가 필요한 것은 스냅샷에 없다.** DF · 대표 표기 · C-value · BM25 · 점수 ·
-순위는 코퍼스 전체를 봐야 나오고(`extract/batch.py`), 그 값들은 S6 가 임계값을 확정하면
-바뀐다. 지금 고정하면 임계값을 만질 때마다 30건이 통째로 흔들려 스냅샷이 경보가 아니라
-잡음이 된다. 그래서 **문서 하나 안에서 결정되는 것까지만** 고정한다 — 토큰화 · 구간 ·
-n-gram · 비교키 · 문서 안 필터, 그리고 그 앞의 정제. 방금 고친 결함 셋이 전부 그 범위다.
+**코퍼스 통계가 필요한 것은 스냅샷에 없다.** DF · 대표 표기 · BM25 · 순위는 코퍼스 전체를
+봐야 나오고(`extract/batch.py`), 그 값들은 배치 구성에 따라 달라진다. 그래서 **문서 하나
+안에서 결정되는 것까지만** 고정한다 — 인식 · 언어별 후처리 · 비교키 · 문서 안 필터, 그리고
+그 앞의 정제.
+
+## 모델이 낸 구간을 픽스처에 함께 굽는다 (2026-09-16)
+
+후보 생성이 실체 인식으로 옮겨졌지만 **테스트는 모델을 부르지 않는다.** 이 스크립트가
+추론해 `fixtures/spans.json` 에 구간을 적고, 테스트는 그 구간으로 나머지 계산만 다시 한다.
+
+이유는 실측이다 — 같은 문서·같은 모델인데 문턱(0.15) 언저리의 구간이 실행마다 들어왔다
+나갔다 해서 30건 중 2건이 재현되지 않았다. 트랜스포머 추론의 부동소수 비결정성이고, 우리가
+고칠 수 있는 것이 아니다. **스냅샷이 지켜야 하는 것은 모델의 재현성이 아니라 우리 코드의
+재현성**이다 — 후처리 · 비교키 · 합치기 · 필터. 모델 자체는 버전 핀(`spark/versions.sh`)이
+고정한다.
+
+덤으로 테스트가 층 1 규약을 지킨다 — `gliner` 없이 돈다. 이 스크립트만 모델이 필요하고,
+`spark/scripts/dev-setup.sh` 가 깔아 둔다 (`SKIP_MODEL=1` 로 건너뛰었으면 다시 돌린다).
+
+점수는 소수 둘째 자리로 끊어 적는다 — 부동소수 끝자리가 플랫폼마다 다르다.
 
 pyspark 를 import 하지 않는다 ([09 §4] 층 1).
 """
@@ -31,12 +46,18 @@ SPARK_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SPARK_DIR.parent / "src"))
 
 from trendin.spark.common.config import load_config  # noqa: E402
-from trendin.spark.extract import morphology  # noqa: E402
-from trendin.spark.extract.document import ExtractionOptions, extract_document  # noqa: E402
+from trendin.spark.extract import entities as ent  # noqa: E402
+from trendin.spark.extract.document import (  # noqa: E402
+    ExtractionOptions,
+    document_text,
+    extract_document,
+)
 from trendin.spark.extract.filters import CandidateLimits  # noqa: E402
-from trendin.spark.extract.lexicon import load_lexicon  # noqa: E402
-from trendin.spark.extract.thresholds import lexicon_dir  # noqa: E402
-from trendin.spark.extract.tokenize import TokenizeOptions  # noqa: E402
+from trendin.spark.extract.thresholds import (  # noqa: E402
+    adapter_spec,
+    lexicon_dir,
+    recognizer_spec,
+)
 from trendin.spark.normalize.documents import build_document  # noqa: E402
 
 # **파일 하나에 30건을 담는다.** 문서마다 파일을 두면 픽스처만 60개가 되어 변경 목록이
@@ -44,6 +65,8 @@ from trendin.spark.normalize.documents import build_document  # noqa: E402
 # 지역적으로 보여 주므로 눈으로 보는 데 지장이 없다 — 키를 이름으로 정렬해 둔 이유다.
 CORPUS = SPARK_DIR / "tests" / "fixtures" / "corpus.json"
 SNAPSHOTS = SPARK_DIR / "tests" / "fixtures" / "snapshots.json"
+# 모델이 낸 구간. **갱신할 때만 추론하고 테스트는 이 파일을 읽는다** — 아래 주석 참고.
+SPANS = SPARK_DIR / "tests" / "fixtures" / "spans.json"
 
 # 스냅샷에 적는 후보 수. 전부 적으면 문서당 200줄이 되어 눈으로 diff 를 볼 수 없다.
 # 꼬리의 변화는 `digest` 가 잡는다.
@@ -54,25 +77,14 @@ RUN_ID = "snapshot"
 
 def options_for(config, domain: str) -> ExtractionOptions:
     """문서 하나에 필요한 설정만. **`base.yaml` 의 값만 쓴다** — `local.yaml` 의 잠정
-    임계값(DF 비율 · 가중치 · top_k)은 문서 안 계산에 들어가지 않으므로, 그 값이 바뀌어도
+    임계값(top_k · 점수 하한)은 문서 안 계산에 들어가지 않으므로, 그 값이 바뀌어도
     스냅샷은 흔들리지 않는다."""
-    section = f"extract.domains.{domain}"
-    directory = SPARK_DIR.parent / lexicon_dir(config)
+    directory = str(SPARK_DIR.parent / lexicon_dir(config))
     return ExtractionOptions(
-        lexicon=load_lexicon(directory, domain=domain),
-        ngram_max=int(config.get("extract.ngram_max", 3)),
+        adapter=adapter_spec(config, domain=domain, directory=directory),
         limits=CandidateLimits(
             min_chars=int(config.get("extract.candidate.min_chars", 2)),
             max_chars=int(config.get("extract.candidate.max_chars", 40)),
-        ),
-        tokenize=TokenizeOptions(
-            code_identifiers=bool(config.get(f"{section}.code_identifiers", True)),
-            surface_policy=str(
-                config.get(f"{section}.surface_policy", morphology.SURFACE_PREFIXED)
-            ),
-            analyzer=morphology.AnalyzerSpec(
-                user_words=morphology.load_user_words(directory, domain=domain)
-            ),
         ),
     )
 
@@ -86,21 +98,49 @@ def _row(item) -> str:
     해서 둘을 늘 함께 적는다 (`코트 | 코트` vs `mcp | MCP`).
     """
     return (
-        f"{item.key} | {item.surface} | {item.kind} | "
-        f"n{item.ntokens} tf{item.tf} t{item.tf_title}"
+        f"{item.key} | {item.surface} | {item.entity_type} | "
+        f"{item.score:.2f} n{item.ntokens} tf{item.tf} t{item.tf_title}"
     )
 
 
-def snapshot_for(article: dict[str, Any], config) -> dict[str, Any]:
-    """`article.json` 하나 → 스냅샷 하나. 실제 정제·추출 경로를 그대로 태운다."""
+def spans_for(article: dict[str, Any], config) -> list[dict[str, Any]]:
+    """**모델을 부르는 유일한 함수다.** 결과는 `fixtures/spans.json` 에 굽힌다."""
+    document = build_document(article, {}, ingest_run_id=RUN_ID)
+    domain = str(article.get("domain") or "fashion")
+    text, _ = document_text(document.title, document.body)
+    spans = ent.recognizer_for(recognizer_spec(config, domain=domain)).predict([text])[0]
+    return [
+        {
+            "surface": span.surface,
+            "label": span.label,
+            "score": round(span.score, 4),
+            "start": span.start,
+            "end": span.end,
+        }
+        for span in spans
+    ]
+
+
+def as_spans(rows: list[dict[str, Any]]) -> list[ent.Span]:
+    return [ent.Span(**row) for row in rows]
+
+
+def snapshot_for(article: dict[str, Any], config, spans: list[ent.Span]) -> dict[str, Any]:
+    """`article.json` 하나 + 구간 → 스냅샷 하나. 정제와 문서 안 추출을 그대로 태운다."""
     document = build_document(article, {}, ingest_run_id=RUN_ID)
     domain = str(article.get("domain") or "fashion")
     extraction = extract_document(
-        document.title, document.body, document.lang, options=options_for(config, domain)
+        document.title,
+        document.body,
+        document.lang,
+        spans,
+        options=options_for(config, domain),
     )
 
     keys = sorted(item.key for item in extraction.candidates)
     digest = hashlib.sha256("\n".join(keys).encode()).hexdigest()[:16]
+    # **점수 순이 아니라 빈도·키 순이다** — 점수 동률에서 순서가 흔들리면 스냅샷이 매번
+    # 바뀐다. 점수는 각 줄에 적히므로 정보가 빠지지 않는다.
     ordered = sorted(extraction.candidates, key=lambda c: (-c.tf, c.key))
 
     return {
@@ -147,11 +187,21 @@ def load_corpus() -> dict[str, dict[str, Any]]:
     return json.loads(CORPUS.read_text(encoding="utf-8"))
 
 
-def build_all() -> dict[str, dict[str, Any]]:
-    """`{이름: 스냅샷}`. 테스트가 이 함수를 불러 파일과 대조한다."""
+def load_spans() -> dict[str, list[dict[str, Any]]]:
+    if not SPANS.exists():
+        return {}
+    return json.loads(SPANS.read_text(encoding="utf-8"))
+
+
+def build_all(spans: dict[str, list[dict[str, Any]]] | None = None) -> dict[str, dict[str, Any]]:
+    """`{이름: 스냅샷}`. 테스트가 구간을 넘겨 이 함수를 부르고 파일과 대조한다."""
     config = load_config("local")
+    rows = load_spans() if spans is None else spans
     corpus = sorted(load_corpus().items())
-    return {name: snapshot_for(article, config) for name, article in corpus}
+    return {
+        name: snapshot_for(article, config, as_spans(rows.get(name, [])))
+        for name, article in corpus
+    }
 
 
 def render(snapshots: dict[str, Any]) -> str:
@@ -159,7 +209,13 @@ def render(snapshots: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    snapshots = build_all()
+    config = load_config("local")
+    spans = {name: spans_for(article, config) for name, article in sorted(load_corpus().items())}
+    SPANS.write_text(
+        json.dumps(spans, ensure_ascii=False, indent=1, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    snapshots = build_all(spans)
     if not snapshots:
         print(f"코퍼스가 없거나 비어 있다: {CORPUS}", file=sys.stderr)
         return 1
@@ -174,6 +230,7 @@ def main() -> int:
     for name in gone:
         print(f"  삭제 {name}")
     print(f"{len(snapshots)}건 중 {len(changed)}건 바뀌었다 → {SNAPSHOTS}")
+    print(f"구간 {sum(len(v) for v in spans.values())}개 → {SPANS}")
     return 0
 
 

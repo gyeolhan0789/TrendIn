@@ -1,11 +1,16 @@
 """`curated` 읽기와 대상 문서 선정 ([01 §3](../../../../spark/docs/01-architecture.md)).
 
-`extract` 의 입력은 `ingest` 가 쓴 Parquet 이다. 두 묶음을 읽는다.
+`extract` 의 입력은 `ingest` 가 쓴 Parquet 이다. **대상 문서 한 묶음만 읽는다.**
 
 | 묶음 | 무엇 | 왜 |
 | --- | --- | --- |
 | **대상** | 새 `ingest_run_id` 파티션(평시) 또는 지정 발행일 구간(재추출) | 점수가 적재된다 |
-| **코퍼스** | 같은 도메인의 최근 N 일 문서. 대상을 포함한다 | 빈도 통계 ([10 §2] 5번) |
+
+⚠️ **코퍼스 묶음이 2026-09-16 에 없어졌다.** 옛 경로는 DF·BM25 를 재려고 같은 도메인의 최근
+N 일 문서를 함께 읽어 매번 다시 토큰화했다. 점수를 실체 인식 모델이 주게 되면서 코퍼스
+통계가 선별에 관여하지 않고, 추론은 문서당 약 1초라 그 배선을 두면 하루치 처리가 코퍼스
+크기에 비례한다 (`extract/batch.py` 의 주석). 누적 관측이 필요한 [05] 승격 심사는
+`pl_candidate` · `pl_keyword_daily_stat` 의 누적을 본다.
 
 **"이번에 새로 쓰인 파티션" 을 `extract` 자신의 처리 이력으로 안다.** [01 §3] 은 `ingest` 가
 쓴 파티션 목록을 처리 이력에 남기기로 했지만 아직 없다 — 대신 `extract` 가 처리한
@@ -20,7 +25,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import TYPE_CHECKING
 
 from trendin.spark.common.config import Config
@@ -106,36 +111,4 @@ def target_documents(curated: "DataFrame", selection: Selection) -> "DataFrame":
         if not run_ids:
             return frame.where(F.lit(False))
         frame = frame.where(F.col("ingest_run_id").isin(run_ids))
-    return latest_per_document(frame)
-
-
-def date_span(targets: "DataFrame") -> tuple[date, date] | None:
-    """대상의 발행일 범위. 비어 있으면 `None`."""
-    from pyspark.sql import functions as F
-
-    row = targets.agg(
-        F.min("published_date").alias("lo"), F.max("published_date").alias("hi")
-    ).collect()[0]
-    if row["lo"] is None or row["hi"] is None:
-        return None
-    return row["lo"], row["hi"]
-
-
-def corpus_documents(
-    curated: "DataFrame", *, domain: str, span: tuple[date, date], window_days: int
-) -> "DataFrame":
-    """코퍼스 — 같은 도메인, `[대상 최소 발행일 − N일, 대상 최대 발행일]`. 대상을 포함한다.
-
-    구간의 끝을 대상의 최대 발행일로 두는 이유는 "그 문서가 나올 때까지의 코퍼스" 가 IDF 의
-    의미이기 때문이다. 미래 문서를 말뭉치에 넣으면 재추출과 평시 실행의 결과가 갈린다.
-    """
-    from pyspark.sql import functions as F
-
-    lo, hi = span
-    date_from = lo - timedelta(days=window_days)
-    frame = curated.where(
-        (F.col("domain") == domain)
-        & (F.col("published_date") >= F.lit(date_from))
-        & (F.col("published_date") <= F.lit(hi))
-    )
     return latest_per_document(frame)

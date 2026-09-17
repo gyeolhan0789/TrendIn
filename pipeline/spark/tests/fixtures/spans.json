@@ -1,0 +1,3828 @@
+{
+ "fashion-allure-353915.json": [
+  {
+   "end": 38,
+   "label": "패션 스타일",
+   "score": 0.7552,
+   "start": 30,
+   "surface": "고딕 로맨스부터"
+  },
+  {
+   "end": 69,
+   "label": "컬렉션 또는 행사",
+   "score": 0.4753,
+   "start": 61,
+   "surface": "2026 F/W"
+  },
+  {
+   "end": 97,
+   "label": "패션 스타일",
+   "score": 0.9078,
+   "start": 83,
+   "surface": "GOTHIC ROMANCE"
+  },
+  {
+   "end": 109,
+   "label": "패션 스타일",
+   "score": 0.2145,
+   "start": 104,
+   "surface": "로맨스에는"
+  },
+  {
+   "end": 133,
+   "label": "소재",
+   "score": 0.5292,
+   "start": 120,
+   "surface": "블랙 레이스와 시어 소재"
+  },
+  {
+   "end": 138,
+   "label": "의류 품목",
+   "score": 0.3915,
+   "start": 135,
+   "surface": "코르셋"
+  },
+  {
+   "end": 142,
+   "label": "소재",
+   "score": 0.2242,
+   "start": 140,
+   "surface": "러플"
+  },
+  {
+   "end": 187,
+   "label": "인물",
+   "score": 0.4684,
+   "start": 179,
+   "surface": "앤 드뮐미스터의"
+  },
+  {
+   "end": 206,
+   "label": "패션 스타일",
+   "score": 0.3202,
+   "start": 201,
+   "surface": "생 로랑의"
+  },
+  {
+   "end": 232,
+   "label": "컬렉션 또는 행사",
+   "score": 0.3774,
+   "start": 223,
+   "surface": "2026 F/W의"
+  },
+  {
+   "end": 237,
+   "label": "패션 스타일",
+   "score": 0.2278,
+   "start": 233,
+   "surface": "로맨스는"
+  },
+  {
+   "end": 274,
+   "label": "패션 스타일",
+   "score": 0.6716,
+   "start": 260,
+   "surface": "RETRO FAUX FUR"
+  },
+  {
+   "end": 297,
+   "label": "패션 스타일",
+   "score": 0.2946,
+   "start": 291,
+   "surface": "페이크 퍼의"
+  },
+  {
+   "end": 331,
+   "label": "의류 품목",
+   "score": 0.3215,
+   "start": 327,
+   "surface": "롱 코트"
+  },
+  {
+   "end": 352,
+   "label": "소재",
+   "score": 0.2806,
+   "start": 349,
+   "surface": "버건디"
+  },
+  {
+   "end": 360,
+   "label": "소재",
+   "score": 0.2931,
+   "start": 354,
+   "surface": "머스터드까지"
+  },
+  {
+   "end": 381,
+   "label": "브랜드",
+   "score": 0.5202,
+   "start": 376,
+   "surface": "로에베처럼"
+  },
+  {
+   "end": 413,
+   "label": "패션 스타일",
+   "score": 0.2268,
+   "start": 405,
+   "surface": "보헤미안 무드와"
+  },
+  {
+   "end": 475,
+   "label": "의류 품목",
+   "score": 0.458,
+   "start": 464,
+   "surface": "UNDONE BAGS"
+  },
+  {
+   "end": 479,
+   "label": "인물",
+   "score": 0.1931,
+   "start": 476,
+   "surface": "Tod"
+  },
+  {
+   "end": 488,
+   "label": "브랜드",
+   "score": 0.9562,
+   "start": 482,
+   "surface": "Chanel"
+  },
+  {
+   "end": 580,
+   "label": "브랜드",
+   "score": 0.9178,
+   "start": 576,
+   "surface": "샤넬부터"
+  },
+  {
+   "end": 583,
+   "label": "브랜드",
+   "score": 0.971,
+   "start": 581,
+   "surface": "디올"
+  },
+  {
+   "end": 590,
+   "label": "브랜드",
+   "score": 0.8322,
+   "start": 585,
+   "surface": "로에베까지"
+  },
+  {
+   "end": 598,
+   "label": "의류 품목",
+   "score": 0.2308,
+   "start": 595,
+   "surface": "가방을"
+  },
+  {
+   "end": 650,
+   "label": "브랜드",
+   "score": 0.9844,
+   "start": 646,
+   "surface": "Dior"
+  },
+  {
+   "end": 661,
+   "label": "브랜드",
+   "score": 0.8878,
+   "start": 651,
+   "surface": "Balenciaga"
+  }
+ ],
+ "fashion-allure-353917.json": [
+  {
+   "end": 69,
+   "label": "패션 스타일",
+   "score": 0.1748,
+   "start": 66,
+   "surface": "F/W"
+  },
+  {
+   "end": 103,
+   "label": "소재",
+   "score": 0.4427,
+   "start": 83,
+   "surface": "PALE PINK & LAVENDER"
+  },
+  {
+   "end": 111,
+   "label": "패션 스타일",
+   "score": 0.3207,
+   "start": 108,
+   "surface": "F/W"
+  },
+  {
+   "end": 131,
+   "label": "소재",
+   "score": 0.2787,
+   "start": 120,
+   "surface": "페일 핑크와 라벤더가"
+  },
+  {
+   "end": 154,
+   "label": "브랜드",
+   "score": 0.8206,
+   "start": 139,
+   "surface": "알라이아와 아크네 스튜디오는"
+  },
+  {
+   "end": 180,
+   "label": "의류 품목",
+   "score": 0.1939,
+   "start": 177,
+   "surface": "맥퀸은"
+  },
+  {
+   "end": 191,
+   "label": "소재",
+   "score": 0.4243,
+   "start": 188,
+   "surface": "라벤더"
+  },
+  {
+   "end": 196,
+   "label": "소재",
+   "score": 0.209,
+   "start": 192,
+   "surface": "시폰으로"
+  },
+  {
+   "end": 217,
+   "label": "소재",
+   "score": 0.4091,
+   "start": 211,
+   "surface": "러플과 비딩"
+  },
+  {
+   "end": 275,
+   "label": "패션 스타일",
+   "score": 0.5375,
+   "start": 264,
+   "surface": "BOLD CHECKS"
+  },
+  {
+   "end": 291,
+   "label": "브랜드",
+   "score": 0.397,
+   "start": 276,
+   "surface": "GABRIELA HEARST"
+  },
+  {
+   "end": 304,
+   "label": "브랜드",
+   "score": 0.8367,
+   "start": 292,
+   "surface": "ACNE STUDIOS"
+  },
+  {
+   "end": 418,
+   "label": "패션 스타일",
+   "score": 0.3251,
+   "start": 410,
+   "surface": "2026 F/W"
+  },
+  {
+   "end": 466,
+   "label": "브랜드",
+   "score": 0.7058,
+   "start": 461,
+   "surface": "CHLOE"
+  },
+  {
+   "end": 471,
+   "label": "브랜드",
+   "score": 0.8355,
+   "start": 467,
+   "surface": "ETRO"
+  },
+  {
+   "end": 493,
+   "label": "의류 품목",
+   "score": 0.2767,
+   "start": 472,
+   "surface": "STATEMENT THIGH-HIGHS"
+  },
+  {
+   "end": 499,
+   "label": "브랜드",
+   "score": 0.7825,
+   "start": 494,
+   "surface": "Chloe"
+  },
+  {
+   "end": 506,
+   "label": "브랜드",
+   "score": 0.7474,
+   "start": 500,
+   "surface": "Mugler"
+  },
+  {
+   "end": 530,
+   "label": "패션 스타일",
+   "score": 0.2746,
+   "start": 522,
+   "surface": "사이하이 부츠가"
+  },
+  {
+   "end": 539,
+   "label": "의류 품목",
+   "score": 0.2275,
+   "start": 537,
+   "surface": "팬츠"
+  },
+  {
+   "end": 580,
+   "label": "패션 스타일",
+   "score": 0.1909,
+   "start": 574,
+   "surface": "스터드와 퍼"
+  },
+  {
+   "end": 617,
+   "label": "의류 품목",
+   "score": 0.2517,
+   "start": 612,
+   "surface": "미니드레스"
+  },
+  {
+   "end": 679,
+   "label": "의류 품목",
+   "score": 0.2811,
+   "start": 672,
+   "surface": "사이하이 부츠"
+  },
+  {
+   "end": 707,
+   "label": "브랜드",
+   "score": 0.9473,
+   "start": 697,
+   "surface": "Balenciaga"
+  },
+  {
+   "end": 716,
+   "label": "브랜드",
+   "score": 0.8805,
+   "start": 708,
+   "surface": "Givenchy"
+  }
+ ],
+ "fashion-allure-354567.json": [
+  {
+   "end": 165,
+   "label": "브랜드",
+   "score": 0.7923,
+   "start": 157,
+   "surface": "Miu Miu와"
+  },
+  {
+   "end": 171,
+   "label": "브랜드",
+   "score": 0.9941,
+   "start": 166,
+   "surface": "Prada"
+  },
+  {
+   "end": 179,
+   "label": "브랜드",
+   "score": 0.9782,
+   "start": 173,
+   "surface": "Celine"
+  },
+  {
+   "end": 318,
+   "label": "의류 품목",
+   "score": 0.1508,
+   "start": 315,
+   "surface": "버건디"
+  },
+  {
+   "end": 470,
+   "label": "브랜드",
+   "score": 0.9937,
+   "start": 465,
+   "surface": "Prada"
+  },
+  {
+   "end": 489,
+   "label": "의류 품목",
+   "score": 0.2441,
+   "start": 483,
+   "surface": "블루 셔츠와"
+  },
+  {
+   "end": 496,
+   "label": "의류 품목",
+   "score": 0.1755,
+   "start": 490,
+   "surface": "레드 스커트"
+  },
+  {
+   "end": 505,
+   "label": "의류 품목",
+   "score": 0.1538,
+   "start": 498,
+   "surface": "블루 드레스와"
+  },
+  {
+   "end": 514,
+   "label": "의류 품목",
+   "score": 0.1601,
+   "start": 506,
+   "surface": "레드 스카프처럼"
+  },
+  {
+   "end": 640,
+   "label": "의류 품목",
+   "score": 0.1986,
+   "start": 634,
+   "surface": "레드 가방을"
+  },
+  {
+   "end": 659,
+   "label": "의류 품목",
+   "score": 0.1811,
+   "start": 653,
+   "surface": "블루 데님을"
+  }
+ ],
+ "fashion-cosmopolitan-1887708.json": [
+  {
+   "end": 7,
+   "label": "인물",
+   "score": 0.791,
+   "start": 3,
+   "surface": "김민지가"
+  },
+  {
+   "end": 24,
+   "label": "브랜드",
+   "score": 0.783,
+   "start": 21,
+   "surface": "데상트"
+  },
+  {
+   "end": 46,
+   "label": "의류 품목",
+   "score": 0.4336,
+   "start": 32,
+   "surface": "소프트 앤 리브드 크롭 톱"
+  },
+  {
+   "end": 61,
+   "label": "의류 품목",
+   "score": 0.2513,
+   "start": 55,
+   "surface": "쇼트 타이츠"
+  },
+  {
+   "end": 80,
+   "label": "브랜드",
+   "score": 0.7678,
+   "start": 72,
+   "surface": "Descente"
+  },
+  {
+   "end": 99,
+   "label": "의류 품목",
+   "score": 0.3383,
+   "start": 82,
+   "surface": "소프트 터치 트레이닝 후드 집업"
+  },
+  {
+   "end": 120,
+   "label": "의류 품목",
+   "score": 0.6714,
+   "start": 108,
+   "surface": "미디엄서포트 롱 브라톱"
+  },
+  {
+   "end": 135,
+   "label": "의류 품목",
+   "score": 0.2029,
+   "start": 129,
+   "surface": "트레이닝팬츠"
+  },
+  {
+   "end": 154,
+   "label": "브랜드",
+   "score": 0.5233,
+   "start": 146,
+   "surface": "Descente"
+  },
+  {
+   "end": 169,
+   "label": "의류 품목",
+   "score": 0.3955,
+   "start": 156,
+   "surface": "라이트서포트 쇼트 브라톱"
+  },
+  {
+   "end": 181,
+   "label": "브랜드",
+   "score": 0.9281,
+   "start": 177,
+   "surface": "델타프로"
+  },
+  {
+   "end": 188,
+   "label": "의류 품목",
+   "score": 0.2449,
+   "start": 182,
+   "surface": "하프 레깅스"
+  },
+  {
+   "end": 208,
+   "label": "의류 품목",
+   "score": 0.2564,
+   "start": 197,
+   "surface": "트레이닝 밴드 반장갑"
+  },
+  {
+   "end": 218,
+   "label": "의류 품목",
+   "score": 0.5731,
+   "start": 216,
+   "surface": "양말"
+  },
+  {
+   "end": 237,
+   "label": "의류 품목",
+   "score": 0.3743,
+   "start": 226,
+   "surface": "리트모 70 스니커즈"
+  },
+  {
+   "end": 256,
+   "label": "브랜드",
+   "score": 0.5093,
+   "start": 248,
+   "surface": "Descente"
+  },
+  {
+   "end": 267,
+   "label": "의류 품목",
+   "score": 0.3533,
+   "start": 258,
+   "surface": "하이서포트 브라톱"
+  },
+  {
+   "end": 294,
+   "label": "의류 품목",
+   "score": 0.4538,
+   "start": 276,
+   "surface": "스포츠테리 액티브 피트 니트 팬츠"
+  },
+  {
+   "end": 305,
+   "label": "의류 품목",
+   "score": 0.3752,
+   "start": 303,
+   "surface": "러닝"
+  },
+  {
+   "end": 310,
+   "label": "브랜드",
+   "score": 0.8939,
+   "start": 306,
+   "surface": "델타프로"
+  },
+  {
+   "end": 317,
+   "label": "의류 품목",
+   "score": 0.2081,
+   "start": 311,
+   "surface": "쇼트 레깅스"
+  },
+  {
+   "end": 332,
+   "label": "의류 품목",
+   "score": 0.5561,
+   "start": 326,
+   "surface": "나일론 볼캡"
+  },
+  {
+   "end": 342,
+   "label": "의류 품목",
+   "score": 0.5538,
+   "start": 340,
+   "surface": "양말"
+  },
+  {
+   "end": 361,
+   "label": "의류 품목",
+   "score": 0.6399,
+   "start": 350,
+   "surface": "퓨텍트 V2 스니커즈"
+  },
+  {
+   "end": 380,
+   "label": "브랜드",
+   "score": 0.489,
+   "start": 372,
+   "surface": "Descente"
+  },
+  {
+   "end": 394,
+   "label": "의류 품목",
+   "score": 0.465,
+   "start": 382,
+   "surface": "세미 크롭 반팔 티셔츠"
+  },
+  {
+   "end": 414,
+   "label": "의류 품목",
+   "score": 0.6461,
+   "start": 402,
+   "surface": "미디엄서포트 롱 브라톱"
+  },
+  {
+   "end": 430,
+   "label": "의류 품목",
+   "score": 0.4225,
+   "start": 423,
+   "surface": "부츠컷 레깅스"
+  },
+  {
+   "end": 442,
+   "label": "의류 품목",
+   "score": 0.2433,
+   "start": 439,
+   "surface": "숄더백"
+  },
+  {
+   "end": 468,
+   "label": "의류 품목",
+   "score": 0.5885,
+   "start": 451,
+   "surface": "에너자이트 라이드 V2 스니커즈"
+  },
+  {
+   "end": 487,
+   "label": "브랜드",
+   "score": 0.47,
+   "start": 479,
+   "surface": "Descente"
+  },
+  {
+   "end": 494,
+   "label": "의류 품목",
+   "score": 0.6382,
+   "start": 489,
+   "surface": "우븐 재킷"
+  },
+  {
+   "end": 522,
+   "label": "의류 품목",
+   "score": 0.669,
+   "start": 503,
+   "surface": "벤틸레이션 2 in 1 4인치 쇼츠"
+  },
+  {
+   "end": 533,
+   "label": "의류 품목",
+   "score": 0.6621,
+   "start": 531,
+   "surface": "양말"
+  },
+  {
+   "end": 545,
+   "label": "브랜드",
+   "score": 0.9384,
+   "start": 541,
+   "surface": "델타프로"
+  },
+  {
+   "end": 557,
+   "label": "의류 품목",
+   "score": 0.2732,
+   "start": 546,
+   "surface": "EXP V2 스니커즈"
+  },
+  {
+   "end": 576,
+   "label": "브랜드",
+   "score": 0.3555,
+   "start": 568,
+   "surface": "Descente"
+  },
+  {
+   "end": 587,
+   "label": "의류 품목",
+   "score": 0.5253,
+   "start": 578,
+   "surface": "러닝 후드 티셔츠"
+  },
+  {
+   "end": 598,
+   "label": "의류 품목",
+   "score": 0.3513,
+   "start": 596,
+   "surface": "러닝"
+  },
+  {
+   "end": 603,
+   "label": "브랜드",
+   "score": 0.8649,
+   "start": 599,
+   "surface": "델타프로"
+  },
+  {
+   "end": 606,
+   "label": "의류 품목",
+   "score": 0.1892,
+   "start": 604,
+   "surface": "쇼츠"
+  },
+  {
+   "end": 625,
+   "label": "의류 품목",
+   "score": 0.5004,
+   "start": 615,
+   "surface": "러닝 경량 선바이저"
+  },
+  {
+   "end": 636,
+   "label": "의류 품목",
+   "score": 0.2771,
+   "start": 633,
+   "surface": "숄더백"
+  },
+  {
+   "end": 654,
+   "label": "브랜드",
+   "score": 0.5551,
+   "start": 646,
+   "surface": "Descente"
+  },
+  {
+   "end": 662,
+   "label": "의류 품목",
+   "score": 0.535,
+   "start": 656,
+   "surface": "우븐 맨투맨"
+  },
+  {
+   "end": 678,
+   "label": "의류 품목",
+   "score": 0.3179,
+   "start": 671,
+   "surface": "9인치 타이츠"
+  },
+  {
+   "end": 688,
+   "label": "의류 품목",
+   "score": 0.609,
+   "start": 686,
+   "surface": "양말"
+  },
+  {
+   "end": 705,
+   "label": "의류 품목",
+   "score": 0.3926,
+   "start": 696,
+   "surface": "터레인디 스니커즈"
+  },
+  {
+   "end": 724,
+   "label": "브랜드",
+   "score": 0.617,
+   "start": 716,
+   "surface": "Descente"
+  }
+ ],
+ "fashion-cosmopolitan-1892435.json": [
+  {
+   "end": 6,
+   "label": "의류 품목",
+   "score": 0.805,
+   "start": 0,
+   "surface": "와이드 팬츠"
+  },
+  {
+   "end": 63,
+   "label": "컬렉션 또는 행사",
+   "score": 0.7333,
+   "start": 53,
+   "surface": "2025 F/W에서"
+  },
+  {
+   "end": 74,
+   "label": "의류 품목",
+   "score": 0.76,
+   "start": 68,
+   "surface": "와이드 팬츠"
+  },
+  {
+   "end": 136,
+   "label": "의류 품목",
+   "score": 0.2587,
+   "start": 130,
+   "surface": "와이드 데님"
+  },
+  {
+   "end": 156,
+   "label": "의류 품목",
+   "score": 0.7814,
+   "start": 149,
+   "surface": "와이드 팬츠는"
+  },
+  {
+   "end": 176,
+   "label": "패션 스타일",
+   "score": 0.5292,
+   "start": 171,
+   "surface": "보이프렌드"
+  },
+  {
+   "end": 180,
+   "label": "패션 스타일",
+   "score": 0.5116,
+   "start": 178,
+   "surface": "배기"
+  },
+  {
+   "end": 184,
+   "label": "패션 스타일",
+   "score": 0.4771,
+   "start": 182,
+   "surface": "배럴"
+  },
+  {
+   "end": 398,
+   "label": "브랜드",
+   "score": 0.9712,
+   "start": 393,
+   "surface": "Chloé"
+  },
+  {
+   "end": 417,
+   "label": "컬렉션 또는 행사",
+   "score": 0.2073,
+   "start": 399,
+   "surface": "Autumn/Winter 2025"
+  },
+  {
+   "end": 431,
+   "label": "인물",
+   "score": 0.9283,
+   "start": 420,
+   "surface": "Peter White"
+  },
+  {
+   "end": 456,
+   "label": "브랜드",
+   "score": 0.9817,
+   "start": 446,
+   "surface": "Balenciaga"
+  },
+  {
+   "end": 475,
+   "label": "컬렉션 또는 행사",
+   "score": 0.2466,
+   "start": 457,
+   "surface": "Autumn/Winter 2025"
+  },
+  {
+   "end": 504,
+   "label": "의류 품목",
+   "score": 0.7275,
+   "start": 497,
+   "surface": "와이드 팬츠는"
+  },
+  {
+   "end": 532,
+   "label": "컬렉션 또는 행사",
+   "score": 0.8192,
+   "start": 524,
+   "surface": "2025 F/W"
+  },
+  {
+   "end": 585,
+   "label": "브랜드",
+   "score": 0.7431,
+   "start": 581,
+   "surface": "끌로에는"
+  },
+  {
+   "end": 595,
+   "label": "패션 스타일",
+   "score": 0.5037,
+   "start": 586,
+   "surface": "하이웨이스트 진에"
+  },
+  {
+   "end": 609,
+   "label": "패션 스타일",
+   "score": 0.3665,
+   "start": 601,
+   "surface": "레이스 블라우스"
+  },
+  {
+   "end": 618,
+   "label": "의류 품목",
+   "score": 0.6279,
+   "start": 611,
+   "surface": "체크 롱 코트"
+  },
+  {
+   "end": 629,
+   "label": "의류 품목",
+   "score": 0.5305,
+   "start": 620,
+   "surface": "T바 발레 플랫을"
+  },
+  {
+   "end": 644,
+   "label": "브랜드",
+   "score": 0.9669,
+   "start": 638,
+   "surface": "발렌시아가의"
+  },
+  {
+   "end": 652,
+   "label": "의류 품목",
+   "score": 0.7933,
+   "start": 645,
+   "surface": "와이드 팬츠는"
+  },
+  {
+   "end": 657,
+   "label": "패션 스타일",
+   "score": 0.6632,
+   "start": 655,
+   "surface": "배기"
+  },
+  {
+   "end": 726,
+   "label": "패션 스타일",
+   "score": 0.2548,
+   "start": 711,
+   "surface": "형광 핑크 퍼 트리밍 패딩과"
+  },
+  {
+   "end": 811,
+   "label": "의류 품목",
+   "score": 0.3718,
+   "start": 801,
+   "surface": "와이드 레그 데님을"
+  },
+  {
+   "end": 892,
+   "label": "의류 품목",
+   "score": 0.3342,
+   "start": 887,
+   "surface": "더블 데님"
+  },
+  {
+   "end": 905,
+   "label": "의류 품목",
+   "score": 0.2927,
+   "start": 895,
+   "surface": "트레이너\n스니커즈와"
+  },
+  {
+   "end": 923,
+   "label": "의류 품목",
+   "score": 0.7337,
+   "start": 917,
+   "surface": "와이드 팬츠"
+  },
+  {
+   "end": 942,
+   "label": "인물",
+   "score": 0.9421,
+   "start": 926,
+   "surface": "Edward Berthelot"
+  }
+ ],
+ "fashion-cosmopolitan-1893297.json": [
+  {
+   "end": 75,
+   "label": "소재",
+   "score": 0.2979,
+   "start": 73,
+   "surface": "얼음"
+  },
+  {
+   "end": 112,
+   "label": "패션 스타일",
+   "score": 0.7931,
+   "start": 104,
+   "surface": "스노우 플레이크"
+  },
+  {
+   "end": 121,
+   "label": "소재",
+   "score": 0.4689,
+   "start": 119,
+   "surface": "얼음"
+  },
+  {
+   "end": 141,
+   "label": "패션 스타일",
+   "score": 0.5143,
+   "start": 135,
+   "surface": "아이스 큐브"
+  },
+  {
+   "end": 167,
+   "label": "의류 품목",
+   "score": 0.2013,
+   "start": 163,
+   "surface": "파베르제"
+  },
+  {
+   "end": 190,
+   "label": "브랜드",
+   "score": 0.7315,
+   "start": 183,
+   "surface": "반클리프 아펠"
+  },
+  {
+   "end": 200,
+   "label": "패션 스타일",
+   "score": 0.8211,
+   "start": 192,
+   "surface": "스노우 플레이크"
+  },
+  {
+   "end": 217,
+   "label": "브랜드",
+   "score": 0.9495,
+   "start": 210,
+   "surface": "반클리프 아펠"
+  },
+  {
+   "end": 229,
+   "label": "브랜드",
+   "score": 0.9521,
+   "start": 222,
+   "surface": "반클리프 아펠"
+  },
+  {
+   "end": 332,
+   "label": "브랜드",
+   "score": 0.9773,
+   "start": 324,
+   "surface": "반클리프 아펠은"
+  },
+  {
+   "end": 366,
+   "label": "패션 스타일",
+   "score": 0.867,
+   "start": 358,
+   "surface": "스노우 플레이크"
+  },
+  {
+   "end": 390,
+   "label": "브랜드",
+   "score": 0.9382,
+   "start": 387,
+   "surface": "메종은"
+  },
+  {
+   "end": 407,
+   "label": "소재",
+   "score": 0.6225,
+   "start": 400,
+   "surface": "화이트 골드와"
+  },
+  {
+   "end": 414,
+   "label": "소재",
+   "score": 0.7883,
+   "start": 408,
+   "surface": "다이아몬드를"
+  },
+  {
+   "end": 469,
+   "label": "패션 스타일",
+   "score": 0.8504,
+   "start": 461,
+   "surface": "스노우 플레이크"
+  },
+  {
+   "end": 505,
+   "label": "패션 스타일",
+   "score": 0.3656,
+   "start": 499,
+   "surface": "다이아몬드를"
+  },
+  {
+   "end": 566,
+   "label": "의류 품목",
+   "score": 0.2236,
+   "start": 559,
+   "surface": "블랙 드레스나"
+  },
+  {
+   "end": 574,
+   "label": "의류 품목",
+   "score": 0.3016,
+   "start": 567,
+   "surface": "화이트 니트와"
+  },
+  {
+   "end": 588,
+   "label": "컬렉션 또는 행사",
+   "score": 0.5345,
+   "start": 580,
+   "surface": "겨울 파티 룩은"
+  },
+  {
+   "end": 601,
+   "label": "컬렉션 또는 행사",
+   "score": 0.5026,
+   "start": 592,
+   "surface": "크리스마스 디너나"
+  },
+  {
+   "end": 610,
+   "label": "컬렉션 또는 행사",
+   "score": 0.5337,
+   "start": 602,
+   "surface": "연말 모임에서도"
+  },
+  {
+   "end": 644,
+   "label": "의류 품목",
+   "score": 0.249,
+   "start": 641,
+   "surface": "쇼파드"
+  },
+  {
+   "end": 652,
+   "label": "패션 스타일",
+   "score": 0.6452,
+   "start": 646,
+   "surface": "아이스 큐브"
+  },
+  {
+   "end": 662,
+   "label": "의류 품목",
+   "score": 0.2776,
+   "start": 659,
+   "surface": "쇼파드"
+  },
+  {
+   "end": 670,
+   "label": "브랜드",
+   "score": 0.4735,
+   "start": 667,
+   "surface": "쇼파드"
+  }
+ ],
+ "fashion-cosmopolitan-1896897.json": [
+  {
+   "end": 3,
+   "label": "의류 품목",
+   "score": 0.6583,
+   "start": 0,
+   "surface": "목걸이"
+  },
+  {
+   "end": 21,
+   "label": "패션 스타일",
+   "score": 0.3356,
+   "start": 17,
+   "surface": "넥라인별"
+  },
+  {
+   "end": 31,
+   "label": "패션 스타일",
+   "score": 0.3391,
+   "start": 28,
+   "surface": "스타일"
+  }
+ ],
+ "fashion-cosmopolitan-1897378.json": [
+  {
+   "end": 25,
+   "label": "의류 품목",
+   "score": 0.1892,
+   "start": 22,
+   "surface": "토트백"
+  },
+  {
+   "end": 83,
+   "label": "의류 품목",
+   "score": 0.3213,
+   "start": 81,
+   "surface": "백팩"
+  },
+  {
+   "end": 96,
+   "label": "패션 스타일",
+   "score": 0.5628,
+   "start": 91,
+   "surface": "데일리부터"
+  },
+  {
+   "end": 99,
+   "label": "패션 스타일",
+   "score": 0.2371,
+   "start": 97,
+   "surface": "미니"
+  },
+  {
+   "end": 105,
+   "label": "패션 스타일",
+   "score": 0.5354,
+   "start": 101,
+   "surface": "비즈니스"
+  },
+  {
+   "end": 112,
+   "label": "패션 스타일",
+   "score": 0.6348,
+   "start": 107,
+   "surface": "트래블까지"
+  },
+  {
+   "end": 119,
+   "label": "의류 품목",
+   "score": 0.3511,
+   "start": 117,
+   "surface": "백팩"
+  },
+  {
+   "end": 151,
+   "label": "인물",
+   "score": 0.2837,
+   "start": 147,
+   "surface": "에디터의"
+  },
+  {
+   "end": 154,
+   "label": "의류 품목",
+   "score": 0.3031,
+   "start": 152,
+   "surface": "백팩"
+  },
+  {
+   "end": 167,
+   "label": "의류 품목",
+   "score": 0.175,
+   "start": 164,
+   "surface": "백팩을"
+  },
+  {
+   "end": 256,
+   "label": "의류 품목",
+   "score": 0.3052,
+   "start": 253,
+   "surface": "백팩은"
+  },
+  {
+   "end": 315,
+   "label": "의류 품목",
+   "score": 0.2278,
+   "start": 312,
+   "surface": "백팩은"
+  },
+  {
+   "end": 358,
+   "label": "소재",
+   "score": 0.6247,
+   "start": 355,
+   "surface": "소재는"
+  },
+  {
+   "end": 400,
+   "label": "컬렉션 또는 행사",
+   "score": 0.208,
+   "start": 394,
+   "surface": "여행지에서도"
+  },
+  {
+   "end": 406,
+   "label": "패션 스타일",
+   "score": 0.193,
+   "start": 402,
+   "surface": "미니멀한"
+  },
+  {
+   "end": 478,
+   "label": "인물",
+   "score": 0.2059,
+   "start": 474,
+   "surface": "학생부터"
+  },
+  {
+   "end": 510,
+   "label": "인물",
+   "score": 0.2465,
+   "start": 505,
+   "surface": "직장인까지"
+  },
+  {
+   "end": 588,
+   "label": "의류 품목",
+   "score": 0.3187,
+   "start": 585,
+   "surface": "백팩을"
+  },
+  {
+   "end": 599,
+   "label": "인물",
+   "score": 0.229,
+   "start": 595,
+   "surface": "에디터의"
+  },
+  {
+   "end": 649,
+   "label": "의류 품목",
+   "score": 0.2472,
+   "start": 646,
+   "surface": "백팩이"
+  },
+  {
+   "end": 666,
+   "label": "패션 스타일",
+   "score": 0.4765,
+   "start": 663,
+   "surface": "데일리"
+  },
+  {
+   "end": 669,
+   "label": "의류 품목",
+   "score": 0.1884,
+   "start": 667,
+   "surface": "백팩"
+  },
+  {
+   "end": 681,
+   "label": "인물",
+   "score": 0.47,
+   "start": 670,
+   "surface": "Gabe Gordon"
+  },
+  {
+   "end": 714,
+   "label": "의류 품목",
+   "score": 0.3716,
+   "start": 711,
+   "surface": "백팩은"
+  },
+  {
+   "end": 862,
+   "label": "의류 품목",
+   "score": 0.223,
+   "start": 859,
+   "surface": "백팩에"
+  },
+  {
+   "end": 983,
+   "label": "의류 품목",
+   "score": 0.1908,
+   "start": 977,
+   "surface": "디테일 백팩"
+  },
+  {
+   "end": 997,
+   "label": "브랜드",
+   "score": 0.9595,
+   "start": 984,
+   "surface": "Isabel Marant"
+  },
+  {
+   "end": 1026,
+   "label": "브랜드",
+   "score": 0.9585,
+   "start": 1017,
+   "surface": "Off-White"
+  }
+ ],
+ "fashion-cosmopolitan-1907987.json": [
+  {
+   "end": 78,
+   "label": "의류 품목",
+   "score": 0.339,
+   "start": 73,
+   "surface": "미들 부츠"
+  },
+  {
+   "end": 85,
+   "label": "브랜드",
+   "score": 0.9564,
+   "start": 83,
+   "surface": "제니"
+  },
+  {
+   "end": 89,
+   "label": "브랜드",
+   "score": 0.9684,
+   "start": 86,
+   "surface": "전소미"
+  },
+  {
+   "end": 92,
+   "label": "브랜드",
+   "score": 0.948,
+   "start": 90,
+   "surface": "윈터"
+  },
+  {
+   "end": 96,
+   "label": "브랜드",
+   "score": 0.9222,
+   "start": 93,
+   "surface": "예지의"
+  },
+  {
+   "end": 102,
+   "label": "의류 품목",
+   "score": 0.3317,
+   "start": 97,
+   "surface": "미들 부츠"
+  },
+  {
+   "end": 114,
+   "label": "소재",
+   "score": 0.9467,
+   "start": 108,
+   "surface": "스웨이드부터"
+  },
+  {
+   "end": 119,
+   "label": "의류 품목",
+   "score": 0.3172,
+   "start": 115,
+   "surface": "워커까지"
+  },
+  {
+   "end": 125,
+   "label": "의류 품목",
+   "score": 0.3166,
+   "start": 120,
+   "surface": "미들 부츠"
+  },
+  {
+   "end": 203,
+   "label": "의류 품목",
+   "score": 0.354,
+   "start": 197,
+   "surface": "미들 부츠에"
+  },
+  {
+   "end": 216,
+   "label": "브랜드",
+   "score": 0.9609,
+   "start": 212,
+   "surface": "제니부터"
+  },
+  {
+   "end": 220,
+   "label": "브랜드",
+   "score": 0.9819,
+   "start": 217,
+   "surface": "전소미"
+  },
+  {
+   "end": 224,
+   "label": "브랜드",
+   "score": 0.9469,
+   "start": 222,
+   "surface": "윈터"
+  },
+  {
+   "end": 230,
+   "label": "브랜드",
+   "score": 0.956,
+   "start": 226,
+   "surface": "예지까지"
+  },
+  {
+   "end": 242,
+   "label": "의류 품목",
+   "score": 0.3239,
+   "start": 236,
+   "surface": "미니 쇼츠와"
+  },
+  {
+   "end": 250,
+   "label": "의류 품목",
+   "score": 0.486,
+   "start": 243,
+   "surface": "시어 스커트에"
+  },
+  {
+   "end": 257,
+   "label": "의류 품목",
+   "score": 0.4251,
+   "start": 255,
+   "surface": "워커"
+  },
+  {
+   "end": 263,
+   "label": "소재",
+   "score": 0.9531,
+   "start": 259,
+   "surface": "스웨이드"
+  },
+  {
+   "end": 313,
+   "label": "의류 품목",
+   "score": 0.3546,
+   "start": 307,
+   "surface": "미들 부츠를"
+  },
+  {
+   "end": 337,
+   "label": "브랜드",
+   "score": 0.9797,
+   "start": 335,
+   "surface": "제니"
+  },
+  {
+   "end": 361,
+   "label": "브랜드",
+   "score": 0.4483,
+   "start": 347,
+   "surface": "jennierubyjane"
+  },
+  {
+   "end": 383,
+   "label": "브랜드",
+   "score": 0.4388,
+   "start": 369,
+   "surface": "jennierubyjane"
+  },
+  {
+   "end": 387,
+   "label": "브랜드",
+   "score": 0.9772,
+   "start": 384,
+   "surface": "제니가"
+  },
+  {
+   "end": 398,
+   "label": "컬렉션 또는 행사",
+   "score": 0.3362,
+   "start": 388,
+   "surface": "롤라팔루자 2026"
+  },
+  {
+   "end": 422,
+   "label": "컬렉션 또는 행사",
+   "score": 0.1703,
+   "start": 418,
+   "surface": "페스티벌"
+  },
+  {
+   "end": 437,
+   "label": "소재",
+   "score": 0.2012,
+   "start": 435,
+   "surface": "깃털"
+  },
+  {
+   "end": 452,
+   "label": "의류 품목",
+   "score": 0.1649,
+   "start": 443,
+   "surface": "화이트 홀터 톱에"
+  },
+  {
+   "end": 471,
+   "label": "의류 품목",
+   "score": 0.3908,
+   "start": 464,
+   "surface": "시어 스커트를"
+  },
+  {
+   "end": 494,
+   "label": "소재",
+   "score": 0.9557,
+   "start": 490,
+   "surface": "스웨이드"
+  },
+  {
+   "end": 530,
+   "label": "의류 품목",
+   "score": 0.4116,
+   "start": 523,
+   "surface": "시어 스커트와"
+  },
+  {
+   "end": 537,
+   "label": "소재",
+   "score": 0.2343,
+   "start": 535,
+   "surface": "깃털"
+  },
+  {
+   "end": 592,
+   "label": "소재",
+   "score": 0.9397,
+   "start": 588,
+   "surface": "스웨이드"
+  },
+  {
+   "end": 628,
+   "label": "의류 품목",
+   "score": 0.4625,
+   "start": 621,
+   "surface": "시어 스커트에"
+  },
+  {
+   "end": 672,
+   "label": "브랜드",
+   "score": 0.954,
+   "start": 669,
+   "surface": "전소미"
+  },
+  {
+   "end": 693,
+   "label": "브랜드",
+   "score": 0.1604,
+   "start": 682,
+   "surface": "somsomi0309"
+  },
+  {
+   "end": 717,
+   "label": "브랜드",
+   "score": 0.9768,
+   "start": 713,
+   "surface": "전소미는"
+  },
+  {
+   "end": 724,
+   "label": "의류 품목",
+   "score": 0.2468,
+   "start": 718,
+   "surface": "미들 부츠를"
+  },
+  {
+   "end": 754,
+   "label": "패션 스타일",
+   "score": 0.3943,
+   "start": 747,
+   "surface": "화이트 셔츠에"
+  },
+  {
+   "end": 769,
+   "label": "의류 품목",
+   "score": 0.2535,
+   "start": 761,
+   "surface": "핑크 집업 재킷"
+  },
+  {
+   "end": 807,
+   "label": "의류 품목",
+   "score": 0.1848,
+   "start": 798,
+   "surface": "블랙 레더 부츠로"
+  },
+  {
+   "end": 844,
+   "label": "의류 품목",
+   "score": 0.1651,
+   "start": 838,
+   "surface": "미들 부츠가"
+  },
+  {
+   "end": 888,
+   "label": "의류 품목",
+   "score": 0.2779,
+   "start": 881,
+   "surface": "미니 쇼츠처럼"
+  },
+  {
+   "end": 902,
+   "label": "의류 품목",
+   "score": 0.2427,
+   "start": 896,
+   "surface": "미들 부츠를"
+  },
+  {
+   "end": 997,
+   "label": "브랜드",
+   "score": 0.9505,
+   "start": 995,
+   "surface": "윈터"
+  }
+ ],
+ "fashion-gqkorea-394718.json": [
+  {
+   "end": 14,
+   "label": "브랜드",
+   "score": 0.9726,
+   "start": 8,
+   "surface": "아크테릭스의"
+  },
+  {
+   "end": 78,
+   "label": "브랜드",
+   "score": 0.9582,
+   "start": 72,
+   "surface": "아크테릭스의"
+  },
+  {
+   "end": 135,
+   "label": "의류 품목",
+   "score": 0.5269,
+   "start": 129,
+   "surface": "스페로 SV"
+  },
+  {
+   "end": 176,
+   "label": "인물",
+   "score": 0.1547,
+   "start": 171,
+   "surface": "에디터에게"
+  },
+  {
+   "end": 183,
+   "label": "브랜드",
+   "score": 0.9507,
+   "start": 177,
+   "surface": "아크테릭스는"
+  },
+  {
+   "end": 285,
+   "label": "브랜드",
+   "score": 0.9713,
+   "start": 279,
+   "surface": "아크테릭스는"
+  },
+  {
+   "end": 355,
+   "label": "소재",
+   "score": 0.3985,
+   "start": 352,
+   "surface": "무봉제"
+  },
+  {
+   "end": 362,
+   "label": "소재",
+   "score": 0.2087,
+   "start": 357,
+   "surface": "심 테이프"
+  },
+  {
+   "end": 414,
+   "label": "소재",
+   "score": 0.1853,
+   "start": 410,
+   "surface": "하네스를"
+  },
+  {
+   "end": 427,
+   "label": "브랜드",
+   "score": 0.9483,
+   "start": 421,
+   "surface": "아크테릭스의"
+  },
+  {
+   "end": 492,
+   "label": "브랜드",
+   "score": 0.9493,
+   "start": 486,
+   "surface": "아크테릭스가"
+  },
+  {
+   "end": 578,
+   "label": "브랜드",
+   "score": 0.9631,
+   "start": 572,
+   "surface": "아크테릭스는"
+  },
+  {
+   "end": 642,
+   "label": "브랜드",
+   "score": 0.9184,
+   "start": 635,
+   "surface": "아크테릭스에서"
+  },
+  {
+   "end": 670,
+   "label": "인물",
+   "score": 0.9299,
+   "start": 663,
+   "surface": "알렉스 플란테"
+  },
+  {
+   "end": 682,
+   "label": "인물",
+   "score": 0.9266,
+   "start": 671,
+   "surface": "Alex Plante"
+  },
+  {
+   "end": 705,
+   "label": "브랜드",
+   "score": 0.9028,
+   "start": 699,
+   "surface": "아크테릭스의"
+  },
+  {
+   "end": 745,
+   "label": "브랜드",
+   "score": 0.9397,
+   "start": 739,
+   "surface": "아크테릭스의"
+  }
+ ],
+ "fashion-gqkorea-397697.json": [
+  {
+   "end": 20,
+   "label": "브랜드",
+   "score": 0.9724,
+   "start": 17,
+   "surface": "디올의"
+  },
+  {
+   "end": 32,
+   "label": "컬렉션 또는 행사",
+   "score": 0.2264,
+   "start": 22,
+   "surface": "NEW 라 콜렉시옹"
+  },
+  {
+   "end": 67,
+   "label": "브랜드",
+   "score": 0.9667,
+   "start": 65,
+   "surface": "디올"
+  },
+  {
+   "end": 167,
+   "label": "브랜드",
+   "score": 0.9708,
+   "start": 165,
+   "surface": "디올"
+  },
+  {
+   "end": 202,
+   "label": "컬렉션 또는 행사",
+   "score": 0.2447,
+   "start": 194,
+   "surface": "프랑스 그라스의"
+  },
+  {
+   "end": 490,
+   "label": "소재",
+   "score": 0.2829,
+   "start": 485,
+   "surface": "스트로베리"
+  },
+  {
+   "end": 533,
+   "label": "브랜드",
+   "score": 0.9768,
+   "start": 531,
+   "surface": "디올"
+  },
+  {
+   "end": 556,
+   "label": "인물",
+   "score": 0.674,
+   "start": 548,
+   "surface": "프란시스 커정은"
+  }
+ ],
+ "fashion-gqkorea-398310.json": [
+  {
+   "end": 211,
+   "label": "인물",
+   "score": 0.8943,
+   "start": 201,
+   "surface": "빈센트 드 마르코에"
+  },
+  {
+   "end": 279,
+   "label": "소재",
+   "score": 0.5915,
+   "start": 273,
+   "surface": "천연 오일이"
+  }
+ ],
+ "fashion-gqkorea-398573.json": [
+  {
+   "end": 37,
+   "label": "인물",
+   "score": 0.8836,
+   "start": 30,
+   "surface": "에이셉 라키와"
+  },
+  {
+   "end": 45,
+   "label": "브랜드",
+   "score": 0.9741,
+   "start": 38,
+   "surface": "해리 스타일스"
+  },
+  {
+   "end": 55,
+   "label": "인물",
+   "score": 0.9149,
+   "start": 47,
+   "surface": "제이콥 엘로디를"
+  },
+  {
+   "end": 288,
+   "label": "인물",
+   "score": 0.9476,
+   "start": 280,
+   "surface": "에이셉 라키부터"
+  },
+  {
+   "end": 308,
+   "label": "인물",
+   "score": 0.9412,
+   "start": 300,
+   "surface": "제이콥 엘로디와"
+  },
+  {
+   "end": 315,
+   "label": "인물",
+   "score": 0.8608,
+   "start": 309,
+   "surface": "조시 브롤린"
+  },
+  {
+   "end": 325,
+   "label": "브랜드",
+   "score": 0.4927,
+   "start": 318,
+   "surface": "아우터 뱅크스"
+  },
+  {
+   "end": 376,
+   "label": "브랜드",
+   "score": 0.9718,
+   "start": 367,
+   "surface": "해리 스타일스까지"
+  },
+  {
+   "end": 465,
+   "label": "패션 스타일",
+   "score": 0.1908,
+   "start": 455,
+   "surface": "핀스트라이프 슈트를"
+  },
+  {
+   "end": 487,
+   "label": "의류 품목",
+   "score": 0.2419,
+   "start": 479,
+   "surface": "카우보이 부츠를"
+  },
+  {
+   "end": 547,
+   "label": "브랜드",
+   "score": 0.4795,
+   "start": 543,
+   "surface": "헤링본을"
+  },
+  {
+   "end": 593,
+   "label": "브랜드",
+   "score": 0.8617,
+   "start": 590,
+   "surface": "디올과"
+  },
+  {
+   "end": 604,
+   "label": "인물",
+   "score": 0.5925,
+   "start": 594,
+   "surface": "드리스 반 노튼부터"
+  },
+  {
+   "end": 612,
+   "label": "인물",
+   "score": 0.7474,
+   "start": 605,
+   "surface": "랄프 로렌까지"
+  },
+  {
+   "end": 650,
+   "label": "브랜드",
+   "score": 0.8745,
+   "start": 647,
+   "surface": "헤링본"
+  },
+  {
+   "end": 675,
+   "label": "소재",
+   "score": 0.2826,
+   "start": 668,
+   "surface": "이선 호크처럼"
+  },
+  {
+   "end": 758,
+   "label": "인물",
+   "score": 0.3445,
+   "start": 751,
+   "surface": "J.뮤저헤링본"
+  },
+  {
+   "end": 765,
+   "label": "패션 스타일",
+   "score": 0.2146,
+   "start": 759,
+   "surface": "울 블레이저"
+  },
+  {
+   "end": 789,
+   "label": "의류 품목",
+   "score": 0.1757,
+   "start": 766,
+   "surface": "세이브 카키오가닉 헴프 스트라이프 크루 티"
+  },
+  {
+   "end": 803,
+   "label": "의류 품목",
+   "score": 0.2822,
+   "start": 790,
+   "surface": "커리도어와이드 트윌 팬츠"
+  },
+  {
+   "end": 831,
+   "label": "패션 스타일",
+   "score": 0.4237,
+   "start": 825,
+   "surface": "핀스트라이프"
+  }
+ ],
+ "fashion-harpersbazaar-1890871.json": [
+  {
+   "end": 13,
+   "label": "패션 스타일",
+   "score": 0.9338,
+   "start": 10,
+   "surface": "플리스"
+  },
+  {
+   "end": 21,
+   "label": "브랜드",
+   "score": 0.7737,
+   "start": 16,
+   "surface": "미우미우와"
+  },
+  {
+   "end": 28,
+   "label": "브랜드",
+   "score": 0.9764,
+   "start": 22,
+   "surface": "샌디 리앙이"
+  },
+  {
+   "end": 72,
+   "label": "패션 스타일",
+   "score": 0.9535,
+   "start": 69,
+   "surface": "플리스"
+  },
+  {
+   "end": 98,
+   "label": "패션 스타일",
+   "score": 0.931,
+   "start": 95,
+   "surface": "플리스"
+  },
+  {
+   "end": 114,
+   "label": "패션 스타일",
+   "score": 0.9303,
+   "start": 111,
+   "surface": "플리스"
+  },
+  {
+   "end": 135,
+   "label": "패션 스타일",
+   "score": 0.8498,
+   "start": 132,
+   "surface": "플리스"
+  },
+  {
+   "end": 161,
+   "label": "패션 스타일",
+   "score": 0.8896,
+   "start": 157,
+   "surface": "플리스의"
+  },
+  {
+   "end": 190,
+   "label": "인물",
+   "score": 0.8183,
+   "start": 184,
+   "surface": "엠마 코린이"
+  },
+  {
+   "end": 195,
+   "label": "브랜드",
+   "score": 0.943,
+   "start": 191,
+   "surface": "미우미우"
+  },
+  {
+   "end": 204,
+   "label": "컬렉션 또는 행사",
+   "score": 0.3025,
+   "start": 201,
+   "surface": "F/W"
+  },
+  {
+   "end": 252,
+   "label": "의류 품목",
+   "score": 0.1991,
+   "start": 246,
+   "surface": "체크 스커트"
+  },
+  {
+   "end": 272,
+   "label": "패션 스타일",
+   "score": 0.9541,
+   "start": 269,
+   "surface": "플리스"
+  },
+  {
+   "end": 312,
+   "label": "패션 스타일",
+   "score": 0.9386,
+   "start": 309,
+   "surface": "플리스"
+  },
+  {
+   "end": 387,
+   "label": "패션 스타일",
+   "score": 0.9014,
+   "start": 383,
+   "surface": "플리스가"
+  },
+  {
+   "end": 412,
+   "label": "브랜드",
+   "score": 0.9816,
+   "start": 408,
+   "surface": "미우미우"
+  },
+  {
+   "end": 432,
+   "label": "브랜드",
+   "score": 0.9643,
+   "start": 428,
+   "surface": "미우미우"
+  },
+  {
+   "end": 459,
+   "label": "패션 스타일",
+   "score": 0.9184,
+   "start": 455,
+   "surface": "플리스는"
+  },
+  {
+   "end": 480,
+   "label": "브랜드",
+   "score": 0.7741,
+   "start": 475,
+   "surface": "미우미우는"
+  },
+  {
+   "end": 485,
+   "label": "패션 스타일",
+   "score": 0.919,
+   "start": 481,
+   "surface": "플리스를"
+  },
+  {
+   "end": 557,
+   "label": "의류 품목",
+   "score": 0.1859,
+   "start": 547,
+   "surface": "레더 스커트와 부츠"
+  },
+  {
+   "end": 587,
+   "label": "패션 스타일",
+   "score": 0.9015,
+   "start": 583,
+   "surface": "플리스는"
+  },
+  {
+   "end": 630,
+   "label": "브랜드",
+   "score": 0.9858,
+   "start": 625,
+   "surface": "샌디 리앙"
+  },
+  {
+   "end": 651,
+   "label": "브랜드",
+   "score": 0.9862,
+   "start": 646,
+   "surface": "샌디 리앙"
+  },
+  {
+   "end": 695,
+   "label": "브랜드",
+   "score": 0.9877,
+   "start": 690,
+   "surface": "샌디 리앙"
+  },
+  {
+   "end": 703,
+   "label": "패션 스타일",
+   "score": 0.9084,
+   "start": 699,
+   "surface": "플리스를"
+  },
+  {
+   "end": 749,
+   "label": "패션 스타일",
+   "score": 0.8127,
+   "start": 745,
+   "surface": "플리스를"
+  },
+  {
+   "end": 759,
+   "label": "패션 스타일",
+   "score": 0.4927,
+   "start": 750,
+   "surface": "새틴 미니스커트나"
+  },
+  {
+   "end": 775,
+   "label": "패션 스타일",
+   "score": 0.2181,
+   "start": 761,
+   "surface": "플라워 프린트 풀 스커트와"
+  },
+  {
+   "end": 789,
+   "label": "의류 품목",
+   "score": 0.1744,
+   "start": 784,
+   "surface": "걸리 무드"
+  },
+  {
+   "end": 840,
+   "label": "패션 스타일",
+   "score": 0.7558,
+   "start": 836,
+   "surface": "플리스의"
+  },
+  {
+   "end": 877,
+   "label": "패션 스타일",
+   "score": 0.8956,
+   "start": 873,
+   "surface": "플리스의"
+  },
+  {
+   "end": 910,
+   "label": "패션 스타일",
+   "score": 0.8939,
+   "start": 906,
+   "surface": "플리스는"
+  },
+  {
+   "end": 919,
+   "label": "의류 품목",
+   "score": 0.1685,
+   "start": 911,
+   "surface": "트레이닝 팬츠가"
+  },
+  {
+   "end": 937,
+   "label": "의류 품목",
+   "score": 0.2909,
+   "start": 929,
+   "surface": "테일러드 코트와"
+  },
+  {
+   "end": 944,
+   "label": "패션 스타일",
+   "score": 0.2347,
+   "start": 938,
+   "surface": "데님 팬츠와"
+  },
+  {
+   "end": 969,
+   "label": "패션 스타일",
+   "score": 0.7848,
+   "start": 964,
+   "surface": "플리스만한"
+  }
+ ],
+ "fashion-harpersbazaar-1892058.json": [
+  {
+   "end": 70,
+   "label": "컬렉션 또는 행사",
+   "score": 0.2637,
+   "start": 62,
+   "surface": "홀리데이 시즌이"
+  },
+  {
+   "end": 124,
+   "label": "인물",
+   "score": 0.3641,
+   "start": 122,
+   "surface": "친구"
+  },
+  {
+   "end": 128,
+   "label": "인물",
+   "score": 0.4521,
+   "start": 126,
+   "surface": "연인"
+  },
+  {
+   "end": 132,
+   "label": "인물",
+   "score": 0.3793,
+   "start": 130,
+   "surface": "가족"
+  },
+  {
+   "end": 161,
+   "label": "브랜드",
+   "score": 0.983,
+   "start": 156,
+   "surface": "룰루레몬이"
+  },
+  {
+   "end": 176,
+   "label": "컬렉션 또는 행사",
+   "score": 0.6645,
+   "start": 166,
+   "surface": "홀리데이 캠페인에서"
+  },
+  {
+   "end": 198,
+   "label": "소재",
+   "score": 0.7673,
+   "start": 192,
+   "surface": "뛰어난 소재"
+  },
+  {
+   "end": 284,
+   "label": "의류 품목",
+   "score": 0.2151,
+   "start": 279,
+   "surface": "액세서리로"
+  },
+  {
+   "end": 352,
+   "label": "브랜드",
+   "score": 0.9863,
+   "start": 347,
+   "surface": "룰루레몬의"
+  },
+  {
+   "end": 368,
+   "label": "소재",
+   "score": 0.7398,
+   "start": 362,
+   "surface": "인도신 블루"
+  },
+  {
+   "end": 375,
+   "label": "소재",
+   "score": 0.4799,
+   "start": 370,
+   "surface": "포그 그린"
+  },
+  {
+   "end": 482,
+   "label": "의류 품목",
+   "score": 0.4495,
+   "start": 475,
+   "surface": "스쿠버 컬렉션"
+  },
+  {
+   "end": 497,
+   "label": "의류 품목",
+   "score": 0.5226,
+   "start": 488,
+   "surface": "와이드레그 팬츠의"
+  },
+  {
+   "end": 543,
+   "label": "의류 품목",
+   "score": 0.348,
+   "start": 532,
+   "surface": "Accessories"
+  },
+  {
+   "end": 656,
+   "label": "패션 스타일",
+   "score": 0.1721,
+   "start": 648,
+   "surface": "홀리데이 컬렉션"
+  },
+  {
+   "end": 674,
+   "label": "브랜드",
+   "score": 0.9893,
+   "start": 670,
+   "surface": "룰루레몬"
+  }
+ ],
+ "fashion-harpersbazaar-1892629.json": [
+  {
+   "end": 13,
+   "label": "브랜드",
+   "score": 0.995,
+   "start": 10,
+   "surface": "PXG"
+  },
+  {
+   "end": 46,
+   "label": "의류 품목",
+   "score": 0.7363,
+   "start": 36,
+   "surface": "푸퍼 다운 베스트는"
+  },
+  {
+   "end": 72,
+   "label": "의류 품목",
+   "score": 0.7289,
+   "start": 55,
+   "surface": "윈드프루프 뉴 하이 넥 스웨터는"
+  },
+  {
+   "end": 90,
+   "label": "의류 품목",
+   "score": 0.7225,
+   "start": 81,
+   "surface": "A라인 랩스커트는"
+  },
+  {
+   "end": 109,
+   "label": "의류 품목",
+   "score": 0.4671,
+   "start": 99,
+   "surface": "퍼 이어머프 모자는"
+  },
+  {
+   "end": 123,
+   "label": "소재",
+   "score": 0.5858,
+   "start": 118,
+   "surface": "화이트 퍼"
+  },
+  {
+   "end": 136,
+   "label": "의류 품목",
+   "score": 0.3674,
+   "start": 129,
+   "surface": "오버 니삭스는"
+  },
+  {
+   "end": 163,
+   "label": "의류 품목",
+   "score": 0.7264,
+   "start": 144,
+   "surface": "오리지널 투어 스파이크 골프 슈즈는"
+  },
+  {
+   "end": 177,
+   "label": "브랜드",
+   "score": 0.9951,
+   "start": 174,
+   "surface": "PXG"
+  },
+  {
+   "end": 200,
+   "label": "의류 품목",
+   "score": 0.5465,
+   "start": 193,
+   "surface": "패딩 버킷백은"
+  },
+  {
+   "end": 217,
+   "label": "브랜드",
+   "score": 0.9965,
+   "start": 214,
+   "surface": "PXG"
+  }
+ ],
+ "fashion-harpersbazaar-1893074.json": [
+  {
+   "end": 5,
+   "label": "패션 스타일",
+   "score": 0.5817,
+   "start": 3,
+   "surface": "러닝"
+  },
+  {
+   "end": 26,
+   "label": "의류 품목",
+   "score": 0.6804,
+   "start": 15,
+   "surface": "메쉬 베이스 레이어가"
+  },
+  {
+   "end": 68,
+   "label": "의류 품목",
+   "score": 0.7657,
+   "start": 58,
+   "surface": "메쉬 베이스 레이어"
+  },
+  {
+   "end": 90,
+   "label": "브랜드",
+   "score": 0.5887,
+   "start": 84,
+   "surface": "주요 브랜드"
+  },
+  {
+   "end": 113,
+   "label": "패션 스타일",
+   "score": 0.3803,
+   "start": 111,
+   "surface": "러닝"
+  },
+  {
+   "end": 243,
+   "label": "인물",
+   "score": 0.2055,
+   "start": 231,
+   "surface": "알프스 산악 가이드들이"
+  },
+  {
+   "end": 263,
+   "label": "소재",
+   "score": 0.2481,
+   "start": 257,
+   "surface": "망사 구조의"
+  },
+  {
+   "end": 274,
+   "label": "의류 품목",
+   "score": 0.748,
+   "start": 264,
+   "surface": "메쉬 베이스 레이어"
+  },
+  {
+   "end": 290,
+   "label": "의류 품목",
+   "score": 0.3407,
+   "start": 275,
+   "surface": "mesh base layer"
+  },
+  {
+   "end": 307,
+   "label": "의류 품목",
+   "score": 0.5627,
+   "start": 296,
+   "surface": "피쉬넷 베이스 레이어"
+  },
+  {
+   "end": 326,
+   "label": "의류 품목",
+   "score": 0.3069,
+   "start": 308,
+   "surface": "fishnet base layer"
+  },
+  {
+   "end": 339,
+   "label": "소재",
+   "score": 0.3339,
+   "start": 334,
+   "surface": "망사 구조"
+  },
+  {
+   "end": 450,
+   "label": "의류 품목",
+   "score": 0.263,
+   "start": 442,
+   "surface": "망사 이너웨어가"
+  },
+  {
+   "end": 641,
+   "label": "의류 품목",
+   "score": 0.7175,
+   "start": 630,
+   "surface": "메쉬 베이스 레이어의"
+  },
+  {
+   "end": 763,
+   "label": "소재",
+   "score": 0.3937,
+   "start": 761,
+   "surface": "공극"
+  }
+ ],
+ "fashion-harpersbazaar-1895820.json": [
+  {
+   "end": 22,
+   "label": "인물",
+   "score": 0.1594,
+   "start": 0,
+   "surface": "한국 여자 복싱 최초의 올림픽 메달리스트"
+  },
+  {
+   "end": 27,
+   "label": "인물",
+   "score": 0.8902,
+   "start": 24,
+   "surface": "임애지"
+  }
+ ],
+ "fashion-harpersbazaar-1895823.json": [
+  {
+   "end": 27,
+   "label": "인물",
+   "score": 0.5683,
+   "start": 19,
+   "surface": "OPBF 챔피언"
+  },
+  {
+   "end": 32,
+   "label": "인물",
+   "score": 0.884,
+   "start": 29,
+   "surface": "윤덕노"
+  }
+ ],
+ "fashion-marieclaire-558420.json": [
+  {
+   "end": 23,
+   "label": "브랜드",
+   "score": 0.6804,
+   "start": 17,
+   "surface": "루이 비통의"
+  },
+  {
+   "end": 65,
+   "label": "브랜드",
+   "score": 0.7558,
+   "start": 60,
+   "surface": "루이 비통"
+  },
+  {
+   "end": 149,
+   "label": "브랜드",
+   "score": 0.7782,
+   "start": 143,
+   "surface": "루이 비통의"
+  },
+  {
+   "end": 154,
+   "label": "패션 스타일",
+   "score": 0.2764,
+   "start": 150,
+   "surface": "모노그램"
+  },
+  {
+   "end": 175,
+   "label": "의류 품목",
+   "score": 0.2453,
+   "start": 171,
+   "surface": "모노그램"
+  },
+  {
+   "end": 212,
+   "label": "인물",
+   "score": 0.7077,
+   "start": 206,
+   "surface": "루이 비통의"
+  },
+  {
+   "end": 222,
+   "label": "인물",
+   "score": 0.6447,
+   "start": 216,
+   "surface": "조르주 비통"
+  },
+  {
+   "end": 238,
+   "label": "인물",
+   "score": 0.5946,
+   "start": 223,
+   "surface": "Georges Vuitton"
+  },
+  {
+   "end": 250,
+   "label": "의류 품목",
+   "score": 0.2307,
+   "start": 245,
+   "surface": "모노그램은"
+  },
+  {
+   "end": 261,
+   "label": "브랜드",
+   "score": 0.8656,
+   "start": 256,
+   "surface": "루이 비통"
+  },
+  {
+   "end": 297,
+   "label": "브랜드",
+   "score": 0.7735,
+   "start": 295,
+   "surface": "LV"
+  },
+  {
+   "end": 311,
+   "label": "패션 스타일",
+   "score": 0.7981,
+   "start": 303,
+   "surface": "플로럴 모티프를"
+  },
+  {
+   "end": 409,
+   "label": "의류 품목",
+   "score": 0.1587,
+   "start": 404,
+   "surface": "모노그램은"
+  },
+  {
+   "end": 425,
+   "label": "브랜드",
+   "score": 0.4257,
+   "start": 419,
+   "surface": "루이 비통의"
+  },
+  {
+   "end": 433,
+   "label": "의류 품목",
+   "score": 0.2266,
+   "start": 426,
+   "surface": "백과 트렁크에"
+  },
+  {
+   "end": 475,
+   "label": "의류 품목",
+   "score": 0.1886,
+   "start": 470,
+   "surface": "모노그램을"
+  },
+  {
+   "end": 556,
+   "label": "브랜드",
+   "score": 0.5886,
+   "start": 550,
+   "surface": "루이 비통은"
+  },
+  {
+   "end": 572,
+   "label": "의류 품목",
+   "score": 0.177,
+   "start": 565,
+   "surface": "백과 트렁크를"
+  },
+  {
+   "end": 738,
+   "label": "컬렉션 또는 행사",
+   "score": 0.297,
+   "start": 728,
+   "surface": "파리 남성 패션위크"
+  },
+  {
+   "end": 766,
+   "label": "브랜드",
+   "score": 0.8442,
+   "start": 761,
+   "surface": "루이 비통"
+  },
+  {
+   "end": 908,
+   "label": "의류 품목",
+   "score": 0.2649,
+   "start": 901,
+   "surface": "백과 트렁크는"
+  }
+ ],
+ "fashion-marieclaire-559187.json": [
+  {
+   "end": 2,
+   "label": "인물",
+   "score": 0.1691,
+   "start": 0,
+   "surface": "MC"
+  },
+  {
+   "end": 37,
+   "label": "컬렉션 또는 행사",
+   "score": 0.1611,
+   "start": 33,
+   "surface": "런웨이를"
+  },
+  {
+   "end": 72,
+   "label": "브랜드",
+   "score": 0.9599,
+   "start": 68,
+   "surface": "에르뎀은"
+  },
+  {
+   "end": 84,
+   "label": "의류 품목",
+   "score": 0.6202,
+   "start": 73,
+   "surface": "자카드 플로럴 드레스"
+  },
+  {
+   "end": 94,
+   "label": "패션 스타일",
+   "score": 0.2096,
+   "start": 88,
+   "surface": "검은 리본을"
+  },
+  {
+   "end": 126,
+   "label": "브랜드",
+   "score": 0.3665,
+   "start": 118,
+   "surface": "세실리에 반센은"
+  },
+  {
+   "end": 135,
+   "label": "의류 품목",
+   "score": 0.4915,
+   "start": 132,
+   "surface": "블루종"
+  },
+  {
+   "end": 159,
+   "label": "소재",
+   "score": 0.8008,
+   "start": 156,
+   "surface": "레이스"
+  },
+  {
+   "end": 193,
+   "label": "브랜드",
+   "score": 0.9829,
+   "start": 190,
+   "surface": "디올은"
+  },
+  {
+   "end": 216,
+   "label": "의류 품목",
+   "score": 0.3313,
+   "start": 214,
+   "surface": "재킷"
+  },
+  {
+   "end": 229,
+   "label": "소재",
+   "score": 0.5174,
+   "start": 225,
+   "surface": "페플럼과"
+  },
+  {
+   "end": 237,
+   "label": "의류 품목",
+   "score": 0.2235,
+   "start": 230,
+   "surface": "노란 스커트의"
+  },
+  {
+   "end": 271,
+   "label": "브랜드",
+   "score": 0.9912,
+   "start": 268,
+   "surface": "샤넬은"
+  },
+  {
+   "end": 279,
+   "label": "소재",
+   "score": 0.7125,
+   "start": 276,
+   "surface": "레이스"
+  },
+  {
+   "end": 297,
+   "label": "패션 스타일",
+   "score": 0.2284,
+   "start": 295,
+   "surface": "진주"
+  },
+  {
+   "end": 356,
+   "label": "소재",
+   "score": 0.4352,
+   "start": 353,
+   "surface": "레이스"
+  }
+ ],
+ "fashion-marieclaire-559199.json": [
+  {
+   "end": 47,
+   "label": "컬렉션 또는 행사",
+   "score": 0.4998,
+   "start": 39,
+   "surface": "2026 F/W"
+  },
+  {
+   "end": 71,
+   "label": "브랜드",
+   "score": 0.7689,
+   "start": 62,
+   "surface": "MARA MARA"
+  },
+  {
+   "end": 77,
+   "label": "브랜드",
+   "score": 0.9229,
+   "start": 72,
+   "surface": "막스마라는"
+  },
+  {
+   "end": 156,
+   "label": "브랜드",
+   "score": 0.9556,
+   "start": 152,
+   "surface": "막스마라"
+  },
+  {
+   "end": 207,
+   "label": "인물",
+   "score": 0.4654,
+   "start": 196,
+   "surface": "Karim Sadli"
+  },
+  {
+   "end": 229,
+   "label": "브랜드",
+   "score": 0.9321,
+   "start": 224,
+   "surface": "막스마라의"
+  },
+  {
+   "end": 234,
+   "label": "의류 품목",
+   "score": 0.1857,
+   "start": 230,
+   "surface": "키 룩과"
+  },
+  {
+   "end": 246,
+   "label": "인물",
+   "score": 0.5431,
+   "start": 241,
+   "surface": "룰루 테니"
+  },
+  {
+   "end": 258,
+   "label": "인물",
+   "score": 0.7042,
+   "start": 247,
+   "surface": "Lulu Tenney"
+  },
+  {
+   "end": 285,
+   "label": "브랜드",
+   "score": 0.9391,
+   "start": 278,
+   "surface": "MIU MIU"
+  },
+  {
+   "end": 310,
+   "label": "인물",
+   "score": 0.6239,
+   "start": 303,
+   "surface": "헤일리 비버와"
+  },
+  {
+   "end": 319,
+   "label": "인물",
+   "score": 0.5939,
+   "start": 314,
+   "surface": "샤오웬주는"
+  },
+  {
+   "end": 368,
+   "label": "인물",
+   "score": 0.2086,
+   "start": 362,
+   "surface": "조이 거트너"
+  },
+  {
+   "end": 381,
+   "label": "인물",
+   "score": 0.4478,
+   "start": 369,
+   "surface": "Zoë Ghertner"
+  },
+  {
+   "end": 415,
+   "label": "패션 스타일",
+   "score": 0.4641,
+   "start": 407,
+   "surface": "워시드 캐시미어"
+  },
+  {
+   "end": 419,
+   "label": "소재",
+   "score": 0.972,
+   "start": 417,
+   "surface": "가죽"
+  },
+  {
+   "end": 427,
+   "label": "소재",
+   "score": 0.8626,
+   "start": 421,
+   "surface": "트위드 소재"
+  },
+  {
+   "end": 433,
+   "label": "의류 품목",
+   "score": 0.4653,
+   "start": 432,
+   "surface": "백"
+  },
+  {
+   "end": 437,
+   "label": "의류 품목",
+   "score": 0.4853,
+   "start": 435,
+   "surface": "슈즈"
+  },
+  {
+   "end": 470,
+   "label": "브랜드",
+   "score": 0.9854,
+   "start": 465,
+   "surface": "PRADA"
+  },
+  {
+   "end": 491,
+   "label": "브랜드",
+   "score": 0.9823,
+   "start": 487,
+   "surface": "프라다는"
+  },
+  {
+   "end": 510,
+   "label": "인물",
+   "score": 0.3692,
+   "start": 504,
+   "surface": "배리 젠킨스"
+  },
+  {
+   "end": 524,
+   "label": "인물",
+   "score": 0.4202,
+   "start": 511,
+   "surface": "Barry Jenkins"
+  },
+  {
+   "end": 596,
+   "label": "인물",
+   "score": 0.6564,
+   "start": 591,
+   "surface": "헌터 샤퍼"
+  },
+  {
+   "end": 604,
+   "label": "인물",
+   "score": 0.4375,
+   "start": 598,
+   "surface": "트로이 시반"
+  }
+ ],
+ "fashion-vogue-854781.json": [
+  {
+   "end": 12,
+   "label": "인물",
+   "score": 0.9467,
+   "start": 0,
+   "surface": "엘리자베스 2세 여왕의"
+  },
+  {
+   "end": 24,
+   "label": "의류 품목",
+   "score": 0.6951,
+   "start": 21,
+   "surface": "브로치"
+  },
+  {
+   "end": 41,
+   "label": "인물",
+   "score": 0.9078,
+   "start": 29,
+   "surface": "엘리자베스 2세 여왕은"
+  },
+  {
+   "end": 130,
+   "label": "인물",
+   "score": 0.8257,
+   "start": 122,
+   "surface": "도널드 트럼프가"
+  },
+  {
+   "end": 149,
+   "label": "인물",
+   "score": 0.888,
+   "start": 137,
+   "surface": "엘리자베스 2세 여왕을"
+  },
+  {
+   "end": 283,
+   "label": "인물",
+   "score": 0.8682,
+   "start": 271,
+   "surface": "엘리자베스 2세 여왕의"
+  },
+  {
+   "end": 359,
+   "label": "패션 스타일",
+   "score": 0.2023,
+   "start": 349,
+   "surface": "브로치의 비밀 언어"
+  },
+  {
+   "end": 394,
+   "label": "브랜드",
+   "score": 0.853,
+   "start": 385,
+   "surface": "영국 왕실 컬렉션"
+  },
+  {
+   "end": 411,
+   "label": "브랜드",
+   "score": 0.646,
+   "start": 395,
+   "surface": "Royal Collection"
+  },
+  {
+   "end": 445,
+   "label": "의류 품목",
+   "score": 0.6111,
+   "start": 441,
+   "surface": "브로치다"
+  },
+  {
+   "end": 524,
+   "label": "의류 품목",
+   "score": 0.1758,
+   "start": 522,
+   "surface": "라펠"
+  },
+  {
+   "end": 540,
+   "label": "의류 품목",
+   "score": 0.7238,
+   "start": 537,
+   "surface": "브로치"
+  },
+  {
+   "end": 555,
+   "label": "인물",
+   "score": 0.9145,
+   "start": 543,
+   "surface": "엘리자베스 2세 여왕이"
+  },
+  {
+   "end": 579,
+   "label": "의류 품목",
+   "score": 0.7075,
+   "start": 575,
+   "surface": "브로치는"
+  }
+ ],
+ "fashion-vogue-854787.json": [
+  {
+   "end": 11,
+   "label": "브랜드",
+   "score": 0.8448,
+   "start": 0,
+   "surface": "르 쾨르 데 피에르로"
+  },
+  {
+   "end": 24,
+   "label": "의류 품목",
+   "score": 0.3179,
+   "start": 15,
+   "surface": "까르띠에의 팔레트"
+  }
+ ],
+ "fashion-vogue-854842.json": [
+  {
+   "end": 3,
+   "label": "브랜드",
+   "score": 0.9857,
+   "start": 0,
+   "surface": "디올이"
+  },
+  {
+   "end": 16,
+   "label": "패션 스타일",
+   "score": 0.2836,
+   "start": 13,
+   "surface": "꽃물결"
+  }
+ ],
+ "fashion-vogue-854860.json": [
+  {
+   "end": 18,
+   "label": "브랜드",
+   "score": 0.3577,
+   "start": 12,
+   "surface": "티파니앤코의"
+  }
+ ],
+ "fashion-wkorea-450438.json": [
+  {
+   "end": 21,
+   "label": "의류 품목",
+   "score": 0.5852,
+   "start": 15,
+   "surface": "볼륨 스커트"
+  },
+  {
+   "end": 48,
+   "label": "의류 품목",
+   "score": 0.6355,
+   "start": 42,
+   "surface": "볼륨 스커트"
+  },
+  {
+   "end": 141,
+   "label": "의류 품목",
+   "score": 0.6215,
+   "start": 132,
+   "surface": "볼륨 스커트입니다"
+  },
+  {
+   "end": 146,
+   "label": "의류 품목",
+   "score": 0.2395,
+   "start": 143,
+   "surface": "티셔츠"
+  },
+  {
+   "end": 199,
+   "label": "의류 품목",
+   "score": 0.3412,
+   "start": 196,
+   "surface": "후디나"
+  },
+  {
+   "end": 207,
+   "label": "의류 품목",
+   "score": 0.2159,
+   "start": 204,
+   "surface": "상의만"
+  },
+  {
+   "end": 228,
+   "label": "패션 스타일",
+   "score": 0.3244,
+   "start": 221,
+   "surface": "미디든 맥시든"
+  },
+  {
+   "end": 262,
+   "label": "의류 품목",
+   "score": 0.4806,
+   "start": 255,
+   "surface": "볼륨 스커트를"
+  },
+  {
+   "end": 288,
+   "label": "의류 품목",
+   "score": 0.331,
+   "start": 282,
+   "surface": "티셔츠입니다"
+  },
+  {
+   "end": 296,
+   "label": "의류 품목",
+   "score": 0.1892,
+   "start": 290,
+   "surface": "흰 스커트가"
+  },
+  {
+   "end": 353,
+   "label": "의류 품목",
+   "score": 0.1641,
+   "start": 347,
+   "surface": "흰 스커트는"
+  },
+  {
+   "end": 363,
+   "label": "의류 품목",
+   "score": 0.3296,
+   "start": 358,
+   "surface": "반팔 티와"
+  },
+  {
+   "end": 435,
+   "label": "인물",
+   "score": 0.6953,
+   "start": 425,
+   "surface": "세실리아 반센빠삐용"
+  },
+  {
+   "end": 440,
+   "label": "인물",
+   "score": 0.1731,
+   "start": 436,
+   "surface": "마틀라세"
+  },
+  {
+   "end": 447,
+   "label": "의류 품목",
+   "score": 0.631,
+   "start": 441,
+   "surface": "맥시 스커트"
+  },
+  {
+   "end": 454,
+   "label": "인물",
+   "score": 0.6062,
+   "start": 448,
+   "surface": "심카이 코린"
+  },
+  {
+   "end": 461,
+   "label": "의류 품목",
+   "score": 0.6739,
+   "start": 455,
+   "surface": "버블 스커트"
+  },
+  {
+   "end": 476,
+   "label": "의류 품목",
+   "score": 0.3787,
+   "start": 462,
+   "surface": "아르켓 와이드 코튼 스커트"
+  },
+  {
+   "end": 484,
+   "label": "브랜드",
+   "score": 0.835,
+   "start": 477,
+   "surface": "앤아더스토리즈"
+  },
+  {
+   "end": 495,
+   "label": "의류 품목",
+   "score": 0.3772,
+   "start": 485,
+   "surface": "플리츠 미디 스커트"
+  },
+  {
+   "end": 499,
+   "label": "의류 품목",
+   "score": 0.3748,
+   "start": 496,
+   "surface": "후디와"
+  },
+  {
+   "end": 506,
+   "label": "의류 품목",
+   "score": 0.2788,
+   "start": 504,
+   "surface": "맥시"
+  },
+  {
+   "end": 531,
+   "label": "의류 품목",
+   "score": 0.4899,
+   "start": 529,
+   "surface": "후디"
+  },
+  {
+   "end": 553,
+   "label": "의류 품목",
+   "score": 0.1674,
+   "start": 550,
+   "surface": "상의가"
+  },
+  {
+   "end": 588,
+   "label": "의류 품목",
+   "score": 0.4776,
+   "start": 581,
+   "surface": "볼륨 스커트를"
+  },
+  {
+   "end": 634,
+   "label": "의류 품목",
+   "score": 0.4837,
+   "start": 631,
+   "surface": "후디를"
+  },
+  {
+   "end": 731,
+   "label": "의류 품목",
+   "score": 0.4163,
+   "start": 726,
+   "surface": "반팔 티와"
+  },
+  {
+   "end": 743,
+   "label": "의류 품목",
+   "score": 0.3784,
+   "start": 736,
+   "surface": "버블 스커트를"
+  },
+  {
+   "end": 760,
+   "label": "의류 품목",
+   "score": 0.1902,
+   "start": 757,
+   "surface": "상의는"
+  },
+  {
+   "end": 849,
+   "label": "의류 품목",
+   "score": 0.1835,
+   "start": 841,
+   "surface": "스웨이드 재킷을"
+  }
+ ],
+ "fashion-wkorea-450454.json": [
+  {
+   "end": 23,
+   "label": "인물",
+   "score": 0.9809,
+   "start": 18,
+   "surface": "셀린 디옹"
+  },
+  {
+   "end": 30,
+   "label": "인물",
+   "score": 0.8786,
+   "start": 24,
+   "surface": "셀린 디옹의"
+  },
+  {
+   "end": 59,
+   "label": "인물",
+   "score": 0.9855,
+   "start": 53,
+   "surface": "셀린 디옹이"
+  },
+  {
+   "end": 235,
+   "label": "인물",
+   "score": 0.7961,
+   "start": 229,
+   "surface": "셀린 디옹의"
+  },
+  {
+   "end": 314,
+   "label": "패션 스타일",
+   "score": 0.6251,
+   "start": 305,
+   "surface": "현실적인 스타일을"
+  }
+ ],
+ "fashion-wkorea-450650.json": [
+  {
+   "end": 4,
+   "label": "브랜드",
+   "score": 0.9082,
+   "start": 0,
+   "surface": "메시카가"
+  },
+  {
+   "end": 35,
+   "label": "브랜드",
+   "score": 0.7573,
+   "start": 31,
+   "surface": "메시카와"
+  },
+  {
+   "end": 43,
+   "label": "패션 스타일",
+   "score": 0.8167,
+   "start": 36,
+   "surface": "오카방고 블루"
+  },
+  {
+   "end": 57,
+   "label": "패션 스타일",
+   "score": 0.6184,
+   "start": 44,
+   "surface": "Okavango Blue"
+  },
+  {
+   "end": 79,
+   "label": "패션 스타일",
+   "score": 0.2886,
+   "start": 73,
+   "surface": "다이아몬드의"
+  },
+  {
+   "end": 292,
+   "label": "브랜드",
+   "score": 0.8784,
+   "start": 289,
+   "surface": "메시카"
+  },
+  {
+   "end": 308,
+   "label": "브랜드",
+   "score": 0.8799,
+   "start": 301,
+   "surface": "Messika"
+  },
+  {
+   "end": 323,
+   "label": "브랜드",
+   "score": 0.9242,
+   "start": 320,
+   "surface": "메시카"
+  },
+  {
+   "end": 331,
+   "label": "브랜드",
+   "score": 0.8184,
+   "start": 324,
+   "surface": "Messika"
+  },
+  {
+   "end": 340,
+   "label": "패션 스타일",
+   "score": 0.4884,
+   "start": 334,
+   "surface": "다이아몬드에"
+  },
+  {
+   "end": 395,
+   "label": "브랜드",
+   "score": 0.5877,
+   "start": 391,
+   "surface": "메시카를"
+  },
+  {
+   "end": 416,
+   "label": "패션 스타일",
+   "score": 0.6004,
+   "start": 414,
+   "surface": "무브"
+  },
+  {
+   "end": 434,
+   "label": "브랜드",
+   "score": 0.8357,
+   "start": 430,
+   "surface": "메시카의"
+  },
+  {
+   "end": 449,
+   "label": "패션 스타일",
+   "score": 0.3831,
+   "start": 444,
+   "surface": "다이아몬드"
+  },
+  {
+   "end": 472,
+   "label": "브랜드",
+   "score": 0.8913,
+   "start": 469,
+   "surface": "메시카"
+  },
+  {
+   "end": 500,
+   "label": "패션 스타일",
+   "score": 0.8952,
+   "start": 493,
+   "surface": "오카방고 블루"
+  },
+  {
+   "end": 543,
+   "label": "소재",
+   "score": 0.4558,
+   "start": 540,
+   "surface": "원석을"
+  },
+  {
+   "end": 573,
+   "label": "소재",
+   "score": 0.172,
+   "start": 567,
+   "surface": "다이아몬드다"
+  },
+  {
+   "end": 644,
+   "label": "소재",
+   "score": 0.2023,
+   "start": 639,
+   "surface": "다이아몬드"
+  }
+ ],
+ "fashion-wkorea-450659.json": [
+  {
+   "end": 5,
+   "label": "브랜드",
+   "score": 0.9008,
+   "start": 0,
+   "surface": "아크리스의"
+  },
+  {
+   "end": 26,
+   "label": "인물",
+   "score": 0.64,
+   "start": 17,
+   "surface": "알버트 크리믈러의"
+  },
+  {
+   "end": 36,
+   "label": "소재",
+   "score": 0.1885,
+   "start": 30,
+   "surface": "장크트갈렌을"
+  },
+  {
+   "end": 61,
+   "label": "브랜드",
+   "score": 0.9137,
+   "start": 57,
+   "surface": "아크리스"
+  },
+  {
+   "end": 67,
+   "label": "브랜드",
+   "score": 0.6575,
+   "start": 62,
+   "surface": "Akris"
+  },
+  {
+   "end": 78,
+   "label": "브랜드",
+   "score": 0.9241,
+   "start": 74,
+   "surface": "아크리스"
+  },
+  {
+   "end": 84,
+   "label": "의류 품목",
+   "score": 0.6093,
+   "start": 79,
+   "surface": "아틀리에의"
+  },
+  {
+   "end": 97,
+   "label": "의류 품목",
+   "score": 0.3401,
+   "start": 92,
+   "surface": "아틀리에의"
+  },
+  {
+   "end": 109,
+   "label": "브랜드",
+   "score": 0.9313,
+   "start": 105,
+   "surface": "아크리스"
+  },
+  {
+   "end": 115,
+   "label": "의류 품목",
+   "score": 0.5968,
+   "start": 110,
+   "surface": "아틀리에의"
+  },
+  {
+   "end": 128,
+   "label": "의류 품목",
+   "score": 0.2286,
+   "start": 123,
+   "surface": "아틀리에의"
+  },
+  {
+   "end": 140,
+   "label": "브랜드",
+   "score": 0.9457,
+   "start": 136,
+   "surface": "아크리스"
+  },
+  {
+   "end": 146,
+   "label": "의류 품목",
+   "score": 0.5453,
+   "start": 141,
+   "surface": "아틀리에에"
+  },
+  {
+   "end": 205,
+   "label": "브랜드",
+   "score": 0.8681,
+   "start": 200,
+   "surface": "아크리스의"
+  },
+  {
+   "end": 210,
+   "label": "의류 품목",
+   "score": 0.3286,
+   "start": 206,
+   "surface": "아틀리에"
+  },
+  {
+   "end": 286,
+   "label": "브랜드",
+   "score": 0.908,
+   "start": 281,
+   "surface": "아크리스가"
+  },
+  {
+   "end": 328,
+   "label": "소재",
+   "score": 0.848,
+   "start": 320,
+   "surface": "장크트갈렌이었다"
+  },
+  {
+   "end": 343,
+   "label": "인물",
+   "score": 0.5459,
+   "start": 334,
+   "surface": "알버트 크리믈러의"
+  },
+  {
+   "end": 480,
+   "label": "브랜드",
+   "score": 0.8678,
+   "start": 475,
+   "surface": "아크리스가"
+  },
+  {
+   "end": 521,
+   "label": "브랜드",
+   "score": 0.9619,
+   "start": 517,
+   "surface": "아크리스"
+  },
+  {
+   "end": 527,
+   "label": "의류 품목",
+   "score": 0.1707,
+   "start": 522,
+   "surface": "아틀리에는"
+  },
+  {
+   "end": 567,
+   "label": "소재",
+   "score": 0.7037,
+   "start": 564,
+   "surface": "원단을"
+  },
+  {
+   "end": 649,
+   "label": "인물",
+   "score": 0.8809,
+   "start": 637,
+   "surface": "앨리스 크리믈러-쇼흐가"
+  },
+  {
+   "end": 705,
+   "label": "인물",
+   "score": 0.7608,
+   "start": 693,
+   "surface": "앨리스 크리믈러-쇼흐가"
+  },
+  {
+   "end": 721,
+   "label": "의류 품목",
+   "score": 0.2186,
+   "start": 716,
+   "surface": "아틀리에가"
+  },
+  {
+   "end": 727,
+   "label": "브랜드",
+   "score": 0.9213,
+   "start": 722,
+   "surface": "아크리스의"
+  },
+  {
+   "end": 758,
+   "label": "소재",
+   "score": 0.6719,
+   "start": 756,
+   "surface": "원단"
+  },
+  {
+   "end": 787,
+   "label": "소재",
+   "score": 0.6469,
+   "start": 784,
+   "surface": "원단이"
+  },
+  {
+   "end": 832,
+   "label": "브랜드",
+   "score": 0.8272,
+   "start": 826,
+   "surface": "아크리스에서"
+  },
+  {
+   "end": 939,
+   "label": "브랜드",
+   "score": 0.9632,
+   "start": 935,
+   "surface": "아크리스"
+  },
+  {
+   "end": 1004,
+   "label": "브랜드",
+   "score": 0.9694,
+   "start": 1000,
+   "surface": "아크리스"
+  }
+ ]
+}

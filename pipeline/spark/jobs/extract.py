@@ -7,10 +7,13 @@ spark/scripts/submit.sh extract --profile local --domain fashion \\
     --from 2026-09-01 --to 2026-09-07 --force                          # 발행일 구간 재추출
 ```
 
-**하는 것** — [04] 전부. 언어별 토큰화, 후보 생성, 비교키·대표 표기, 필터(형태·길이·불용어·
-노이즈·DF 비율), C-value·BM25·제목 가중 결합, 문서당 상위 K 선별, 그리고 내부 테이블 적재
-(`pl_document_candidate` · `pl_candidate` · `pl_keyword_daily_stat` ·
-`pl_abbreviation_observation`).
+**하는 것** — [04] 전부. 실체 인식(GLiNER), 언어별 후처리, 비교키·대표 표기, 필터(형태·
+길이·라벨), 문서당 상위 K 선별, 그리고 내부 테이블 적재 (`pl_document_candidate` ·
+`pl_candidate` · `pl_keyword_daily_stat` · `pl_abbreviation_observation`).
+
+⚠️ **2026-09-16 에 후보 생성이 문자열 통계에서 실체 인식으로 옮겨졌다** (`extract/entities.py`).
+같은 표본·같은 정답에서 옛 경로가 F1 0.233, 실체 인식이 0.504 였다. 코퍼스를 따로 읽지
+않게 되어 처리 시간이 대상 문서 수에만 비례한다 — 대신 추론이 문서당 약 1초다.
 
 **후반은 [05] 전부** — 층 1·2 자동 병합, 검수 큐, 승격 심사, `keywords` · `keyword_contents`
 적재 (`registry/`, `io/keywords.py`).
@@ -36,12 +39,15 @@ from trendin.spark.common.cli import main
 from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.logging import get_logger
 from trendin.spark.common.run_id import default_run_id
-from trendin.spark.extract import batch, morphology, source
-from trendin.spark.extract import tokenize as tk
+from trendin.spark.extract import batch, source
 from trendin.spark.extract.document import ExtractionOptions
 from trendin.spark.extract.filters import CandidateLimits
-from trendin.spark.extract.lexicon import load_lexicon
-from trendin.spark.extract.thresholds import DomainOptions, ExtractThresholds, lexicon_dir
+from trendin.spark.extract.thresholds import (
+    ExtractThresholds,
+    adapter_spec,
+    lexicon_dir,
+    recognizer_spec,
+)
 from trendin.spark.io import ledger as ledger_io
 from trendin.spark.io import stats as stats_io
 from trendin.spark.io.candidates import CandidateSink
@@ -213,21 +219,20 @@ def _run_domain(
     date_to: date | None,
     force: bool,
 ) -> list[stats_io.Stat]:
-    domain_options = DomainOptions.from_config(config, domain=domain)
     directory = lexicon_dir(config)
+    # 인식기와 분석기 자체가 아니라 **설정**이다. 둘 다 executor 에서 만들어진다
+    # (`extract/entities.py` · `extract/morphology.py` — 모델과 Kiwi 는 pickle 되지 않는다).
+    recognizer = recognizer_spec(config, domain=domain)
     options = ExtractionOptions(
-        lexicon=load_lexicon(directory, domain=domain),
-        ngram_max=thresholds.ngram_max,
+        adapter=adapter_spec(config, domain=domain, directory=directory),
         limits=CandidateLimits(min_chars=thresholds.min_chars, max_chars=thresholds.max_chars),
-        tokenize=tk.TokenizeOptions(
-            code_identifiers=domain_options.code_identifiers,
-            surface_policy=domain_options.surface_policy,
-            # 형태소 분석기 자체가 아니라 **설정**이다. 분석기는 executor 에서 만들어진다
-            # (`extract/morphology.py` — Kiwi 는 pickle 되지 않는다).
-            analyzer=morphology.AnalyzerSpec(
-                user_words=morphology.load_user_words(directory, domain=domain)
-            ),
-        ),
+    )
+    log.info(
+        "[%s] 인식기 %s · 라벨 %d개 · 문턱 %.2f",
+        domain,
+        recognizer.model,
+        len(recognizer.labels),
+        recognizer.threshold,
     )
 
     by_dates = date_from is not None or date_to is not None
@@ -245,24 +250,22 @@ def _run_domain(
         selection = source.Selection(domain=domain, ingest_run_ids=run_ids)
         log.info("[%s] ingest 실행분 %d개: %s", domain, len(run_ids), ", ".join(run_ids))
 
-    targets = source.target_documents(curated, selection)
-    span = source.date_span(targets)
-    if span is None:
+    targets = source.target_documents(curated, selection).cache()
+    if targets.isEmpty():
         log.warning("[%s] 대상 문서가 없다 — 파티션은 있는데 행이 없다", domain)
+        targets.unpersist()
         if run_ids:
             ledger.record(_ledger_rows(spark, domain=domain, run_ids=run_ids, documents=0))
         return []
-    corpus = source.corpus_documents(
-        curated, domain=domain, span=span, window_days=thresholds.corpus_window_days
-    )
 
+    # **코퍼스를 따로 읽지 않는다** (2026-09-16). 점수를 모델이 주므로 DF·BM25 가 선별에
+    # 관여하지 않고, 최근 N 일 문서에 추론을 다시 돌릴 이유가 없다 (`extract/batch.py`).
     result = batch.extract_batch(
         targets=targets,
-        corpus=corpus,
         domain=domain,
         thresholds=thresholds,
+        recognizer=recognizer,
         options=options,
-        domain_options=domain_options,
         extract_run_id=run_id,
         known_keys=sink.known_keys(spark, domain=domain),
     )
@@ -273,13 +276,29 @@ def _run_domain(
             abbreviations=result.abbreviations,
         )
         log.info(
-            "[%s] 문서 %d · 코퍼스 %d · 문서후보 %d · 약어 %d",
+            "[%s] 문서 %d · 문서후보 %d · 약어 %d",
             domain,
             written.documents,
-            result.corpus_size,
             written.document_candidates,
             written.abbreviations,
         )
+        # **대상이 있는데 후보가 하나도 없으면 실패다.**
+        #
+        # 추론이 통째로 죽어도 이 Job 은 0 으로 끝날 수 있다 — `entities._predict_chunk` 가
+        # 배치 예외를 삼켜 빈 결과를 주고(문서 하나의 인코딩 문제로 하루치를 잃지 않으려는
+        # 장치다), 그러면 모든 문서가 후보 0 이 되어 적재만 비고 흐름은 정상으로 끝난다.
+        # 실제로 `SparkContext was shut down` 이 난 실행이 종료 코드 0 으로 끝났다
+        # (2026-09-17). Airflow 는 그것을 성공으로 받아 `aggregate` 를 이어 돌리고, 증상은
+        # 며칠 뒤 "화면이 비었다" 로만 나타난다.
+        #
+        # 대상 문서가 전부 후보 0 인 것은 정상 운영에서 관측되지 않는다 — 후보가 하나도 없는
+        # 문서는 1.4% 였다 (`tests/fixtures/review/extract-gliner-2026-09-17.md` §3).
+        if result.target_count and not written.document_candidates:
+            raise RuntimeError(
+                f"[{domain}] 대상 {result.target_count}건인데 후보가 0건이다 — 추론이 통째로"
+                " 실패했을 가능성이 크다. 구간을 좁혀(`--from`/`--to`) 다시 돌리고"
+                " executor 로그에서 `SparkContext was shut down` 을 확인한다"
+            )
         if run_ids:
             ledger.record(
                 _ledger_rows(spark, domain=domain, run_ids=run_ids, documents=result.target_count)
@@ -287,6 +306,7 @@ def _run_domain(
         return result.stats
     finally:
         result.release()
+        targets.unpersist()
 
 
 def _new_run_ids(spark, curated, ledger: Ledger, *, domain: str, force: bool) -> tuple[str, ...]:
