@@ -1794,3 +1794,193 @@ h1 { margin: 0; line-height: 1.25; }
   .onboarding-step-text { display: none; }
   .onboarding-notifs { grid-template-columns: minmax(0, 1fr); }
 }
+
+/*
+ * 국가별 트렌드. 지도가 주인공이라 창 높이에 맞춰 한 화면에서 끝납니다.
+ * 스크롤은 왼쪽 목록과 오른쪽 요약 안에서만 생기고, 페이지 자체는 움직이지 않습니다.
+ */
+.trendin-ui--stage { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f8f9fb; }
+.trendin-ui--stage .landing-header { position: static; flex: 0 0 auto; }
+
+.worldtrend-page { display: block; position: relative; flex: 1; min-height: 0; --panel-left: 300px; --panel-right: 300px; --lp-muted: #4b5563; --lp-faint: #6b7280; }
+/* 접힌 칸은 폭을 0으로 줄입니다. 안의 내용은 각 칸이 잘라 내므로 글자가 삐져나오지 않습니다. */
+.worldtrend-page.is-left-folded { --panel-left: 0px; }
+.worldtrend-page.is-right-folded { --panel-right: 0px; }
+.worldtrend-list { display: flex; position: absolute; z-index: 6; top: 0; bottom: 0; left: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden; border-right: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
+.worldtrend-page.is-left-folded .worldtrend-list { transform: translateX(-100%); }
+.worldtrend-list-head { padding: 18px 20px 10px; }
+.worldtrend-list-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -.5px; }
+.worldtrend-list-head p { margin-top: 4px; color: var(--lp-faint); font-size: 12px; line-height: 1.5; }
+
+.worldtrend-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 12px; }
+.worldtrend-chip { padding: 5px 12px; border: 1px solid rgba(17, 24, 39, .12); border-radius: 7px; background: #fff; color: var(--lp-muted); font-size: 12px; font-weight: 500; transition: border-color .15s, background .15s, color .15s; }
+.worldtrend-chip:hover { border-color: #c7d2fe; }
+.worldtrend-chip.is-selected { border-color: var(--lp-ink); background: var(--lp-ink); color: #fff; }
+
+.worldtrend-items { flex: 1; min-height: 0; margin: 0; padding: 0 12px 12px; overflow-y: auto; list-style: none; }
+.worldtrend-items li + li { margin-top: 6px; }
+.worldtrend-item { display: flex; width: 100%; gap: 10px; padding: 10px; border: 1.5px solid rgba(17, 24, 39, .09); border-radius: 12px; text-align: left; transition: border-color .15s, background .15s; }
+.worldtrend-item:hover { border-color: #c7d2fe; background: #fafaff; }
+.worldtrend-item.is-selected { border-color: #a5b4fc; background: #f5f6ff; }
+.worldtrend-item-emoji { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 10px; background: #eef2ff; font-size: 21px; }
+.worldtrend-item-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.worldtrend-item-name { overflow: hidden; color: var(--lp-ink); font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.worldtrend-item-meta { display: flex; align-items: center; gap: 6px; color: var(--lp-faint); font-size: 11px; }
+.worldtrend-item-domain { padding: 1px 6px; border-radius: 4px; background: #eef2ff; color: #4F46E5; font-weight: 600; }
+.worldtrend-item-trail { display: flex; align-items: center; gap: 6px; }
+.worldtrend-item-growth { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 증가율은 색으로 먼저 읽힙니다. 100%를 넘게 뛴 것만 붉게 두어 여느 오름세와 구분합니다. */
+.worldtrend-page .is-hot { color: #EF4444; }
+.worldtrend-page .is-up { color: #4F46E5; }
+.worldtrend-page .is-down { color: #9ca3af; }
+
+.worldtrend-stage { display: flex; position: absolute; flex-direction: column; inset: 0; background: #f0f2f8; }
+.worldtrend-toolbar { display: flex; position: absolute; z-index: 5; top: 12px; right: calc(var(--panel-right) + 14px); left: calc(var(--panel-left) + 14px); align-items: center; gap: 16px; transition: left .24s ease, right .24s ease; }
+.worldtrend-modes { display: flex; gap: 4px; }
+.worldtrend-modes button { border: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .86); backdrop-filter: blur(8px); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); }
+.worldtrend-modes button { display: flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 7px; color: var(--lp-muted); font-size: 13px; font-weight: 600; transition: color .15s, background .15s; }
+.worldtrend-modes button:hover { color: var(--lp-ink); }
+.worldtrend-modes button.is-selected { background: var(--lp-indigo); color: #fff; }
+.worldtrend-tourbtns { display: flex; gap: 8px; margin-left: auto; }
+.worldtrend-tourbtns button { padding: 7px 14px; border: 1px solid rgba(17, 24, 39, .1); border-radius: 8px; background: rgba(255, 255, 255, .86); backdrop-filter: blur(8px); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: #1f2937; font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s; }
+.worldtrend-tourbtns button:hover { border-color: #c7d2fe; background: #f9fafb; }
+
+.worldtrend-map { display: flex; position: relative; flex: 1; min-height: 0; }
+/*
+ * 지도 가장자리의 접기 손잡이. 접힌 칸에 두면 손잡이까지 사라지므로 지도 쪽에 붙입니다.
+ * 꺾쇠는 늘 '이 단추를 누르면 칸이 갈 쪽'을 가리킵니다.
+ */
+.worldtrend-fold { display: grid; position: absolute; z-index: 7; place-items: center; border: 1px solid rgba(17, 24, 39, .12); background: rgba(255, 255, 255, .92); color: #6b7280; box-shadow: 0 1px 6px rgba(17, 24, 39, .08); transition: color .15s, background .15s; }
+.worldtrend-fold:hover { background: #fff; color: var(--lp-indigo); }
+.worldtrend-fold > svg { transition: transform .22s ease; }
+.worldtrend-fold--left, .worldtrend-fold--right { top: 50%; width: 18px; height: 46px; margin-top: -23px; }
+.worldtrend-fold--left { left: var(--panel-left); border-left: 0; border-radius: 0 8px 8px 0; transition: left .24s ease; }
+.worldtrend-fold--right { right: var(--panel-right); border-right: 0; border-radius: 8px 0 0 8px; transition: right .24s ease; }
+.worldtrend-fold--right > svg { transform: rotate(180deg); }
+.worldtrend-fold--left.is-folded > svg, .worldtrend-fold--right > svg { transform: rotate(180deg); }
+.worldtrend-fold--right.is-folded > svg { transform: rotate(0deg); }
+
+
+/*
+ * 확산 경로는 칸에 담지 않고 지도 위에 그대로 띄웁니다. 위쪽 지도 토글과 같은 결입니다.
+ * 자리는 양옆 칸 사이의 한가운데라, 칸을 접으면 넓어진 폭의 한가운데로 따라 옮겨 갑니다.
+ */
+.worldtrend-flow { display: flex; position: absolute; z-index: 5; right: var(--panel-right); bottom: 26px; left: var(--panel-left); justify-content: center; padding: 0 20px; transition: left .24s ease, right .24s ease, transform .2s ease, opacity .2s ease; }
+.worldtrend-flow-stops { display: flex; max-width: 100%; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 6px; margin: 0; padding: 0; list-style: none; }
+.worldtrend-flow-stops li { display: flex; align-items: center; }
+/* 나라와 나라 사이에 잇는 선을 두어, 목록이 아니라 흐름으로 읽히게 합니다. */
+.worldtrend-flow-stops li + li::before { display: inline-block; width: 14px; margin-right: 6px; border-top: 1px dashed #d1d5db; content: ""; }
+.worldtrend-flow-stop { display: flex; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid rgba(17, 24, 39, .12); border-radius: 8px; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: var(--lp-muted); font-size: 12px; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
+.worldtrend-flow-stop:hover { border-color: #c7d2fe; }
+.worldtrend-flow-stop.is-passed { border-color: #c7d2fe; background: #eef2ff; color: #4338ca; }
+.worldtrend-flow-stop.is-here { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; }
+.worldtrend-flow-name { font-weight: 600; }
+.worldtrend-flow-date { font-variant-numeric: tabular-nums; opacity: .85; }
+
+
+.worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
+.worldtrend-page.is-right-folded .worldtrend-side { transform: translateX(100%); }
+.worldtrend-card { padding: 13px 18px; border-bottom: 1px solid rgba(17, 24, 39, .09); }
+.worldtrend-card--chart { border-bottom: 0; }
+.worldtrend-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.worldtrend-card-head h2 { font-size: 14px; font-weight: 800; }
+.worldtrend-card-note { color: var(--lp-faint); font-size: 10px; white-space: nowrap; }
+.worldtrend-summary-title { font-size: 16px; font-weight: 800; line-height: 1.35; letter-spacing: -.5px; }
+.worldtrend-summary-lead { margin-top: 5px; color: var(--lp-muted); font-size: 12px; line-height: 1.55; }
+.worldtrend-facts { overflow: hidden; margin: 11px 0 0; border: 1px solid rgba(17, 24, 39, .1); border-radius: 10px; }
+.worldtrend-facts > div { display: flex; justify-content: space-between; padding: 7px 12px; }
+.worldtrend-facts > div + div { border-top: 1px solid rgba(17, 24, 39, .09); }
+.worldtrend-facts dt { color: var(--lp-faint); font-size: 12px; }
+.worldtrend-facts dd { margin: 0; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.worldtrend-rank { margin: 0; padding: 0; list-style: none; }
+.worldtrend-rank-row { display: flex; align-items: center; gap: 8px; padding: 5px 0 4px; }
+.worldtrend-rank-no { display: grid; flex: 0 0 19px; width: 19px; height: 19px; place-items: center; border-radius: 50%; background: rgba(17, 24, 39, .08); color: var(--lp-muted); font-size: 11px; font-weight: 700; }
+.worldtrend-rank-no.is-top { background: var(--lp-indigo); color: #fff; }
+.worldtrend-rank-flag { font-size: 15px; }
+.worldtrend-rank-name { flex: 1; min-width: 0; overflow: hidden; font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.worldtrend-rank-growth { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.worldtrend-rank-bar { overflow: hidden; height: 3px; border-radius: 2px; background: rgba(17, 24, 39, .08); }
+.worldtrend-rank-bar span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4F46E5, #a5b4fc); }
+.worldtrend-chart { width: 100%; height: auto; }
+.worldtrend-chart-axis { display: flex; justify-content: space-between; margin-top: 2px; color: var(--lp-faint); font-size: 10px; }
+
+/*
+ * 지도 자체. 경계선은 Natural Earth 자료 그대로라 대륙 모양이 실제 지도와 같습니다.
+ * 지구본은 어두운 바다 위에 밝은 땅, 평면 지도는 밝은 바다 위에 옅은 땅으로 뒤집어
+ * 두 모드가 한눈에 구분되게 했습니다.
+ */
+/*
+ * 대륙 일곱 갈래의 색. 지도에서 색은 자료가 아니라 땅을 가르는 표시라 옅게 두되,
+ * 맞닿는 대륙끼리는 확실히 갈리게 골랐습니다(아시아-유럽, 아시아-아프리카, 아시아-오세아니아,
+ * 아시아-북아메리카, 유럽-아프리카, 북-남아메리카 모두 보통 시야에서 ΔE 15 이상).
+ * 색만으로 가르지 않도록 지도 왼쪽 아래에 대륙 이름표를 함께 둡니다.
+ */
+.worldmap {
+  --continent-as: #6f9ff0;
+  --continent-eu: #e79ad0;
+  --continent-af: #eec368;
+  --continent-na: #7ccf9a;
+  --continent-sa: #b3aef2;
+  --continent-oc: #f5a189;
+  --continent-an: #dfe4ee;
+}
+.worldmap-land--AS { fill: var(--continent-as); }
+.worldmap-land--EU { fill: var(--continent-eu); }
+.worldmap-land--AF { fill: var(--continent-af); }
+.worldmap-land--NA { fill: var(--continent-na); }
+.worldmap-land--SA { fill: var(--continent-sa); }
+.worldmap-land--OC { fill: var(--continent-oc); }
+.worldmap-land--AN { fill: var(--continent-an); }
+
+
+.worldmap { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.worldmap--globe { background: radial-gradient(circle at 50% 45%, #f4f6fc, #e8ecf6); }
+.worldmap-canvas { display: block; }
+.worldmap-graticule { fill: none; stroke: rgba(23, 37, 84, .22); stroke-width: .6; }
+.worldmap--globe .worldmap-land { stroke: rgba(255, 255, 255, .85); stroke-width: .6; }
+.worldmap-sea { fill: #cfe0f4; }
+.worldmap--flat .worldmap-land { stroke: rgba(255, 255, 255, .85); }
+/* 트렌드가 닿은 나라. 지금 머무르는 나라만 진하게 두어 눈이 그리로 갑니다. */
+/*
+ * 트렌드가 닿은 나라. 대륙 색을 다른 색으로 덮어 버리면 지도가 얼룩덜룩해져서, 그 위에 옅은
+ * 남색 먹을 씌워 같은 빛깔을 진하게만 만듭니다. 대륙마다 색이 달라도 결이 흐트러지지 않습니다.
+ */
+.worldmap-hit { fill: #3730a3; stroke: rgba(255, 255, 255, .75); stroke-width: .8; vector-effect: non-scaling-stroke; transition: fill-opacity .3s; }
+/* 지금 머무르는 나라 하나만 제 빛깔로 채우고 테두리를 둘러, 지도 위에서 홀로 떠오르게 합니다. */
+.worldmap-hit.is-here { fill: url(#worldmap-here); stroke: #fff; stroke-width: 1.6; filter: drop-shadow(0 1px 6px rgba(79, 70, 229, .55)); }
+.worldmap-legs { fill: none; }
+.worldmap-leg { fill: none; stroke: rgba(49, 46, 129, .5); stroke-width: 1.8; stroke-linecap: round; }
+.worldmap--flat .worldmap-leg { stroke: #818cf8; }
+/* 지금 건너가고 있는 구간은 흐르는 점선으로 두어 방향이 보이게 합니다. */
+.worldmap-leg.is-active { stroke: #3730a3; stroke-width: 2.2; stroke-dasharray: 5 7; animation: worldmap-flow .7s linear infinite; }
+.worldmap--flat .worldmap-leg.is-active { stroke: #4F46E5; }
+@keyframes worldmap-flow { to { stroke-dashoffset: -24; } }
+@keyframes worldmap-pulse { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .5); } 100% { box-shadow: 0 0 0 14px rgba(79, 70, 229, 0); } }
+
+.worldmap-pin { display: block; position: absolute; z-index: 2; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; padding: 0; }
+.worldmap-pin-dot { display: block; width: 100%; height: 100%; border: 1.5px solid rgba(255, 255, 255, .85); border-radius: 50%; background: #a5b4fc; transition: background .2s, transform .2s; }
+.worldmap-pin.is-passed .worldmap-pin-dot { background: #818cf8; }
+.worldmap-pin.is-here { z-index: 3; }
+.worldmap-pin.is-here .worldmap-pin-dot { background: #4F46E5; transform: scale(1.35); animation: worldmap-pulse 1.8s ease-out infinite; }
+/* 이름표를 모두 펼치면 지도가 글씨로 덮입니다. 지금 머무르는 나라와 마우스가 얹힌 나라만 폅니다. */
+.worldmap-pin-label { display: none; position: absolute; top: 50%; left: 20px; flex-direction: column; gap: 2px; padding: 9px 15px; border-radius: 11px; background: rgba(26, 26, 46, .92); box-shadow: 0 4px 16px rgba(17, 24, 39, .22); transform: translateY(-50%); white-space: nowrap; }
+.worldmap-pin.is-here .worldmap-pin-label, .worldmap-pin:hover .worldmap-pin-label, .worldmap-pin:focus-visible .worldmap-pin-label { display: flex; }
+.worldmap-pin-name { color: #fff; font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+.worldmap-pin-figures { display: flex; align-items: baseline; gap: 8px; }
+.worldmap-pin-growth { color: #a5b4fc; font-size: 19px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.worldmap-pin-date { color: #c7cbd4; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/*
+ * 폭이 좁아지면 오른쪽 요약부터 접습니다. 지도와 키워드 목록이 이 화면의 뼈대라
+ * 마지막까지 남깁니다. 스크롤 없이 한 화면에 담아야 하므로 아래로 쌓지 않습니다.
+ */
+@media (max-width: 1180px) {
+  .worldtrend-page { --panel-right: 0px; }
+  .worldtrend-side, .worldtrend-fold--right { display: none; }
+}
+@media (max-width: 860px) {
+  .worldtrend-page { --panel-left: 0px; }
+  .worldtrend-list, .worldtrend-fold--left { display: none; }
+}
