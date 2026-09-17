@@ -395,7 +395,8 @@ export function OnboardingPage() {
           </li>
         </ol>
 
-        <div className="onboarding-cards">
+        {/* 2쪽은 카드가 한 장뿐이라, 1쪽의 두 단 너비를 그대로 쓰면 지나치게 넓어집니다. */}
+        <div className={`onboarding-cards${step === 2 ? ' is-single' : ''}`}>
           {domainsQuery.isError && (
             <ErrorState message="분야 목록을 불러오지 못했습니다." onRetry={() => domainsQuery.refetch()} />
           )}
@@ -406,13 +407,16 @@ export function OnboardingPage() {
 
           {!domainsQuery.isError && !loading && step === 1 && (
             <>
-              <DomainCard
-                options={options}
-                selected={selected}
-                disabled={updateMutation.isPending}
-                onToggle={toggle}
-              />
-              <KeywordCard />
+              {/* 고를 것 둘은 나란히 둡니다. 위아래로 쌓으면 눈이 한참 내려가야 다 봅니다. */}
+              <div className="onboarding-columns">
+                <DomainCard
+                  options={options}
+                  selected={selected}
+                  disabled={updateMutation.isPending}
+                  onToggle={toggle}
+                />
+                <KeywordCard />
+              </div>
 
               {formError && <p className="onboarding-alert" role="alert">{formError}</p>}
 
