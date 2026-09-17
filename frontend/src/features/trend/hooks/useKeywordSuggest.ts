@@ -16,21 +16,28 @@ export type KeywordSuggestStatus = 'loading' | 'error' | 'empty' | 'ready';
  * 검색 상자에 붙는 자동완성입니다. 무엇을 보여 줄지만 정하고, 고른 뒤에 어디로 갈지는
  * 부르는 화면이 정합니다. 트렌드에 오르지 않은 키워드도 서버가 함께 내려주므로
  * 목록에서 빼지 않고, 트렌드가 없다는 사실을 같이 보여 줍니다.
+ *
+ * 검색 API는 토큰을 요구합니다. 로그인 전에도 열리는 화면은 enabled 를 내려, 목록 대신
+ * 원래의 검색 흐름만 남깁니다.
  */
-export function useKeywordSuggest(query: string, onSelect: (item: KeywordSearchItem) => void) {
+export function useKeywordSuggest(
+  query: string,
+  onSelect: (item: KeywordSearchItem) => void,
+  enabled = true,
+) {
   const trimmed = query.trim();
   const debounced = useDebouncedValue(trimmed, SEARCH_DELAY_MS);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const box = useRef<HTMLDivElement>(null);
 
-  const searchQuery = useKeywordSearch(debounced);
+  const searchQuery = useKeywordSearch(debounced, enabled);
   const items = useMemo(
     () => (searchQuery.data?.items ?? []).slice(0, SUGGEST_LIMIT),
     [searchQuery.data],
   );
 
-  const visible = open && trimmed.length > 0;
+  const visible = enabled && open && trimmed.length > 0;
   // 멈추기를 기다리는 동안 이전 검색어의 결과를 들고 있어, 그때도 '찾는 중'으로 둡니다.
   const waiting = searchQuery.isLoading || debounced !== trimmed;
   const status: KeywordSuggestStatus = waiting
