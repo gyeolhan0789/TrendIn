@@ -22,7 +22,7 @@ export function useKeywordSuggest(query: string, onSelect: (item: KeywordSearchI
   const debounced = useDebouncedValue(trimmed, SEARCH_DELAY_MS);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const box = useRef<HTMLElement>(null);
+  const box = useRef<HTMLDivElement>(null);
 
   const searchQuery = useKeywordSearch(debounced);
   const items = useMemo(

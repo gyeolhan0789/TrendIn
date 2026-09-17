@@ -287,45 +287,48 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="explore-searchbar" ref={suggest.box}>
-        <form onSubmit={submitSearch} role="search">
-          <SearchIcon size={20} color="#9ca3af" />
-          <input
-            type="text"
-            value={draft}
-            placeholder="키워드를 검색해보세요."
-            aria-label="키워드 검색"
-            role="combobox"
-            aria-expanded={suggest.visible}
-            aria-controls={SUGGEST_ID}
-            aria-autocomplete="list"
-            aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
-            autoComplete="off"
-            onChange={(event) => { setDraft(event.target.value); suggest.show(); }}
-            onFocus={suggest.show}
-            onKeyDown={suggest.handleKeyDown}
-          />
-          {query && (
-            <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); suggest.hide(); updateParams({ q: undefined }); }}>
-              지우기
+      <section className="explore-searchbar">
+        {/* 목록은 검색 상자에 폭을 맞춥니다. 칸(section)에는 좌우 여백이 있어 그 기준으로 두면 밖으로 삐져나옵니다. */}
+        <div className="explore-search-shell" ref={suggest.box}>
+          <form onSubmit={submitSearch} role="search">
+            <SearchIcon size={20} color="#9ca3af" />
+            <input
+              type="text"
+              value={draft}
+              placeholder="키워드를 검색해보세요."
+              aria-label="키워드 검색"
+              role="combobox"
+              aria-expanded={suggest.visible}
+              aria-controls={SUGGEST_ID}
+              aria-autocomplete="list"
+              aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
+              autoComplete="off"
+              onChange={(event) => { setDraft(event.target.value); suggest.show(); }}
+              onFocus={suggest.show}
+              onKeyDown={suggest.handleKeyDown}
+            />
+            {query && (
+              <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); suggest.hide(); updateParams({ q: undefined }); }}>
+                지우기
+              </button>
+            )}
+            <button type="submit" className="explore-search-go" aria-label="검색">
+              <ArrowIcon size={16} color="#fff" />
             </button>
-          )}
-          <button type="submit" className="explore-search-go" aria-label="검색">
-            <ArrowIcon size={16} color="#fff" />
-          </button>
-        </form>
+          </form>
 
-        {suggest.visible && (
-          <KeywordSuggestMenu
-            id={SUGGEST_ID}
-            query={draft.trim()}
-            items={suggest.items}
-            status={suggest.status}
-            activeIndex={suggest.activeIndex}
-            onHover={suggest.setActiveIndex}
-            onSelect={suggest.select}
-          />
-        )}
+          {suggest.visible && (
+            <KeywordSuggestMenu
+              id={SUGGEST_ID}
+              query={draft.trim()}
+              items={suggest.items}
+              status={suggest.status}
+              activeIndex={suggest.activeIndex}
+              onHover={suggest.setActiveIndex}
+              onSelect={suggest.select}
+            />
+          )}
+        </div>
       </section>
 
       <section className="explore-filters">
