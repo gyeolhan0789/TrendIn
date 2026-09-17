@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
 import { FilterSelect } from '../../components/common/FilterSelect';
 import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { KeywordSuggestMenu } from '../../features/trend/components/KeywordSuggestMenu';
 import { TagChip } from '../../features/trend/components/TagChip';
 import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
+import { useKeywordSuggest } from '../../features/trend/hooks/useKeywordSuggest';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
@@ -18,6 +20,7 @@ import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constant
 import type { PeriodCode } from '../../constants/filterCodes';
 import { TREND_TYPES } from '../../features/trend/types/trend';
 import type { Trend, TrendAnalysisWindow, TrendType } from '../../features/trend/types/trend';
+import type { KeywordSearchItem } from '../../features/trend/types/keyword';
 
 const periodLabels: Record<PeriodCode, string> = {
   '24H': '최근 24시간',
@@ -40,6 +43,8 @@ const sorts = [
 const pageSizes = [6, 12, 24];
 /** 시안의 큰 카드가 목록의 첫 자리를 가져가고, 나머지가 카드 격자로 갑니다. */
 const FEATURED_COUNT = 1;
+/** 입력칸이 aria-controls 로 가리킬 이름입니다. 한 쪽에 검색 상자가 하나라 고정 값으로 둡니다. */
+const SUGGEST_ID = 'explore-keyword-suggest';
 
 function formatWindowDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -180,6 +185,8 @@ function TrendMiniCard({ trend, rank }: { trend: Trend; rank: number }) {
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const openDetail = useTrendDetailLink();
   const domainsQuery = useDomains();
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
 
@@ -210,6 +217,22 @@ export function HomePage() {
     setSearchParams(next);
   };
 
+  /*
+   * 자동완성은 이 쪽 목록이 아니라 서버 전체에서 찾습니다. 고른 말이 트렌드에 올라 있으면
+   * 상세를 바로 열고, 아직 오르지 않았으면 이 쪽 목록을 그 말로 걸러 없다는 것을 보여 줍니다.
+   */
+  const selectSuggestion = (item: KeywordSearchItem) => {
+    setDraft(item.keyword);
+    if (item.trendId === null) {
+      updateParams({ q: item.keyword });
+      return;
+    }
+    const { to, state } = openDetail(item.trendId);
+    navigate(to, { state });
+  };
+
+  const suggest = useKeywordSuggest(draft, selectSuggestion);
+
   const trends = useMemo(() => {
     const received = listQuery.data?.trends ?? [];
     const needle = query.trim().toLowerCase();
@@ -239,6 +262,7 @@ export function HomePage() {
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
+    suggest.hide();
     updateParams({ q: draft.trim() || undefined });
   };
 
@@ -263,18 +287,26 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="explore-searchbar">
+      <section className="explore-searchbar" ref={suggest.box}>
         <form onSubmit={submitSearch} role="search">
           <SearchIcon size={20} color="#9ca3af" />
           <input
             type="text"
             value={draft}
-            placeholder="이 목록에서 키워드를 찾아보세요."
+            placeholder="키워드를 검색해보세요."
             aria-label="키워드 검색"
-            onChange={(event) => setDraft(event.target.value)}
+            role="combobox"
+            aria-expanded={suggest.visible}
+            aria-controls={SUGGEST_ID}
+            aria-autocomplete="list"
+            aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
+            autoComplete="off"
+            onChange={(event) => { setDraft(event.target.value); suggest.show(); }}
+            onFocus={suggest.show}
+            onKeyDown={suggest.handleKeyDown}
           />
           {query && (
-            <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); updateParams({ q: undefined }); }}>
+            <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); suggest.hide(); updateParams({ q: undefined }); }}>
               지우기
             </button>
           )}
@@ -282,6 +314,18 @@ export function HomePage() {
             <ArrowIcon size={16} color="#fff" />
           </button>
         </form>
+
+        {suggest.visible && (
+          <KeywordSuggestMenu
+            id={SUGGEST_ID}
+            query={draft.trim()}
+            items={suggest.items}
+            status={suggest.status}
+            activeIndex={suggest.activeIndex}
+            onHover={suggest.setActiveIndex}
+            onSelect={suggest.select}
+          />
+        )}
       </section>
 
       <section className="explore-filters">
