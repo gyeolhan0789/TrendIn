@@ -1,0 +1,112 @@
+[another] n=3 요약피드(기사 추출 실패) 
+[032c] n=3 피드 없음 
+[houyhnhnm] n=5 전문피드로 수집 
+[oggi] n=5 전문피드로 수집 
+[mensnonno] n=5 전문피드로 수집 
+[harpersbazaar_us] n=5 요약피드+기사페이지 추출 
+[id] n=5 전문피드로 수집 
+[elle_fr] n=1 차단 www.elle.fr: HTTP 403
+[dazed] n=5 요약피드+기사페이지 추출 
+[vogue_jp] n=5 요약피드+기사페이지 추출 
+[marieclaire_uk] n=5 전문피드로 수집 
+[glamour_uk] n=5 요약피드+기사페이지 추출 
+[whowhatwear] n=5 전문피드로 수집 
+[elle_us] n=5 요약피드+기사페이지 추출 
+[gq_us] n=5 요약피드+기사페이지 추출 
+[fudge] n=5 전문피드로 수집 
+[vogue_uk] n=5 요약피드+기사페이지 추출 
+[madame_figaro] n=2 피드 없음 
+[fashionnetwork_uk] n=1 차단 uk.fashionnetwork.com: HTTP 403
+[bazaar_cn] n=2 피드 없음 
+[fashionnetwork_fr] n=1 차단 fr.fashionnetwork.com: HTTP 403
+[ginza] n=3 피드 없음 
+[fashionnetwork_cn] n=1 차단 cn.fashionnetwork.com: HTTP 403
+[cancam] n=5 전문피드로 수집 
+[fashionnetwork_us] n=1 차단 us.fashionnetwork.com: HTTP 403
+[fashionnetwork_it] n=1 차단 it.fashionnetwork.com: HTTP 403
+[vogue_cn] n=2 피드 없음 
+[fashionista] n=2 전문피드로 수집 fashionista.com: HTTP 403
+[fashionnetwork_jp] n=2 피드 없음 
+[figaro_jp] n=6 전문피드로 수집 
+[lofficiel] n=6 전문피드로 수집 
+[numero] n=6 전문피드로 수집 
+[vogue_fr] n=5 요약피드+기사페이지 추출 
+[elle_cn] n=6 요약피드+기사페이지 추출 
+[popeye] n=6 전문피드로 수집 
+[grazia_it] n=5 전문피드로 수집 
+[iodonna] n=5 전문피드로 수집 
+[vogue_it] n=5 요약피드+기사페이지 추출 
+[fashionpress] n=2 피드 없음 
+[elle_it] n=5 요약피드+기사페이지 추출 
+[fashionunited] n=5 전문피드로 수집 
+[wwdjapan] n=2 전문피드로 수집 www.wwdjapan.com: HTTP 403
+[theindustry] n=5 전문피드로 수집 
+[mffashion] n=2 피드 없음 
+[wwd] n=5 요약피드+기사페이지 추출 
+[bof] n=5 요약피드+기사페이지 추출 
+[businesswire] n=1 차단 www.businesswire.com: HTTP 403
+[fashionbiz] n=2 피드 없음 
+[apparelnews] n=2 피드 없음 
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-ssafy-workspace-ssafy-S15P21A102/a4700f8c-91a3-430f-bcb3-d6e75f535e83/scratchpad/probe/probe.py", line 226, in probe_site
+    probe_feed_site(s, f, row)
+  File "/tmp/claude-1000/-home-ssafy-workspace-ssafy-S15P21A102/a4700f8c-91a3-430f-bcb3-d6e75f535e83/scratchpad/probe/probe.py", line 269, in probe_feed_site
+    rr = f.get(url)
+         ^^^^^^^^^^
+  File "/tmp/claude-1000/-home-ssafy-workspace-ssafy-S15P21A102/a4700f8c-91a3-430f-bcb3-d6e75f535e83/scratchpad/probe/probe.py", line 63, in get
+    with build_opener().open(req, timeout=TIMEOUT) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 1392, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 1344, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/client.py", line 1358, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/client.py", line 1369, in _send_request
+    self.putrequest(method, url, **skips)
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/client.py", line 1203, in putrequest
+    self._validate_path(url)
+  File "/home/ssafy/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/http/client.py", line 1303, in _validate_path
+    raise InvalidURL(f"URL can't contain control characters. {url!r} "
+http.client.InvalidURL: URL can't contain control characters. '/AtomFeed/industry/3763-Clothing 26 Accessories/feedTitle/GlobeNewswire - Industry News on Clothing and Accessories' (found at least ' ')
+[fashioninsight] n=3 피드 없음 
+[newswire_kr] n=2 피드 없음 
+[jingdaily] n=3 피드 없음 
+[fashionsnap] n=5 요약피드+기사페이지 추출 
+[globenewswire] n=3 피드 없음 
+[ktnews] n=5 요약피드+기사페이지 추출 
+[medium_tag] n=3 차단 tanamtumbuh.medium.com: HTTP 403
+[prnasia] n=3 피드 없음 
+[drapers] n=5 요약피드+기사페이지 추출 
+[substack_opulent] n=2 피드 없음 
+[mrporter] n=1 차단 www.mrporter.com: HTTP 403
+[prnewswire] n=5 요약피드+기사페이지 추출 
+[senken] n=6 요약피드+기사페이지 추출 
+[itnk] n=5 요약피드+기사페이지 추출 
+[pambianco] n=5 전문피드로 수집 
+[musinsa] n=2 피드 없음 
+[naver_blog] n=5 요약피드(기사 추출 실패) 
+[highsnobiety] n=5 전문피드로 수집 
+[end] n=2 피드 없음 
+[29cm] n=2 피드 없음 
+[wconcept] n=2 피드 없음 
+[prtimes] n=6 요약피드+기사페이지 추출 
+[substack_bbsp] n=5 전문피드로 수집 
+[luxe_co] n=5 전문피드로 수집 
+[ameba] n=5 전문피드로 수집 
+[hatena] n=5 전문피드로 수집 
+[brunch] n=5 요약피드(기사 추출 실패) 
+[note_mb] n=5 요약피드+기사페이지 추출 
+[journaldutextile] n=6 요약피드+기사페이지 추출 
+[beams] n=2 피드 없음 
+wrote results.csv

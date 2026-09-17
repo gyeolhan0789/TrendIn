@@ -1,0 +1,31 @@
+{
+ "month": "2026/09",
+ "files_per_day": {
+  "20260901": 13,
+  "20260902": 13,
+  "20260903": 13,
+  "20260904": 13,
+  "20260905": 10,
+  "20260906": 9,
+  "20260907": 12,
+  "20260908": 13,
+  "20260909": 14,
+  "20260910": 15,
+  "20260911": 13,
+  "20260912": 12,
+  "20260913": 11,
+  "20260914": 13,
+  "20260915": 15,
+  "20260916": 6
+ },
+ "day": "20260915",
+ "day_total_bytes": 16091804517,
+ "sampled_file": "crawl-data/CC-NEWS/2026/09/CC-NEWS-20260915130519-00068.warc.gz",
+ "sample_seconds": 60,
+ "sample_records_total": 43057,
+ "sample_responses": 21528,
+ "sample_host_hits": {},
+ "sample_host_hit_bytes": {},
+ "sample_root_hits": {},
+ "sample_fashion_path_urls": 26
+}
