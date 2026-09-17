@@ -50,6 +50,14 @@ function UserIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 function EyeIcon({ off }: { off: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -165,7 +173,9 @@ export function SignUpPage() {
   // 칸 아래 한 줄은 확인을 마쳤을 때만 씁니다. 평소에 안내를 깔아 두면 카드가 그만큼 길어집니다.
   const emailHint = (() => {
     if (checkingEmail) return '이메일을 확인하는 중…';
-    if (available === true) return '사용할 수 있는 이메일입니다.';
+    if (available === true) {
+      return <span className="signup-ok"><CheckIcon />사용할 수 있는 이메일입니다.</span>;
+    }
     // 확인에 실패하면(null) 굳이 알리지 않습니다. 중복은 가입 응답이 최종적으로 가려냅니다.
     return undefined;
   })();
@@ -334,8 +344,16 @@ export function SignUpPage() {
                 hint={emailHint}
                 disabled={signUpMutation.isPending}
                 action={(
-                  <button type="button" className="signup-check" onClick={checkEmail} disabled={checkDisabled}>
-                    {checkingEmail ? '확인 중…' : '중복확인'}
+                  /* 확인을 마치면 버튼이 그대로 결과 표시가 됩니다. 다시 누를 일이 없어 잠겨 있습니다. */
+                  <button
+                    type="button"
+                    className={`signup-check${available === true ? ' is-done' : ''}`}
+                    onClick={checkEmail}
+                    disabled={checkDisabled}
+                  >
+                    {checkingEmail && '확인 중…'}
+                    {!checkingEmail && available === true && <><CheckIcon />확인</>}
+                    {!checkingEmail && available !== true && '중복확인'}
                   </button>
                 )}
               />

@@ -1268,8 +1268,11 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-check { display: grid; flex-shrink: 0; width: 80px; height: 48px; place-items: center; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fff; color: #374151; font-size: 13px; font-weight: 600; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
 .signup-check:hover:not(:disabled) { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; }
 .signup-check:disabled { border-color: #eceef2; background: rgba(255, 255, 255, .5); color: #c8ccd2; }
+/* 쓸 수 있는 주소로 확인되면 잠긴 버튼이 그대로 결과 표시가 됩니다. 잠금색보다 이 색이 먼저입니다. */
+.signup-check.is-done, .signup-check.is-done:disabled { gap: 3px; border-color: #a7f3d0; background: #ecfdf5; color: #059669; grid-auto-flow: column; }
 
 .signup-note { margin-top: 1px; color: var(--lp-muted); font-size: 12px; line-height: 1.5; }
+.signup-ok { display: inline-flex; align-items: center; gap: 4px; color: #059669; }
 /* 비밀번호 규칙은 아직 못 채운 항목이 눈에 들어와야 해서, 채운 쪽만 인디고로 칠합니다. */
 .signup-note .auth-checklist { gap: 4px 12px; margin: 0; }
 .signup-note .auth-checklist li.is-met { color: var(--lp-indigo); }
@@ -1290,31 +1293,31 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-footer a { color: var(--lp-indigo); font-weight: 700; }
 
 /* 창이 낮으면 소개 쪽 여백부터 걷어 카드가 그대로 한 화면에 남게 합니다. */
-@media (max-height: 820px) {
+@media (max-height: 880px) {
   .signup-hero h1 { font-size: 34px; }
   .signup-page .signup-hero-lead { margin-top: 12px; }
   .signup-hero-stat { margin-top: 16px; }
   .signup-hero-features { gap: 18px; margin-top: 24px; }
   .signup-hero-foot { margin-top: 24px; }
-  .signup-card { padding: 22px 32px; }
+  .signup-card { padding: 16px 32px; }
   .signup-card h2 { font-size: 25px; }
   .signup-page .signup-card-lead { margin-top: 7px; }
-  .signup-form { gap: 14px; margin-top: 22px; }
-  .signup-page .signup-footer { margin-top: 22px; }
+  .signup-form { gap: 13px; margin-top: 20px; }
+  .signup-page .signup-footer { margin-top: 18px; }
 }
 /* 더 낮은 창에서는 칸 높이와 아래쪽 줄 간격까지 줄여 마지막 줄을 화면 안에 붙잡습니다. */
-@media (max-height: 740px) {
+@media (max-height: 780px) {
   .signup-header { height: 48px; }
   .signup-main { padding-bottom: 16px; }
-  .signup-card { padding: 20px 28px; }
+  .signup-card { padding: 14px 28px; }
   .signup-card h2 { font-size: 23px; }
   .signup-page .signup-card-lead { margin-top: 6px; font-size: 13px; }
-  .signup-form { gap: 12px; margin-top: 18px; }
+  .signup-form { gap: 11px; margin-top: 16px; }
   .signup-field { gap: 6px; }
   .signup-input, .signup-check { height: 44px; }
   .signup-agree, .signup-submit { margin-top: 2px; }
   .signup-submit { height: 48px; }
-  .signup-page .signup-footer { margin-top: 16px; }
+  .signup-page .signup-footer { margin-top: 11px; }
 }
 /* 두 단이 들어가지 않는 폭에서는 소개를 접고 가입 칸만 세웁니다. */
 @media (max-width: 1000px) {
