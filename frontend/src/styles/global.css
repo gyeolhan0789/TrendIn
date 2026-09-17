@@ -550,7 +550,7 @@ h1 { margin: 0; line-height: 1.25; }
 .interest-add:hover:not(:disabled) { background: rgba(32, 34, 38, .07); color: #202226; }
 .interest-add.is-registered { color: var(--amber); }
 
-/* 로그인·회원가입: 헤더 내비게이션 없이 한 칸만 보여 주는 화면입니다. */
+/* OAuth 콜백: 헤더 내비게이션 없이 한 칸만 보여 주는 화면입니다. */
 .auth-page { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 56px 24px; background: #fafbfc; color: #202226; }
 .auth-card { width: min(440px, 100%); padding: 40px 40px 36px; border: 1px solid #eceef2; border-radius: 22px; background: #fff; box-shadow: 0 18px 48px rgba(20, 22, 28, .06); }
 .auth-brand { display: inline-block; font-size: 30px; letter-spacing: -2px; }
@@ -559,39 +559,11 @@ h1 { margin: 0; line-height: 1.25; }
 .auth-title { font-size: 26px; font-weight: 600; letter-spacing: -1px; }
 .auth-description { margin: 10px 0 0; color: #8b9099; font-size: 13px; line-height: 1.7; }
 
-.auth-form { display: flex; flex-direction: column; gap: 18px; margin-top: 28px; }
-.auth-field { display: flex; flex-direction: column; gap: 7px; }
-.auth-label { color: #6d737c; font-size: 12px; font-weight: 500; }
-.auth-input { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 10px; background: #fafbfc; transition: border-color .12s, background .12s, box-shadow .12s; }
-.auth-input:focus-within { border-color: #202226; background: #fff; box-shadow: 0 0 0 3px rgba(32, 34, 38, .06); }
-.auth-input input { flex: 1; min-width: 0; border: 0; background: transparent; color: #202226; font-size: 14px; }
-.auth-input input:focus { outline: none; }
-.auth-input input::placeholder { color: #a4aab3; }
-.auth-input input:disabled { color: #8b9099; }
-.auth-field.is-invalid .auth-input { border-color: #e0453a; background: #fdf7f6; }
-.auth-field.is-invalid .auth-input:focus-within { box-shadow: 0 0 0 3px rgba(224, 69, 58, .1); }
-.auth-reveal { flex-shrink: 0; padding: 4px 8px; border-radius: 6px; color: #8b9099; font-size: 12px; }
-.auth-reveal:hover { background: #f1f2f5; color: #6d737c; }
-
-.auth-note { color: #8b9099; font-size: 12px; line-height: 1.6; }
-.auth-note.is-error { color: #e0453a; }
 /* 비밀번호 규칙은 아직 못 채운 항목이 눈에 들어와야 해서, 채운 쪽만 앰버로 칠합니다. */
 .auth-checklist { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 2px 0 0; padding: 0; list-style: none; }
 .auth-checklist li { display: flex; align-items: center; gap: 5px; color: #a4aab3; font-size: 11px; }
 .auth-checklist li.is-met { color: var(--amber); }
 .auth-checklist li > span[aria-hidden="true"] { display: inline-block; width: 9px; text-align: center; }
-
-.auth-alert { margin: 0; padding: 12px 14px; border: 1px solid #f3d6d3; border-radius: 10px; color: #b8382e; background: #fdf4f4; font-size: 13px; line-height: 1.6; }
-
-.auth-submit { display: flex; width: 100%; height: 48px; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; border-radius: 10px; color: #fff; background: #202226; font-size: 14px; font-weight: 500; transition: background .12s; }
-.auth-submit:hover:not(:disabled) { background: #34373d; }
-.auth-submit:disabled { background: #b6bac1; }
-.auth-submit .spinner { margin-right: 0; border-color: rgba(255, 255, 255, .45); border-top-color: #fff; }
-
-.auth-social { margin-top: 26px; }
-.auth-divider { display: flex; align-items: center; gap: 12px; color: #a4aab3; font-size: 11px; letter-spacing: .5px; }
-.auth-divider i { flex: 1; height: 1px; background: var(--line); }
-.auth-social p { margin: 16px 0 0; color: #a9aeb6; font-size: 12px; text-align: center; }
 
 .auth-footer { margin: 0; color: #8b9099; font-size: 13px; }
 .auth-footer a { color: #202226; font-weight: 500; border-bottom: 1px solid #d7dbe2; }
@@ -629,10 +601,6 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-choice-mark { display: grid; position: absolute; top: 14px; right: 14px; width: 18px; height: 18px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: #fff; transition: border-color .12s, background .12s; }
 .onboarding-choice.is-selected .onboarding-choice-mark { border-color: #202226; background: #202226; }
 .onboarding-count { margin: 12px 0 0; color: #8b9099; font-size: 12px; font-variant-numeric: tabular-nums; }
-/* 이메일 칸 안의 중복확인 버튼. 칸 높이에 맞춰 눕히고, 다 쓴 뒤에는 잠급니다. */
-.auth-check-button { flex-shrink: 0; padding: 6px 12px; border: 1px solid var(--line); border-radius: 7px; color: #6d737c; background: #fff; font-size: 12px; font-weight: 500; white-space: nowrap; transition: border-color .12s, background .12s, color .12s; }
-.auth-check-button:hover:not(:disabled) { border-color: #202226; background: #202226; color: #fff; }
-.auth-check-button:disabled { border-color: #eceef2; color: #c8ccd2; background: #fafbfc; }
 
 /*
  * 새 시안(랜딩·트렌드 탐색)이 쓰는 결입니다. 앱 안쪽 화면(Arial·앰버)과 다르기 때문에
@@ -1339,6 +1307,18 @@ h1 { margin: 0; line-height: 1.25; }
 @media (max-height: 780px) {
   .signup-check { height: 44px; }
   .signup-agree { margin-top: 2px; }
+}
+
+/* 로그인 --------------------------------------------------------------------- */
+/*
+ * 칸이 둘뿐이라 카드에 여유가 있습니다. 비밀번호 칸과 단추 사이만 한 칸 더 띄워, 적는 자리와
+ * 누르는 자리를 갈라 둡니다. 칸이 넷인 가입 쪽은 그럴 높이가 없어 공통값(6px)을 그대로 씁니다.
+ *
+ * 낮은 창 규칙(.auth-scene-submit)보다 뒤에 있어야 먹습니다. 무게가 같아 순서로 갈립니다.
+ */
+.login-submit { margin-top: 18px; }
+@media (max-height: 780px) {
+  .login-submit { margin-top: 12px; }
 }
 
 /* 온보딩 --------------------------------------------------------------------- */
