@@ -41,7 +41,23 @@ export interface OAuthLoginRequest {
 }
 
 /**
- * 기기에 보관하는 로그인 세션. 저장 보드·관심 키워드와 같은 방식으로 localStorage에 둡니다.
+ * 비밀번호를 잊었을 때 메일로 인증번호를 받습니다.
+ * 가입된 주소인지는 서버만 알고, 응답으로는 가르지 않습니다.
+ */
+export interface PasswordResetCodeRequest {
+  email: string;
+}
+
+/** 받은 인증번호와 새 비밀번호를 함께 보냅니다. 인증번호 판정과 변경이 한 번에 일어납니다. */
+export interface PasswordResetRequest {
+  email: string;
+  code: string;
+  password: string;
+}
+
+/**
+ * 기기에 보관하는 로그인 세션.
+ 저장 보드·관심 키워드와 같은 방식으로 localStorage에 둡니다.
  * 로그인 응답에는 회원 정보가 없어서, 화면에 보여줄 이메일은 입력값에서 가져옵니다.
  */
 export interface AuthSession {

@@ -11,6 +11,13 @@ export const API_ENDPOINTS = {
     logout: '/auth/logout',
     reissue: '/auth/reissue',
     emailCheck: '/auth/email-check',
+    /*
+     * 비밀번호 재설정. 메일로 인증번호를 받는 단계와 실제로 바꾸는 단계로 나뉩니다.
+     * 소셜 로그인과 마찬가지로 백엔드에는 아직 없고, 화면이 부를 경로만 먼저 정해 둡니다.
+     */
+    passwordResetCode: '/auth/password-reset/code',
+    passwordReset: '/auth/password-reset',
+
     // 소셜 로그인은 백엔드에 아직 없습니다. 경로만 남겨 두고 화면은 '준비 중'으로 안내합니다.
     oauthLogin: (provider: string) => `/auth/oauth/${encodeURIComponent(provider)}/login`,
   },
