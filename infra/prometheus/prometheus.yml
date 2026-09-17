@@ -17,3 +17,8 @@ scrape_configs:
     static_configs:
       - targets:
           - cadvisor:8080
+
+  - job_name: airflow
+    static_configs:
+      - targets:
+          - pipeline-metrics:9102
