@@ -4,6 +4,7 @@ import com.forever102.member.domain.Domain;
 import com.forever102.member.domain.SavedTrend;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -19,11 +20,13 @@ public record SavedTrendListResponse(
 ) {
     public static SavedTrendListResponse from(
             Page<SavedTrend> savedTrends,
-            Map<Long, KeywordMetric> metricsByKeywordId
+            Map<Long, KeywordMetric> metricsByKeywordId,
+            Map<Long, TrendAnalysis> analysesByTrendId
     ) {
         return new SavedTrendListResponse(savedTrends.getContent().stream()
                 .map(savedTrend -> SavedTrendResponse.from(savedTrend,
-                        metricsByKeywordId.get(savedTrend.getTrend().getKeyword().getId())))
+                        metricsByKeywordId.get(savedTrend.getTrend().getKeyword().getId()),
+                        analysesByTrendId.get(savedTrend.getTrend().getId())))
                 .toList(), savedTrends.getNumber(), savedTrends.getSize(), savedTrends.hasNext());
     }
 
@@ -39,13 +42,15 @@ public record SavedTrendListResponse(
             BigDecimal growthRate,
             OffsetDateTime savedAt
     ) {
-        private static SavedTrendResponse from(SavedTrend savedTrend, KeywordMetric metric) {
+        private static SavedTrendResponse from(SavedTrend savedTrend, KeywordMetric metric,
+                TrendAnalysis analysis) {
             Trend trend = savedTrend.getTrend();
             return new SavedTrendResponse(savedTrend.getId(), trend.getId(),
                     trend.getKeyword().getId(), trend.getKeyword().getName(),
                     DomainResponse.from(trend.getKeyword().getDomain()),
                     metric == null ? List.of() : metric.getTrendTypes(),
-                    trend.getDescription(), metric == null ? null : metric.getMentionCount(),
+                    analysis == null ? null : analysis.getDescription(),
+                    metric == null ? null : metric.getMentionCount(),
                     metric == null ? null : metric.getGrowthRate(), savedTrend.getCreatedAt());
         }
     }

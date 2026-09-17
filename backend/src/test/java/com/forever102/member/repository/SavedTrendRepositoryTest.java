@@ -93,7 +93,7 @@ class SavedTrendRepositoryTest {
     private Trend persistTrend(String keywordName) {
         Keyword keyword = new Keyword(keywordName, Domain.DEVELOP);
         entityManager.persist(keyword);
-        Trend trend = new Trend(keyword, List.of(TrendType.CURRENT), "설명", null, null,
+        Trend trend = new Trend(keyword,
                 OffsetDateTime.parse("2026-08-31T08:00:00+09:00"));
         entityManager.persist(trend);
         return trend;

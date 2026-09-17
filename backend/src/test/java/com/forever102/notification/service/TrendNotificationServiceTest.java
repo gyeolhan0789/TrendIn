@@ -2,6 +2,9 @@ package com.forever102.notification.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -16,6 +19,9 @@ import com.forever102.notification.repository.TrendNotificationTarget;
 import com.forever102.trend.domain.Keyword;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.domain.TrendType;
+import com.forever102.trend.domain.KeywordMetric;
+import com.forever102.trend.domain.AnalysisPeriod;
+import com.forever102.trend.repository.KeywordMetricRepository;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -36,12 +42,15 @@ class TrendNotificationServiceTest {
 
     @Mock NotificationRepository notificationRepository;
     @Mock Clock clock;
+    @Mock KeywordMetricRepository metricRepository;
+    private KeywordMetric currentMetric;
 
     private TrendNotificationService service;
 
     @BeforeEach
     void setUp() {
-        service = new TrendNotificationService(notificationRepository, clock);
+        service = new TrendNotificationService(notificationRepository, clock, metricRepository);
+        lenient().when(clock.instant()).thenReturn(UPDATED_AT.toInstant());
     }
 
     @Test
@@ -87,6 +96,23 @@ class TrendNotificationServiceTest {
     }
 
     @Test
+    @DisplayName("30D 지표가 비어 있어도 24H의 NEW 판정으로 키워드 알림을 생성한다")
+    void notifiesFromAnyRequestedPeriodMetric() {
+        TrendNotificationTarget target = target(false, List.of(), UPDATED_AT);
+        KeywordMetric dailyMetric = KeywordMetric.builder().keyword(target.trend().getKeyword())
+                .period(AnalysisPeriod.HOURS_24).periodStart(UPDATED_AT.minusDays(1))
+                .periodEnd(UPDATED_AT).trendTypes(List.of(TrendType.NEW)).build();
+        given(metricRepository.findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
+                anyCollection(), eq(AnalysisPeriod.HOURS_24), any(), any()))
+                .willReturn(List.of(dailyMetric));
+        given(notificationRepository.findTrendNotificationTargets()).willReturn(List.of(target));
+        given(notificationRepository.findExistingDedupKeys(anyCollection())).willReturn(List.of());
+
+        assertThat(service.createNotificationsForTrendChanges()).isOne();
+        assertThat(savedNotification().getMessage()).contains("신규 트렌드");
+    }
+
+    @Test
     @DisplayName("이미 트렌드인 관심 키워드의 유형 구성이 바뀌어도 추가 알림을 생성하지 않는다")
     void doesNotNotifyTypeCompositionChange() {
         // given
@@ -108,7 +134,7 @@ class TrendNotificationServiceTest {
     void recordsTrendExitWithoutNotification() {
         // given
         TrendNotificationTarget target = target(true, List.of(TrendType.CURRENT), UPDATED_AT);
-        ReflectionTestUtils.setField(target.trend(), "trendTypes", new TrendType[0]);
+        ReflectionTestUtils.setField(currentMetric, "trendTypes", new TrendType[0]);
         given(notificationRepository.findTrendNotificationTargets()).willReturn(List.of(target));
 
         // when
@@ -124,12 +150,12 @@ class TrendNotificationServiceTest {
     void notifiesReentryAfterTrendExit() {
         // given
         TrendNotificationTarget target = target(true, List.of(TrendType.CURRENT), UPDATED_AT);
-        ReflectionTestUtils.setField(target.trend(), "trendTypes", new TrendType[0]);
+        ReflectionTestUtils.setField(currentMetric, "trendTypes", new TrendType[0]);
         given(notificationRepository.findTrendNotificationTargets()).willReturn(List.of(target));
 
         // when
         service.createNotificationsForTrendChanges();
-        ReflectionTestUtils.setField(target.trend(), "trendTypes", new TrendType[]{TrendType.RISING});
+        ReflectionTestUtils.setField(currentMetric, "trendTypes", new TrendType[]{TrendType.RISING});
         ReflectionTestUtils.setField(target.trend(), "updatedAt", UPDATED_AT.plusHours(1));
         given(notificationRepository.findExistingDedupKeys(anyCollection())).willReturn(List.of());
         given(clock.instant()).willReturn(UPDATED_AT.plusHours(1).toInstant());
@@ -189,10 +215,16 @@ class TrendNotificationServiceTest {
         Member member = Member.create("member@example.com", "password-hash", "회원");
         ReflectionTestUtils.setField(member, "id", 1L);
         Keyword keyword = new Keyword("발레코어", Domain.FASHION);
+        ReflectionTestUtils.setField(keyword, "id", 81L);
         MemberInterestKeyword interestKeyword = MemberInterestKeyword.register(member, keyword);
         ReflectionTestUtils.setField(interestKeyword, "id", 100L);
         interestKeyword.updateTrendingState(wasTrending);
-        Trend trend = new Trend(keyword, types, "설명", null, null, updatedAt);
+        Trend trend = new Trend(keyword, updatedAt);
+        currentMetric = KeywordMetric.builder().keyword(keyword).period(AnalysisPeriod.DAYS_7)
+                .periodStart(updatedAt.minusDays(7)).periodEnd(updatedAt)
+                .trendTypes(types).build();
+        given(metricRepository.findByKeywordIdInAndPeriodAndPeriodStartAndPeriodEnd(
+                anyCollection(), any(), any(), any())).willReturn(List.of(currentMetric));
         ReflectionTestUtils.setField(trend, "id", 10L);
         return new TrendNotificationTarget(interestKeyword, member, trend, keyword.getName());
     }

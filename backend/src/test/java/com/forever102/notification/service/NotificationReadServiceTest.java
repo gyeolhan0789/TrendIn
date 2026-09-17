@@ -113,7 +113,7 @@ class NotificationReadServiceTest {
     private Notification notification(boolean read) {
         Member member = Member.create("member@example.com", "password", "회원");
         Keyword keyword = new Keyword("발레코어", Domain.FASHION);
-        Trend trend = new Trend(keyword, List.of(TrendType.RISING), "설명", null, null,
+        Trend trend = new Trend(keyword,
                 OffsetDateTime.parse("2026-09-11T00:00:00+09:00"));
         Notification notification = Notification.trendChange(
                 member, trend, "트렌드 진입 알림", "TREND_ENTRY:10:2026-09-11T00:00:00Z");

@@ -157,7 +157,7 @@ pipeline:verify-spark:
     - echo "pyspark ${SPARK_VERSION}"
     # 전체 프로젝트 대신 Spark 테스트에 필요한 의존성만 설치한다.
     # 이 줄은 사본이다 — spark/tests에 새 import를 넣으면 여기도 고친다. pyyaml은 pyproject.toml에 없다.
-    - pip install pytest pyyaml boto3 kiwipiepy "pyspark==${SPARK_VERSION}"
+    - pip install pytest pyyaml boto3 httpx pydantic kiwipiepy "pyspark==${SPARK_VERSION}"
   script:
     - pytest spark/tests
 

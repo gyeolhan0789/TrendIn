@@ -19,6 +19,8 @@ import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.KeywordMetricHistory;
 import com.forever102.trend.domain.KeywordRelation;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
+import com.forever102.trend.repository.TrendAnalysisRepository;
 import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.repository.ContentRepository;
 import com.forever102.trend.repository.KeywordMetricHistoryRepository;
@@ -80,6 +82,7 @@ public class TestInitialize implements ApplicationRunner {
     private final NotificationRepository notificationRepository;
     private final KeywordRepository keywordRepository;
     private final TrendRepository trendRepository;
+    private final TrendAnalysisRepository trendAnalysisRepository;
     private final KeywordMetricRepository metricRepository;
     private final KeywordMetricHistoryRepository historyRepository;
     private final KeywordRelationRepository relationRepository;
@@ -320,10 +323,13 @@ public class TestInitialize implements ApplicationRunner {
                         "광택 있는 금속 소재 소품", null, null));
 
         for (Spec spec : specs) {
-            Trend trend = new Trend(keywords.get(spec.keyword()), spec.types(),
-                    spec.description(), spec.summary(), spec.reason(),
-                    now.minusHours(RANDOM.nextInt(48)));
-            created.put(spec.keyword(), trendRepository.save(trend));
+            Trend trend = trendRepository.save(new Trend(keywords.get(spec.keyword()),
+                    now.minusHours(RANDOM.nextInt(48))));
+            created.put(spec.keyword(), trend);
+            for (AnalysisPeriod period : AnalysisPeriod.values()) {
+                trendAnalysisRepository.save(new TrendAnalysis(trend, period, spec.types(),
+                        spec.description(), spec.summary(), spec.reason(), null, now));
+            }
         }
         return created;
     }
@@ -334,12 +340,6 @@ public class TestInitialize implements ApplicationRunner {
      */
     private int createBulkTrends(Keywords keywords) {
         OffsetDateTime now = OffsetDateTime.now(trendClock);
-        List<List<TrendType>> typeCycle = List.of(
-                List.of(TrendType.CURRENT),
-                List.of(TrendType.RISING),
-                List.of(TrendType.NEW),
-                List.of(TrendType.CURRENT, TrendType.RISING),
-                List.of(TrendType.CURRENT, TrendType.NEW));
 
         int created = 0;
         int index = 0;
@@ -351,13 +351,8 @@ public class TestInitialize implements ApplicationRunner {
             if (index % BULK_TREND_EVERY != 0) {
                 continue;
             }
-            trendRepository.save(new Trend(
-                    keyword,
-                    typeCycle.get(created % typeCycle.size()),
-                    "%s 관련 흐름".formatted(keyword.getName()),
-                    // 대량 데이터에는 AI 분석을 넣지 않아 null 표기를 함께 확인할 수 있다.
-                    null, null,
-                    now.minusHours(RANDOM.nextInt(72))));
+            // 대량 데이터에는 분석을 넣지 않아 null 표기를 함께 확인한다.
+            trendRepository.save(new Trend(keyword, now.minusHours(RANDOM.nextInt(72))));
             created++;
         }
         return created;

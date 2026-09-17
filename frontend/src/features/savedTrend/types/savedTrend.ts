@@ -11,7 +11,7 @@ export interface SavedTrend {
   keyword: string;
   domain: TrendDomainRef;
   trendTypes: TrendType[];
-  description: string;
+  description: string | null;
   /** 요청한 기간의 지표가 없으면 비어 옵니다. */
   mentionCount: number | null;
   growthRate: number | null;

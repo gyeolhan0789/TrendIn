@@ -1,18 +1,24 @@
-"""Top5 관련 기사 조회 계약과 AI 입력 구성 테스트."""
+"""기간별 관련 기사 조회 계약과 AI 입력 구성 테스트."""
 
 import sys
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import ModuleType, SimpleNamespace
 
 from trendin.ai.articles import (
+    ARTICLE_CANDIDATE_LIMIT,
+    MAX_ARTICLE_BODY_CHARS,
+    MAX_ARTICLES,
+    MAX_TOTAL_BODY_CHARS,
     RELATED_ARTICLES_SQL,
-    TOP_TRENDS_SQL,
+    TREND_TARGETS_SQL,
     ArticleReference,
     CuratedArticleLoader,
     TrendArticle,
     TrendTarget,
     article_window,
     build_analysis_input,
+    input_fingerprint,
     select_articles,
 )
 
@@ -74,6 +80,11 @@ def trend() -> TrendTarget:
         period_start=datetime(2026, 9, 8, tzinfo=UTC),
         period_end=datetime(2026, 9, 15, tzinfo=UTC),
         mention_rank=1,
+        trend_types=("NEW", "RISING"),
+        mention_count=120,
+        previous_mention_count=40,
+        growth_amount=80,
+        growth_rate=Decimal("200.0"),
     )
 
 
@@ -173,11 +184,14 @@ def test_curated_본문은_object_key와_URL이_모두_일치할_때만_복원�
     ]
 
 
-def test_기존_CURRENT_mention_rank_Top5를_재사용한다():
-    normalized = " ".join(TOP_TRENDS_SQL.split())
-    assert "'CURRENT' = ANY(m.trend_types)" in normalized
-    assert "m.mention_rank <= %s" in normalized
-    assert "ORDER BY m.mention_rank, k.id" in normalized
+def test_세_유형을_기간별로_모두_조회하며_Top5_제한이_없다():
+    normalized = " ".join(TREND_TARGETS_SQL.split())
+    assert "ARRAY['NEW', 'RISING', 'CURRENT']" in normalized
+    assert "m.trend_types" in normalized
+    assert "m.mention_count" in normalized
+    assert "m.growth_rate" in normalized
+    assert "mention_rank <=" not in normalized
+    assert "LIMIT" not in normalized
 
 
 def test_관련_기사는_지정한_게시_기간_안에서_최신_20건을_조회한다():
@@ -186,11 +200,12 @@ def test_관련_기사는_지정한_게시_기간_안에서_최신_20건을_조�
     assert "c.published_at < %s" in normalized
     assert "ORDER BY c.published_at DESC, c.id" in normalized
     assert "LIMIT %s" in normalized
+    assert ARTICLE_CANDIDATE_LIMIT == 20
 
 
-def test_기사_기간은_Top5_기간을_따르고_24H는_최근_7일을_사용한다():
+def test_세_기간_모두_최근_30일_기사를_사용한다():
     seven_days = trend()
-    assert article_window(seven_days) == (seven_days.period_start, seven_days.period_end)
+    assert article_window(seven_days) == (datetime(2026, 8, 16, tzinfo=UTC), seven_days.period_end)
 
     thirty_days = TrendTarget(
         keyword_id=7,
@@ -201,7 +216,9 @@ def test_기사_기간은_Top5_기간을_따르고_24H는_최근_7일을_사용�
         period_end=datetime(2026, 9, 15, tzinfo=UTC),
         mention_rank=1,
     )
-    assert article_window(thirty_days) == (thirty_days.period_start, thirty_days.period_end)
+    assert article_window(thirty_days) == (
+        datetime(2026, 8, 16, tzinfo=UTC), thirty_days.period_end
+    )
 
     day = TrendTarget(
         keyword_id=7,
@@ -212,7 +229,7 @@ def test_기사_기간은_Top5_기간을_따르고_24H는_최근_7일을_사용�
         period_end=datetime(2026, 9, 15, tzinfo=UTC),
         mention_rank=1,
     )
-    assert article_window(day) == (datetime(2026, 9, 8, tzinfo=UTC), day.period_end)
+    assert article_window(day) == (datetime(2026, 8, 16, tzinfo=UTC), day.period_end)
 
 
 def test_중복과_빈_본문을_빼고_최신순으로_고른다():
@@ -237,11 +254,42 @@ def test_기사별_본문과_전체_길이를_제한한다():
     assert [item.body for item in selected] == ["가" * 6, "나" * 3]
 
 
+def test_기본_입력_한도는_최대_8건_기사별_3000자_전체_18000자다():
+    assert (MAX_ARTICLES, MAX_ARTICLE_BODY_CHARS, MAX_TOTAL_BODY_CHARS) == (
+        8, 3_000, 18_000
+    )
+    selected = select_articles(tuple(article(i, body="가" * 4_000) for i in range(10)))
+    assert len(selected) == 6
+    assert all(len(item.body) == 3_000 for item in selected)
+
+
 def test_AI_입력에_키워드와_기사의_현재_필드를_담는다():
     prompt = build_analysis_input(trend(), (article(1, body="리본 슈즈 출시 내용"),))
     assert "트렌드 키워드: 발레코어" in prompt
+    assert "트렌드 유형: NEW, RISING" in prompt
+    assert "언급량: 120" in prompt
+    assert "직전 기간 언급량: 40" in prompt
+    assert "언급 증가량: 80" in prompt
+    assert "증가율: 200.0%" in prompt
     assert "제목: 기사 1" in prompt
     assert "출처: vogue" in prompt
     assert "게시일: 2026-09-15T00:00:00+00:00" in prompt
     assert "URL: https://example.test/1" in prompt
     assert "리본 슈즈 출시 내용" in prompt
+
+
+def test_fingerprint는_유형과_실제_입력_기사에만_반응한다():
+    from dataclasses import replace
+
+    original = trend()
+    articles = (article(1),)
+    fingerprint = input_fingerprint(original, articles)
+
+    assert input_fingerprint(replace(original, mention_count=999,
+                                     growth_rate=Decimal("999")), articles) == fingerprint
+    assert input_fingerprint(
+        replace(original, trend_types=("RISING", "NEW")), articles
+    ) == fingerprint
+    assert input_fingerprint(replace(original, trend_types=("NEW",)), articles) != fingerprint
+    assert input_fingerprint(original, (article(1, body="바뀐 본문"),)) != fingerprint
+    assert len(fingerprint) == 64

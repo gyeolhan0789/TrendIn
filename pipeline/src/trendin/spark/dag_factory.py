@@ -73,6 +73,7 @@ KST = "Asia/Seoul"
 # 그날 목록이 **빈다**.
 CURATED = Asset("trendin://curated")
 KEYWORDS = Asset("trendin://keywords")
+METRICS = Asset("trendin://metrics")
 
 # 컨테이너 안에서 `spark/compose.spark.yaml` 이 저장소의 `spark/` 를 여기에 붙인다.
 SPARK_HOME_IN_CONTAINER = "/opt/airflow/spark"

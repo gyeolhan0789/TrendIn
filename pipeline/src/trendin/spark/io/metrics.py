@@ -6,14 +6,12 @@
 | `keyword_metrics` | 서비스 | 키워드 × 기간 1행. 배지도 이 줄이고, 옛 구간 행은 지운다 |
 | `pl_trend_type_log` | 파이프라인 | 회차별 판별 이력 ([07 §6]) |
 
-**`trends` 를 더 이상 쓰지 않는다.** 배지가 `keyword_metrics.trend_types` 로 옮겨오면서
-([08 §5] 티어 3) 기간별 판정을 합치지 않고 그대로 싣게 됐고, `trends` 에 남은 칸
-(`description`·`summary`·`reason`)은 전부 AI 설명 에픽 몫이라 이 Job 이 손댈 것이 없다
-([00 §4]). **그 표에 남아 있는 옛 배지를 지우지도 않는다** — 백엔드 목록 조회가 아직
-`trends.trend_types` 를 조인하고 있어서, 우리가 비우면 세 목록이 통째로 빈다. 그 조회가
-새 칸으로 옮겨간 뒤에 한 번 비우는 것이 순서다.
+**`trends` 에는 대표 ID만 새로 만든다.** 배지 판정은 계속 `keyword_metrics.trend_types`
+에 기간별로 싣는다. NEW/RISING/CURRENT 판정이 하나라도 있으면 AI 분석 성공 전에도
+상세 진입용 `trends` 행을 생성하고, 이미 있는 행은 변경하지 않는다.
 
-**`ON CONFLICT` 를 쓰지 않는다.** 규격은 그 형태를 적었지만([07 §7]) 그건 유니크 제약이
+**지표 MERGE에는 `ON CONFLICT` 를 쓰지 않는다.** 규격은 그 형태를 적었지만([07 §7])
+그건 유니크 제약이
 있다는 전제이고, **제약은 스키마마다 다르다** — Flyway baseline 의 `keyword_metrics` UNIQUE 는
 `(keyword_id, period, period_start, period_end)` 4열이다 (우리가 요청한 2열이 아니다). 백엔드
 조회가 `period_start` · `period_end` 를 지정해 찾으므로 그쪽이 그 모양을 쓰는 것이고, 우리가
@@ -33,10 +31,9 @@
 **배열·enum 컬럼의 타입을 실행 시점에 본다** ([08 §4]). 스테이징에는 `text`·`text[]` 로 넣고
 MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 그 타입이 스키마마다 다르기 때문이다 —
 `keyword_metrics.period` 는 양쪽 다 네이티브 enum(`metric_period`)이지만, 배열 칸은
-`trends.trend_types` 가 Flyway baseline 에서 `varchar(255)[]` 이고 옛 수동 스키마에서는
-`trend_type[]` 이었다. 백엔드 엔티티가 `@JdbcTypeCode(SqlTypes.ARRAY)` 로 매핑한 결과라
-baseline 쪽이 정본이고, `trend_type` 도메인은 조회의 `cast('CURRENT' as trend_type)` 표현에만
-쓰인다. **새로 온 `keyword_metrics.trend_types` 도 같은 갈래다** — 어느 쪽으로 선언되든 같게
+과거 `trends.trend_types` 가 Flyway baseline 에서 `varchar(255)[]` 이고 옛 수동 스키마에서는
+`trend_type[]` 이었다. 지금 배지는 `keyword_metrics.trend_types` 가 소유한다.
+이 배열이 어느 쪽으로 선언되든 같게
 돌아야 해서 타입을 묻고 붙인다. **배열은 varchar 계열이어도 캐스트를 뺄 수 없다** — 자세한
 이유는 `_cast()` 에 적었다.
 """
@@ -72,6 +69,17 @@ STAGE_HISTORY = "pl_stage_keyword_metric_history"
 # 칸이라 옛 스키마로 뜬 DB 에서는 비어 있고, 그때는 적재가 INSERT 에서 죽는다.
 # `trend_column_ready()` 가 시작 전에 본다.
 TREND_COLUMN = "trend_types"
+
+# `trends` 는 키워드의 안정적인 상세 진입 ID다. AI 성공을 기다리지 않고, 현재
+# NEW/RISING/CURRENT 판정이 하나라도 있는 키워드에 대표 행을 만든다. 기존 행은
+# 저장/알림이 참조하는 ID를 유지하므로 기존 행은 갱신하지 않는다.
+INSERT_TREND_IDENTITIES_SQL = """
+INSERT INTO trends (keyword_id, updated_at)
+SELECT DISTINCT m.keyword_id, now()
+  FROM keyword_metrics m
+ WHERE m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']::varchar[]
+ON CONFLICT (keyword_id) DO NOTHING
+"""
 
 METRIC_COLUMNS = (
     "keyword_id",
@@ -461,6 +469,8 @@ class MetricSink:
                 {"window_start": history_window[0], "window_end": history_window[1]},
             )
             cur.execute(metrics_merge_sql(period_cast, trend_cast, prune=prune_metrics))
+            if prune_metrics:
+                cur.execute(INSERT_TREND_IDENTITIES_SQL)
         log.info("지표 적재: 버킷 %d · 기간지표 %d", len(history), len(metrics))
         return WriteResult(len(history), len(metrics))
 
@@ -484,7 +494,7 @@ class MetricSink:
         **배열은 varchar 계열이어도 붙인다.** PostgreSQL 에 `varchar[] = text[]` 연산자가
         없어서, 스테이징의 `text[]` 와 비교하는 순간 "operator does not exist" 로 죽는다.
         스칼라에서는 같은 조합이 암묵 캐스트로 지나가기 때문에 배열만 예외가 된다 —
-        `trends.trend_types` 가 `varchar(255)[]` 라 옛 경로에서 실제로 걸렸고,
+        옛 `trends.trend_types` 경로에서도 실제로 걸렸고, 현재의
         `keyword_metrics.trend_types` 도 어느 쪽으로 선언되든 같은 이유로 붙인다.
         """
         cur.execute(COLUMN_TYPE_SQL, (table, column))

@@ -10,6 +10,16 @@ export const ANALYSIS_PERIODS = ['24H', '7D', '30D'] as const;
 export type PeriodCode = (typeof ANALYSIS_PERIODS)[number];
 
 export const DEFAULT_PERIOD: PeriodCode = '24H';
+export const SAVED_TREND_PERIOD: PeriodCode = '30D';
+
+/** 상세 링크는 목록 기간을 유지하고, 저장 목록에서는 30D를 기본으로 사용합니다. */
+export function trendDetailSearch(sourceSearch: string, targetSearch = ''): string {
+  const target = new URLSearchParams(targetSearch);
+  const source = new URLSearchParams(sourceSearch);
+  const fallback = target.get('from') === 'saved' ? SAVED_TREND_PERIOD : source.get('period');
+  target.set('period', parsePeriod(target.get('period') ?? fallback));
+  return `?${target.toString()}`;
+}
 
 export function isPeriodCode(value: string): value is PeriodCode {
   return (ANALYSIS_PERIODS as readonly string[]).includes(value);

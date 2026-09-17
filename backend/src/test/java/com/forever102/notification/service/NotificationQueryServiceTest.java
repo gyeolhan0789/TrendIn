@@ -112,7 +112,7 @@ class NotificationQueryServiceTest {
         Member member = Member.create("member@example.com", "password", "회원");
         ReflectionTestUtils.setField(member, "id", MEMBER_ID);
         Keyword keyword = new Keyword("발레코어", Domain.FASHION);
-        Trend trend = new Trend(keyword, List.of(TrendType.RISING), "설명", null, null,
+        Trend trend = new Trend(keyword,
                 OffsetDateTime.parse("2026-09-10T23:50:00+09:00"));
         ReflectionTestUtils.setField(trend, "id", 101L);
         Notification notification = Notification.trendChange(

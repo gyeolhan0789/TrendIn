@@ -6,10 +6,15 @@
 
 from __future__ import annotations
 
+import sys
+from contextlib import contextmanager
+from types import ModuleType
+
 import pytest
 
 from trendin.spark.common.config import Config
-from trendin.spark.io.metrics import MetricSink, metrics_merge_sql
+from trendin.spark.io import jdbc
+from trendin.spark.io.metrics import INSERT_TREND_IDENTITIES_SQL, MetricSink, metrics_merge_sql
 
 
 class FakeCursor:
@@ -88,3 +93,51 @@ def test_기간_캐스트와_배열_캐스트가_섞이지_않는다():
 def test_캐스트가_빈_문자열이면_SQL_에_아무것도_붙지_않는다():
     """옛 스키마처럼 캐스트가 필요 없는 경우에도 같은 SQL 이 만들어져야 한다."""
     assert "::" not in metrics_merge_sql("", "", prune=True)
+
+
+def test_대표_trend는_기간별_판정에서_분석과_무관하게_생성한다():
+    sql = " ".join(INSERT_TREND_IDENTITIES_SQL.split())
+    assert "INSERT INTO trends (keyword_id, updated_at)" in sql
+    assert "m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']" in sql
+    assert "ON CONFLICT (keyword_id) DO NOTHING" in sql
+    assert "description" not in sql
+
+
+@pytest.mark.parametrize("prune_metrics, created", [(True, True), (False, False)])
+def test_집계가_대표_trend를_정상_회차에서만_생성한다(monkeypatch, prune_metrics, created):
+    statements = []
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, statement, params=None):
+            statements.append(statement)
+
+        def fetchone(self):
+            return ("metric_period",)
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+    @contextmanager
+    def connection(_):
+        yield Connection()
+
+    extras = ModuleType("psycopg2.extras")
+    extras.execute_values = lambda *_args, **_kwargs: None
+    psycopg2 = ModuleType("psycopg2")
+    psycopg2.extras = extras
+    monkeypatch.setitem(sys.modules, "psycopg2", psycopg2)
+    monkeypatch.setitem(sys.modules, "psycopg2.extras", extras)
+    monkeypatch.setattr(jdbc, "connection", connection)
+
+    cfg = Config({"jdbc": {"url": "jdbc:postgresql://h/d", "user": "u"}}, profile="test")
+    MetricSink(cfg).write(history=(), metrics=(), history_window=("start", "end"),
+                          prune_metrics=prune_metrics)
+
+    assert (INSERT_TREND_IDENTITIES_SQL in statements) is created

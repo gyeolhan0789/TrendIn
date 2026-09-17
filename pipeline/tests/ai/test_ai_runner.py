@@ -1,5 +1,6 @@
-"""Top5 기사 기반 분석 실행과 부분 실패 격리 테스트."""
+"""기간별 기사 기반 분석 실행과 부분 실패 격리 테스트."""
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 from trendin.ai.analyzer import TrendAnalysis
@@ -12,7 +13,8 @@ END = datetime(2026, 9, 15, tzinfo=UTC)
 
 
 def target(keyword_id, keyword, rank):
-    return TrendTarget(keyword_id, keyword, "FASHION", "7D", START, END, rank)
+    return TrendTarget(keyword_id, keyword, "FASHION", "7D", START, END, rank,
+                       ("NEW", "RISING"), 120, 40, 80)
 
 
 def reference(keyword_id):
@@ -36,7 +38,7 @@ class StubRepository:
             target(4, "실패뒤성공", 4),
         )
 
-    def top_trends(self, **kwargs):
+    def trend_targets(self, **kwargs):
         self.query = kwargs
         return self.targets
 
@@ -71,10 +73,30 @@ class StubAnalyzer:
         return TrendAnalysis(description="설명", summary="요약", reason="이유")
 
 
+class StubStore:
+    def __init__(self, *, fail_keyword_id=None):
+        self.saved = []
+        self.fail_keyword_id = fail_keyword_id
+        self.fingerprints = {}
+
+    def is_current(self, target, fingerprint):
+        return self.fingerprints.get((target.keyword_id, target.period)) == fingerprint
+
+    def save(self, target, analysis, fingerprint):
+        if target.keyword_id == self.fail_keyword_id:
+            raise RuntimeError("DB 저장 실패")
+        self.saved.append((target.keyword_id, analysis, fingerprint))
+        self.fingerprints[(target.keyword_id, target.period)] = fingerprint
+        return target.keyword_id
+
+
 def test_기사가_없으면_AI를_호출하지_않고_각_트렌드_실패를_격리한다():
     repository = StubRepository()
     analyzer = StubAnalyzer()
-    outcomes = TopTrendAnalysisRunner(repository, StubLoader(), analyzer).run(
+    store = StubStore()
+    outcomes = TopTrendAnalysisRunner(
+        repository, StubLoader(), analyzer, store=store
+    ).run(
         domain="FASHION", period="7D", period_start=START, period_end=END
     )
 
@@ -92,9 +114,10 @@ def test_기사가_없으면_AI를_호출하지_않고_각_트렌드_실패를_�
     assert outcomes[2].article_count == 1
     assert outcomes[3].analysis is not None
     assert len(analyzer.inputs) == 3
+    assert [keyword_id for keyword_id, _, _ in store.saved] == [2, 4]
     assert repository.article_queries[0] == (
         1,
-        {"published_from": START, "published_until": END},
+        {"published_from": datetime(2026, 8, 16, tzinfo=UTC), "published_until": END},
     )
 
 
@@ -112,3 +135,93 @@ def test_기사_조회_실패도_해당_트렌드에만_남긴다():
 
     assert outcomes[1].error == "RuntimeError: 기사 조회 실패"
     assert outcomes[3].analysis is not None
+
+
+def test_저장_실패도_해당_트렌드에만_남기고_다음_결과를_저장한다():
+    store = StubStore(fail_keyword_id=2)
+    outcomes = TopTrendAnalysisRunner(
+        StubRepository(), StubLoader(), StubAnalyzer(), store=store
+    ).run(domain="FASHION", period="7D", period_start=START, period_end=END)
+
+    assert outcomes[1].analysis is None
+    assert outcomes[1].error == "RuntimeError: DB 저장 실패"
+    assert outcomes[3].analysis is not None
+    assert [keyword_id for keyword_id, _, _ in store.saved] == [4]
+
+
+def test_같은_유형과_기사면_재호출하지_않고_수치만_변해도_재사용한다():
+    repository = StubRepository()
+    repository.targets = (target(2, "분석성공", 2),)
+    analyzer = StubAnalyzer()
+    store = StubStore()
+    runner = TopTrendAnalysisRunner(repository, StubLoader(), analyzer, store)
+    kwargs = dict(domain="FASHION", period="7D", period_start=START, period_end=END)
+
+    assert runner.run(**kwargs)[0].analysis is not None
+    repository.targets = (replace(repository.targets[0], mention_count=999,
+                                  growth_amount=959),)
+    assert runner.run(**kwargs)[0].skipped is True
+    assert len(analyzer.inputs) == 1
+    assert len(store.saved) == 1
+
+
+def test_유형이나_선택된_기사_본문이_바뀌면_재분석한다():
+    repository = StubRepository()
+    repository.targets = (target(2, "분석성공", 2),)
+    analyzer = StubAnalyzer()
+    store = StubStore()
+
+    class ChangingLoader(StubLoader):
+        body = "첫 번째 본문"
+
+        def load(self, references):
+            return tuple(replace(item, body=self.body) for item in super().load(references))
+
+    loader = ChangingLoader()
+    runner = TopTrendAnalysisRunner(repository, loader, analyzer, store)
+    kwargs = dict(domain="FASHION", period="7D", period_start=START, period_end=END)
+
+    runner.run(**kwargs)
+    repository.targets = (replace(repository.targets[0], trend_types=("RISING",)),)
+    runner.run(**kwargs)
+    loader.body = "두 번째 본문"
+    runner.run(**kwargs)
+
+    assert len(analyzer.inputs) == 3
+    assert len(store.saved) == 3
+
+
+def test_재분석_GMS_실패시_기존_fingerprint를_보존하고_다음_키워드를_계속한다():
+    repository = StubRepository()
+    repository.targets = (target(2, "첫번째", 1), target(4, "두번째", 2))
+    store = StubStore()
+
+    class FailingAnalyzer(StubAnalyzer):
+        fail = False
+
+        def analyze(self, input_text):
+            if self.fail and "트렌드 키워드: 첫번째" in input_text:
+                raise RuntimeError("GMS 실패")
+            return super().analyze(input_text)
+
+    class ChangingLoader(StubLoader):
+        body = "원래 기사"
+
+        def load(self, references):
+            return tuple(replace(item, body=self.body) for item in super().load(references))
+
+    analyzer = FailingAnalyzer()
+    loader = ChangingLoader()
+    runner = TopTrendAnalysisRunner(repository, loader, analyzer, store)
+    kwargs = dict(domain="FASHION", period="7D", period_start=START, period_end=END)
+    runner.run(**kwargs)
+    original = store.fingerprints[(2, "7D")]
+
+    loader.body = "새 기사"
+    analyzer.fail = True
+    outcomes = runner.run(**kwargs)
+
+    assert outcomes[0].error == "RuntimeError: GMS 실패"
+    assert outcomes[1].analysis is not None
+    assert store.fingerprints[(2, "7D")] == original
+    assert store.fingerprints[(4, "7D")] != original

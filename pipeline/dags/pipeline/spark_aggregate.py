@@ -21,12 +21,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from trendin.spark.dag_factory import build_spark_dag
+from trendin.spark.dag_factory import METRICS, build_spark_dag
 
 spark_aggregate = build_spark_dag(
     dag_id="spark_aggregate",
     schedule="10 0 * * *",
     job="aggregate",
     execution_timeout=timedelta(hours=1),
+    outlets=[METRICS],
     doc_md=__doc__,
 )

@@ -44,6 +44,14 @@ def test_description_summary_reason_JSON을_파싱한다():
     assert result.model_dump() == expected
     assert client.response_format == {"type": "json_object"}
     assert [message["role"] for message in client.messages] == ["developer", "user"]
+    prompt = client.messages[0]["content"]
+    assert all(kind in prompt for kind in ("NEW", "RISING", "CURRENT"))
+    assert "유형이 여러 개면" in prompt
+    reason_instruction = prompt.split("- reason:", 1)[1]
+    assert "NEW는 새롭게 등장한 배경" in reason_instruction
+    assert "RISING은 관심이 갑자기 또는 다시 상승한 이유" in reason_instruction
+    assert "CURRENT는 현재 유행하는 배경" in reason_instruction
+    assert "모든 관점" in reason_instruction
 
 
 @pytest.mark.parametrize(

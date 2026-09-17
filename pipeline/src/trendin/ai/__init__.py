@@ -3,11 +3,13 @@
 from trendin.ai.analyzer import TrendAnalysis, TrendAnalyzer
 from trendin.ai.client import GmsOpenAIClient
 from trendin.ai.runner import TopTrendAnalysisRunner, TrendAnalysisOutcome
+from trendin.ai.store import TrendAnalysisStore
 
 __all__ = [
     "GmsOpenAIClient",
     "TopTrendAnalysisRunner",
     "TrendAnalysis",
     "TrendAnalysisOutcome",
+    "TrendAnalysisStore",
     "TrendAnalyzer",
 ]

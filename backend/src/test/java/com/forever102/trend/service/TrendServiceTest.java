@@ -19,6 +19,7 @@ import com.forever102.trend.repository.ContentRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.KeywordRelationRepository;
 import com.forever102.trend.repository.TrendRepository;
+import com.forever102.trend.repository.TrendAnalysisRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -40,6 +41,7 @@ import org.springframework.data.domain.PageRequest;
 class TrendServiceTest {
 
     @Mock TrendRepository trendRepository;
+    @Mock TrendAnalysisRepository analysisRepository;
     @Mock KeywordMetricRepository metricRepository;
     @Mock ContentRepository contentRepository;
     @Mock KeywordRelationRepository keywordRelationRepository;
@@ -49,7 +51,8 @@ class TrendServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), ZoneId.of("UTC"));
         trendService = new TrendService(
-                trendRepository, metricRepository, contentRepository, keywordRelationRepository, clock);
+                trendRepository, metricRepository, contentRepository, keywordRelationRepository,
+                clock, analysisRepository);
     }
 
     @Test
@@ -63,6 +66,8 @@ class TrendServiceTest {
                 TrendFixture.END.minusDays(7), TrendFixture.END, pageable))
                 .willReturn(new PageImpl<>(List.of(metric), pageable, 1));
         given(trendRepository.findByKeywordIdIn(List.of(81L))).willReturn(List.of(trend));
+        given(analysisRepository.findByTrendIdInAndPeriod(List.of(101L), AnalysisPeriod.DAYS_7))
+                .willReturn(List.of(TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7)));
 
         // when
         var response = trendService.getTrends(
@@ -70,10 +75,34 @@ class TrendServiceTest {
 
         // then
         assertThat(response.content()).hasSize(1);
+        assertThat(response.content().getFirst().trendId()).isEqualTo(101L);
+        assertThat(response.content().getFirst().description()).contains("발레 슈즈");
         assertThat(response.content().getFirst().trendTypes()).containsExactly(TrendType.RISING);
         assertThat(response.content().getFirst().rank()).isEqualTo(1);
         assertThat(response.content().getFirst().mentionCount()).isEqualTo(430);
         assertThat(response.analysisWindow().recentStart()).isEqualTo(TrendFixture.END.minusDays(7));
+    }
+
+    @Test
+    @DisplayName("요청 기간의 분석이 없으면 다른 기간 설명을 대신 표시하지 않는다")
+    void returnsNullDescriptionWithoutRequestedAnalysis() {
+        Trend trend = TrendFixture.trend();
+        var metric = TrendFixture.metric(trend, AnalysisPeriod.HOURS_24, 12, 4);
+        var pageable = PageRequest.of(0, 20);
+        given(metricRepository.findNewTrendPage("FASHION", "24H",
+                TrendFixture.END.minusDays(1), TrendFixture.END, pageable))
+                .willReturn(new PageImpl<>(List.of(metric), pageable, 1));
+        given(trendRepository.findByKeywordIdIn(List.of(81L))).willReturn(List.of(trend));
+
+        var response = trendService.getTrends(
+                Domain.FASHION, TrendType.NEW, AnalysisPeriod.HOURS_24, 0, 20);
+
+        assertThat(response.content()).singleElement().satisfies(item -> {
+            assertThat(item.trendId()).isEqualTo(101L);
+            assertThat(item.description()).isNull();
+        });
+        then(analysisRepository).should()
+                .findByTrendIdInAndPeriod(List.of(101L), AnalysisPeriod.HOURS_24);
     }
 
     @Test
@@ -100,6 +129,8 @@ class TrendServiceTest {
         // given
         Trend trend = TrendFixture.trend();
         given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
+        given(analysisRepository.findByTrendIdAndPeriod(101L, AnalysisPeriod.DAYS_7))
+                .willReturn(Optional.of(TrendFixture.analysis(trend, AnalysisPeriod.DAYS_7)));
         given(metricRepository.findFirstByKeywordIdAndPeriodAndPeriodStartAndPeriodEndOrderByIdDesc(
                 81L, AnalysisPeriod.DAYS_7, TrendFixture.END.minusDays(7), TrendFixture.END))
                 .willReturn(Optional.of(TrendFixture.metric(trend, AnalysisPeriod.DAYS_7, 430, 123)));
@@ -111,12 +142,13 @@ class TrendServiceTest {
         assertThat(response.trendTypes()).containsExactly(TrendType.RISING);
         assertThat(response.growthAmount()).isEqualTo(307);
         assertThat(response.analysisWindow().recentStart()).isEqualTo(TrendFixture.END.minusDays(7));
+        assertThat(response.description()).contains("발레 슈즈");
         assertThat(response.summary()).contains("발레 스타일");
         assertThat(response.reason()).contains("신제품 출시");
     }
 
     @Test
-    @DisplayName("요청 기간 지표가 없으면 트렌드 유형은 비고 기본 정보와 요약은 반환한다")
+    @DisplayName("요청 기간 지표와 분석이 없으면 기본 ID를 유지하고 AI 필드는 null이다")
     void returnsBasicInfoWithoutPeriodMetric() {
         // given
         Trend trend = TrendFixture.trend();
@@ -134,7 +166,11 @@ class TrendServiceTest {
         assertThat(response.mentionCount()).isNull();
         assertThat(response.growthRate()).isNull();
         assertThat(response.analysisWindow()).isNull();
-        assertThat(response.summary()).isNotBlank();
+        assertThat(response.description()).isNull();
+        assertThat(response.summary()).isNull();
+        assertThat(response.reason()).isNull();
+        then(analysisRepository).should().findByTrendIdAndPeriod(101L, AnalysisPeriod.DAYS_30);
+        then(analysisRepository).shouldHaveNoMoreInteractions();
     }
 
     @Test

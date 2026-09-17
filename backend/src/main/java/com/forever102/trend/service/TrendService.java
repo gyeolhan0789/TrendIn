@@ -7,6 +7,7 @@ import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.Trend;
+import com.forever102.trend.domain.TrendAnalysis;
 import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.dto.TrendContentResponse;
 import com.forever102.trend.dto.TrendDetailResponse;
@@ -16,6 +17,7 @@ import com.forever102.trend.repository.ContentRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.KeywordRelationRepository;
 import com.forever102.trend.repository.TrendRepository;
+import com.forever102.trend.repository.TrendAnalysisRepository;
 import java.time.Clock;
 import java.util.Map;
 import java.util.function.Function;
@@ -36,6 +38,7 @@ public class TrendService {
     private final ContentRepository contentRepository;
     private final KeywordRelationRepository keywordRelationRepository;
     private final Clock trendClock;
+    private final TrendAnalysisRepository trendAnalysisRepository;
 
     public TrendListResponse getTrends(
             Domain domain,
@@ -55,12 +58,15 @@ public class TrendService {
                     domain.name(), period.getValue(), window.getRecentStart(), window.getRecentEnd(), pageable);
         };
         if (metrics.isEmpty()) {
-            return TrendListResponse.from(metrics, Map.of(), window);
+            return TrendListResponse.from(metrics, Map.of(), Map.of(), window);
         }
         Map<Long, Trend> trendsByKeywordId = trendRepository.findByKeywordIdIn(metrics.stream()
                         .map(metric -> metric.getKeyword().getId()).toList()).stream()
                 .collect(Collectors.toMap(trend -> trend.getKeyword().getId(), Function.identity()));
-        return TrendListResponse.from(metrics, trendsByKeywordId, window);
+        Map<Long, TrendAnalysis> analyses = trendAnalysisRepository.findByTrendIdInAndPeriod(
+                        trendsByKeywordId.values().stream().map(Trend::getId).toList(), period)
+                .stream().collect(Collectors.toMap(a -> a.getTrend().getId(), Function.identity()));
+        return TrendListResponse.from(metrics, trendsByKeywordId, analyses, window);
     }
 
     public TrendDetailResponse getTrendDetail(Long trendId, AnalysisPeriod period) {
@@ -71,7 +77,9 @@ public class TrendService {
                 .findFirstByKeywordIdAndPeriodAndPeriodStartAndPeriodEndOrderByIdDesc(
                         trend.getKeyword().getId(), period,
                         window.getRecentStart(), window.getRecentEnd()).orElse(null);
-        return TrendDetailResponse.from(trend, metric, period);
+        TrendAnalysis analysis = trendAnalysisRepository.findByTrendIdAndPeriod(trendId, period)
+                .orElse(null);
+        return TrendDetailResponse.from(trend, metric, period, analysis);
     }
 
     public TrendContentResponse getTrendContents(Long trendId, int page, int size) {
