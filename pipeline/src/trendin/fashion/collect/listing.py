@@ -28,7 +28,7 @@ from urllib.parse import urljoin
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
-from trendin.common.collect.html_text import html_to_text
+from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import ROUTE_EXT, raw_key
 from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
 
@@ -263,7 +263,7 @@ class ListingAdapter:
             logger.info("%s: 회원 전용 — 본문 제외 %s", self.source.key, candidate.article_id)
         else:
             body_text = (
-                html_to_text(html, within_class=BODY_CLASS, drop_classes=BODY_DROP_CLASSES) or None
+                html_fragment(html, within_class=BODY_CLASS, drop_classes=BODY_DROP_CLASSES) or None
             )
             if body_text is None:
                 logger.warning(
@@ -293,7 +293,7 @@ class ListingAdapter:
             ),
             content_sha256=None if members_only else hashlib.sha256(raw).hexdigest(),
             modified_at=_parse_dt(modified, "dateModified") if modified else None,
-            summary=(data.get("description") or "").strip() or None,
+            summary=html_fragment(data.get("description") or "") or None,
             body_text=body_text,
             categories=list(candidate.categories),
             author=_author_name(data.get("author")),

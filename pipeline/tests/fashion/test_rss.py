@@ -171,9 +171,12 @@ def test_guid_파라미터와_author_field_가_소스마다_갈린다(clock, fee
         assert [c.article_id for c in result.candidates] == ["705465"]
         _raw, article = adapter.materialize(result.candidates[0])
     assert article.author == "편집부"
-    # description 이 HTML 이면 요약이 아니라 본문 사본이다. 비운다.
-    assert article.summary is None
-    assert article.body_text == "첫 문단.\n\n둘째 문단."
+    # HTML 로 보이는 description 도 버리지 않고 같은 조각 규칙을 지난다 (#5.3, 2026-09-17).
+    assert article.summary == "<p>요약 자리에 본문이 들어왔다</p>"
+    # 사진 크레딧과 script 는 버리고 나머지 마크업은 남는다.
+    assert article.body_text == (
+        '<p>첫 문단.</p><figure><img src="https://example.test/a.jpg"></figure><p>둘째 문단.</p>'
+    )
 
 
 def test_article_id_를_못_뽑은_건만_실패로_빠지고_나머지는_간다(clock, feed_bytes):
@@ -226,7 +229,8 @@ def test_Atom_entry_를_article_로_읽는다(clock, feed_bytes):
     assert article.author == "Jane Doe"
     assert article.categories == ["Fashion", "Runway"]
     assert article.summary == "짧은 요약"
-    assert article.body_text == "첫 문단.\n\n둘째 문단."
+    # `type="html"` 이라 엔티티로 감싼 HTML 이 한 번 풀려 조각이 된다.
+    assert article.body_text == "<p>첫 문단.</p><p>둘째 문단.</p>"
 
 
 def test_Atom_발행일_규칙은_대체_순서가_없다(clock, feed_bytes):
@@ -268,7 +272,7 @@ def test_RSS_1_0_item_을_article_로_읽는다(clock, feed_bytes):
     assert article.author == "주식회사 예시"
     assert article.categories == ["ファッション"]
     assert article.summary == "보도자료 요약"
-    assert article.body_text == "보도자료 본문."
+    assert article.body_text == "<p>보도자료 본문.</p>"
 
 
 def test_guid_hash_는_앞뒤_공백만_벗긴다():

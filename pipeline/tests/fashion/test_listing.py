@@ -192,8 +192,9 @@ def test_본문에_마스크와_관련기사가_섞이지_않는다(make_session
         candidate = next(c for c in adapter.discover().candidates if c.article_id == "1000001")
         _raw, article = adapter.materialize(candidate)
 
-    assert "첫 문단이다." in article.body_text
-    assert "둘째 문단이다." in article.body_text
+    # 태그를 벗기지 않고 조각으로 남긴다 (#5.3, S15P21A102-285).
+    assert "<p>첫 문단이다.</p>" in article.body_text
+    assert "<p>둘째 문단이다.</p>" in article.body_text
     assert "전체 페이지를 읽으시려면" not in article.body_text
     assert "관련기사 제목" not in article.body_text
     assert "Getty Images" not in article.body_text  # figcaption 은 공통 규칙이 버린다

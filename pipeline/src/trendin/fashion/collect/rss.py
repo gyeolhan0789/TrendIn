@@ -1,7 +1,7 @@
 """피드 어댑터 — RSS 2.0 · RSS 1.0 · Atom (설계 문서 확정 1·2, S15P21A102-284).
 
 피드 하나가 발견과 취득을 동시에 끝낸다 — item 조각이 곧 raw 다. 그래서 `discover` 는
-guid 만 뽑는 값싼 경로고, HTML 을 벗기는 무거운 일은 `materialize` 로 미룬다. 그 사이에서
+guid 만 뽑는 값싼 경로고, 본문 조각을 만드는 무거운 일은 `materialize` 로 미룬다. 그 사이에서
 장부가 이미 받은 기사를 걸러 내면 매 주기 다시 받은 10건 중 새것만 정규화된다.
 
 파서는 `xml.parsers.expat` 을 네임스페이스 처리 없이 직접 쓴다. 2026-09-03 실측에서
@@ -30,7 +30,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, Rule, SourceDef
-from trendin.common.collect.html_text import html_to_text, looks_like_html
+from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import ROUTE_EXT, raw_key
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.urls import clean_url
@@ -301,9 +301,7 @@ class RssAdapter:
                 article_id = article_id_by_rule(self.source.article_id, guid, link)
             except ValueError as exc:
                 logger.warning("%s: 후보가 못 됐다 — %s", self.source.key, exc)
-                failures.append(
-                    Failure(self.source.key, "discover", guid or link or "?", str(exc))
-                )
+                failures.append(Failure(self.source.key, "discover", guid or link or "?", str(exc)))
                 continue
             candidates.append(
                 Candidate(
@@ -327,16 +325,15 @@ class RssAdapter:
 
         entry = parse_item(candidate.raw)
         shape = _FORMATS[feed_format(entry)]
-        body_text = html_to_text(entry.first(shape.body)) or None
+        body_text = html_fragment(entry.first(shape.body)) or None
         if body_text is None:
             # 평소 0~1건이다. 갑자기 늘면 피드 구조가 바뀐 신호다 (2026-09-03 wkorea 1건).
             logger.warning(
                 "%s: 본문이 비었다 — article_id=%s", self.source.key, candidate.article_id
             )
 
-        description = entry.first(shape.summary).strip()
-        # description 이 HTML 이면 요약이 아니라 본문 사본이다. 그때는 비운다.
-        summary = description or None if description and not looks_like_html(description) else None
+        # HTML 로 보이는 description 도 버리지 않는다 — 본문과 같은 조각 규칙을 지난다(#5.3).
+        summary = html_fragment(entry.first(shape.summary)) or None
 
         article = Article(
             domain=self.source.domain,
