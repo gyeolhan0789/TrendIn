@@ -1193,6 +1193,9 @@ h1 { margin: 0; line-height: 1.25; }
 /*
  * 시안은 왼쪽 소개·오른쪽 가입 칸의 두 단입니다. 한 화면에 다 들어와야 해서 세로는
  * 100dvh 안에 가둡니다. 창이 아주 낮거나 좁을 때만 아래 미디어 쿼리가 스크롤을 허락합니다.
+ *
+ * p 의 여백을 잡는 규칙은 `.signup-page` 를 앞에 답니다. 위쪽 `.trendin-ui p { margin: 0 }`
+ * 이 (0,1,1) 이라, 홑클래스로 적으면 순서와 상관없이 눌려서 여백이 통째로 사라집니다.
  */
 .signup-page { display: flex; position: relative; flex-direction: column; min-height: 100dvh; background: #f5f6f8; }
 /* 물결은 scaleY로 부풀기 때문에, 잘라 두지 않으면 제 상자 아래로 삐져나와 스크롤을 만듭니다. */
@@ -1207,14 +1210,14 @@ h1 { margin: 0; line-height: 1.25; }
 
 .signup-main { display: grid; z-index: 2; position: relative; flex: 1; grid-template-columns: 1fr 1fr; align-items: center; gap: 40px; width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 40px 24px; }
 
-.signup-hero-eyebrow { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; font-weight: 600; letter-spacing: 2.5px; }
+.signup-page .signup-hero-eyebrow { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; font-weight: 600; letter-spacing: 2.5px; }
 .signup-hero h1 { font-size: 40px; font-weight: 800; line-height: 1.32; letter-spacing: -2px; }
 .signup-hero h1 span { color: var(--lp-indigo); }
-.signup-hero-lead { max-width: 380px; margin-top: 16px; color: var(--lp-muted); font-size: 15px; line-height: 1.7; }
+.signup-page .signup-hero-lead { max-width: 380px; margin-top: 16px; color: var(--lp-muted); font-size: 15px; line-height: 1.7; }
 
 .signup-hero-stat { display: inline-flex; align-items: flex-end; gap: 12px; margin-top: 22px; padding: 13px 20px; border-radius: 16px; background: rgba(255, 255, 255, .9); backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(79, 70, 229, .12); animation: landing-float 5s ease-in-out infinite; }
 .signup-hero-stat-value { color: var(--lp-indigo); font-size: 27px; font-weight: 700; letter-spacing: -1px; }
-.signup-hero-stat-label { margin-top: 3px; color: var(--lp-muted); font-size: 12px; }
+.signup-page .signup-hero-stat-label { margin-top: 3px; color: var(--lp-muted); font-size: 12px; }
 .signup-hero-stat-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #f0f0ff; }
 
 .signup-hero-features { display: flex; flex-wrap: wrap; gap: 22px; margin: 34px 0 0; padding: 0; list-style: none; }
@@ -1233,7 +1236,7 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-panel { display: flex; justify-content: center; }
 .signup-card { width: 100%; max-width: 452px; padding: 34px 38px; border-radius: 24px; background: rgba(255, 255, 255, .55); backdrop-filter: blur(24px); box-shadow: 0 4px 40px rgba(0, 0, 0, .06); }
 .signup-card h2 { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
-.signup-card-lead { margin-top: 9px; color: var(--lp-muted); font-size: 14px; line-height: 1.55; }
+.signup-page .signup-card-lead { margin-top: 9px; color: var(--lp-muted); font-size: 14px; line-height: 1.55; }
 
 .signup-form { display: flex; flex-direction: column; gap: 18px; margin-top: 26px; }
 .signup-field { display: flex; flex-direction: column; gap: 8px; }
@@ -1278,34 +1281,35 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-submit:disabled { background: #b6bac1; }
 .signup-submit .spinner { margin: 0; border-color: rgba(255, 255, 255, .45); border-top-color: #fff; }
 
-.signup-footer { margin-top: 22px; color: var(--lp-faint); font-size: 13px; text-align: center; }
+.signup-page .signup-footer { margin-top: 30px; color: var(--lp-faint); font-size: 13px; text-align: center; }
 .signup-footer a { color: var(--lp-indigo); font-weight: 700; }
 
 /* 창이 낮으면 소개 쪽 여백부터 걷어 카드가 그대로 한 화면에 남게 합니다. */
 @media (max-height: 820px) {
   .signup-hero h1 { font-size: 34px; }
-  .signup-hero-lead { margin-top: 12px; }
+  .signup-page .signup-hero-lead { margin-top: 12px; }
   .signup-hero-stat { margin-top: 16px; }
   .signup-hero-features { gap: 18px; margin-top: 24px; }
   .signup-hero-foot { margin-top: 24px; }
-  .signup-card { padding: 28px 32px; }
+  .signup-card { padding: 22px 32px; }
   .signup-card h2 { font-size: 25px; }
-  .signup-form { gap: 15px; margin-top: 22px; }
-  .signup-footer { margin-top: 18px; }
+  .signup-page .signup-card-lead { margin-top: 7px; }
+  .signup-form { gap: 14px; margin-top: 22px; }
+  .signup-page .signup-footer { margin-top: 22px; }
 }
 /* 더 낮은 창에서는 칸 높이와 아래쪽 줄 간격까지 줄여 마지막 줄을 화면 안에 붙잡습니다. */
 @media (max-height: 740px) {
   .signup-header { height: 48px; }
   .signup-main { padding-bottom: 16px; }
-  .signup-card { padding: 22px 28px; }
+  .signup-card { padding: 20px 28px; }
   .signup-card h2 { font-size: 23px; }
-  .signup-card-lead { margin-top: 6px; font-size: 13px; }
+  .signup-page .signup-card-lead { margin-top: 6px; font-size: 13px; }
   .signup-form { gap: 12px; margin-top: 18px; }
   .signup-field { gap: 6px; }
   .signup-input, .signup-check { height: 44px; }
   .signup-agree, .signup-submit { margin-top: 2px; }
   .signup-submit { height: 48px; }
-  .signup-footer { margin-top: 14px; }
+  .signup-page .signup-footer { margin-top: 16px; }
 }
 /* 두 단이 들어가지 않는 폭에서는 소개를 접고 가입 칸만 세웁니다. */
 @media (max-width: 1000px) {
