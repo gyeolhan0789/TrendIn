@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 # 버전은 Airflow constraints 가 고정한다 (Dockerfile · scripts/dev-setup.sh). 여기엔 이름만 적는다.
 dependencies = [
-  "apache-airflow==3.3.1",
+  "apache-airflow[statsd]==3.3.1",
   "apache-airflow-providers-standard",
   "apache-airflow-providers-postgres",
   "httpx",
