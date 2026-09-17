@@ -1239,7 +1239,8 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-field { display: flex; flex-direction: column; gap: 8px; }
 /* 이름표와 오류 문구가 한 줄을 나눠 씁니다. 오류가 떠도 칸 높이가 그대로라 카드가 자라지 않습니다. */
 .signup-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.signup-label { color: var(--lp-faint); font-size: 13px; font-weight: 500; }
+/* 값보다는 물러나고 자리 표시 글씨보다는 또렷하게. --lp-faint 와 --lp-muted 사이입니다. */
+.signup-label { color: #838a97; font-size: 13px; font-weight: 500; }
 .signup-field-error { min-width: 0; color: #dc2626; font-size: 11px; line-height: 1.4; text-align: right; }
 /* 칸에 딸린 단추(중복확인)가 있으면 이 줄을 나눠 씁니다. 없으면 칸이 줄 전체를 차지합니다. */
 .signup-input-row { display: flex; align-items: center; gap: 8px; }
