@@ -639,8 +639,6 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-nav .is-upcoming { color: #c7cbd2; cursor: default; }
 
 .landing-header-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-.landing-header-search { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; }
-.landing-header-search:hover { background: #f3f4f6; }
 .landing-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; white-space: nowrap; transition: background .15s, border-color .15s; }
 .landing-btn--ghost { border: 1px solid #d1d5db; color: #374151; }
 .landing-btn--ghost:hover { background: #f9fafb; }
