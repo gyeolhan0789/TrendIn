@@ -23,6 +23,8 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in infra/.env}
+      GF_SERVER_ROOT_URL: http://j15a102.p.ssafy.io/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     volumes:

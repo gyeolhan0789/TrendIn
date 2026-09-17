@@ -8,9 +8,10 @@ TrendIn 서비스는 EC2에서 Nginx와 Docker Compose를 중심으로 운영한
 Client
   └─ Nginx (:80)
       ├─ /, SPA 경로 ──────────> Frontend 정적 파일
-      └─ /api, 기존 API 경로 ──> Backend (:8080)
-                                      ├─ PostgreSQL (:5432)
-                                      └─ Redis (:6379)
+      ├─ /api, 기존 API 경로 ──> Backend (:8080)
+      │                           ├─ PostgreSQL (:5432)
+      │                           └─ Redis (:6379)
+      └─ /grafana/ ────────────> Grafana (127.0.0.1:3000)
 
 GitLab ── webhook ──> Jenkins ──> CI / CD
 
@@ -69,7 +70,7 @@ Jenkins 파이프라인 파일은 다음과 같다.
 
 ### Nginx
 
-Nginx는 호스트의 80 포트에서 Frontend 정적 파일을 제공한다. `/api/` 요청은 접두사를 제거해 Backend로 전달하며, 기존 API 경로도 호환성을 위해 프록시한다. `/trends`는 요청의 `Accept` 헤더에 따라 SPA 화면과 기존 API를 구분한다.
+Nginx는 호스트의 80 포트에서 Frontend 정적 파일을 제공한다. `/api/` 요청은 접두사를 제거해 Backend로 전달하며, 기존 API 경로도 호환성을 위해 프록시한다. `/trends`는 요청의 `Accept` 헤더에 따라 SPA 화면과 기존 API를 구분한다. `/grafana/`는 loopback의 Grafana로 프록시한다.
 
 ### PostgreSQL
 
@@ -91,9 +92,9 @@ Prometheus는 자체 상태와 함께 `node_exporter:9100`, `cadvisor:8080`, 데
 docker compose --env-file infra/.env -f infra/compose.monitoring.yaml up -d
 ```
 
-두 포트는 기본적으로 호스트의 loopback에만 바인딩된다. 서버 외부에서는 SSH 터널을 통해 Grafana `http://localhost:3000`, Prometheus `http://localhost:9090`에 접속한다. 기본 포트는 각각 3000, 9090이며 `GRAFANA_PORT`, `PROMETHEUS_PORT`로 변경할 수 있다.
+두 포트는 호스트의 loopback에만 바인딩된다. 팀원은 `http://j15a102.p.ssafy.io/grafana/`에서 Grafana에 접속한다. Prometheus는 기존처럼 외부에 공개하지 않는다.
 
-기동 후 `docker compose --env-file infra/.env -f infra/compose.monitoring.yaml ps`로 상태를 확인한다. Prometheus의 **Status > Targets**에는 `prometheus`, `node_exporter`, `cadvisor`가 표시되며, Grafana Explore에서 `up`, `node_uname_info`, `container_last_seen` 등을 조회할 수 있다.
+기동 후 `docker compose --env-file infra/.env -f infra/compose.monitoring.yaml ps`로 상태를 확인한다. Prometheus의 **Status > Targets**에는 `prometheus`, `node_exporter`, `cadvisor`, `airflow`가 표시되며, Grafana Explore에서 관련 메트릭을 조회할 수 있다.
 
 ## 주요 설정 파일
 
