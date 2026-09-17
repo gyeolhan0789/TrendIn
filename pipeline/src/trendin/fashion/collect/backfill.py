@@ -44,8 +44,11 @@ logger = logging.getLogger("trendin.collect.backfill")
 
 FIRST_PAGE = 2
 
-# 과거분이 있는 route 는 `rss` 뿐이다. 목록 소스는 `discover(page=...)` 가 거부한다.
-BACKFILLABLE = tuple(k for k in sorted(sources.BY_KEY) if sources.get(k).route == "rss")
+# 과거분은 페이지 넘김이 되는 피드만 있다(확정 9). 목록 소스는 `discover(page=...)` 가 거부하고,
+# `page_param` 이 없는 피드는 넘길 페이지가 없다.
+BACKFILLABLE = tuple(
+    k for k in sorted(sources.BY_KEY) if sources.get(k).route == "rss" and sources.get(k).page_param
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -128,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     source = sources.get(args.source)
     if args.source not in BACKFILLABLE:
         raise SystemExit(
-            f"목록 소스에는 과거분이 없다 — 목록에 보이는 만큼만이다: {args.source}"
+            f"과거분이 없는 소스다 — 목록 소스이거나 페이지 넘김이 안 되는 피드다: {args.source}"
             f" (백필 가능: {', '.join(BACKFILLABLE)})"
         )
 

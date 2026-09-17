@@ -20,8 +20,6 @@ MEASURED_AT = datetime.fromtimestamp(1789360407, timezone.utc)
 
 def run_kwargs(body: bytes, clock):
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(404)
         return httpx.Response(200, content=body, headers={"Content-Type": "application/json"})
 
     def session_factory(**kwargs):

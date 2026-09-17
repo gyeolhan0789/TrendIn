@@ -1,0 +1,9 @@
+key = "vogue"
+domain = "fashion"
+route = "rss"
+country = "KR"  # 발행 법인 두산매거진의 소재지
+discover_url = "https://www.vogue.co.kr/category/fashion/feed/"
+allowed_url_prefixes = ["https://www.vogue.co.kr/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

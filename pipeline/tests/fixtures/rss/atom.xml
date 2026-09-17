@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  손으로 만든 Atom 1.0 피드 (S15P21A102-284). dazed · globenewswire 는 아직 실측하지 않았다 —
+  291 의 프로브가 실제 피드로 이 모양을 확인한다.
+
+  - entry 1: published 있음, link 가 self·alternate 둘, category term, author/name, html content
+  - entry 2: published 없이 updated 만           → atom_published 규칙이면 정규화 실패
+  - entry 3: id 가 공백뿐                          → guid_hash 발견 단계 실패
+-->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>합성 Atom 피드</title>
+  <id>https://atom.test/feed</id>
+  <updated>2026-09-16T12:00:00Z</updated>
+  <entry>
+    <title>아톰 첫 기사</title>
+    <link rel="self" href="https://atom.test/api/1"/>
+    <link rel="alternate" href="https://atom.test/fashion/first?utm_source=rss"/>
+    <id>tag:atom.test,2026:article-1</id>
+    <published>2026-09-16T11:30:00+01:00</published>
+    <updated>2026-09-16T12:00:00Z</updated>
+    <author><name>Jane Doe</name></author>
+    <category term="Fashion"/>
+    <category term="Runway"/>
+    <summary>짧은 요약</summary>
+    <content type="html">&lt;p&gt;첫 문단.&lt;/p&gt;&lt;p&gt;둘째 문단.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>updated 만 있다</title>
+    <link href="https://atom.test/fashion/second"/>
+    <id>tag:atom.test,2026:article-2</id>
+    <updated>2026-09-15T08:00:00Z</updated>
+  </entry>
+  <entry>
+    <title>id 가 비었다</title>
+    <link href="https://atom.test/fashion/third"/>
+    <id>   </id>
+    <published>2026-09-14T08:00:00Z</published>
+  </entry>
+</feed>

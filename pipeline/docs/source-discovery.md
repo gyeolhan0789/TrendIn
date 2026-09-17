@@ -94,6 +94,7 @@ TOML 인 이유는 둘이다. `tomllib` 이 stdlib 이라 의존성이 안 늘�
 | 규칙 | 뜻 |
 |---|---|
 | `guid_hash` | guid 만 쓴다(Atom 은 `<id>`, RSS 1.0 은 `rdf:about`). 앞뒤 공백만 벗기고 sha256 앞 16자. 비면 그 item 은 발견 단계 실패이고 `link` 로 넘어가지 않는다 — 필요해지면 `link_hash` 를 따로 더한다. 슬러그만 있는 URL(vogue_us 등)은 제목이 바뀌면 id 가 바뀌어서 둔다 (2026-09-17 284 합의) |
+| `url_path_segment` | 기사 link 경로를 `/` 로 나눈 빈칸 아닌 조각 중 `param` 번째(정수, 음수는 뒤에서). 조각은 영숫자·`_`·`-` 만 받고, 조각이 없거나 모양이 다르면 발견 단계 실패다. guid 는 보지 않는다. 예: 미국 허스트 `/fashion/trends/a73617426/slug/` 는 `-2` (2026-09-17 284) |
 | `rss_pubdate` | `pubDate`, RFC 822 |
 | `dc_date` | `dc:date`, ISO 8601 (2026-09-17 284 합의) |
 | `atom_published` · `atom_updated` | Atom `<published>` · `<updated>` (2026-09-17 284 합의) |

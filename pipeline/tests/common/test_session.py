@@ -1,7 +1,8 @@
-"""수집 게이트 (설계 문서 불변식 1·2·4, #9).
+"""수집 게이트 (설계 문서 불변식 2·4, #9, `source-discovery.md` 불변식 18).
 
-163 완료 기준이 요구하는 위반 다섯을 여기서 잡는다 — robots 금지 경로, 이름 차단 UA,
-호스트 간격, 403·429 뒤 재시도, 허용 URL 밖. 실제로 자지 않으려고 시계와 sleep 을 주입한다.
+위반 넷을 여기서 잡는다 — 이름 차단 UA, 호스트 간격, 403·429 뒤 재시도, 허용 URL 밖.
+robots.txt 는 2026-09-17 판정 기준에서 빠져 세션이 받지 않는다(S15P21A102-284).
+실제로 자지 않으려고 시계와 sleep 을 주입한다.
 """
 
 import httpx
@@ -12,14 +13,12 @@ from trendin.common.collect.session import (
     CollectSession,
     FetchFailed,
     HostBlocked,
-    RobotsDisallowed,
     UrlNotAllowed,
 )
 from trendin.common.collect.stores import InMemoryValidatorStore
 
 FEED = "https://example.test/category/fashion/feed/"
 ALLOWED = ("https://example.test/",)
-ROBOTS = "User-agent: *\nDisallow: /wp-admin/\n"
 
 
 def make_session(handler, clock, **kwargs):
@@ -39,15 +38,13 @@ def recorder(responses):
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(str(request.url))
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=ROBOTS)
         result = responses(request) if callable(responses) else responses
         return result
 
     return handler, seen
 
 
-# --- 위반 다섯 -------------------------------------------------------------
+# --- 위반 넷 -------------------------------------------------------------
 
 
 def test_이름으로_차단당하는_UA_로는_세션을_못_만든다():
@@ -57,15 +54,15 @@ def test_이름으로_차단당하는_UA_로는_세션을_못_만든다():
             CollectSession(user_agent=blocked)
 
 
-def test_robots_가_금지한_경로는_요청조차_안_나간다(clock):
+def test_robots_txt_는_받지_않는다(clock):
+    """판정 기준에서 뺐으니 받을 이유도 없다. 옛 코드는 호스트마다 한 번 받았다."""
     handler, seen = recorder(httpx.Response(200, content=b"x"))
     with make_session(handler, clock) as session:
-        with pytest.raises(RobotsDisallowed):
-            session.get("https://example.test/wp-admin/secret")
-    assert seen == ["https://example.test/robots.txt"]
+        session.get("https://example.test/wp-admin/anything")
+    assert seen == ["https://example.test/wp-admin/anything"]
 
 
-def test_허용_URL_밖은_robots_도_안_받고_거부한다(clock):
+def test_허용_URL_밖은_요청하지_않고_거부한다(clock):
     handler, seen = recorder(httpx.Response(200, content=b"x"))
     with make_session(handler, clock) as session:
         with pytest.raises(UrlNotAllowed):
@@ -78,16 +75,7 @@ def test_같은_호스트_연속_요청은_간격을_지킨다(clock):
     with make_session(handler, clock) as session:
         session.get(FEED)
         session.get(FEED)
-    # robots(첫 요청이라 안 잔다) → 피드 → 피드
-    assert clock.slept == [3.0, 3.0]
-
-
-def test_robots_요청도_간격에_포함된다(clock):
-    """예외로 두면 소스당 요청이 3초가 아니라 0초 간격 두 번이 된다."""
-    handler, seen = recorder(httpx.Response(200, content=b"x"))
-    with make_session(handler, clock) as session:
-        session.get(FEED)
-    assert len(seen) == 2
+    # 첫 요청은 안 잔다 → 둘째 요청 전에 3초
     assert clock.slept == [3.0]
 
 
@@ -97,10 +85,10 @@ def test_403_429_는_재시도하지_않고_그_호스트를_멈춘다(clock, st
     with make_session(handler, clock) as session:
         with pytest.raises(HostBlocked):
             session.get(FEED)
-        assert len(seen) == 2  # robots + 피드 한 번뿐. 재시도가 없다.
+        assert len(seen) == 1  # 한 번뿐. 재시도가 없다.
         with pytest.raises(HostBlocked):
             session.get(FEED)  # 같은 실행에서 다시 치지 않는다
-        assert len(seen) == 2
+        assert len(seen) == 1
 
 
 def test_5xx_는_두_번_재시도한다(clock):
@@ -115,8 +103,6 @@ def test_네트워크_오류도_두_번_재시도한다(clock):
     calls = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=ROBOTS)
         calls.append(1)
         raise httpx.ConnectTimeout("끊김")
 
@@ -133,8 +119,6 @@ def test_304_는_받지_않은_것으로_돌려주고_validator_를_다시_보�
     sent: list[dict] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=ROBOTS)
         sent.append(dict(request.headers))
         if "if-none-match" in request.headers:
             return httpx.Response(304, headers={"ETag": '"v2"'})
@@ -156,8 +140,6 @@ def test_받은_쿠키는_다음_요청에_실리지_않는다(clock):
     sent: list[str | None] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=ROBOTS)
         sent.append(request.headers.get("cookie"))
         return httpx.Response(200, content=b"x", headers={"Set-Cookie": "session=abc; Path=/"})
 
@@ -168,11 +150,9 @@ def test_받은_쿠키는_다음_요청에_실리지_않는다(clock):
 
 
 def test_다른_호스트로_새는_리다이렉트를_따라가지_않는다(clock):
-    """robots 를 확인한 적 없는 곳을 치게 된다."""
+    """허용 URL 검사를 거치지 않은 곳을 치게 된다 (불변식 18)."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text=ROBOTS)
         return httpx.Response(302, headers={"Location": "https://elsewhere.test/x"})
 
     with make_session(handler, clock) as session:

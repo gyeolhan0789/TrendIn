@@ -93,13 +93,3 @@ def mock_transport():
     return make
 
 
-@pytest.fixture
-def robots_allow_all():
-    """robots.txt 요청이면 전부 허용하는 응답, 아니면 None 을 주는 도우미."""
-
-    def maybe(request: httpx.Request) -> httpx.Response | None:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(200, text="User-agent: *\nAllow: /\n")
-        return None
-
-    return maybe

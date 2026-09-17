@@ -1,4 +1,4 @@
-"""수집 요청의 유일한 통로 (설계 문서 불변식 1·2·4, #9).
+"""수집 요청의 유일한 통로 (설계 문서 불변식 2·4, #9, `source-discovery.md` 불변식 18).
 
 정책 검사를 함수로 흩어 두면 어댑터가 "부르기로 마음먹어야만" 지켜진다. 게이트를 지나야
 요청이 나가게 만들면 금지된 요청은 애초에 불가능해지고, 테스트는 여기 하나만 겨누면 된다.
@@ -8,7 +8,7 @@ pipeline/README.md 규약 12 때문이다. 예외를 Airflow 개념으로 옮기
 
 **로그인·인증 경로가 없다.** 헤더·쿠키·자격 증명을 받는 인자가 없고, 응답이 준 쿠키는
 매 요청 뒤 버린다. 로그인 수집을 하려면 이 파일을 고쳐야 하고, 그 커밋이 리뷰에 올라온다
-(허스트중앙 약관 제5조 2항·제10조 3항 — 설계 문서 #3.2).
+(불변식 2).
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from urllib.parse import urlsplit
 import httpx
 
 from trendin.common.collect.contracts import ValidatorStore
-from trendin.common.collect.robots import RobotsCache
 
 logger = logging.getLogger("trendin.collect.session")
 
@@ -56,10 +55,6 @@ class BlockedUserAgent(CollectError):
     """이름으로 차단당하는 UA 다. 세션 생성 시점에 막는다."""
 
 
-class RobotsDisallowed(CollectError):
-    """robots.txt 의 `User-agent: *` 가 금지한 경로다."""
-
-
 class UrlNotAllowed(CollectError):
     """소스 정의가 허용한 URL 범위 밖이다."""
 
@@ -86,7 +81,10 @@ def _is_blocked_ua(user_agent: str) -> bool:
 
 
 class CollectSession:
-    """호스트 간격·robots·허용 URL·조건부 요청·재시도를 한자리에서 강제한다.
+    """호스트 간격·허용 URL·조건부 요청·재시도를 한자리에서 강제한다.
+
+    robots.txt 는 받지도 판정하지도 않는다. 2026-09-17 약관과 robots 를 판정 기준에서 뺐다
+    (`web-collect.md` 기준 전환). 차단 우회 금지(불변식 2)는 위 강제들이 그대로 진다.
 
     같은 호스트 간격은 **이 프로세스 안에서만** 성립한다. 두 태스크가 같은 호스트를
     동시에 치지 않게 하는 건 실행 흐름(167)이 소스당 태스크 하나로 매핑해서 한다.
@@ -118,11 +116,10 @@ class CollectSession:
         self._retry_wait = retry_wait
         self._last_request: dict[str, float] = {}
         self._blocked_hosts: set[str] = set()
-        self._robots = RobotsCache(self._fetch_robots)
         self._client = httpx.Client(
             headers={"User-Agent": user_agent},
             timeout=timeout,
-            follow_redirects=False,  # 다른 호스트로 새면 robots 를 확인 안 한 곳을 친다
+            follow_redirects=False,  # 따라가면 허용 URL 검사를 안 거친 곳을 친다 (불변식 18)
             transport=transport,
         )
 
@@ -131,9 +128,6 @@ class CollectSession:
     def get(self, url: str, *, conditional: bool = True) -> Response:
         """정책을 전부 통과한 GET. 304 면 `not_modified` 가 선 응답을 돌려준다."""
         self._check_allowed(url)
-        if not self._robots.can_fetch(self.user_agent, url):
-            logger.error("robots.txt 가 금지한 경로다: %s", url)
-            raise RobotsDisallowed(f"robots.txt 가 금지한 경로다: {url}")
         return self._request(url, conditional=conditional)
 
     def close(self) -> None:
@@ -152,19 +146,6 @@ class CollectSession:
             return
         if not url.startswith(self._allowed):
             raise UrlNotAllowed(f"허용 범위 밖이다: {url}")
-
-    def _fetch_robots(self, robots_url: str) -> str | None:
-        """robots.txt 자체는 robots 검사와 허용 URL 검사를 건너뛴다(순환·범위 밖).
-
-        간격과 호스트 차단은 그대로 지킨다 — 예외로 두면 소스당 요청이 0초 간격 두 번이 된다.
-        """
-        try:
-            response = self._request(robots_url, conditional=False)
-        except CollectError:
-            return None
-        if response.status != 200:
-            return None
-        return response.body.decode("utf-8", "replace")
 
     def _throttle(self, host: str) -> None:
         last = self._last_request.get(host)

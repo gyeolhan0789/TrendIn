@@ -28,8 +28,6 @@ class FakeAlgolia:
         self.windows: list[tuple[int, int, int]] = []  # (since, until, 준 건수)
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/robots.txt":
-            return httpx.Response(404)
         bounds = urllib.parse.parse_qs(request.url.query.decode())["numericFilters"][0].split(",")
         since = int(bounds[0].removeprefix("created_at_i>="))
         until = int(bounds[1].removeprefix("created_at_i<"))

@@ -1,4 +1,4 @@
-"""RSS 어댑터 (설계 문서 확정 1·2).
+"""피드 어댑터 — RSS 2.0 · RSS 1.0 · Atom (설계 문서 확정 1·2, S15P21A102-284).
 
 피드 하나가 발견과 취득을 동시에 끝낸다 — item 조각이 곧 raw 다. 그래서 `discover` 는
 guid 만 뽑는 값싼 경로고, HTML 을 벗기는 무거운 일은 `materialize` 로 미룬다. 그 사이에서
@@ -8,20 +8,28 @@ guid 만 뽑는 값싼 경로고, HTML 을 벗기는 무거운 일은 `materiali
 vogue·gqkorea·allure 피드가 `xmlns:media` 선언 없이 `<media:thumbnail>` 을 써서
 `ElementTree` 가 `unbound prefix` 로 파싱을 거부했다. expat 은 prefix 를 이름의 일부로
 취급해 6/6 을 읽었고, `CurrentByteIndex` 가 item 의 바이트 구간까지 정확히 짚었다.
+
+**형식은 조각의 모양으로 가른다.** `<entry>` 면 Atom, `rdf:about` 을 단 `<item>` 이면 RSS 1.0,
+나머지 `<item>` 은 RSS 2.0 이다. 프로필 칸으로 두지 않는 이유는 `materialize` 가 조각만 받기
+때문이다 — 피드 전체를 다시 볼 수 없다. 형식마다 필드 이름이 다른 것은 아래 `_FORMATS` 한
+표가 흡수한다. article_id·발행일은 표가 아니라 프로필의 규칙이 정한다(`source-discovery.md`
+#3.2) — 대체 순서를 코드에 숨기지 않는다.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import xml.parsers.expat as expat
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 
 from trendin.common.collect.article import Article
-from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
+from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, Rule, SourceDef
 from trendin.common.collect.html_text import html_to_text, looks_like_html
 from trendin.common.collect.keys import ROUTE_EXT, raw_key
 from trendin.common.collect.session import CollectSession
@@ -29,7 +37,10 @@ from trendin.common.collect.urls import clean_url
 
 logger = logging.getLogger("trendin.collect.rss")
 
-_CLOSE = b"</item>"
+# 한 기사를 담는 요소. RSS 2.0 과 1.0 은 `item`, Atom 은 `entry` 다.
+_ENTRY_NAMES = ("item", "entry")
+
+GUID_HASH_LENGTH = 16
 
 
 class FeedParseError(Exception):
@@ -37,24 +48,25 @@ class FeedParseError(Exception):
 
 
 def iter_item_spans(body: bytes) -> list[tuple[int, int]]:
-    """응답 원본에서 `<item>`…`</item>` 의 바이트 구간을 짚는다.
+    """응답 원본에서 `<item>`·`<entry>` 조각의 바이트 구간을 짚는다.
 
     파싱 후 재직렬화하면 속성 순서·공백·엔티티가 바뀌어 "받은 바이트 그대로"(불변식 8)가
     아니게 된다. 그래서 원본을 자른다.
     """
     parser = expat.ParserCreate()  # 네임스페이스 처리 없음 — 선언 없는 prefix 를 견딘다
     spans: list[tuple[int, int]] = []
-    starts: list[int] = []
+    starts: list[tuple[str, int]] = []
 
     def on_start(name: str, _attrs: dict[str, str]) -> None:
-        if name == "item":
-            starts.append(parser.CurrentByteIndex)
+        if name in _ENTRY_NAMES:
+            starts.append((name, parser.CurrentByteIndex))
 
     def on_end(name: str) -> None:
-        if name == "item" and starts:
-            begin = starts.pop()
-            close = body.index(_CLOSE, parser.CurrentByteIndex)
-            spans.append((begin, close + len(_CLOSE)))
+        if name in _ENTRY_NAMES and starts:
+            _name, begin = starts.pop()
+            close_tag = f"</{name}>".encode()
+            close = body.index(close_tag, parser.CurrentByteIndex)
+            spans.append((begin, close + len(close_tag)))
 
     parser.StartElementHandler = on_start
     parser.EndElementHandler = on_end
@@ -65,30 +77,49 @@ def iter_item_spans(body: bytes) -> list[tuple[int, int]]:
     return spans
 
 
-def parse_item(fragment: bytes) -> dict[str, list[str]]:
-    """item 조각 하나에서 직계 자식들의 텍스트를 모은다. `<category>` 처럼 반복되면 다 담는다."""
-    parser = expat.ParserCreate()
-    fields: dict[str, list[str]] = {}
-    depth = 0
-    current: str | None = None
-    buffer: list[str] = []
+@dataclass
+class Entry:
+    """조각 하나를 읽은 것. 형식을 모르는 날것이다 — 이름 풀이는 `_FORMATS` 가 한다."""
 
-    def on_start(name: str, _attrs: dict[str, str]) -> None:
-        nonlocal depth, current, buffer
-        depth += 1
-        if depth == 2:
-            current, buffer = name, []
+    name: str  # 조각 루트 요소 이름
+    attrs: dict[str, str]  # 루트 요소의 속성 (RSS 1.0 의 `rdf:about`)
+    # 직계 자식은 이름으로, 손자는 `부모/자식` 으로. `<category>` 처럼 반복되면 다 담는다.
+    texts: dict[str, list[str]] = field(default_factory=dict)
+    # 직계 자식의 속성. Atom 의 `<link href>`·`<category term>` 이 여기 있다.
+    child_attrs: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+
+    def first(self, name: str) -> str:
+        values = self.texts.get(name)
+        return values[0] if values else ""
+
+
+def parse_item(fragment: bytes) -> Entry:
+    parser = expat.ParserCreate()
+    path: list[str] = []
+    buffers: list[list[str]] = []
+    entry: Entry | None = None
+
+    def on_start(name: str, attrs: dict[str, str]) -> None:
+        nonlocal entry
+        path.append(name)
+        buffers.append([])
+        if len(path) == 1:
+            entry = Entry(name, dict(attrs))
+        elif len(path) == 2:
+            entry.child_attrs.setdefault(name, []).append(dict(attrs))
 
     def on_chars(data: str) -> None:
-        if depth >= 2 and current is not None:
-            buffer.append(data)
+        if len(path) >= 2:
+            # 손자 이하의 글자도 자식의 글자다 — 지금까지 `content:encoded` 를 읽던 방식 그대로
+            for buffer in buffers[1:]:
+                buffer.append(data)
 
     def on_end(_name: str) -> None:
-        nonlocal depth, current
-        if depth == 2 and current is not None:
-            fields.setdefault(current, []).append("".join(buffer))
-            current = None
-        depth -= 1
+        depth = len(path)
+        text = "".join(buffers.pop())
+        if depth in (2, 3):
+            entry.texts.setdefault("/".join(path[1:]), []).append(text)
+        path.pop()
 
     parser.StartElementHandler = on_start
     parser.CharacterDataHandler = on_chars
@@ -97,12 +128,59 @@ def parse_item(fragment: bytes) -> dict[str, list[str]]:
         parser.Parse(fragment, True)
     except expat.ExpatError as exc:
         raise FeedParseError(f"item 조각 파싱 실패: {exc}") from exc
-    return fields
+    return entry
 
 
-def _first(fields: dict[str, list[str]], name: str) -> str:
-    values = fields.get(name)
-    return values[0] if values else ""
+@dataclass(frozen=True, slots=True)
+class _Format:
+    guid: Callable[[Entry], str]
+    link: Callable[[Entry], str]
+    body: str
+    summary: str
+    categories: Callable[[Entry], list[str]]
+    author: Callable[[Entry, SourceDef], str]
+
+
+def _atom_link(entry: Entry) -> str:
+    """rel 이 없거나 `alternate` 인 첫 링크가 기사 주소다 (RFC 4287 4.2.7.2)."""
+    for attrs in entry.child_attrs.get("link", []):
+        if attrs.get("rel", "alternate") == "alternate" and attrs.get("href"):
+            return attrs["href"]
+    return ""
+
+
+_FORMATS = {
+    "rss20": _Format(
+        guid=lambda e: e.first("guid"),
+        link=lambda e: e.first("link"),
+        body="content:encoded",
+        summary="description",
+        categories=lambda e: e.texts.get("category", []),
+        author=lambda e, source: e.first(source.author_field),
+    ),
+    "rss10": _Format(
+        guid=lambda e: e.attrs.get("rdf:about", ""),
+        link=lambda e: e.first("link"),
+        body="content:encoded",
+        summary="description",
+        categories=lambda e: e.texts.get("dc:subject", []),
+        author=lambda e, _source: e.first("dc:creator"),
+    ),
+    "atom": _Format(
+        guid=lambda e: e.first("id"),
+        link=_atom_link,
+        body="content",
+        summary="summary",
+        categories=lambda e: [a.get("term", "") for a in e.child_attrs.get("category", [])],
+        author=lambda e, _source: e.first("author/name"),
+    ),
+}
+
+
+def feed_format(entry: Entry) -> str:
+    if entry.name == "entry":
+        return "atom"
+    return "rss10" if "rdf:about" in entry.attrs else "rss20"
 
 
 def article_id_from_guid(guid: str, param: str) -> str:
@@ -116,11 +194,61 @@ def article_id_from_guid(guid: str, param: str) -> str:
     return values[0]
 
 
-def _parse_published(raw: str) -> datetime | None:
+# `url_path_segment` 가 내는 조각은 객체 키와 이벤트 id(`{source}-{article_id}`)에 그대로 들어간다.
+# 퍼센트 인코딩·점·공백이 섞이면 키가 소스마다 다르게 깨지므로 좁게 받는다.
+_SEGMENT = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def article_id_from_path(link: str, position: int) -> str:
+    """link 경로를 `/` 로 나눈 빈칸 아닌 조각 중 `position` 번째다. 음수는 뒤에서 센다.
+
+    `https://www.harpersbazaar.com/fashion/trends/a73617426/best-suede-bags/` 는 `-2` 로
+    `a73617426` 이다. 경로 깊이가 섹션마다 달라도 id 가 끝에서 두 번째라 뒤에서 센다.
+    """
+    segments = [s for s in urlsplit(link).path.split("/") if s]
+    try:
+        segment = segments[position]
+    except IndexError:
+        raise ValueError(f"link 경로에 {position} 번째 조각이 없다: {link!r}") from None
+    if not _SEGMENT.fullmatch(segment):
+        raise ValueError(f"경로 조각이 id 로 못 쓰는 모양이다: {segment!r} ({link!r})")
+    return segment
+
+
+def article_id_by_rule(rule: Rule, guid: str, link: str) -> str:
+    if rule.name == "guid_query_param":
+        return article_id_from_guid(guid, rule.param)
+    if rule.name == "url_path_segment":
+        return article_id_from_path(link, rule.param)
+    if rule.name == "guid_hash":
+        # 앞뒤 공백만 벗긴다. guid 는 URL 이 아닐 수 있어 URL 정리를 하지 않는다.
+        # 비었을 때 link 로 넘어가지 않는다 — 그런 소스는 규칙을 따로 둔다 (#3.2).
+        stripped = guid.strip()
+        if not stripped:
+            raise ValueError("guid 가 비어 guid_hash 를 만들 수 없다")
+        return hashlib.sha256(stripped.encode("utf-8")).hexdigest()[:GUID_HASH_LENGTH]
+    raise ValueError(f"모르는 article_id 규칙이다: {rule.name!r}")
+
+
+# 발행일 규칙 → (읽는 요소, 날짜 형식). 대체 순서는 없다 (#3.2).
+_DATE_RULES = {
+    "rss_pubdate": ("pubDate", "rfc822"),
+    "dc_date": ("dc:date", "iso8601"),
+    "atom_published": ("published", "iso8601"),
+    "atom_updated": ("updated", "iso8601"),
+}
+
+
+def published_by_rule(rule: Rule, entry: Entry) -> datetime | None:
+    element, form = _DATE_RULES[rule.name]
+    raw = entry.first(element).strip()
     if not raw:
         return None
     try:
-        parsed = parsedate_to_datetime(raw)
+        if form == "rfc822":
+            parsed = parsedate_to_datetime(raw)
+        else:
+            parsed = datetime.fromisoformat(raw)
     except (TypeError, ValueError):
         return None
     return parsed if parsed.tzinfo is not None else None
@@ -136,6 +264,8 @@ class RssAdapter:
         *,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        if source.article_id is None or source.published_at is None:
+            raise ValueError(f"{source.key}: 피드 소스에 article_id·published_at 규칙이 없다")
         self.source = source
         self._session = session
         self._now = now or (lambda: datetime.now(timezone.utc))
@@ -143,8 +273,12 @@ class RssAdapter:
     def page_url(self, page: int | None) -> str:
         if page is None:
             return self.source.discover_url
+        if self.source.page_param is None:
+            # 모르는 피드에 페이지 파라미터를 붙여 치면, 무시당해 같은 첫 페이지를 받거나
+            # 엉뚱한 응답을 받는다. 어느 쪽이든 과거분인 척 넘어간다.
+            raise ValueError(f"{self.source.key}: 페이지 넘김이 안 되는 피드다 (page_param 없음)")
         separator = "&" if "?" in self.source.discover_url else "?"
-        return f"{self.source.discover_url}{separator}paged={page}"
+        return f"{self.source.discover_url}{separator}{self.source.page_param}={page}"
 
     def discover(self, page: int | None = None) -> DiscoverResult:
         url = self.page_url(page)
@@ -159,23 +293,27 @@ class RssAdapter:
         failures: list[Failure] = []
         for begin, end in iter_item_spans(body):
             fragment = body[begin:end]
-            fields = parse_item(fragment)
-            guid = _first(fields, "guid")
+            entry = parse_item(fragment)
+            shape = _FORMATS[feed_format(entry)]
+            guid = shape.guid(entry)
+            link = clean_url(shape.link(entry).strip())
             try:
-                article_id = article_id_from_guid(guid, self.source.guid_param)
+                article_id = article_id_by_rule(self.source.article_id, guid, link)
             except ValueError as exc:
                 logger.warning("%s: 후보가 못 됐다 — %s", self.source.key, exc)
-                failures.append(Failure(self.source.key, "discover", guid or "?", str(exc)))
+                failures.append(
+                    Failure(self.source.key, "discover", guid or link or "?", str(exc))
+                )
                 continue
             candidates.append(
                 Candidate(
                     source=self.source.key,
                     article_id=article_id,
-                    url=clean_url(_first(fields, "link").strip()),
+                    url=link,
                     raw=fragment,
                     raw_ext=ROUTE_EXT[self.source.route],
                     collected_at=collected_at,
-                    published_at=_parse_published(_first(fields, "pubDate").strip()),
+                    published_at=published_by_rule(self.source.published_at, entry),
                 )
             )
         logger.info(
@@ -187,15 +325,16 @@ class RssAdapter:
         if candidate.published_at is None:
             raise ValueError(f"발행일이 없어 키를 만들 수 없다: {candidate.article_id}")
 
-        fields = parse_item(candidate.raw)
-        body_text = html_to_text(_first(fields, "content:encoded")) or None
+        entry = parse_item(candidate.raw)
+        shape = _FORMATS[feed_format(entry)]
+        body_text = html_to_text(entry.first(shape.body)) or None
         if body_text is None:
             # 평소 0~1건이다. 갑자기 늘면 피드 구조가 바뀐 신호다 (2026-09-03 wkorea 1건).
             logger.warning(
                 "%s: 본문이 비었다 — article_id=%s", self.source.key, candidate.article_id
             )
 
-        description = _first(fields, "description").strip()
+        description = entry.first(shape.summary).strip()
         # description 이 HTML 이면 요약이 아니라 본문 사본이다. 그때는 비운다.
         summary = description or None if description and not looks_like_html(description) else None
 
@@ -205,7 +344,7 @@ class RssAdapter:
             route=self.source.route,
             article_id=candidate.article_id,
             url=candidate.url,
-            title=_first(fields, "title").strip(),
+            title=entry.first("title").strip(),
             published_at=candidate.published_at,
             collected_at=candidate.collected_at,
             raw_key=raw_key(
@@ -218,7 +357,7 @@ class RssAdapter:
             content_sha256=hashlib.sha256(candidate.raw).hexdigest(),
             summary=summary,
             body_text=body_text,
-            categories=[c.strip() for c in fields.get("category", []) if c.strip()],
-            author=_first(fields, self.source.author_field).strip() or None,
+            categories=[c.strip() for c in shape.categories(entry) if c.strip()],
+            author=shape.author(entry, self.source).strip() or None,
         )
         return candidate.raw, article
