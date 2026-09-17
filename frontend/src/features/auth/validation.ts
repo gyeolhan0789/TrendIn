@@ -6,7 +6,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxEmailLength = 254;
 const minNicknameLength = 2;
 const maxNicknameLength = 30;
-const minPasswordLength = 10;
+const minPasswordLength = 8;
 const maxPasswordLength = 128;
 
 /** 비밀번호 규칙은 입력하는 동안 체크리스트로도 보여주므로 항목별로 나눠 둡니다. */
@@ -43,7 +43,8 @@ export function validatePassword(password: string): string | undefined {
   if (!password) return '비밀번호를 입력해 주세요.';
   if (password.length > maxPasswordLength) return `비밀번호는 ${maxPasswordLength}자 이하여야 합니다.`;
   if (passwordRules.every((rule) => rule.test(password))) return undefined;
-  return `비밀번호는 ${minPasswordLength}자 이상이며 영문, 숫자, 특수문자를 모두 포함해야 합니다.`;
+  // 이름표 옆 한 줄에 들어가야 해서 짧게 씁니다. 어느 조건이 모자란지는 아래 체크리스트가 짚어 줍니다.
+  return `영문·숫자·특수문자를 포함해 ${minPasswordLength}자 이상이어야 합니다.`;
 }
 
 /** 로그인은 길이·형식만 거릅니다. 맞는 비밀번호인지는 서버만 압니다. */
