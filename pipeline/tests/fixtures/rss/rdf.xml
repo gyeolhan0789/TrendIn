@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  손으로 만든 RSS 1.0 (RDF) 피드 (S15P21A102-284). prtimes 는 아직 실측하지 않았다 —
+  291 의 프로브가 실제 피드로 이 모양을 확인한다.
+-->
+<rdf:RDF xmlns="http://purl.org/rss/1.0/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel rdf:about="https://rdf.test/index.rdf">
+    <title>합성 RDF 피드</title>
+    <link>https://rdf.test/</link>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://rdf.test/main/html/rd/p/000000001.000000002.html"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://rdf.test/main/html/rd/p/000000001.000000002.html">
+    <title>보도자료 제목</title>
+    <link>https://rdf.test/main/html/rd/p/000000001.000000002.html</link>
+    <description>보도자료 요약</description>
+    <content:encoded><![CDATA[<p>보도자료 본문.</p>]]></content:encoded>
+    <dc:creator>주식회사 예시</dc:creator>
+    <dc:subject>ファッション</dc:subject>
+    <dc:date>2026-09-16T18:00:00+09:00</dc:date>
+  </item>
+</rdf:RDF>

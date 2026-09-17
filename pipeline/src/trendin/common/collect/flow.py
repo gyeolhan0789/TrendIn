@@ -35,7 +35,6 @@ from trendin.common.collect.ledger import EmittedStats, Ledger
 from trendin.common.collect.session import (
     BlockedUserAgent,
     HostBlocked,
-    RobotsDisallowed,
     UrlNotAllowed,
 )
 from trendin.common.collect.sinks import (
@@ -50,10 +49,10 @@ logger = logging.getLogger("trendin.collect.flow")
 KST = timezone(timedelta(hours=9), "KST")
 
 # 다시 시도하면 불변식을 깨는 실패들. 403·429 는 "그 실행에서 그 호스트를 멈추고 IP·UA 를
-# 바꿔 재시도하지 않는다"(불변식 2)이고, robots 금지·허용 범위 밖·차단 UA 는 애초에 보내면
-# 안 되는 요청(불변식 1)이라 5분 뒤에 다시 보내도 똑같이 안 된다.
+# 바꿔 재시도하지 않는다"(불변식 2)이고, 허용 범위 밖·차단 UA 는 애초에 보내면 안 되는
+# 요청(`source-discovery.md` 불변식 18, 불변식 2)이라 5분 뒤에 다시 보내도 똑같이 안 된다.
 # 여기 없는 실패(`FetchFailed` — 타임아웃·5xx)는 재시도가 의미 있다.
-NO_RETRY = (BlockedUserAgent, RobotsDisallowed, UrlNotAllowed, HostBlocked)
+NO_RETRY = (BlockedUserAgent, UrlNotAllowed, HostBlocked)
 
 TASK_FAILED_REASON = "태스크가 실패했다 (로그 참조)"
 

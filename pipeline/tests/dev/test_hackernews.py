@@ -1,4 +1,4 @@
-"""Hacker News 어댑터 (S15P21A102-165, 설계 문서 확정 3·불변식 1).
+"""Hacker News 어댑터 (S15P21A102-165, 설계 문서 확정 3).
 
 고정 자료 `api/hn_search_by_date.json` 은 2026-09-14 에 받은 6시간 응답(168건)에서 네 건을
 고른 것이다 — 외부 링크 없는 Ask HN, 일반 링크, Show HN, 링크와 본문이 둘 다 있는 front_page.
@@ -36,8 +36,6 @@ def recording(body: bytes):
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.url.path == "/robots.txt":
-            return httpx.Response(404)  # 2026-09-14 실측
         return httpx.Response(200, content=body, headers={"Content-Type": "application/json"})
 
     return handler, requests
@@ -56,7 +54,7 @@ def test_최근_6시간_story_를_Algolia_에만_묻는다(api_bytes, clock):
         "49691343",
     ]
     assert result.failures == []
-    # HN 의 HTML 은 한 번도 안 친다(불변식 1). robots 확인까지 전부 Algolia 호스트다.
+    # HN 의 HTML 은 한 번도 안 친다(확정 3). 요청은 전부 Algolia 호스트다.
     assert {r.url.host for r in requests} == {"hn.algolia.com"}
     search = [r for r in requests if r.url.path == "/api/v1/search_by_date"]
     assert len(search) == 1

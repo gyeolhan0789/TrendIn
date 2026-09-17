@@ -112,8 +112,8 @@ def build_collect_dag(
                     validators=validators,
                 )
             except flow.NO_RETRY as exc:
-                # 403·429 는 그 호스트를 멈춘 것이고, robots 금지·허용 범위 밖은 애초에
-                # 보내면 안 되는 요청이다. 5분 뒤에 다시 보내면 불변식 1·2 를 어긴다.
+                # 403·429 는 그 호스트를 멈춘 것이고, 허용 범위 밖은 애초에 보내면 안 되는
+                # 요청이다. 5분 뒤에 다시 보내면 불변식 2·18 을 어긴다.
                 raise AirflowFailException(
                     f"{source_key}: 재시도하면 안 되는 실패 — {exc}"
                 ) from exc

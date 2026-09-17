@@ -36,14 +36,11 @@ def test_소스_키_목록이_소스_레지스트리와_같다():
     assert set(runner.SOURCE_KEYS) == set(runner.sources.BY_KEY)
 
 
-def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes, clock, robots_allow_all):
+def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes, clock):
     """DAG 태스크가 하는 일 전부다 — 다만 사이트 대신 저장해 둔 피드를 읽는다."""
     feed = feed_bytes("vogue.xml")
 
     def handler(request: httpx.Request) -> httpx.Response:
-        allowed = robots_allow_all(request)
-        if allowed is not None:
-            return allowed
         return httpx.Response(200, content=feed, headers={"Content-Type": "application/xml"})
 
     def session_factory(**kwargs):
@@ -78,14 +75,11 @@ def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes
     assert len(ledger.pending("fashion")) == outcome.stored
 
 
-def test_두_번_돌려도_장부와_객체가_안_는다(feed_bytes, clock, robots_allow_all):
+def test_두_번_돌려도_장부와_객체가_안_는다(feed_bytes, clock):
     """불변식 12 — 장부에 있는 기사는 다시 받지도 저장하지도 않는다."""
     feed = feed_bytes("vogue.xml")
 
     def handler(request: httpx.Request) -> httpx.Response:
-        allowed = robots_allow_all(request)
-        if allowed is not None:
-            return allowed
         return httpx.Response(200, content=feed, headers={"Content-Type": "application/xml"})
 
     def session_factory(**kwargs):

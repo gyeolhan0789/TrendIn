@@ -32,7 +32,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--page",
         type=int,
         default=None,
-        help="`?paged=N`. 기본은 파라미터 없음. 목록 소스는 과거분이 없어 거부한다",
+        help=(
+            "피드의 N 페이지(프로필 page_param). 기본은 첫 페이지. "
+            "목록 소스와 페이지 넘김이 안 되는 피드는 거부한다"
+        ),
     )
     return parser
 

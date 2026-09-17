@@ -38,12 +38,9 @@ def routes(listing_bytes):
 
 
 @pytest.fixture
-def make_session(mock_transport, robots_allow_all, clock):
+def make_session(mock_transport, clock):
     def build(routes, *, source=BAZAAR, seen=None):
         def handler(request):
-            allowed = robots_allow_all(request)
-            if allowed is not None:
-                return allowed
             if seen is not None:
                 seen.append(request.url.path)
             status, body = routes.get(request.url.path, (404, b""))

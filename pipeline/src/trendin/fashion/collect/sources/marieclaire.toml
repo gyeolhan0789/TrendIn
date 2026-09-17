@@ -1,0 +1,9 @@
+key = "marieclaire"
+domain = "fashion"
+route = "rss"
+country = "KR"  # 발행 법인 (주)엠씨케이퍼블리싱의 소재지
+discover_url = "https://www.marieclairekorea.com/category/fashion/feed/"
+allowed_url_prefixes = ["https://www.marieclairekorea.com/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

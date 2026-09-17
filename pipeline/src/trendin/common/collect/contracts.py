@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
@@ -22,6 +22,27 @@ if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
 # 이 상수를 끼워 넣지 않았다 — DDL 을 f-string 으로 바꾸면 그 안의 중괄호가 전부 조용히
 # 포맷 자리가 된다. 대신 `tests/common/test_ledger.py` 가 둘이 같은지 본다.
 UNKNOWN_COUNTRY = "XX"
+
+
+@dataclass(frozen=True, slots=True)
+class Rule:
+    """열거형 추출 규칙 하나. 이름과, 규칙이 받으면 파라미터.
+
+    파라미터는 규칙마다 뜻이 다르다 — `guid_query_param` 은 쿼리 이름(문자열),
+    `url_path_segment` 는 경로 조각의 위치(정수)다.
+    """
+
+    name: str
+    param: str | int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class License:
+    """라이선스를 밝힌 소스만 적는다. 검토일이 있어야 오래된 검토를 골라낼 수 있다."""
+
+    name: str
+    url: str
+    reviewed_on: date
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,8 +69,15 @@ class SourceDef:
     #
     # 기본값을 두지 않는다. 기본값이 있으면 소스를 하나 더할 때 국가를 빼먹고도 통과한다.
     country: str
-    guid_param: str = "p"  # guid 쿼리에서 article_id 를 담는 파라미터
-    author_field: str = "dc:creator"  # 저자가 실리는 항목 이름
+    # 피드 소스가 article_id·발행일을 뽑는 규칙(`source-discovery.md` #3.2). 프로필이 채운다.
+    # 목록·API 소스는 어댑터가 제 방식으로 뽑으므로 None 이다.
+    article_id: Rule | None = None
+    published_at: Rule | None = None
+    # 피드 페이지 넘김 쿼리 파라미터. None 이면 페이지 넘김이 안 되는 피드다 — 모르는 피드에
+    # `?paged=` 를 붙여 치지 않게 기본값을 두지 않는다.
+    page_param: str | None = None
+    author_field: str = "dc:creator"  # 저자가 실리는 항목 이름. RSS 2.0 피드에서만 쓴다
+    license: License | None = None
     # 목록 루트 밑으로 함께 도는 하위 섹션 슬러그. 피드 소스는 빈 튜플이다.
     listing_sections: tuple[str, ...] = ()
 
