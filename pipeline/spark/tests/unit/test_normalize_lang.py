@@ -4,7 +4,19 @@ from __future__ import annotations
 
 import pytest
 
-from trendin.spark.normalize.lang import EN, KO, MIXED, UNKNOWN, LangThresholds, detect_lang
+from trendin.spark.normalize.lang import (
+    EN,
+    FR,
+    IT,
+    JA,
+    KO,
+    MIXED,
+    UNKNOWN,
+    ZH,
+    LangThresholds,
+    detect_lang,
+    unsupported,
+)
 
 
 def test_한국어_기사():
@@ -50,11 +62,95 @@ def test_문턱은_설정에서_온다():
     assert strict == UNKNOWN
 
 
+# --- 알아보지만 추출하지 않는 언어 -------------------------------------------
+
+
+def test_일본어_문단():
+    text = (
+        "パリで開かれたショーで、デザイナーは新しいコレクションを発表した。"
+        "今季は素材の質感を前面に出し、色使いを抑えたという。"
+    )
+    assert detect_lang(text) == JA
+
+
+def test_일본어_제목은_짧아도_알아본다():
+    """한 글자가 담는 정보가 많다. 한글·라틴 글자 수 하한(10)을 걸면 여기서 `unknown` 이 되고,
+    제목만 있는 문서는 필터를 지나 한국어 분석기를 탄다."""
+    assert detect_lang("新作バッグが登場") == JA
+
+
+def test_일본어에_영문_브랜드명이_섞여도_일본어다():
+    assert detect_lang("Louis Vuittonの2026年秋冬コレクションが発表された") == JA
+
+
+def test_중국어_문단():
+    text = "这家品牌在上海发布了新的秋冬系列。设计师表示，这一季更注重可持续材料和手工工艺。"
+    assert detect_lang(text) == ZH
+
+
+def test_프랑스어_문단():
+    text = (
+        "La maison a présenté sa nouvelle collection à Paris. Les créations sont inspirées "
+        "par les années soixante et la directrice artistique explique que cette saison est "
+        "très importante pour elle."
+    )
+    assert detect_lang(text) == FR
+
+
+def test_이탈리아어_문단():
+    text = (
+        "La maison ha presentato la nuova collezione a Milano. Le creazioni sono ispirate "
+        "agli anni sessanta e il direttore creativo spiega che questa stagione è molto "
+        "importante per il marchio."
+    )
+    assert detect_lang(text) == IT
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Show HN: A de facto standard for La Liga match stats",
+        "Cost per token is falling faster than anyone expected",
+        "Le Chat: Mistral launches a new assistant for the web",
+        "Pros and cons of running Postgres per tenant",
+        "Ask HN: Is anyone using Rust in production at a large company?",
+        "The Carbon Footprint of La Sagrada Familia",
+        "Non-profit open source maintainers need better funding",
+        "De Gaulle's plan for a European nuclear deterrent, revisited",
+    ],
+)
+def test_hn_영어_제목은_뒤집히지_않는다(title):
+    """dev 도메인 전량이 `hn` 제목이다. 영어가 아니게 판별되면 필터가 통째로 버린다."""
+    assert detect_lang(title) == EN
+
+
+def test_한자를_병기한_한국어_기사는_한국어로_남는다():
+    assert detect_lang("정부는 美 관세 조치에 대응해 中 수출 규제를 검토하고 있다고 밝혔다") == KO
+
+
+def test_한글과_영문_브랜드명은_이전처럼_mixed():
+    assert detect_lang("루이 비통 Louis Vuitton 2026 가을 겨울 컬렉션 공개") == MIXED
+
+
+@pytest.mark.parametrize(
+    "lang,expected",
+    [(KO, False), (EN, False), (MIXED, False), (UNKNOWN, False),
+     (JA, True), (ZH, True), (FR, True), (IT, True)],
+)
+def test_추출하지_않는_언어(lang, expected):
+    """`unknown` 은 언어가 아니라 근거 부족이라 여기 들지 않는다 — 필터가 따로 다룬다."""
+    assert unsupported(lang) is expected
+
+
 def test_설정_구역에서_읽는다():
-    thresholds = LangThresholds.from_section({"dominant": 0.9, "min_letters": 3})
+    thresholds = LangThresholds.from_section(
+        {"dominant": 0.9, "min_letters": 3, "latin_min_hits": 7, "kana_share": 0.5}
+    )
 
     assert thresholds.dominant == 0.9
     assert thresholds.min_letters == 3
+    assert thresholds.latin_min_hits == 7
+    assert thresholds.kana_share == 0.5
     # 안 적은 값은 기본값 그대로다.
     assert thresholds.secondary == LangThresholds().secondary
 

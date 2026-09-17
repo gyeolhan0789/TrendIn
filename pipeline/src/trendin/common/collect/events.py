@@ -54,7 +54,7 @@ def article_event(
         "bucket": bucket,
         "object_key": row.article_key,
         # 팀 봉투에 없던 필드. 추가는 하위 호환이라 schema_version 은 그대로다.
-        # 회원 전용 기사는 raw 를 저장하지 않으므로 null 이다 (불변식 2).
+        # 회원 전용·유료 표시 기사는 raw 를 저장하지 않으므로 null 이다 (불변식 2).
         "raw_object_key": row.raw_key,
         "domain": row.domain,
         "source_id": row.source,
@@ -76,6 +76,7 @@ def article_event(
         "compression": "none",
         "failure_reason": None,
         "members_only": row.members_only,
+        "paywalled": row.paywalled,
         # 소스를 발행하는 법인이 있는 나라 (S15P21A102-276). 이 함수가 봉투의 정본이고
         # 장부 뷰가 그것을 흉내 내므로, 여기 넣지 않으면 뷰만 칸을 낸 꼴이 된다 —
         # `tests/common/test_ledger_view.py` 가 둘을 대조한다.
@@ -119,6 +120,7 @@ def run_summary_event(
         "failures": [asdict(f) for f in outcome.failures] if outcome is not None else None,
         "duration_ms": outcome.duration_ms if outcome is not None else None,
         "members_only_stored": outcome.members_only_stored if outcome is not None else None,
+        "paywalled_stored": outcome.paywalled_stored if outcome is not None else None,
         "emitted": emitted.count,
         "emitted_oldest_collected_at": (
             _kst(emitted.oldest_collected_at) if emitted.oldest_collected_at is not None else None

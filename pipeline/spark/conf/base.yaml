@@ -69,10 +69,18 @@ ingest:
   # 않고 조용히 전량 통과한다 — 그게 더 나쁘다.
   normalize:
     # 언어 판별 (03 §5). 문자 비율로만 판별하고 판별 라이브러리를 쓰지 않는다.
+    # ja·zh·fr·it 는 알아보기만 하고 추출하지 않는다 — 필터가 UNSUPPORTED_LANG 으로 뺀다.
+    # 아래 다섯 값은 해외 소스 실데이터가 없을 때 정한 잠정값이다. 기울기는 en 쪽이다 —
+    # 영어 제목이 fr·it 로 뒤집히면 hn 문서가 통째로 버려진다.
     lang:
       dominant: 0.6     # 한쪽 문자가 이 비율을 넘으면 그 언어
       secondary: 0.2    # 둘 다 이 비율을 넘으면 mixed
       min_letters: 10   # 글자가 이보다 적으면 unknown
+      cjk_min_letters: 5  # 한자·가나가 이만큼은 있어야 ja·zh 를 본다
+      cjk_share: 0.3      # 전체 글자 중 한자·가나 비율 하한
+      kana_share: 0.05    # 한자·가나 중 가나가 이 비율을 넘으면 ja, 아니면 zh
+      latin_min_words: 6  # 낱말이 이보다 적으면 기능어를 보지 않고 en
+      latin_min_hits: 3   # fr·it 기능어가 이만큼 나오고 영어 기능어보다 많아야 그 언어
     # 품질 필터 (03 §6). 본문 있는 문서와 없는 문서에 다른 줄이 적용된다.
     filters:
       min_body_len: 100   # 정제 후 본문 길이 하한

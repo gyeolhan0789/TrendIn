@@ -65,7 +65,7 @@ def curated_root(config: Config) -> str:
 
 
 def curated_frame(documents: "DataFrame") -> "DataFrame":
-    """Parquet 에 쓸 형태. [03 §1] 의 스물한 칸 + 파티션용 `source`.
+    """Parquet 에 쓸 형태. `schema.CURATED_COLUMNS` 의 스물세 칸 + 파티션용 `source`.
 
     내부 칸(`basis`·`simhash` 등)은 여기서 떨어진다 — `curated` 는 `extract` 의 입력이고,
     필터 판정에 썼던 중간값이 그 입력에 섞이면 나중에 "이 칸은 무엇인가" 를 되짚어야 한다.

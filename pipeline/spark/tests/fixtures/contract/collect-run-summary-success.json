@@ -30,6 +30,7 @@
   ],
   "duration_ms": 21430,
   "members_only_stored": 0,
+  "paywalled_stored": 0,
   "emitted": 12,
   "emitted_oldest_collected_at": "2026-09-01T11:10:00+09:00",
   "failure_reason": null

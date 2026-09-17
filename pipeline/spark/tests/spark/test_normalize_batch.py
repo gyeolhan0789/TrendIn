@@ -59,6 +59,8 @@ _ENVELOPE = {
     "compression": "none",
     "failure_reason": None,
     "members_only": None,
+    "paywalled": None,
+    "source_country": None,
     "_corrupt_record": None,
 }
 
@@ -378,6 +380,20 @@ def test_본문_없는_문서를_종류별로_센다(spark, article, event):
     collected = tally(documents)
 
     assert collected[(stats_io.BODY_MISSING, stats_io.BODY_MISSING_MEMBERS_ONLY)] == 1
+
+
+def test_유료_표시는_회원_전용과_다른_이유로_센다(spark, article, event):
+    bodyless = {k: v for k, v in article.items() if k != "body_text"}
+    members_only = bodyless | {"members_only": True}
+    paywalled = bodyless | {"article_id": "854415", "url": "https://a.com/p", "paywalled": True}
+
+    documents = resolve_filter_reason(
+        apply_dedup(documents_of(spark, event, [members_only, paywalled]))
+    )
+    collected = tally(documents)
+
+    assert collected[(stats_io.BODY_MISSING, stats_io.BODY_MISSING_MEMBERS_ONLY)] == 1
+    assert collected[(stats_io.BODY_MISSING, stats_io.BODY_MISSING_PAYWALLED)] == 1
 
 
 def test_미래_시각_보정_건수를_센다(spark, article, event):

@@ -15,10 +15,11 @@
   "status": "success",
   "record_count": 1,
   "size_bytes": null,
-  "checksum": "sha256-3232186bb2167d955db6103cf6fedf73767596903c7f8ceec07f14a8cbcf36cd",
+  "checksum": "sha256-14fc450b1f499daf8e07bb22afa26aa701b4ba324e48b3a4110eccbfb0182bda",
   "format": "json",
   "compression": "none",
   "failure_reason": null,
   "members_only": false,
+  "paywalled": false,
   "source_country": "KR"
 }

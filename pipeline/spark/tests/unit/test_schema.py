@@ -33,6 +33,8 @@ ENVELOPE_FIELDS = {
     "compression",
     "failure_reason",
     "members_only",
+    "paywalled",
+    "source_country",
 }
 
 # 판별이 실제로 읽는 메시지 필드. `classify` 를 고칠 때 여기도 고쳐야 테스트가 통과한다.

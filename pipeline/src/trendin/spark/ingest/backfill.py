@@ -244,6 +244,8 @@ def _envelope(
         "compression": SYNTHETIC_COMPRESSION,
         "failure_reason": None,
         "members_only": None,
+        "paywalled": None,
+        "source_country": None,
         CORRUPT_FIELD: None,
     }
 

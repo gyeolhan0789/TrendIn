@@ -51,6 +51,7 @@ def article_event(**overrides):
         "compression": "none",
         "failure_reason": None,
         "members_only": False,
+        "paywalled": False,
         # 소스를 발행하는 법인이 있는 나라 (S15P21A102-276). 생산 측이 봉투와 뷰에 함께
         # 낸 칸이라 손으로 옮긴 형태에도 있어야 한다 — 판별은 이 칸을 보지 않는다.
         "source_country": "KR",

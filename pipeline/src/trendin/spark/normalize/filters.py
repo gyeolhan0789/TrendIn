@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from trendin.spark.normalize.adapters.protocol import BASIS_BODY
 from trendin.spark.normalize.documents import Document
-from trendin.spark.normalize.lang import UNKNOWN
+from trendin.spark.normalize.lang import UNKNOWN, unsupported
 from trendin.spark.normalize.urls import too_long
 
 # 제외 사유. [03 §7] 이 사유별 건수를 세므로 값이 곧 집계 키다 — 이름을 바꾸면 옛 배치
@@ -27,6 +27,9 @@ URL_TOO_LONG = "URL_TOO_LONG"
 EMPTY_BODY = "EMPTY_BODY"
 SHORT_BODY = "SHORT_BODY"
 UNKNOWN_LANG = "UNKNOWN_LANG"
+# 알아봤지만 키워드 추출이 다루지 않는 언어(`lang.LANGUAGES`). `UNKNOWN_LANG` 과 나누는 이유는
+# 대응이 달라서다 — 이쪽은 소스가 그 언어를 낸다는 확실한 신호고, 저쪽은 근거 부족이다.
+UNSUPPORTED_LANG = "UNSUPPORTED_LANG"
 SHORT_TITLE = "SHORT_TITLE"
 # 발행일을 못 정한 문서. 계약 판별(`io/contract.check_article`)이 먼저 막으므로 여기 오면 배선이
 # 깨진 것이다 — 그래도 두는 이유는 이 문서가 `published_date` 없는 파티션에 쓰이는 것을 마지막에
@@ -70,11 +73,13 @@ def exclusion_reason(document: Document, thresholds: FilterThresholds | None = N
     1. **URL** — 없거나 너무 길면 `contents` 에 넣을 수 없으므로 다른 검사가 무의미하다.
     2. **정제 후 빈 본문** — 본문이 *있었는데* 정제가 다 걷어낸 경우. 링크만 있던 기사가
        여기 걸린다. `basis` 만 보면 이 문서가 요약·제목 경로로 떨어져 통과해버린다.
-    3. **본문 있는 문서** — 길이 하한과 `lang`.
-    4. **본문 없는 문서** — 제목 길이만.
+    3. **추출하지 않는 언어** — 본문 유무와 무관하다. 제목만 있는 문서도 토크나이저로 가므로,
+       여기서 안 빼면 일본어 제목이 한국어 분석기를 탄다.
+    4. **본문 있는 문서** — 길이 하한과 `lang`.
+    5. **본문 없는 문서** — 제목 길이만.
 
-    **2 가 3·4 보다 먼저여야 하는 이유** — 정제 후 빈 본문은 `basis` 가 이미 `summary` 나
-    `title` 로 떨어져 있어서, 3 의 조건에 걸리지 않고 4 의 관대한 검사를 통과한다. 그러면
+    **2 가 4·5 보다 먼저여야 하는 이유** — 정제 후 빈 본문은 `basis` 가 이미 `summary` 나
+    `title` 로 떨어져 있어서, 4 의 조건에 걸리지 않고 5 의 관대한 검사를 통과한다. 그러면
     [03 §6] 이 "제외" 라고 적은 두 줄("빈 본문", "링크만 있고 텍스트가 없음")이 영영 발동하지
     않고, **아무 증상도 없다.**
 
@@ -99,6 +104,9 @@ def exclusion_reason(document: Document, thresholds: FilterThresholds | None = N
     if document.had_raw_body and document.basis != BASIS_BODY:
         return EMPTY_BODY
 
+    if unsupported(document.lang):
+        return UNSUPPORTED_LANG
+
     if document.basis == BASIS_BODY:
         if document.content_len < limits.min_body_len:
             return SHORT_BODY
@@ -110,8 +118,9 @@ def exclusion_reason(document: Document, thresholds: FilterThresholds | None = N
 
     # 본문이 애초에 없는 문서 — 회원 전용(fashion 7.4%)과 `hn`(dev 전량).
     #
-    # `lang` 을 보지 않는 이유는 제목만으로는 대개 `unknown` 이 나오기 때문이다(글자 수
-    # 하한). 여기서 `lang` 을 걸면 dev 도메인이 통째로 사라진다. 그 문서들의 토크나이저를
+    # 추출하지 않는 언어는 위에서 이미 뺐다. 남은 `unknown` 을 보지 않는 이유는 제목만으로는
+    # 글자 수 하한에 걸려 대개 `unknown` 이 되기 때문이다. 여기서 `unknown` 을 걸면 dev 도메인이
+    # 통째로 사라진다. 그 문서들의 토크나이저를
     # 무엇으로 고를지는 [00 §7] 한계 19번의 결론이 정한다.
     if len(document.title) < limits.min_title_len:
         return SHORT_TITLE

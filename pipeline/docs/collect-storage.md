@@ -11,7 +11,7 @@
 | 구조를 파악한다 | #2 · #3 |
 | 규칙을 고친다 | #4 — 정본과 같이 열 파일 |
 | 왜 그렇게 정했는지 본다 | `web-collect.md` #5 저장 구조 · #7 불변식 · #8 확정 사항 |
-| 새 소스를 붙인다 | `source-discovery.md` 프로필과 두 게이트, 그다음 #4 |
+| 새 소스를 붙인다 | `source-discovery.md` 프로필과 등록, 그다음 #4 |
 | MinIO 에서 읽는다 (소비 측) | `spark-integration.md` #5 |
 | 켜고·끄고·백필하고·결과를 센다 | `pipeline/README.md` 수집 운영 |
 | 버킷·계정 권한·수명주기를 만진다 | `datastore/README.md` |
@@ -56,7 +56,7 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 
 객체에는 메타데이터 둘이 붙는다. `collected-at`(ISO-8601 KST)과 `content-sha256`(**그 객체 자신의** 해시 — raw 에는 raw 의, article.json 에는 article.json 의). `x-amz-meta-*` 헤더가 latin-1 이라 ASCII 만 들어가고, 아니면 저장 전에 예외가 난다.
 
-**회원 전용 기사는 raw 객체가 없다.** 기사 페이지 HTML 에 본문이 실려 와서, raw 를 저장하면 본문을 저장하는 것이 된다. `article.json` 하나만 놓이고 그 안에 `raw_key` · `content_sha256` · `body_text` 가 없다.
+**회원 전용 기사는 raw 객체가 없다.** 기사 페이지 HTML 에 본문이 실려 와서, raw 를 저장하면 본문을 저장하는 것이 된다. `article.json` 하나만 놓이고 그 안에 `raw_key` · `content_sha256` · `body_text` 가 없다. 유료 표시 기사(`paywalled`)도 같다 — 칸은 2026-09-17 에 생겼고 판별은 285 가 붙인다. 그 전까지 값은 늘 `false` 다.
 
 ## 4. 규칙의 정본
 

@@ -107,6 +107,7 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
         categories=["fashion", "runway"],
         author="홍길동",
         members_only=False,
+        paywalled=False,
     )
     body = article_bytes(article)
 
@@ -124,6 +125,7 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
         article_sha256=hashlib.sha256(body).hexdigest(),
         raw_key=article.raw_key,
         members_only=False,
+        paywalled=False,
     )
 
     events = {

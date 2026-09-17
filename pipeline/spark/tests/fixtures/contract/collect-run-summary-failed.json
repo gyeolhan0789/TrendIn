@@ -15,6 +15,7 @@
   "failures": null,
   "duration_ms": null,
   "members_only_stored": null,
+  "paywalled_stored": null,
   "emitted": 0,
   "emitted_oldest_collected_at": null,
   "failure_reason": "목록 페이지가 3회 연속 타임아웃"

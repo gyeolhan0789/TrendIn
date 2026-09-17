@@ -65,8 +65,9 @@ BACKFILL_LISTED = "backfill_listed"
 BACKFILL_CHECKSUM_MISSING = "backfill_checksum_missing"
 
 # 본문 없는 문서의 차원. [03 §7] 이 "`members_only` / `route=api` 별로" 를 요구한다 —
-# 둘을 합치면 회원 전용 판별이 깨졌는지 알 수 없다.
+# 둘을 합치면 회원 전용 판별이 깨졌는지 알 수 없다. 유료 표시도 같은 이유로 따로 센다.
 BODY_MISSING_MEMBERS_ONLY = "members_only"
+BODY_MISSING_PAYWALLED = "paywalled"
 BODY_MISSING_ROUTE_API = "route=api"
 BODY_MISSING_UNEXPECTED = "unexpected"
 
@@ -192,6 +193,7 @@ def count_stats(judged: "DataFrame") -> list[Stat]:
     bodyless = judged.where(F.col("basis") != BASIS_BODY).withColumn(
         "_kind",
         F.when(F.col("members_only"), F.lit(BODY_MISSING_MEMBERS_ONLY))
+        .when(F.col("paywalled"), F.lit(BODY_MISSING_PAYWALLED))
         .when(F.col("route") == "api", F.lit(BODY_MISSING_ROUTE_API))
         # 본문이 오기를 기대한 경로인데 없다. 위 둘 중 어느 쪽도 아니면 설명되지 않는 결손이고,
         # 그게 판별이 깨진 신호다.

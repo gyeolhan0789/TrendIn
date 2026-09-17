@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
 from datetime import date
 
 import pytest
 
 from trendin.spark.normalize.adapters.protocol import BASIS_BODY, BASIS_SUMMARY, BASIS_TITLE
-from trendin.spark.normalize.documents import Document
+from trendin.spark.normalize.documents import Document, build_document
 from trendin.spark.normalize.filters import (
     EMPTY_BODY,
     INVALID_PUBLISHED_AT,
@@ -20,11 +22,12 @@ from trendin.spark.normalize.filters import (
     SHORT_BODY,
     SHORT_TITLE,
     UNKNOWN_LANG,
+    UNSUPPORTED_LANG,
     URL_TOO_LONG,
     FilterThresholds,
     exclusion_reason,
 )
-from trendin.spark.normalize.lang import KO, UNKNOWN
+from trendin.spark.normalize.lang import FR, IT, JA, KO, UNKNOWN, ZH
 from trendin.spark.normalize.urls import URL_MAX_BYTES
 
 LIMITS = FilterThresholds(min_body_len=100, min_title_len=5)
@@ -136,6 +139,53 @@ def test_제목이_너무_짧으면_제외한다():
     stub = document(title="속보", body="", basis=BASIS_TITLE, content_len=2, had_raw_body=False)
 
     assert exclusion_reason(stub, LIMITS) == SHORT_TITLE
+
+
+# --- 추출하지 않는 언어 -----------------------------------------------------
+
+CONTRACT = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "contract"
+
+
+def built(**article_overrides) -> Document:
+    """실제 fixture 기사로 정제한 문서. 판별부터 필터까지 정제가 실제로 타는 길을 그대로 탄다."""
+    event = json.loads((CONTRACT / "article-event.json").read_text(encoding="utf-8"))
+    article = json.loads((CONTRACT / "objects" / event["object_key"]).read_text(encoding="utf-8"))
+    return build_document(article | article_overrides, event, ingest_run_id="20260903T000000")
+
+
+def test_일본어_제목만_있는_문서는_추출하지_않는_언어로_뺀다():
+    """본문 없는 문서는 `unknown` 을 보지 않는다. 그 관대함이 일본어 제목을 한국어 분석기로
+    보내던 길이다."""
+    doc = built(title="新作バッグが東京で発表された", summary=None, body_text=None)
+
+    assert (doc.basis, doc.lang) == (BASIS_TITLE, JA)
+    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+
+
+def test_프랑스어_본문_문서는_추출하지_않는_언어로_뺀다():
+    """예전에는 `en` 으로 판별돼 영어 토크나이저를 탔다."""
+    body = (
+        "<p>La maison a présenté sa nouvelle collection à Paris. Les créations sont inspirées "
+        "par les années soixante et la directrice artistique explique que cette saison est "
+        "très importante pour elle et pour les clientes fidèles de la marque.</p>"
+    )
+    doc = built(title="La nouvelle collection de la maison", body_text=body)
+
+    assert (doc.basis, doc.lang) == (BASIS_BODY, FR)
+    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+
+
+@pytest.mark.parametrize("lang", [JA, ZH, FR, IT])
+@pytest.mark.parametrize("basis", [BASIS_BODY, BASIS_SUMMARY, BASIS_TITLE])
+def test_추출하지_않는_언어는_경로와_무관하게_뺀다(lang, basis):
+    doc = document(lang=lang, basis=basis, had_raw_body=basis == BASIS_BODY)
+
+    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+
+
+def test_URL_검사가_언어보다_먼저다():
+    """기존 순서를 지킨다 — `contents` 에 못 넣는 문서는 다른 사유가 무의미하다."""
+    assert exclusion_reason(document(url=None, lang=FR), LIMITS) == NO_URL
 
 
 # --- 저자 상한 -----------------------------------------------------------

@@ -322,11 +322,10 @@ def check_article(article: Mapping[str, Any], event: Mapping[str, Any]) -> Verdi
 
 
 def has_body(article: Mapping[str, Any]) -> bool:
-    """본문이 있는지. 회원 전용(7.4%)과 `hn`(dev 전량)은 `body_text` 가 없다.
+    """본문이 있는지. 회원 전용(7.4%) · 유료 표시 · `hn`(dev 전량)은 `body_text` 가 없다.
 
-    이벤트만으로는 판별할 수 없다 — `web-collect.md` #6 이 `body_withheld` 를 싣는다고
-    적었지만 구현은 `members_only` 만 싣고, `hn` 은 그 값도 `false` 다. 그래서 객체를
-    읽어 이 함수로 본다 ([02 §3], [03 §2]).
+    이벤트만으로는 판별할 수 없다 — `members_only` · `paywalled` 는 본문이 없는 이유일 뿐이고
+    `hn` 은 둘 다 `false` 다. 그래서 객체를 읽어 이 함수로 본다 ([02 §3], [03 §2]).
     """
     return not _blank(article.get("body_text"))
 

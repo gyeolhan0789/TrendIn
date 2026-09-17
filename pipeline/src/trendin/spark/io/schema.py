@@ -39,7 +39,7 @@ EVENT_SCHEMA = StructType(
         StructField("bucket", StringType(), True),
         # article.json 키. 요약 이벤트는 null 이고, 그것이 두 형태의 판별 기준이다.
         StructField("object_key", StringType(), True),
-        # raw.{xml|html|json}. 회원 전용 기사와 요약 이벤트는 null. 우리는 읽지 않는다.
+        # raw.{xml|html|json}. 회원 전용·유료 표시 기사와 요약 이벤트는 null. 우리는 읽지 않는다.
         StructField("raw_object_key", StringType(), True),
         StructField("domain", StringType(), True),
         StructField("source_id", StringType(), True),
@@ -61,6 +61,9 @@ EVENT_SCHEMA = StructType(
         StructField("compression", StringType(), True),
         StructField("failure_reason", StringType(), True),
         StructField("members_only", BooleanType(), True),
+        StructField("paywalled", BooleanType(), True),
+        # 소스를 발행하는 법인의 나라 (S15P21A102-276). 백필 봉투는 객체 키에서 재구성해 모른다.
+        StructField("source_country", StringType(), True),
         StructField(CORRUPT_FIELD, StringType(), True),
     ]
 )
@@ -83,16 +86,17 @@ ARTICLE_SCHEMA = StructType(
         StructField("published_at", StringType(), True),
         StructField("collected_at", StringType(), True),
         StructField("modified_at", StringType(), True),
-        # 회원 전용 기사는 둘 다 없다. exclude_none 직렬화라 키가 아예 빠진다.
+        # 회원 전용·유료 표시 기사는 둘 다 없다. exclude_none 직렬화라 키가 아예 빠진다.
         StructField("raw_key", StringType(), True),
         StructField("content_sha256", StringType(), True),
         StructField("summary", StringType(), True),
-        # 회원 전용(7.4%)과 hn(dev 전량)에는 없다 ([03 §2]).
+        # 회원 전용(7.4%)·유료 표시와 hn(dev 전량)에는 없다 ([03 §2]).
         StructField("body_text", StringType(), True),
         StructField("author", StringType(), True),
         # 목록 소스가 발견한 섹션 슬러그. [03 §1] 의 표준 문서가 이 값을 쓴다.
         StructField("categories", ArrayType(StringType()), True),
         StructField("members_only", BooleanType(), True),
+        StructField("paywalled", BooleanType(), True),
         StructField(CORRUPT_FIELD, StringType(), True),
     ]
 )

@@ -39,9 +39,10 @@ def test_curated_와_내부_칸이_문서_칸_전부다():
     assert not set(CURATED_COLUMNS) & set(INTERNAL_COLUMNS)
 
 
-def test_curated_는_규격의_스물한_칸이다():
-    """[03 §1] 표가 정한 수다. 늘거나 줄면 규격과 어긋난 것이므로 문서를 먼저 고쳐야 한다."""
-    assert len(CURATED_COLUMNS) == 21
+def test_curated_는_규격의_스물한_칸에_두_칸을_더한_것이다():
+    """[03 §1] 표의 스물하나에 `paywalled`·`source_country` 를 더했다. 늘거나 줄면 규격과
+    어긋난 것이므로 문서를 먼저 고쳐야 한다."""
+    assert len(CURATED_COLUMNS) == 23
 
 
 def test_파티션은_네_단이고_source_만_문서_칸이_아니다():
@@ -99,6 +100,7 @@ ARTICLE_KEYS_READ = (
     "author",
     "categories",
     "members_only",
+    "paywalled",
 )
 
 
