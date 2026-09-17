@@ -1169,23 +1169,33 @@ h1 { margin: 0; line-height: 1.25; }
  * p 의 여백을 잡는 규칙은 `.auth-scene` 을 앞에 답니다. 위쪽 `.trendin-ui p { margin: 0 }`
  * 이 (0,1,1) 이라, 홑클래스로 적으면 순서와 상관없이 눌려서 여백이 통째로 사라집니다.
  */
-.auth-scene { display: flex; position: relative; flex-direction: column; min-height: 100dvh; background: #f5f6f8; }
+.auth-scene { --auth-scene-header: 56px; display: flex; position: relative; flex-direction: column; min-height: 100dvh; background: #f5f6f8; }
 /* 물결은 scaleY로 부풀기 때문에, 잘라 두지 않으면 제 상자 아래로 삐져나와 스크롤을 만듭니다. */
 .auth-scene-wave { overflow: hidden; position: absolute; right: 0; bottom: 0; left: 0; z-index: 0; height: 80vh; opacity: .75; pointer-events: none; }
 .auth-scene-wave svg { width: 100%; height: 100%; animation: auth-scene-wave 8s ease-in-out infinite; }
 @keyframes auth-scene-wave { 0%, 100% { transform: translateX(0) scaleY(1); } 50% { transform: translateX(-20px) scaleY(1.05); } }
 
-.auth-scene-header { display: flex; z-index: 10; position: relative; align-items: center; justify-content: space-between; height: 56px; padding: 0 40px; }
+.auth-scene-header { display: flex; z-index: 10; position: relative; align-items: center; justify-content: space-between; height: var(--auth-scene-header); padding-inline: 40px; }
 .auth-scene-brand { display: flex; align-items: center; gap: 8px; color: var(--lp-ink); font-size: 22px; font-weight: 700; letter-spacing: -1px; }
 .auth-scene-home { display: inline-flex; align-items: center; gap: 6px; padding: 7px 18px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s; }
 .auth-scene-home:hover { border-color: #b0b5bf; background: #fff; color: #374151; }
 
 /*
- * align-content 로 줄 하나를 통째로 가운데 두고, 그 안에서 두 단을 아래에 맞춥니다. 줄 높이는
- * 둘 중 큰 쪽(카드)이 정하므로, 소개 쪽 마지막 줄이 카드 바닥과 같은 선에 섭니다.
- * align-content 를 빼면 줄이 남는 높이만큼 늘어나, 카드까지 화면 바닥으로 내려갑니다.
+ * align-content 로 줄 하나를 통째로 가운데 두고, align-items 로 그 줄 안의 두 단도 가운데에
+ * 맞춥니다. 줄 높이는 둘 중 큰 쪽이 정하므로, 짧은 쪽은 긴 쪽의 한가운데에 섭니다.
+ *
+ * 둘 다 가운데여야 두 화면의 높이가 맞습니다. 아래(end)에 맞추면 칸이 넷인 가입 카드가 줄을
+ * 늘리는 만큼 소개까지 끌려 내려가고, 로그인 쪽은 거꾸로 카드가 소개 바닥까지 내려갑니다.
+ *
+ * 다만 이 칸은 머리줄 아래에서 시작하므로, 여기서 가운데면 화면으로는 머리줄 높이의 절반만큼
+ * 처져 보입니다. 아래 여백을 머리줄과 같은 높이로 두어 위아래를 맞춥니다. 위 56 + 아래 0 이
+ * 아니라 위 56 + 아래 56 이 되어, 칸의 한가운데가 곧 화면의 한가운데입니다. 낮은 창에서
+ * 머리줄이 줄면 아래 여백도 같이 줄도록 높이를 --auth-scene-header 한 곳에 둡니다.
+ *
+ * align-content 를 빼면 줄이 남는 높이만큼 늘어나, 가운데에 맞춰도 화면 한가운데가 아니라
+ * 늘어난 줄의 한가운데가 됩니다.
  */
-.auth-scene-main { display: grid; z-index: 2; position: relative; flex: 1; grid-template-columns: 1fr 1fr; align-content: center; align-items: end; gap: 40px; width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 40px 24px; }
+.auth-scene-main { display: grid; z-index: 2; position: relative; flex: 1; grid-template-columns: 1fr 1fr; align-content: center; align-items: center; gap: 40px; width: 100%; max-width: 1280px; margin: 0 auto; padding-block: 0 var(--auth-scene-header); padding-inline: 40px; }
 
 .auth-scene .auth-scene-hero-eyebrow { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; font-weight: 600; letter-spacing: 2.5px; }
 .auth-scene-hero h1 { font-size: 40px; font-weight: 800; line-height: 1.32; letter-spacing: -2px; }
@@ -1262,8 +1272,7 @@ h1 { margin: 0; line-height: 1.25; }
 }
 /* 더 낮은 창에서는 칸 높이와 아래쪽 줄 간격까지 줄여 마지막 줄을 화면 안에 붙잡습니다. */
 @media (max-height: 780px) {
-  .auth-scene-header { height: 48px; }
-  .auth-scene-main { padding-bottom: 16px; }
+  .auth-scene { --auth-scene-header: 48px; }
   .auth-scene-card { padding: 14px 28px; }
   .auth-scene-card h2 { font-size: 23px; }
   .auth-scene .auth-scene-card-lead { margin-top: 6px; font-size: 13px; }
@@ -1275,8 +1284,8 @@ h1 { margin: 0; line-height: 1.25; }
 }
 /* 두 단이 들어가지 않는 폭에서는 소개를 접고 카드만 세웁니다. */
 @media (max-width: 1000px) {
-  .auth-scene-header { padding: 0 20px; }
-  .auth-scene-main { grid-template-columns: minmax(0, 1fr); padding: 0 20px 24px; }
+  .auth-scene-header { padding-inline: 20px; }
+  .auth-scene-main { grid-template-columns: minmax(0, 1fr); padding-inline: 20px; }
   .auth-scene-hero { display: none; }
 }
 @media (max-width: 460px) {
