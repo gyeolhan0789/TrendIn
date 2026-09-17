@@ -1333,159 +1333,161 @@ h1 { margin: 0; line-height: 1.25; }
 
 /* 온보딩 --------------------------------------------------------------------- */
 /*
- * 시안은 히어로 → 단계 표시 → 카드 석 장 → 버튼을 한 줄로 쌓습니다. 이 전부가 한 화면에
- * 들어와야 해서 시안보다 여백과 글자를 한 단계씩 줄였고, 창 높이에 따라 두 번 더 줄입니다.
+ * 시안은 히어로 → 단계 표시 → 카드 → 버튼을 한 줄로 쌓습니다. 카드 석 장을 한 화면에 다 넣으면
+ * 빽빽해서 두 쪽으로 나눴습니다. 1쪽은 고를 것(분야·키워드), 2쪽은 알림입니다. 쪽마다 내용이
+ * 줄어든 만큼 여백을 넉넉히 두고, 창이 낮을 때만 세 단계로 줄입니다.
  *
  * 회원가입과 같은 함정: 위쪽 `.trendin-ui p { margin: 0 }` 이 (0,1,1) 이라, p 의 여백을
  * 잡는 규칙은 `.onboarding-page` 를 앞에 달아 한 단계 올려야 먹습니다.
  */
 .onboarding-page { display: flex; flex-direction: column; min-height: 100dvh; background: #f8f9fb; }
 
-.onboarding-header { display: flex; position: sticky; z-index: 50; top: 0; align-items: center; justify-content: space-between; height: 56px; padding: 0 40px; border-bottom: 1px solid rgba(0, 0, 0, .05); background: rgba(255, 255, 255, .8); backdrop-filter: blur(12px); }
+.onboarding-header { display: flex; position: sticky; z-index: 50; top: 0; align-items: center; justify-content: space-between; height: 60px; padding: 0 40px; border-bottom: 1px solid rgba(0, 0, 0, .05); background: rgba(255, 255, 255, .8); backdrop-filter: blur(12px); }
 .onboarding-brand { display: flex; align-items: center; gap: 8px; color: var(--lp-ink); font-size: 22px; font-weight: 700; letter-spacing: -1px; }
 .onboarding-who { display: flex; align-items: center; gap: 12px; color: var(--lp-muted); font-size: 14px; }
 .onboarding-avatar { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #eef2ff; }
 
-.onboarding-main { display: flex; flex: 1; flex-direction: column; align-items: center; width: 100%; max-width: 780px; margin: 0 auto; padding: 18px 40px 16px; }
+/*
+ * 2쪽은 카드가 한 장뿐이라 위로 몰리면 아래가 휑합니다. 남는 높이를 위아래로 나눠 가운데에
+ * 세웁니다. safe 를 붙여야 내용이 넘칠 때 위쪽이 잘리지 않고 시작점에 붙습니다.
+ */
+.onboarding-main { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: safe center; width: 100%; max-width: 820px; margin: 0 auto; padding: 28px 40px 24px; }
 
-.onboarding-hero { max-width: 620px; text-align: center; }
-.onboarding-page .onboarding-eyebrow { margin-bottom: 6px; color: var(--lp-indigo); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; }
-.onboarding-hero h1 { font-size: 25px; font-weight: 800; line-height: 1.35; letter-spacing: -1.2px; }
+.onboarding-hero { max-width: 640px; text-align: center; }
+.onboarding-page .onboarding-eyebrow { margin-bottom: 10px; color: var(--lp-indigo); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; }
+.onboarding-hero h1 { font-size: 30px; font-weight: 800; line-height: 1.35; letter-spacing: -1.2px; }
 .onboarding-hero h1 span { color: var(--lp-indigo); }
-.onboarding-page .onboarding-lead { margin-top: 6px; color: var(--lp-muted); font-size: 14px; line-height: 1.6; }
+.onboarding-page .onboarding-lead { margin-top: 10px; color: var(--lp-muted); font-size: 15px; line-height: 1.6; }
 
-/* 단계 표시. 누를 곳이 아니라 어디까지 채웠는지 짚는 자리입니다. */
-.onboarding-steps { display: flex; align-items: center; margin: 16px 0 0; padding: 0; list-style: none; }
+/* 단계 표시. 누를 곳이 아니라 어디를 보고 있는지 짚는 자리입니다. */
+.onboarding-steps { display: flex; align-items: center; margin: 24px 0 0; padding: 0; list-style: none; }
 .onboarding-steps li { display: flex; align-items: center; gap: 10px; }
 /* 단계 사이를 잇는 선. 앞 단계를 마치면 색이 찹니다. */
-.onboarding-steps li + li::before { width: 48px; height: 2px; margin: 0 14px; border-radius: 1px; background: var(--lp-line); content: ""; }
-.onboarding-step-mark { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: var(--lp-line); color: var(--lp-faint); font-size: 13px; font-weight: 700; }
+.onboarding-steps li + li::before { width: 52px; height: 2px; margin: 0 16px; border-radius: 1px; background: var(--lp-line); content: ""; }
+.onboarding-steps li.is-done + li::before, .onboarding-steps li.is-current + li::before { background: #c7d2fe; }
+.onboarding-step-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: var(--lp-line); color: var(--lp-faint); font-size: 13px; font-weight: 700; }
 .onboarding-steps li:not(.is-idle) .onboarding-step-mark { background: var(--lp-indigo); color: #fff; }
+/* 지금 보고 있는 쪽은 옅은 테를 둘러 한눈에 짚이게 합니다. */
+.onboarding-steps li.is-current .onboarding-step-mark { box-shadow: 0 0 0 4px rgba(79, 70, 229, .15); }
 .onboarding-step-text { display: flex; flex-direction: column; }
 .onboarding-step-text strong { color: var(--lp-ink); font-size: 13px; font-weight: 600; }
-.onboarding-step-text small { margin-top: 1px; color: var(--lp-faint); font-size: 11px; }
+.onboarding-step-text small { margin-top: 2px; color: var(--lp-faint); font-size: 11px; }
 .onboarding-steps li.is-idle .onboarding-step-text strong { color: var(--lp-faint); font-weight: 500; }
 .onboarding-steps li.is-idle .onboarding-step-text small { color: #c4c9d1; }
 
-.onboarding-cards { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 16px; }
-.onboarding-card { padding: 14px 24px; border-radius: 18px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 8px 32px rgba(0, 0, 0, .03); }
-.onboarding-card-head { display: flex; align-items: center; gap: 10px; }
-.onboarding-card-step { display: grid; flex-shrink: 0; width: 25px; height: 25px; place-items: center; border-radius: 8px; background: #eef2ff; color: var(--lp-indigo); font-size: 12px; font-weight: 700; }
-.onboarding-card-head h2 { font-size: 17px; font-weight: 700; letter-spacing: -.5px; }
+.onboarding-cards { display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 26px; }
+.onboarding-card { padding: 24px 30px; border-radius: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 8px 32px rgba(0, 0, 0, .03); }
+.onboarding-card-head { display: flex; align-items: center; gap: 12px; }
+.onboarding-card-step { display: grid; flex-shrink: 0; width: 28px; height: 28px; place-items: center; border-radius: 8px; background: #eef2ff; color: var(--lp-indigo); font-size: 13px; font-weight: 700; }
+.onboarding-card-head h2 { font-size: 19px; font-weight: 700; letter-spacing: -.5px; }
 /* 오른쪽 끝에 붙는 안내·링크. 카드마다 둘 중 하나만 옵니다. */
-.onboarding-card-note { margin-left: auto; color: var(--lp-faint); font-size: 12px; }
-.onboarding-card-link { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--lp-indigo); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.onboarding-card-note { margin-left: auto; color: var(--lp-faint); font-size: 13px; }
+.onboarding-card-link { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--lp-indigo); font-size: 13px; font-weight: 500; white-space: nowrap; }
 .onboarding-card-link:hover:not(:disabled) { color: #3730a3; }
 .onboarding-card-link:disabled { color: #c7d2fe; }
-.onboarding-page .onboarding-card-desc { margin: 3px 0 10px; padding-left: 35px; color: var(--lp-faint); font-size: 13px; }
+.onboarding-page .onboarding-card-desc { margin: 6px 0 20px; padding-left: 40px; color: var(--lp-faint); font-size: 14px; }
 
 /* 분야는 둘뿐이라 시안의 5단 격자 대신 가운데로 모읍니다. 늘어나면 줄을 바꿔 흐릅니다. */
-.onboarding-domains { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.onboarding-domain { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 132px; padding: 12px 8px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; color: #374151; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s, color .15s, transform .15s, box-shadow .15s; }
+.onboarding-domains { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.onboarding-domain { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 148px; padding: 20px 8px; border: 1.5px solid var(--lp-line); border-radius: 16px; background: #fff; color: #374151; font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s, color .15s, transform .15s, box-shadow .15s; }
 .onboarding-domain:hover:not(:disabled) { border-color: var(--lp-indigo); background: #f5f3ff; box-shadow: 0 4px 12px rgba(79, 70, 229, .1); transform: translateY(-2px); }
 .onboarding-domain.is-selected { border-color: var(--lp-indigo); background: #f5f3ff; color: var(--lp-indigo); font-weight: 600; }
 .onboarding-domain:disabled { color: var(--lp-faint); }
-.onboarding-domain-icon { font-size: 21px; line-height: 1; }
+.onboarding-domain-icon { font-size: 26px; line-height: 1; }
 
-.onboarding-search { display: flex; position: relative; align-items: center; gap: 10px; height: 42px; padding: 0 14px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fafafa; transition: border-color .15s, background .15s; }
+.onboarding-search { display: flex; position: relative; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fafafa; transition: border-color .15s, background .15s; }
 .onboarding-search:focus-within { border-color: var(--lp-indigo); background: #fff; }
 .onboarding-search-icon { display: grid; flex: 0 0 16px; place-items: center; color: var(--lp-faint); }
 .onboarding-search input { min-width: 0; flex: 1; border: 0; background: transparent; color: var(--lp-ink); font-size: 14px; }
 .onboarding-search input:focus { outline: none; }
 .onboarding-search input::placeholder { color: var(--lp-faint); }
-/* 카드가 낮아 목록이 카드를 넘어가므로, 띄워서 아래 카드를 덮게 둡니다. */
-.onboarding-search-menu { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; left: 0; overflow: hidden auto; max-height: 220px; padding: 5px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
-.onboarding-page .onboarding-search-none { padding: 10px 10px; color: var(--lp-faint); font-size: 13px; }
-.onboarding-search-row { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 9px 10px; border-radius: 8px; text-align: left; }
+/* 목록이 카드를 넘어가므로 띄워서 아래를 덮게 둡니다. */
+.onboarding-search-menu { position: absolute; z-index: 30; top: calc(100% + 6px); right: 0; left: 0; overflow: hidden auto; max-height: 240px; padding: 5px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+.onboarding-page .onboarding-search-none { padding: 10px; color: var(--lp-faint); font-size: 13px; }
+.onboarding-search-row { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 10px; border-radius: 8px; text-align: left; }
 .onboarding-search-row:hover:not(:disabled) { background: #f5f3ff; }
 .onboarding-search-row strong { color: var(--lp-ink); font-size: 14px; font-weight: 600; }
 .onboarding-search-row small { color: var(--lp-faint); font-size: 12px; }
 
-.onboarding-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 12px; }
-.onboarding-chips-label { color: var(--lp-faint); font-size: 12px; font-weight: 500; }
-.onboarding-chip { padding: 5px 13px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: var(--lp-muted); font-size: 13px; transition: border-color .15s, background .15s, color .15s; }
+.onboarding-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.onboarding-chips-label { color: var(--lp-faint); font-size: 13px; font-weight: 500; }
+.onboarding-chip { padding: 7px 15px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: var(--lp-muted); font-size: 13px; transition: border-color .15s, background .15s, color .15s; }
 .onboarding-chip:hover:not(:disabled) { border-color: #c7d2fe; background: #f5f3ff; color: var(--lp-indigo); }
 /* 담은 키워드는 칩 안에 빼기 단추를 답니다. 칩 자체는 누를 곳이 아닙니다. */
-.onboarding-chip.is-mine { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 13px; border-color: #c7d2fe; background: #eef2ff; color: var(--lp-indigo); font-weight: 500; }
+.onboarding-chip.is-mine { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px 7px 15px; border-color: #c7d2fe; background: #eef2ff; color: var(--lp-indigo); font-weight: 500; }
 .onboarding-chip.is-mine button { display: grid; place-items: center; padding: 2px; border-radius: 50%; color: currentColor; opacity: .6; }
 .onboarding-chip.is-mine button:hover:not(:disabled) { opacity: 1; }
 
-.onboarding-notifs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.onboarding-notif { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border: 1.5px solid #f3f4f6; border-radius: 14px; background: #fafafa; text-align: left; transition: border-color .15s, background .15s; }
+.onboarding-notifs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.onboarding-notif { display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; border: 1.5px solid #f3f4f6; border-radius: 16px; background: #fafafa; text-align: left; transition: border-color .15s, background .15s; }
 .onboarding-notif.is-on { border-color: #e0e7ff; background: #fafbff; }
 .onboarding-notif:hover { border-color: #c7d2fe; }
-.onboarding-notif-icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 11px; font-size: 16px; }
+.onboarding-notif-icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 12px; font-size: 18px; }
 .onboarding-notif-text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-.onboarding-notif-text strong { color: var(--lp-ink); font-size: 13px; font-weight: 600; }
+.onboarding-notif-text strong { color: var(--lp-ink); font-size: 14px; font-weight: 600; }
 /*
  * balance 가 없으면 마지막 줄에 '요.' 만 남습니다. 두 줄을 고르게 나눠 그런 외톨이를 막되,
  * keep-all 을 함께 줘야 '가/장'처럼 낱말 가운데서 갈라지지 않습니다. small 은 위쪽
  * `.trendin-ui p` 의 keep-all 이 닿지 않아 여기서 따로 겁니다.
  */
-.onboarding-notif-text small { margin-top: 2px; color: var(--lp-faint); font-size: 11px; line-height: 1.45; text-wrap: balance; word-break: keep-all; }
-.onboarding-notif-switch { display: block; position: relative; flex: 0 0 40px; width: 40px; height: 22px; margin-top: 3px; border-radius: 11px; background: #d1d5db; transition: background .2s; }
+.onboarding-notif-text small { margin-top: 4px; color: var(--lp-faint); font-size: 12px; line-height: 1.5; text-wrap: balance; word-break: keep-all; }
+.onboarding-notif-switch { display: block; position: relative; flex: 0 0 44px; width: 44px; height: 24px; margin-top: 4px; border-radius: 12px; background: #d1d5db; transition: background .2s; }
 .onboarding-notif.is-on .onboarding-notif-switch { background: var(--lp-indigo); }
-.onboarding-notif-switch i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); transition: left .2s; }
-.onboarding-notif.is-on .onboarding-notif-switch i { left: 20px; }
+.onboarding-notif-switch i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); transition: left .2s; }
+.onboarding-notif.is-on .onboarding-notif-switch i { left: 22px; }
 
 .onboarding-loading { display: grid; place-items: center; padding: 60px 0; }
-.onboarding-page .onboarding-alert { padding: 10px 13px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
+.onboarding-page .onboarding-alert { padding: 12px 15px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
 
-.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 2px; }
-.onboarding-later { padding: 12px 28px; border: 1.5px solid #d1d5db; border-radius: 12px; background: #fff; color: var(--lp-muted); font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s; }
+.onboarding-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; }
+.onboarding-later { display: flex; align-items: center; gap: 8px; padding: 13px 30px; border: 1.5px solid #d1d5db; border-radius: 12px; background: #fff; color: var(--lp-muted); font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s; }
 .onboarding-later:hover:not(:disabled) { border-color: #b0b5bf; background: #f9fafb; }
-.onboarding-done { display: flex; align-items: center; gap: 8px; padding: 12px 40px; border-radius: 12px; background: var(--lp-indigo); color: #fff; font-size: 14px; font-weight: 600; transition: background .15s; }
+.onboarding-done { display: flex; align-items: center; gap: 8px; padding: 13px 44px; border-radius: 12px; background: var(--lp-indigo); color: #fff; font-size: 15px; font-weight: 600; transition: background .15s; }
 .onboarding-done:hover:not(:disabled) { background: #4338ca; }
 .onboarding-done:disabled { background: #a5b4fc; }
 .onboarding-done .spinner { margin: 0; border-color: rgba(255, 255, 255, .45); border-top-color: #fff; }
 
 /*
- * 창 높이에 따라 네 번에 걸쳐 줄입니다. 한 구간 안에서는 높이가 고정이라, 각 구간은 그 구간의
- * 가장 낮은 창에 맞춰야 합니다. 걷는 차례는 덜 중요한 것부터입니다.
- * 소개 약물 → 소개 문구 → 단계 설명 → 알림 설명 → 소개 제목 → 단계 표시.
+ * 창이 낮으면 세 단계로 줄입니다. 한 구간 안에서는 높이가 고정이라 각 구간은 그 구간의 가장
+ * 낮은 창에 맞춰야 합니다. 덜 중요한 것부터 걷습니다. 여백 → 소개 약물 → 소개 문구 → 단계 설명.
  */
-@media (max-height: 950px) {
+@media (max-height: 860px) {
+  .onboarding-main { padding-top: 20px; padding-bottom: 18px; }
   .onboarding-page .onboarding-eyebrow { display: none; }
+  .onboarding-hero h1 { font-size: 26px; }
+  .onboarding-page .onboarding-lead { margin-top: 8px; font-size: 14px; }
+  .onboarding-steps { margin-top: 18px; }
+  .onboarding-cards { gap: 12px; margin-top: 20px; }
+  .onboarding-card { padding: 18px 26px; }
+  .onboarding-page .onboarding-card-desc { margin: 5px 0 16px; }
+  .onboarding-domain { padding: 15px 8px; }
+  .onboarding-notif { padding: 14px 18px; }
+}
+@media (max-height: 780px) {
+  .onboarding-header { height: 54px; }
+  .onboarding-main { padding-top: 14px; padding-bottom: 14px; }
   .onboarding-hero h1 { font-size: 22px; }
   .onboarding-page .onboarding-lead { display: none; }
-  .onboarding-main { padding-top: 16px; }
-  .onboarding-steps { margin-top: 14px; }
-  .onboarding-cards { margin-top: 14px; }
-  .onboarding-card { padding: 12px 22px; }
+  .onboarding-steps { margin-top: 12px; }
+  .onboarding-step-mark { width: 30px; height: 30px; }
+  .onboarding-cards { gap: 10px; margin-top: 14px; }
+  .onboarding-card { padding: 14px 22px; }
+  .onboarding-card-head h2 { font-size: 17px; }
+  .onboarding-page .onboarding-card-desc { margin: 4px 0 12px; font-size: 13px; }
+  .onboarding-domain { width: 132px; padding: 11px 8px; }
+  .onboarding-domain-icon { font-size: 21px; }
+  .onboarding-search { height: 42px; }
+  .onboarding-chips { margin-top: 12px; }
+  .onboarding-notif { padding: 11px 16px; }
+  .onboarding-later, .onboarding-done { padding-top: 11px; padding-bottom: 11px; }
 }
-@media (max-height: 875px) {
-  .onboarding-step-text small { display: none; }
-  .onboarding-step-mark { width: 28px; height: 28px; }
-  .onboarding-notif-text small { display: none; }
-  .onboarding-notif { align-items: center; padding: 9px 12px; }
-  .onboarding-cards { gap: 8px; }
-  .onboarding-card { padding: 11px 20px; }
-  .onboarding-page .onboarding-card-desc { margin-bottom: 8px; }
-  .onboarding-domain { padding: 9px 8px; }
-  .onboarding-chips { margin-top: 9px; }
-}
-@media (max-height: 800px) {
-  .onboarding-header { height: 48px; }
-  .onboarding-main { padding-top: 12px; padding-bottom: 12px; }
-  .onboarding-hero h1 { font-size: 20px; }
-  .onboarding-steps { margin-top: 10px; }
-  .onboarding-cards { margin-top: 12px; }
-  .onboarding-card-head h2 { font-size: 16px; }
-  .onboarding-domain { width: 120px; }
-  .onboarding-domain-icon { font-size: 18px; }
-  .onboarding-search { height: 38px; }
-  .onboarding-later, .onboarding-done { padding-top: 10px; padding-bottom: 10px; }
-}
-/* 여기서부터는 소개와 단계 표시를 접습니다. 고를 카드가 먼저 보여야 합니다. */
-@media (max-height: 755px) {
+/* 여기서부터는 소개와 단계 설명을 접습니다. 고를 카드가 먼저 보여야 합니다. */
+@media (max-height: 700px) {
   .onboarding-hero { display: none; }
   .onboarding-steps { margin-top: 0; }
-}
-@media (max-height: 720px) {
-  .onboarding-steps { display: none; }
-  .onboarding-card { padding: 10px 18px; }
-  .onboarding-page .onboarding-card-desc { display: none; }
-  .onboarding-domain { padding: 7px 8px; }
+  .onboarding-step-text small { display: none; }
+  .onboarding-notif-text small { display: none; }
+  .onboarding-notif { align-items: center; }
 }
 /* 두 단 격자가 좁아지는 폭에서는 알림을 한 단으로 내립니다. */
 @media (max-width: 720px) {

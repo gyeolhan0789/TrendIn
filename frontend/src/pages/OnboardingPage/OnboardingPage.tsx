@@ -43,6 +43,14 @@ const NOTIFICATION_OPTIONS = [
 /** 글자를 칠 때마다 보내지 않고, 잠시 멈춘 뒤의 값으로만 찾습니다. */
 const SEARCH_DELAY_MS = 250;
 
+function ArrowIcon({ back = false }: { back?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+      {back ? <path d="M19 12H5M11 6l-6 6 6 6" /> : <path d="M5 12h14M13 6l6 6-6 6" />}
+    </svg>
+  );
+}
+
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -283,6 +291,11 @@ export function OnboardingPage() {
   const [seeded, setSeeded] = useState(false);
   // 알림은 저장할 곳이 없어 화면 안에서만 삽니다. 시안의 기본값대로 앞의 셋을 켜 둡니다.
   const [notifications, setNotifications] = useState(['surging', 'new', 'resurging']);
+  /*
+   * 한 화면에 다 넣으니 빽빽해서 둘로 나눕니다. 1쪽은 고를 것(분야·키워드), 2쪽은 알림입니다.
+   * 주소를 나누지 않는 이유는 뒤로 가기로 1쪽에 돌아왔을 때 고르던 상태가 남아 있어야 해서입니다.
+   */
+  const [step, setStep] = useState<1 | 2>(1);
 
   // 고친 뒤 다시 들어오는 경우가 있어, 이미 고른 분야를 켜 둔 채로 시작합니다.
   useEffect(() => {
@@ -304,7 +317,12 @@ export function OnboardingPage() {
       : [...current, id]));
   };
 
-  const submit = async () => {
+  /*
+   * 1쪽을 떠날 때 분야를 저장합니다. 마지막 버튼까지 미뤄 두면, 2쪽에서 '나중에 설정하기'를
+   * 누른 사람이 방금 고른 분야까지 잃습니다. 키워드는 담는 즉시 서버로 가므로, 2쪽에 닿은
+   * 시점에는 남길 것이 모두 남아 있습니다.
+   */
+  const goToNotifications = async () => {
     if (selected.length === 0) {
       setFormError('관심 분야는 최소 1개 이상 선택해야 합니다.');
       return;
@@ -314,12 +332,14 @@ export function OnboardingPage() {
     try {
       await updateMutation.mutateAsync(selected);
       showToast({ message: '관심 분야를 저장했습니다.', type: 'success' });
-      // 분야를 막 고른 사람이 볼 것은 소개 화면이 아니라 그 분야가 반영된 대시보드입니다.
-      navigate('/dashboard', { replace: true });
+      setStep(2);
     } catch (error) {
       setFormError(describeAuthError(error, '관심 분야를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
     }
   };
+
+  // 분야를 막 고른 사람이 볼 것은 소개 화면이 아니라 그 분야가 반영된 대시보드입니다.
+  const finish = () => navigate('/dashboard', { replace: true });
 
   // 로그인해야 고른 분야를 저장할 수 있습니다.
   if (!getAuthSession()) return <Navigate to="/login" state={{ from: '/onboarding' }} replace />;
@@ -352,20 +372,24 @@ export function OnboardingPage() {
         <div className="onboarding-hero">
           <p className="onboarding-eyebrow">PERSONALIZE YOUR TREND JOURNEY</p>
           <h1>관심 설정으로 나만의 <span>TrendIn</span>을 만들어보세요.</h1>
-          <p className="onboarding-lead">관심 분야와 키워드를 설정하면, 더 정확하고 흥미로운 트렌드를 추천해드려요.</p>
+          <p className="onboarding-lead">
+            {step === 1
+              ? '관심 분야와 키워드를 설정하면, 더 정확하고 흥미로운 트렌드를 추천해드려요.'
+              : '마지막이에요. 어떤 소식을 받아볼지만 골라 주세요.'}
+          </p>
         </div>
 
-        {/* 세 단계가 한 화면에 다 있어 누를 곳은 아니고, 어디까지 채웠는지만 짚어 줍니다. */}
+        {/* 어느 쪽을 보고 있는지, 무엇을 이미 채웠는지 짚어 줍니다. 누를 곳은 아닙니다. */}
         <ol className="onboarding-steps" aria-hidden="true">
-          <li className={selected.length > 0 ? 'is-done' : 'is-current'}>
+          <li className={step === 2 || selected.length > 0 ? 'is-done' : 'is-current'}>
             <span className="onboarding-step-mark">1</span>
             <span className="onboarding-step-text"><strong>관심 분야</strong><small>분야를 선택해주세요</small></span>
           </li>
-          <li className={keywordCount > 0 ? 'is-done' : 'is-current'}>
+          <li className={step === 2 || keywordCount > 0 ? 'is-done' : 'is-current'}>
             <span className="onboarding-step-mark">2</span>
             <span className="onboarding-step-text"><strong>키워드 선택</strong><small>키워드를 추가해주세요</small></span>
           </li>
-          <li className="is-idle">
+          <li className={step === 2 ? 'is-current' : 'is-idle'}>
             <span className="onboarding-step-mark">3</span>
             <span className="onboarding-step-text"><strong>알림 설정</strong><small>알림 옵션을 설정해주세요</small></span>
           </li>
@@ -380,7 +404,7 @@ export function OnboardingPage() {
             <div className="onboarding-loading" aria-label="불러오는 중"><Spinner /></div>
           )}
 
-          {!domainsQuery.isError && !loading && (
+          {!domainsQuery.isError && !loading && step === 1 && (
             <>
               <DomainCard
                 options={options}
@@ -389,7 +413,6 @@ export function OnboardingPage() {
                 onToggle={toggle}
               />
               <KeywordCard />
-              <NotificationCard enabled={notifications} onToggle={toggleNotification} />
 
               {formError && <p className="onboarding-alert" role="alert">{formError}</p>}
 
@@ -398,18 +421,36 @@ export function OnboardingPage() {
                   type="button"
                   className="onboarding-later"
                   disabled={updateMutation.isPending}
-                  onClick={() => navigate('/dashboard', { replace: true })}
+                  onClick={finish}
                 >
                   나중에 설정하기
                 </button>
-                <button type="button" className="onboarding-done" disabled={updateMutation.isPending} onClick={submit}>
+                <button
+                  type="button"
+                  className="onboarding-done"
+                  disabled={updateMutation.isPending}
+                  onClick={goToNotifications}
+                >
                   {updateMutation.isPending && <Spinner size="small" />}
-                  {updateMutation.isPending ? '저장하는 중…' : '맞춤 설정 완료'}
-                  {!updateMutation.isPending && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                      <path d="M5 12h14M13 6l6 6-6 6" />
-                    </svg>
-                  )}
+                  {updateMutation.isPending ? '저장하는 중…' : '다음'}
+                  {!updateMutation.isPending && <ArrowIcon />}
+                </button>
+              </div>
+            </>
+          )}
+
+          {!domainsQuery.isError && !loading && step === 2 && (
+            <>
+              <NotificationCard enabled={notifications} onToggle={toggleNotification} />
+
+              <div className="onboarding-actions">
+                <button type="button" className="onboarding-later" onClick={() => setStep(1)}>
+                  <ArrowIcon back />
+                  이전
+                </button>
+                <button type="button" className="onboarding-done" onClick={finish}>
+                  맞춤 설정 완료
+                  <ArrowIcon />
                 </button>
               </div>
             </>
