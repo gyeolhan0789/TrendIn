@@ -1,5 +1,6 @@
 import { Route } from 'react-router-dom';
 import { AccountSettingsPage } from '../../pages/AccountSettingsPage/AccountSettingsPage';
+import { GlobalTrendsPage } from '../../pages/GlobalTrendsPage/GlobalTrendsPage';
 import { HomePage } from '../../pages/HomePage/HomePage';
 import { KeywordsPage } from '../../pages/KeywordsPage/KeywordsPage';
 import { LandingPage } from '../../pages/LandingPage/LandingPage';
@@ -35,6 +36,11 @@ export const siteRoutes = (
     <Route path="/saved" element={<SavedTrendPage />} />
   </>
 );
+
+/*
+ * 지도가 창을 가득 채우는 화면. 머리말만 얹고 푸터는 두지 않아, 스크롤 없이 한 화면에서 끝납니다.
+ */
+export const stageRoutes = <Route path="/global" element={<GlobalTrendsPage />} />;
 
 /* 아직 옛 모양인 화면들. 각자 시안이 나오면 위로 옮겨 갑니다. */
 export const appRoutes = (

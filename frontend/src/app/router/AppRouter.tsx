@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { SiteLayout } from '../../components/layout/SiteLayout';
 import { RequireAuth } from './RequireAuth';
-import { appRoutes, authRoutes, landingRoutes, siteRoutes } from './routes';
+import { appRoutes, authRoutes, landingRoutes, siteRoutes, stageRoutes } from './routes';
 import type { TrendDetailLocationState } from '../../features/trend/trendDetailLink';
 
 export function AppRouter() {
@@ -33,6 +33,10 @@ function RoutedScreens() {
         <Route element={<SiteLayout />}>
           {landingRoutes}
           <Route element={<RequireAuth />}>{siteRoutes}</Route>
+        </Route>
+        {/* 지도가 창을 가득 채우는 화면. 머리말만 얹고 푸터는 두지 않습니다. */}
+        <Route element={<SiteLayout stage />}>
+          <Route element={<RequireAuth />}>{stageRoutes}</Route>
         </Route>
         {/* 대시보드 화면은 모두 토큰이 있어야 자료를 받을 수 있어 로그인 여부를 먼저 확인합니다. */}
         <Route element={<RequireAuth />}>

@@ -10,7 +10,7 @@ const navItems: { label: string; to?: string }[] = [
   { label: '홈', to: '/' },
   { label: '트렌드 탐색', to: '/dashboard' },
   { label: '관심 키워드', to: '/keywords' },
-  { label: '국가별 트렌드' },
+  { label: '국가별 트렌드', to: '/global' },
   { label: '저장된 트렌드', to: '/saved' },
   { label: '리포트' },
 ];
