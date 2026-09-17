@@ -1330,6 +1330,47 @@ h1 { margin: 0; line-height: 1.25; }
   .login-submit { margin-top: 12px; }
 }
 
+/* 비밀번호 재설정 ------------------------------------------------------------- */
+/*
+ * 가입의 중복확인과 같은 자리·같은 높이의 단추지만, '30초 후 재전송'까지 들어가야 해서
+ * 더 넓습니다. 글자가 바뀌어도 인증번호 칸 너비가 흔들리지 않도록 폭을 고정합니다.
+ */
+.password-reset-send { display: grid; flex-shrink: 0; width: 106px; height: 48px; place-items: center; border: 1.5px solid var(--lp-indigo); border-radius: 12px; background: rgba(255, 255, 255, .6); color: var(--lp-indigo); font-size: 13px; font-weight: 600; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
+.password-reset-send:hover:not(:disabled) { background: var(--lp-indigo); color: #fff; }
+.password-reset-send:disabled { border-color: #eceef2; background: rgba(255, 255, 255, .5); color: #c8ccd2; }
+/*
+ * 시안의 '로그인으로 돌아가기'. 제출 단추와 같은 크기로 서되, 이 화면에서 할 일은 재설정이라
+ * 색은 물러나 있습니다. 다른 두 화면의 카드 아래 한 줄(.auth-scene-card-foot)이 서는 자리입니다.
+ */
+.password-reset-back { display: flex; align-items: center; justify-content: center; width: 100%; height: 52px; margin-top: 12px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; color: #374151; font-size: 15px; font-weight: 600; letter-spacing: -.3px; transition: border-color .15s, background .15s; }
+.password-reset-back:hover { border-color: #d1d5db; background: #f9fafb; color: #374151; }
+
+/* 칸이 넷에 단추가 둘이라 가장 키가 큰 카드입니다. 낮은 창에서는 둘 다 같이 낮춥니다. */
+@media (max-height: 780px) {
+  .password-reset-send { height: 44px; }
+  .password-reset-back { height: 48px; margin-top: 8px; }
+}
+/*
+ * 공통 규칙은 칸이 둘·셋인 카드에 맞춰져 있어, 여기까지 낮아지면 이 카드만 마지막 줄이 밀려
+ * 나갑니다. 1366×768 같은 화면이 이 언저리라 그냥 두면 실제로 스크롤이 생깁니다. 다른 화면은
+ * 이미 들어와 있으니 이 카드만 한 번 더 조입니다.
+ */
+@media (max-height: 720px) {
+  /*
+   * 카드 아래 여백은 카드를 화면 한가운데에 앉히려고 머리줄과 같은 높이로 두었습니다. 다만
+   * 여기까지 낮아지면 반듯한 가운데보다 마지막 줄이 화면 안에 있는 편이 낫습니다. 절반만
+   * 남겨, 인증번호를 보낸 안내와 오류 문구가 한꺼번에 서는 가장 큰 순간까지 들어오게 합니다.
+   */
+  .password-reset-scene .auth-scene-main { padding-block-end: 24px; }
+  .password-reset-card { padding: 10px 24px; }
+  .auth-scene .password-reset-card .auth-scene-card-lead { margin-top: 4px; }
+  .password-reset-card .auth-scene-form { gap: 7px; margin-top: 12px; }
+  .password-reset-card .auth-scene-input { height: 40px; }
+  .password-reset-card .auth-scene-submit { height: 44px; }
+  .password-reset-send { height: 40px; }
+  .password-reset-back { height: 42px; margin-top: 6px; }
+}
+
 /* 온보딩 --------------------------------------------------------------------- */
 /*
  * 시안은 히어로 → 단계 표시 → 카드 → 버튼을 한 줄로 쌓습니다. 카드 석 장을 한 화면에 다 넣으면

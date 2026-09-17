@@ -8,10 +8,14 @@ import { Link } from 'react-router-dom';
  *
  * 높이는 .auth-scene 이 100dvh 안에 가두고, 창이 낮아지면 소개 쪽 여백부터 걷습니다.
  * 그래서 어느 화면을 붙이든 스크롤 없이 한 화면에 들어옵니다.
+ *
+ * className 은 그 여백을 화면마다 한 번 더 조일 자리입니다. 카드가 가장 큰 비밀번호 재설정만
+ * 낮은 창에서 공통값으로는 모자라, 자기 이름을 걸고 제 몫을 더 걷어 갑니다.
  */
-export function AuthScene({ children }: { children: ReactNode }) {
+export function AuthScene({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className="trendin-ui auth-scene">
+    <div className={`trendin-ui auth-scene${className ? ` ${className}` : ''}`}>
+
       {/* 시안의 물결 배경. 장식이라 읽히지 않게 두고 클릭도 통과시킵니다. */}
       <div className="auth-scene-wave" aria-hidden="true">
         <svg viewBox="0 0 800 320" preserveAspectRatio="none" fill="none">
