@@ -109,7 +109,7 @@ TOML 인 이유는 둘이다. `tomllib` 이 stdlib 이라 의존성이 안 늘�
 
 ### 3.3 선택자 — 철회 (2026-09-17)
 
-본문 위치 선택자를 프로필에서 뺐다. 본문은 피드 전문 → ld+json `articleBody` → trafilatura 순서로 얻는다(`web-collect.md` 확정 2).
+본문 위치 선택자를 프로필에서 뺐다. 본문은 기사 페이지 ld+json `articleBody` → trafilatura → 피드 본문 순서로 얻고, 피드 소스도 기사 페이지를 받는다(`web-collect.md` 확정 2, 2026-09-17 개정).
 이 절의 근거였던 "파서 의존성을 늘리지 않는다"는 trafilatura 2.2.0(lxml 의존)을 들이면서 무너졌다. 아래는 옛 결정이다.
 
 > 레포에 BeautifulSoup·lxml 이 없고 `html_text.py` 가 stdlib `html.parser` 위에 있다. CSS 셀렉터 엔진이 없다.
