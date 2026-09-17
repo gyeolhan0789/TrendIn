@@ -16,7 +16,8 @@ GitLab ── webhook ──> Jenkins ──> CI / CD
 
 Grafana (:3000) ──> Prometheus (:9090)
                          ├─ node_exporter ──> EC2 시스템 메트릭
-                         └─ cAdvisor ───────> Docker 컨테이너 메트릭
+                         ├─ cAdvisor ───────> Docker 컨테이너 메트릭
+                         └─ Data EC2 StatsD exporter <── Airflow / Spark Task 메트릭
 ```
 
 | 구성 요소 | 역할 |
@@ -29,6 +30,7 @@ Grafana (:3000) ──> Prometheus (:9090)
 | Grafana | Prometheus 메트릭 조회 및 시각화 기반 제공 |
 | node_exporter | EC2의 CPU, 메모리, 디스크, 네트워크 메트릭 제공 |
 | cAdvisor | Docker 컨테이너별 CPU, 메모리, 네트워크, 파일시스템 메트릭 제공 |
+| StatsD exporter | Airflow DAG/Task 메트릭을 Prometheus 형식으로 변환 |
 | Jenkins | GitLab 변경 사항에 대한 Frontend/Backend 빌드와 배포 자동화 |
 
 ## Docker Compose
@@ -79,7 +81,9 @@ Redis 8을 사용하며 Backend 인증용 리프레시 토큰을 저장한다. �
 
 ### Prometheus와 Grafana
 
-Prometheus는 자체 상태와 함께 `node_exporter:9100`, `cadvisor:8080`을 15초마다 수집한다. exporter 포트는 host에 공개하지 않고 monitoring 네트워크에서만 접근한다. Grafana는 시작 시 `http://prometheus:9090`을 기본 Data Source로 자동 등록한다. Prometheus와 Grafana 데이터는 각각 `s15p21a102-prometheus-data`, `s15p21a102-grafana-data` volume에 보관한다.
+Prometheus는 자체 상태와 함께 `node_exporter:9100`, `cadvisor:8080`, 데이터 EC2의 StatsD exporter를 15초마다 수집한다. Airflow는 DAG/Task 성공·실패와 실행 시간을 StatsD로 전송하며, Airflow Task로 실행되는 `spark_ingest`, `spark_extract`, `spark_aggregate`도 같은 지표에서 확인한다. Spark는 단기 `local[*]` 작업이므로 동적 Spark UI를 직접 수집하지 않는다. StatsD exporter의 HTTP 포트는 데이터 EC2 사설 IP에만 바인딩하고, 보안 그룹에서 서비스 EC2의 접근만 허용한다. Grafana는 기존 Prometheus Data Source를 그대로 사용한다.
+
+데이터 EC2의 `pipeline/.env`에는 `AIRFLOW_METRICS_BIND_IP`, 서비스 EC2의 `infra/.env`에는 같은 주소를 `PIPELINE_METRICS_HOST`로 설정한다.
 
 `infra/.env`에 Grafana 관리자 비밀번호를 설정한 뒤 저장소 루트에서 다음과 같이 실행한다.
 
