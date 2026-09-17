@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, urlsplit
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, Rule, SourceDef
 from trendin.common.collect.html_text import html_fragment
-from trendin.common.collect.keys import ROUTE_EXT, raw_key
+from trendin.common.collect.keys import raw_key
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.urls import clean_url
 
@@ -309,7 +309,7 @@ class RssAdapter:
                     article_id=article_id,
                     url=link,
                     raw=fragment,
-                    raw_ext=ROUTE_EXT[self.source.route],
+                    raw_ext="xml",
                     collected_at=collected_at,
                     published_at=published_by_rule(self.source.published_at, entry),
                 )
@@ -350,6 +350,7 @@ class RssAdapter:
                 self.source.route,
                 candidate.published_at,
                 candidate.article_id,
+                ext=candidate.raw_ext,
             ),
             content_sha256=hashlib.sha256(candidate.raw).hexdigest(),
             summary=summary,

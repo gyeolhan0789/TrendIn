@@ -66,7 +66,7 @@ def make_article(
         raw_key=(
             None
             if members_only or paywalled
-            else raw_key(SOURCE.domain, SOURCE.key, SOURCE.route, published, article_id)
+            else raw_key(SOURCE.domain, SOURCE.key, SOURCE.route, published, article_id, ext="xml")
         ),
         content_sha256=None if members_only or paywalled else "c" * 64,
         members_only=members_only or None,

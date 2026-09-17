@@ -29,7 +29,7 @@ from urllib.parse import urljoin
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
 from trendin.common.collect.html_text import html_fragment
-from trendin.common.collect.keys import ROUTE_EXT, raw_key
+from trendin.common.collect.keys import raw_key
 from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
 
 logger = logging.getLogger("trendin.collect.listing")
@@ -223,7 +223,7 @@ class ListingAdapter:
                 article_id=article_id,
                 url=urljoin(self.source.discover_url, f"/article/{article_id}"),
                 raw=None,  # 기사 페이지는 취득에서 받는다
-                raw_ext=ROUTE_EXT[self.source.route],
+                raw_ext="html",
                 collected_at=collected_at,
                 published_at=None,  # 목록에는 없다. 기사 페이지 ld+json 이 준다
                 categories=tuple(sorted(sections[article_id])),
@@ -289,6 +289,7 @@ class ListingAdapter:
                     self.source.route,
                     published_at,
                     candidate.article_id,
+                    ext="html",
                 )
             ),
             content_sha256=None if members_only else hashlib.sha256(raw).hexdigest(),

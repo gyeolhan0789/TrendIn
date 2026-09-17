@@ -30,7 +30,7 @@ from trendin.common.collect.contracts import (
     Stage,
 )
 from trendin.common.collect.events import article_event, run_summary_event
-from trendin.common.collect.keys import ROUTE_EXT, article_key, raw_key
+from trendin.common.collect.keys import article_key, raw_ext, raw_key
 from trendin.common.collect.ledger import EmittedStats, Ledger
 from trendin.common.collect.session import (
     BlockedUserAgent,
@@ -301,12 +301,15 @@ def store_article(article: Article, raw: bytes, *, store: ObjectStore, ledger: L
     if article.raw_key:
         # 어댑터가 계산한 키를 규칙으로 다시 만들어 맞춰 본다. `keys.py` 를 고치면서
         # 어댑터를 안 고치면 여기서 드러난다 — 안 보면 같은 기사가 두 키에 생긴다(불변식 7).
+        # 확장자는 내용이 정하므로 규칙이 알 수 없다. 키에 적힌 것을 믿고 나머지를 대조한다.
+        ext = raw_ext(article.raw_key)
         expected = raw_key(
             article.domain,
             article.source,
             article.route,
             article.published_at,
             article.article_id,
+            ext=ext,
         )
         if expected != article.raw_key:
             raise ValueError(
@@ -315,7 +318,7 @@ def store_article(article: Article, raw: bytes, *, store: ObjectStore, ledger: L
         store.put(
             article.raw_key,
             raw,
-            CONTENT_TYPES[ROUTE_EXT[article.route]],
+            CONTENT_TYPES[ext],
             object_metadata(article.collected_at, article.content_sha256),
         )
     store.put(

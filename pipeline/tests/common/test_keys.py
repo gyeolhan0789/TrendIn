@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from trendin.common.collect.keys import article_key, raw_key
+from trendin.common.collect.keys import article_key, raw_ext, raw_key
 
 UTC = timezone.utc
 
@@ -12,7 +12,7 @@ UTC = timezone.utc
 def test_키_모양이_설계_문서와_같다():
     published = datetime(2026, 9, 3, 4, 41, 17, tzinfo=UTC)
     assert (
-        raw_key("fashion", "vogue", "rss", published, "857991")
+        raw_key("fashion", "vogue", "rss", published, "857991", ext="xml")
         == "fashion/vogue/rss/2026/09/03/857991/raw.xml"
     )
     assert (
@@ -24,21 +24,25 @@ def test_키_모양이_설계_문서와_같다():
 def test_날짜_파티션은_KST_라_UTC_와_갈릴_수_있다():
     """실측상 pubDate 가 전부 +0000 이라 UTC 15시 이후 발행분은 KST 로 다음 날이다."""
     published = datetime(2026, 9, 2, 23, 30, tzinfo=UTC)  # KST 로는 09-03 08:30
-    assert "/2026/09/03/" in raw_key("fashion", "wkorea", "rss", published, "1")
+    assert "/2026/09/03/" in raw_key("fashion", "wkorea", "rss", published, "1", ext="xml")
 
 
 def test_같은_기사는_언제_받아도_같은_키다():
     published = datetime(2026, 9, 3, 4, 41, 17, tzinfo=UTC)
-    first = raw_key("fashion", "vogue", "rss", published, "857991")
-    second = raw_key("fashion", "vogue", "rss", published, "857991")
+    first = raw_key("fashion", "vogue", "rss", published, "857991", ext="xml")
+    second = raw_key("fashion", "vogue", "rss", published, "857991", ext="xml")
     assert first == second
 
 
-def test_route_마다_확장자가_고정이다():
+def test_확장자는_route_가_아니라_내용이_정한다():
+    """피드 소스도 기사 페이지를 받으므로 rss route 에서 html 이 나온다 (S15P21A102-285)."""
     published = datetime(2026, 9, 3, tzinfo=UTC)
-    assert raw_key("fashion", "x", "rss", published, "1").endswith("raw.xml")
-    assert raw_key("fashion", "x", "listing", published, "1").endswith("raw.html")
-    assert raw_key("dev", "hn", "api", published, "1").endswith("raw.json")
+    assert raw_key("fashion", "x", "rss", published, "1", ext="html").endswith(
+        "rss/2026/09/03/1/raw.html"
+    )
+    assert raw_key("fashion", "x", "rss", published, "1", ext="xml").endswith("raw.xml")
+    assert raw_key("dev", "hn", "api", published, "1", ext="json").endswith("raw.json")
+    assert raw_ext("fashion/x/rss/2026/09/03/1/raw.html") == "html"
 
 
 @pytest.mark.parametrize(
@@ -48,6 +52,7 @@ def test_route_마다_확장자가_고정이다():
         {"article_id": "a/b"},  # 키 구조를 깬다
         {"article_id": ""},
         {"route": "atom"},  # 모르는 route
+        {"ext": "txt"},  # 모르는 확장자
     ],
 )
 def test_키를_못_만들면_바로_실패한다(kwargs):
@@ -57,6 +62,7 @@ def test_키를_못_만들면_바로_실패한다(kwargs):
         "route": "rss",
         "published_at": datetime(2026, 9, 3, tzinfo=timezone(timedelta(hours=9))),
         "article_id": "857991",
+        "ext": "xml",
     }
     with pytest.raises(ValueError):
         raw_key(**{**base, **kwargs})
