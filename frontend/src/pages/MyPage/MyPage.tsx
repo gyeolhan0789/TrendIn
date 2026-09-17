@@ -1,161 +1,281 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { FilterSelect } from '../../components/common/FilterSelect';
-import { InterestKeywordList } from '../../features/myPage/components/InterestKeywordList';
-import { KeywordSearchBar } from '../../features/myPage/components/KeywordSearchBar';
-import { RecommendedKeywords } from '../../features/myPage/components/RecommendedKeywords';
+import { ToggleSwitch } from '../../components/common/ToggleSwitch';
+import { MyPageCard, MyPageRow, MyPageScreen } from '../../features/myPage/components/MyPageShell';
+import {
+  BellIcon,
+  BookmarkIcon,
+  ChevronIcon,
+  ClockIcon,
+  DownloadIcon,
+  GearIcon,
+  GridIcon,
+  LockIcon,
+  SurgeIcon,
+} from '../../features/myPage/components/myPageIcons';
+import { activityLabels, buildActivities, formatActivityDate } from '../../features/myPage/activity';
 import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
-import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
+import { useMyProfile } from '../../features/myPage/hooks/useMyProfile';
+import { useLogout } from '../../features/auth/hooks/useLogout';
+import { useNotifications } from '../../features/notification/hooks/useNotifications';
+import { useMarkNotificationAsRead } from '../../features/notification/hooks/useNotificationMutations';
+import { useNotificationSettings } from '../../features/notification/hooks/useNotificationSettings';
 import { useUnreadNotificationCount } from '../../features/notification/hooks/useUnreadNotificationCount';
-import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
+import { useSavedTrends } from '../../features/savedTrend/hooks/useSavedTrends';
+import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
+import type { ActivityKind } from '../../features/myPage/activity';
+import type { NotificationSettings } from '../../features/notification/types/notificationSettings';
 
-const ALL_DOMAINS = '전체';
+/** 요약 자리에는 최근 다섯 줄만 세웁니다. 나머지는 최근 활동 화면이 맡습니다. */
+const ACTIVITY_PREVIEW = 5;
 
-/* 서버는 등록한 순서대로 주고 지표는 주지 않습니다. 그래서 고를 수 있는 기준이 이 둘뿐입니다. */
-const sorts = [
-  { value: 'recent', label: '등록순' },
-  { value: 'name', label: '가나다순' },
+/** 이메일을 모르는 소셜 계정도 있어서, 머리글자를 못 뽑으면 기본 글자를 씁니다. */
+function initialOf(nickname: string, email: string) {
+  return (nickname.trim()[0] ?? email.trim()[0] ?? 'T').toUpperCase();
+}
+
+/*
+ * 숫자 한 칸. 그 숫자를 보거나 손볼 화면이 있으면 칸 전체가 그리로 가는 링크가 되고,
+ * 모서리에 꺾쇠가 섭니다 — 계정 설정 줄들과 같은 표시입니다. 칸마다 '관리'·'보기'처럼
+ * 다른 말을 달면 같은 일을 하는 자리가 넷 다 달라 보입니다.
+ */
+function StatCard({ tone, icon, label, value, unit, to, accent = false }: {
+  tone: string;
+  icon: ReactNode;
+  label: string;
+  value: number | string;
+  unit?: string;
+  to?: string;
+  accent?: boolean;
+}) {
+  const body = (
+    <>
+      <span className="mypage-stat-head">
+        <span className={`mypage-card-icon mypage-card-icon--${tone}`}>{icon}</span>
+        <span className="mypage-stat-label">{label}</span>
+        {to && <span className="mypage-stat-go"><ChevronIcon /></span>}
+      </span>
+      <strong className={`mypage-stat-value${accent ? ' is-accent' : ''}`}>
+        {value}{unit && <small>{unit}</small>}
+      </strong>
+    </>
+  );
+
+  if (!to) return <div className="mypage-stat">{body}</div>;
+  return <Link className="mypage-stat is-link" to={to}>{body}</Link>;
+}
+
+/*
+ * 요약 자리에 세울 알림 스위치입니다. 전체 관리 화면과 같은 값을 보되, 자주 여닫는 것만
+ * 꺼내 둡니다. 여기서는 누르는 즉시 저장합니다 — 저장 단추를 둘 자리가 없어서입니다.
+ */
+interface NotificationRow {
+  title: string;
+  desc: string;
+  read: (settings: NotificationSettings) => boolean;
+  write: (settings: NotificationSettings, on: boolean) => NotificationSettings;
+}
+
+const notificationRows: NotificationRow[] = [
+  {
+    title: '트렌드 급등 알림',
+    desc: '관심 키워드가 급등하면 즉시 알림',
+    read: (settings) => settings.trend.surge,
+    write: (settings, on) => ({ ...settings, trend: { ...settings.trend, surge: on } }),
+  },
+  {
+    title: '신규 트렌드 발견',
+    desc: '새로운 트렌드가 감지되면 알림',
+    read: (settings) => settings.trend.discovered,
+    write: (settings, on) => ({ ...settings, trend: { ...settings.trend, discovered: on } }),
+  },
 ];
 
-function StatCard({ tone, icon, label, children }: { tone: string; icon: ReactNode; label: string; children: ReactNode }) {
-  return (
-    <div className="keywords-stat">
-      <span className={`keywords-stat-icon keywords-stat-icon--${tone}`}>{icon}</span>
-      <div>
-        <p className="keywords-stat-label">{label}</p>
-        <p className="keywords-stat-value">{children}</p>
-      </div>
-    </div>
-  );
-}
-
-function MyPageEmpty() {
-  return (
-    <div className="keywords-empty">
-      <p>아직 등록한 관심 키워드가 없습니다.</p>
-      <h2>위 입력칸에서 키워드를 찾아 등록해 보세요.</h2>
-      <Link className="keywords-empty-action" to="/dashboard">
-        트렌드 탐색에서 키워드 둘러보기
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-      </Link>
-    </div>
-  );
-}
+const accountLinks: { to: string; icon: ReactNode; title: string; desc: string }[] = [
+  { to: '/mypage/settings', icon: <LockIcon />, title: '비밀번호 변경', desc: '메일로 인증번호를 받아 다시 세우기' },
+  { to: '/mypage/settings', icon: <DownloadIcon />, title: '데이터 내보내기', desc: '관심 키워드, 저장된 트렌드 내려받기' },
+];
 
 export function MyPage() {
-  const interestKeywordsQuery = useInterestKeywords();
-  const recommendedQuery = useRecommendedKeywords();
-  const domainsQuery = useDomains();
+  const navigate = useNavigate();
+  const openDetail = useTrendDetailLink();
+  const profileQuery = useMyProfile();
+  const domainsQuery = useMyDomains(true);
+  const keywordsQuery = useInterestKeywords();
+  const savedTrendsQuery = useSavedTrends();
   const unreadCountQuery = useUnreadNotificationCount();
-  const [selectedDomain, setSelectedDomain] = useState(ALL_DOMAINS);
-  const [sort, setSort] = useState('recent');
+  const notificationsQuery = useNotifications(true);
+  const [settings, updateSettings] = useNotificationSettings();
+  const markAsRead = useMarkNotificationAsRead();
+  const logoutMutation = useLogout();
 
-  const keywords = useMemo(() => interestKeywordsQuery.data ?? [], [interestKeywordsQuery.data]);
-  // 관심 키워드 응답에는 분야 코드만 있어, 표시 이름은 분야 목록에서 찾아 붙입니다.
-  const domainNames = useMemo(
-    () => new Map((domainsQuery.data ?? []).map((option) => [option.domain, option.name])),
-    [domainsQuery.data],
+  const profile = profileQuery.data;
+  const notifications = useMemo(
+    () => notificationsQuery.data?.pages.flatMap((page) => page.content) ?? [],
+    [notificationsQuery.data],
+  );
+  const savedTrends = useMemo(() => savedTrendsQuery.data?.trends ?? [], [savedTrendsQuery.data]);
+  const activities = useMemo(
+    () => buildActivities(notifications, savedTrends).slice(0, ACTIVITY_PREVIEW),
+    [notifications, savedTrends],
   );
 
-  // 등록한 키워드가 있는 분야만 거르개로 내놓습니다.
-  const usedDomains = useMemo(() => [...new Set(keywords.map((keyword) => keyword.domain))], [keywords]);
-  // 고른 분야의 마지막 키워드를 빼면 그 칸도 사라지므로, 갇히지 않게 전체로 되돌립니다.
-  const activeDomain = usedDomains.includes(selectedDomain) ? selectedDomain : ALL_DOMAINS;
+  const icons: Record<ActivityKind, typeof SurgeIcon> = { surge: SurgeIcon, saved: BookmarkIcon };
 
-  const visibleKeywords = useMemo(() => {
-    const filtered = activeDomain === ALL_DOMAINS
-      ? keywords
-      : keywords.filter((keyword) => keyword.domain === activeDomain);
-    if (sort !== 'name') return filtered;
-    return [...filtered].sort((a, b) => a.keyword.localeCompare(b.keyword, 'ko'));
-  }, [activeDomain, keywords, sort]);
+  const signOut = async () => {
+    await logoutMutation.mutateAsync();
+    navigate('/', { replace: true });
+  };
 
   return (
-    <div className="keywords-page">
-      <section className="keywords-hero">
-        <div>
-          <p className="keywords-eyebrow">내가 만드는 트렌드 레이더</p>
-          <h1>관심 키워드</h1>
-          <p className="keywords-lead">지속적으로 보고 싶은 키워드를 등록하면, 트렌드에 오를 때 알려 드립니다.</p>
+    <MyPageScreen width="wide">
+      <div className="mypage-head mypage-head--top">
+        <p className="mypage-eyebrow">내 계정과 활동을 한눈에</p>
+        <h1>마이페이지</h1>
+      </div>
+
+      {profileQuery.isError && (
+        <div className="trendin-state is-error" role="alert">
+          <p>프로필을 불러오지 못했습니다.</p>
+          <button type="button" onClick={() => profileQuery.refetch()}>다시 시도</button>
         </div>
-        <KeywordSearchBar />
-      </section>
+      )}
 
-      <section className="keywords-stats">
-        <StatCard
-          tone="indigo"
-          label="등록한 키워드"
-          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" /></svg>}
-        >
-          {keywords.length}<small>개</small>
-        </StatCard>
-
-        <StatCard
-          tone="emerald"
-          label="관심 분야"
-          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17l5-5 4 4 5-7" /><path d="M17 7h4v4" /></svg>}
-        >
-          {usedDomains.length}<small>곳</small>
-        </StatCard>
-
-        <StatCard
-          tone="blue"
-          label="안 읽은 알림"
-          icon={(
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
-          )}
-        >
-          {unreadCountQuery.data ?? 0}<small>개</small>
-        </StatCard>
-      </section>
-
-      <section className="keywords-toolbar">
-        <div className="keywords-toolbar-title">
-          <h2>내 관심 키워드</h2>
-          <span className="keywords-count">{keywords.length}</span>
+      <section className="mypage-overview">
+        <div className="mypage-card mypage-profile">
+          <span className="mypage-avatar" aria-hidden="true">
+            {profile ? initialOf(profile.nickname, profile.email) : 'T'}
+          </span>
+          <p className="mypage-profile-name">{profile?.nickname ?? '…'}</p>
+          {/* 소셜로 들어온 계정은 이메일을 모를 수 있습니다. 빈 줄 대신 그 사정을 적습니다. */}
+          <p className="mypage-profile-email">{profile ? (profile.email || '연결된 소셜 계정') : ''}</p>
+          <div className="mypage-profile-actions">
+            <Link className="mypage-btn mypage-btn--ghost" to="/mypage/profile">프로필 편집</Link>
+            <button
+              type="button"
+              className="mypage-btn mypage-btn--dark"
+              disabled={logoutMutation.isPending}
+              onClick={() => void signOut()}
+            >
+              {logoutMutation.isPending ? '로그아웃 중…' : '로그아웃'}
+            </button>
+          </div>
         </div>
-        <div className="keywords-toolbar-filters">
-          <FilterSelect value={sort} options={sorts} ariaLabel="정렬" onChange={setSort} disabled={keywords.length === 0} />
-          <FilterSelect
-            value={activeDomain}
-            options={[ALL_DOMAINS, ...usedDomains].map((domain) => ({
-              value: domain,
-              label: domain === ALL_DOMAINS ? '전체 분야' : domainNames.get(domain) ?? domain,
-            }))}
-            ariaLabel="분야"
-            onChange={setSelectedDomain}
-            disabled={usedDomains.length === 0}
+
+        {/*
+          * 시안의 여섯 칸 가운데 보드·생성 리포트·최근 접속은 서버가 세어 주지 않습니다.
+          * 빈 칸을 0으로 채우면 없는 것을 있다고 말하게 되므로, 셀 수 있는 넷만 세웁니다.
+          */}
+        <div className="mypage-stats">
+          <StatCard
+            tone="indigo"
+            icon={<BookmarkIcon />}
+            label="관심 키워드"
+            value={keywordsQuery.data?.length ?? 0}
+            unit="개"
+            to="/keywords"
+          />
+          <StatCard
+            tone="blue"
+            icon={<GridIcon />}
+            label="관심 분야"
+            value={domainsQuery.data?.length ?? 0}
+            unit="곳"
+            to="/mypage/profile"
+          />
+          <StatCard
+            tone="emerald"
+            icon={<BellIcon />}
+            label="안 읽은 알림"
+            value={unreadCountQuery.data ?? 0}
+            unit="개"
+            accent
+            to="/mypage/activity?kind=surge"
+          />
+          <StatCard
+            tone="rose"
+            icon={<BookmarkIcon />}
+            label="저장된 트렌드"
+            value={savedTrends.length}
+            unit="개"
+            to="/saved"
           />
         </div>
       </section>
 
-      <section className="keywords-main">
-        {interestKeywordsQuery.isLoading && <div className="trendin-state" aria-label="불러오는 중"><span /><span /><span /></div>}
-
-        {interestKeywordsQuery.isError && (
-          <div className="trendin-state is-error" role="alert">
-            <p>관심 키워드를 불러오지 못했습니다.</p>
-            <button type="button" onClick={() => interestKeywordsQuery.refetch()}>다시 시도</button>
+      <section className="mypage-columns">
+        <MyPageCard
+          title="알림 설정"
+          tone="indigo"
+          icon={<BellIcon />}
+          action={<Link className="mypage-card-link" to="/mypage/notifications">전체 관리 →</Link>}
+        >
+          <div className="mypage-rows">
+            {notificationRows.map((row) => (
+              <MyPageRow key={row.title} title={row.title} description={row.desc}>
+                <ToggleSwitch
+                  checked={settings.master && row.read(settings)}
+                  disabled={!settings.master}
+                  label={row.title}
+                  onChange={(on) => updateSettings((current) => row.write(current, on))}
+                />
+              </MyPageRow>
+            ))}
           </div>
-        )}
+        </MyPageCard>
 
-        {interestKeywordsQuery.isSuccess && (
-          <>
-            {keywords.length === 0 && <MyPageEmpty />}
-            {keywords.length > 0 && visibleKeywords.length === 0 && <p className="keywords-filter-empty">이 분야에 등록한 키워드가 없습니다.</p>}
-            {visibleKeywords.length > 0 && <InterestKeywordList keywords={visibleKeywords} domainNames={domainNames} />}
-          </>
-        )}
+        <MyPageCard title="계정 설정" tone="slate" icon={<GearIcon />}>
+          <div className="mypage-rows">
+            {accountLinks.map((link) => (
+              <Link className="mypage-link-row" key={link.title} to={link.to}>
+                <span className="mypage-link-icon">{link.icon}</span>
+                <span className="mypage-row-text">
+                  <span className="mypage-row-title">{link.title}</span>
+                  <span className="mypage-row-desc">{link.desc}</span>
+                </span>
+                <ChevronIcon />
+              </Link>
+            ))}
+          </div>
+        </MyPageCard>
       </section>
 
-      {recommendedQuery.isSuccess && (
-        <section className="keywords-recommend-section">
-          <RecommendedKeywords recommendations={recommendedQuery.data} />
-        </section>
-      )}
-    </div>
+      <MyPageCard
+        title="최근 활동"
+        tone="amber"
+        icon={<ClockIcon />}
+        action={<Link className="mypage-card-link" to="/mypage/activity">전체 보기 →</Link>}
+      >
+        {activities.length === 0 && (
+          <p className="mypage-empty">아직 쌓인 활동이 없습니다. 관심 키워드를 등록해 두면 트렌드에 오를 때 알려 드립니다.</p>
+        )}
+        {activities.length > 0 && (
+          <ul className="mypage-preview">
+            {activities.map((activity) => {
+              const Icon = icons[activity.kind];
+              return (
+                <li key={activity.id} className={activity.unread ? 'is-unread' : ''}>
+                  <Link
+                    className="mypage-activity"
+                    {...openDetail(activity.trendId)}
+                    /* 요약에서 열어도 읽음으로 바뀝니다. 최근 활동 화면과 같은 규칙입니다. */
+                    onClick={() => { if (activity.unread && activity.notificationId !== undefined) markAsRead.mutate(activity.notificationId); }}
+                  >
+                    <span className={`mypage-activity-icon mypage-activity-icon--${activity.kind}`}><Icon size={14} /></span>
+                    <span className="mypage-activity-text">
+                      <strong>{activity.text}</strong>
+                      <small>{formatActivityDate(activity.date)} {activity.time}</small>
+                    </span>
+                    <span className={`mypage-activity-tag mypage-activity-tag--${activity.kind}`}>{activityLabels[activity.kind]}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </MyPageCard>
+    </MyPageScreen>
   );
 }

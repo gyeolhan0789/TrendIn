@@ -1,11 +1,16 @@
 import { Route } from 'react-router-dom';
+import { AccountSettingsPage } from '../../pages/AccountSettingsPage/AccountSettingsPage';
 import { HomePage } from '../../pages/HomePage/HomePage';
+import { KeywordsPage } from '../../pages/KeywordsPage/KeywordsPage';
 import { LandingPage } from '../../pages/LandingPage/LandingPage';
 import { LoginPage } from '../../pages/LoginPage/LoginPage';
 import { MyPage } from '../../pages/MyPage/MyPage';
+import { NotificationSettingsPage } from '../../pages/NotificationSettingsPage/NotificationSettingsPage';
 import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
 import { OnboardingPage } from '../../pages/OnboardingPage/OnboardingPage';
 import { PasswordResetPage } from '../../pages/PasswordResetPage/PasswordResetPage';
+import { ProfileEditPage } from '../../pages/ProfileEditPage/ProfileEditPage';
+import { RecentActivityPage } from '../../pages/RecentActivityPage/RecentActivityPage';
 
 import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
@@ -21,7 +26,12 @@ export const landingRoutes = <Route path="/" element={<LandingPage />} />;
 export const siteRoutes = (
   <>
     <Route path="/dashboard" element={<HomePage />} />
+    <Route path="/keywords" element={<KeywordsPage />} />
     <Route path="/mypage" element={<MyPage />} />
+    <Route path="/mypage/profile" element={<ProfileEditPage />} />
+    <Route path="/mypage/settings" element={<AccountSettingsPage />} />
+    <Route path="/mypage/activity" element={<RecentActivityPage />} />
+    <Route path="/mypage/notifications" element={<NotificationSettingsPage />} />
     <Route path="/saved" element={<SavedTrendPage />} />
   </>
 );

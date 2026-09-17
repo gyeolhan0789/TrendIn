@@ -370,7 +370,7 @@ export function HomePage() {
                 </div>
               </div>
 
-              <Link className="explore-cta" to="/mypage">
+              <Link className="explore-cta" to="/keywords">
                 <span className="explore-cta-glow" />
                 <p><BoltIcon /> 지금, 당신만의<br />관심 키워드를 등록해보세요.</p>
                 <ArrowIcon size={14} color="#4338ca" />
