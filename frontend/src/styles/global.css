@@ -1208,7 +1208,12 @@ h1 { margin: 0; line-height: 1.25; }
 .signup-home { display: inline-flex; align-items: center; gap: 6px; padding: 7px 18px; border: 1px solid #d1d5db; border-radius: 8px; color: #374151; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s; }
 .signup-home:hover { border-color: #b0b5bf; background: #fff; color: #374151; }
 
-.signup-main { display: grid; z-index: 2; position: relative; flex: 1; grid-template-columns: 1fr 1fr; align-items: center; gap: 40px; width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 40px 24px; }
+/*
+ * align-content 로 줄 하나를 통째로 가운데 두고, 그 안에서 두 단을 아래에 맞춥니다. 줄 높이는
+ * 둘 중 큰 쪽(가입 칸)이 정하므로, 소개 쪽 마지막 줄이 가입 칸 바닥과 같은 선에 섭니다.
+ * align-items 만 end 로 두면 줄이 늘어나 가입 칸까지 화면 바닥으로 내려갑니다.
+ */
+.signup-main { display: grid; z-index: 2; position: relative; flex: 1; grid-template-columns: 1fr 1fr; align-content: center; align-items: end; gap: 40px; width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 40px 24px; }
 
 .signup-page .signup-hero-eyebrow { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; font-weight: 600; letter-spacing: 2.5px; }
 .signup-hero h1 { font-size: 40px; font-weight: 800; line-height: 1.32; letter-spacing: -2px; }
