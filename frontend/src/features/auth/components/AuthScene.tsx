@@ -45,17 +45,10 @@ export function AuthScene({ children, className }: { children: ReactNode; classN
           </svg>
           TrendIn
         </Link>
-        <Link className="auth-scene-home" to="/">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-          홈으로
-        </Link>
       </header>
 
       <div className="auth-scene-main">
         <section className="auth-scene-hero">
-          <p className="auth-scene-hero-eyebrow">REAL-TIME TREND INSIGHTS</p>
           <h1>지금,<br />세상을 움직이는<br /><span>트렌드</span>를 담다</h1>
           <p className="auth-scene-hero-lead">수많은 데이터 속에서 중요한 흐름을 찾아,<br />더 빠르고, 더 깊이 있게.</p>
 
@@ -105,11 +98,8 @@ export function AuthScene({ children, className }: { children: ReactNode; classN
           </ul>
 
           <div className="auth-scene-hero-foot">
-            <div>
-              <p>지금도,<br />새로운 트렌드가 만들어지고 있어요.</p>
-              <span className="auth-scene-hero-progress" aria-hidden="true"><i /></span>
-            </div>
-            <p className="auth-scene-hero-side">DISCOVER<br />ANALYZE<br />BE INSPIRED</p>
+            <p>지금도,<br />새로운 트렌드가 만들어지고 있어요.</p>
+            <span className="auth-scene-hero-progress" aria-hidden="true"><i /></span>
           </div>
         </section>
 
