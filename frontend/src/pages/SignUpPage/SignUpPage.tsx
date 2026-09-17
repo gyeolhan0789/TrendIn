@@ -176,7 +176,11 @@ export function SignUpPage() {
     if (available === true) {
       return <span className="signup-ok"><CheckIcon />사용할 수 있는 이메일입니다.</span>;
     }
-    // 확인에 실패하면(null) 굳이 알리지 않습니다. 중복은 가입 응답이 최종적으로 가려냅니다.
+    /*
+     * 확인이 실패하면(null) 눌렀는데 아무 일도 안 난 것처럼 보입니다. 막지는 않되 그 사실은
+     * 알립니다. 중복은 가입 응답의 409가 최종적으로 가려내므로 그대로 진행해도 됩니다.
+     */
+    if (available === null) return '지금은 확인할 수 없습니다. 그대로 가입을 진행해도 됩니다.';
     return undefined;
   })();
 
@@ -184,7 +188,19 @@ export function SignUpPage() {
   const checkEmail = () => {
     const message = validateEmail(email);
     setErrors((current) => ({ ...current, email: message }));
-    setCheckedEmail(message ? '' : normalizedEmail);
+    if (message) {
+      setCheckedEmail('');
+      return;
+    }
+    /*
+     * 앞서 확인이 실패한 주소를 다시 누르는 경우입니다. 확인한 주소가 그대로라 상태가 바뀌지 않고,
+     * 실패 결과도 staleTime 동안 캐시에 남아 있어 그냥 두면 질의가 다시 돌지 않습니다.
+     */
+    if (checkedEmail === normalizedEmail) {
+      void availabilityQuery.refetch();
+      return;
+    }
+    setCheckedEmail(normalizedEmail);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -221,7 +237,11 @@ export function SignUpPage() {
   if (enteredLoggedIn) return <Navigate to="/" replace />;
 
   // 같은 주소를 이미 확인했으면 다시 누를 이유가 없어 버튼을 잠급니다.
-  const checkDisabled = signUpMutation.isPending || checkingEmail || (checkedCurrent && available !== undefined);
+  /*
+   * 답을 받은 주소는 다시 누를 이유가 없어 잠급니다. 다만 확인이 실패했을 때(null)는 잠그지
+   * 않습니다. 서버가 잠깐 답하지 못한 것일 수 있는데, 그때 잠겨 버리면 다시 눌러 볼 길이 없습니다.
+   */
+  const checkDisabled = signUpMutation.isPending || checkingEmail || (checkedCurrent && typeof available === 'boolean');
 
   return (
     <div className="trendin-ui signup-page">
