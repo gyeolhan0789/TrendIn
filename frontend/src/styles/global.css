@@ -790,7 +790,11 @@ h1 { margin: 0; line-height: 1.25; }
  */
 .trendin-select { display: flex; position: relative; align-items: center; padding: 0 12px 0 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; transition: background .15s; }
 .trendin-select:hover:not(.is-disabled) { background: #f9fafb; }
-.trendin-select-value { padding: 8px 22px 8px 0; border: 0; background: transparent; color: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-value { display: grid; padding: 8px 22px 8px 0; border: 0; background: transparent; color: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-current { grid-area: 1 / 1; text-align: left; }
+/* 가장 긴 값이 칸 너비를 정하도록 모든 값을 같은 자리에 겹쳐 둡니다. 보이지도, 눌리지도 않습니다. */
+.trendin-select-sizer { display: grid; grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; }
+.trendin-select-sizer > span { grid-area: 1 / 1; }
 .trendin-select-value:focus { outline: none; }
 .trendin-select:focus-within { border-color: var(--lp-indigo); }
 .trendin-select > svg { position: absolute; right: 12px; pointer-events: none; transition: transform .15s; }

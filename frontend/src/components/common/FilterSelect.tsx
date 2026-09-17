@@ -90,7 +90,14 @@ export function FilterSelect({ value, options, label, ariaLabel, onChange, disab
         onClick={() => (open ? close() : show())}
         onKeyDown={handleKeyDown}
       >
-        {selected?.label ?? value}
+        <span className="trendin-select-current">{selected?.label ?? value}</span>
+        {/*
+          * 고른 값에 따라 칸 너비가 들썩이지 않도록, 보이지 않는 자리에 모든 값을 겹쳐 둡니다.
+          * 칸은 그중 가장 긴 값에 맞춰 서고, 무엇을 고르든 그 너비 그대로 머뭅니다.
+          */}
+        <span className="trendin-select-sizer" aria-hidden="true">
+          {options.map((option) => <span key={option.value}>{option.label}</span>)}
+        </span>
       </button>
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
 
