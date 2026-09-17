@@ -99,31 +99,34 @@ function SignUpField({
         <label className="signup-label" htmlFor={fieldId}>{label}</label>
         {error && <span className="signup-field-error" id={errorId} role="alert">{error}</span>}
       </div>
-      <div className="signup-input">
-        <span className="signup-input-icon" aria-hidden="true">{icon}</span>
-        <input
-          id={fieldId}
-          type={isPassword && revealed ? 'text' : type}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          autoComplete={autoComplete}
-          disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={describedBy}
-        />
-        {isPassword && (
-          <button
-            type="button"
-            className="signup-reveal"
-            aria-pressed={revealed}
-            aria-label={revealed ? '비밀번호 숨기기' : '비밀번호 보기'}
-            onClick={() => setRevealed((current) => !current)}
-          >
-            <EyeIcon off={revealed} />
-          </button>
-        )}
+      <div className="signup-input-row">
+        <div className="signup-input">
+          <span className="signup-input-icon" aria-hidden="true">{icon}</span>
+          <input
+            id={fieldId}
+            type={isPassword && revealed ? 'text' : type}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onBlur={onBlur}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+            disabled={disabled}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy}
+          />
+          {isPassword && (
+            <button
+              type="button"
+              className="signup-reveal"
+              aria-pressed={revealed}
+              aria-label={revealed ? '비밀번호 숨기기' : '비밀번호 보기'}
+              onClick={() => setRevealed((current) => !current)}
+            >
+              <EyeIcon off={revealed} />
+            </button>
+          )}
+        </div>
+        {/* 중복확인처럼 칸에 딸린 단추는 칸 밖 오른쪽에 세웁니다. 그만큼 입력 칸이 좁아집니다. */}
         {action}
       </div>
       {/* 칸 아래는 안내 자리입니다. 비밀번호 규칙처럼 늘 서 있는 줄이라 높이가 흔들리지 않습니다. */}
@@ -390,10 +393,6 @@ export function SignUpPage() {
                 {signUpMutation.isPending ? '가입하는 중…' : '회원가입'}
               </button>
             </form>
-
-            <div className="signup-divider"><i />또는<i /></div>
-            {/* 소셜 로그인 API는 계약만 있고 제공자가 정해지지 않아, 누를 수 없는 버튼 대신 한 줄로 밝힙니다. */}
-            <p className="signup-social-note">소셜 로그인은 준비 중입니다.</p>
 
             <p className="signup-footer">이미 계정이 있으신가요? <Link to="/login">로그인</Link></p>
           </div>
