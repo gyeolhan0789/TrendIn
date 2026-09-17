@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Button } from '../../components/common/Button';
+import { Spinner } from '../../components/common/Spinner';
 import { showToast } from '../../components/common/toast';
-import { AuthField } from '../../features/auth/components/AuthField';
-import { AuthShell } from '../../features/auth/components/AuthShell';
-import { SocialLoginNotice } from '../../features/auth/components/SocialLoginNotice';
+import { AuthScene } from '../../features/auth/components/AuthScene';
+import { AuthSceneField } from '../../features/auth/components/AuthSceneField';
+import { LockIcon, MailIcon } from '../../features/auth/components/authIcons';
 import { getAuthSession } from '../../features/auth/api/authSessionStorage';
 import { describeAuthError } from '../../features/auth/authErrors';
 import { useLogin } from '../../features/auth/hooks/useLogin';
@@ -63,43 +63,53 @@ export function LoginPage() {
   if (enteredLoggedIn) return <Navigate to={from} replace />;
 
   return (
-    <AuthShell
-      eyebrow="SIGN IN"
-      title="다시 만나 반갑습니다"
-      description="등록한 관심 키워드의 추이와 저장한 트렌드를 이어서 봅니다."
-      footer={<>아직 계정이 없으신가요? <Link to="/signup">회원가입</Link></>}
-    >
-      <form className="auth-form" onSubmit={submit} noValidate>
-        <AuthField
-          label="이메일"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          onBlur={() => setErrors((current) => ({ ...current, email: validateEmail(email) }))}
-          placeholder="you@company.co.kr"
-          autoComplete="email"
-          error={errors.email}
-          disabled={loginMutation.isPending}
-        />
-        <AuthField
-          label="비밀번호"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          placeholder="비밀번호를 입력하세요"
-          autoComplete="current-password"
-          error={errors.password}
-          disabled={loginMutation.isPending}
-        />
+    <AuthScene>
+      <div className="auth-scene-card">
+        <h2>로그인</h2>
+        <p className="auth-scene-card-lead">TrendIn과 함께 더 빠르게,<br />세상의 트렌드를 발견하세요.</p>
 
-        {formError && <p className="auth-alert" role="alert">{formError}</p>}
+        <form className="auth-scene-form" onSubmit={submit} noValidate>
+          <AuthSceneField
+            label="이메일"
+            icon={<MailIcon />}
+            type="email"
+            value={email}
+            onChange={(value) => {
+              setEmail(value);
+              // 고치는 중에 앞선 오류가 남아 있으면, 이미 고친 값을 틀렸다고 하는 셈입니다.
+              setErrors((current) => (current.email ? { ...current, email: undefined } : current));
+            }}
+            onBlur={() => setErrors((current) => ({ ...current, email: validateEmail(email) }))}
+            placeholder="이메일을 입력해주세요."
+            autoComplete="email"
+            error={errors.email}
+            disabled={loginMutation.isPending}
+          />
+          <AuthSceneField
+            label="비밀번호"
+            icon={<LockIcon />}
+            type="password"
+            value={password}
+            onChange={(value) => {
+              setPassword(value);
+              setErrors((current) => (current.password ? { ...current, password: undefined } : current));
+            }}
+            placeholder="비밀번호를 입력해주세요."
+            autoComplete="current-password"
+            error={errors.password}
+            disabled={loginMutation.isPending}
+          />
 
-        <Button className="auth-submit" type="submit" isLoading={loginMutation.isPending}>
-          {loginMutation.isPending ? '로그인 중…' : '로그인'}
-        </Button>
-      </form>
+          {formError && <p className="auth-scene-alert" role="alert">{formError}</p>}
 
-      <SocialLoginNotice />
-    </AuthShell>
+          <button className="auth-scene-submit login-submit" type="submit" disabled={loginMutation.isPending}>
+            {loginMutation.isPending && <Spinner size="small" />}
+            {loginMutation.isPending ? '로그인 중…' : '로그인'}
+          </button>
+        </form>
+
+        <p className="auth-scene-card-foot">처음이신가요? <Link to="/signup">회원가입</Link></p>
+      </div>
+    </AuthScene>
   );
 }

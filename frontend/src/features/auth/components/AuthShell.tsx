@@ -9,7 +9,7 @@ interface AuthShellProps {
   footer?: ReactNode;
 }
 
-/** 로그인·회원가입·OAuth 콜백이 함께 쓰는 한 칸짜리 틀입니다. */
+/** OAuth 콜백이 쓰는 한 칸짜리 틀입니다. 로그인·회원가입은 새 시안의 AuthScene 으로 옮겨 갔습니다. */
 export function AuthShell({ eyebrow, title, description, footer, children }: PropsWithChildren<AuthShellProps>) {
   return (
     <main className="auth-page">
