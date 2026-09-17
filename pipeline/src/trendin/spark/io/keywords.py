@@ -117,8 +117,6 @@ REVIEW_COLUMNS = (
 # `domain` 은 `keywords.domain` 에 들어가는 enum 상수명(`FASHION`)이다 ([01 §6]).
 KEYWORD_COLUMNS = ("domain_slug", "domain", "normalized_name", "name")
 
-KEYWORD_CONTENT_COLUMNS = ("domain", "normalized_key", "url_hash")
-
 EMBEDDING_COLUMNS = ("model", "surface", "vector", "dim")
 
 DDL = f"""

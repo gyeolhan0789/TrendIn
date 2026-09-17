@@ -20,3 +20,14 @@ COMMONS_POOL2=2.12.0     # 같음
 HADOOP_VERSION=3.4.1     # pyspark 가 번들한 hadoop-client-api 와 같아야 한다
 AWS_SDK_VERSION=2.24.6   # hadoop-project 3.4.1 의 aws-java-sdk-v2.version. 530 MB
 POSTGRES_JDBC=42.7.13    # 비교적 자유롭다
+
+# 실체 인식 (spark/docs/04 §2, src/trendin/spark/extract/entities.py). 2026-09-16 추가.
+#
+# torch 를 CPU 휠로 따로 먼저 깐다 — 기본 인덱스는 CUDA 런타임까지 끌고 와 이미지가 3 GB
+# 넘게 커진다. GPU 는 필요 없다 (문서당 약 1초, 하루 3,000건이면 executor 4개로 13분).
+#
+# 모델 가중치도 이미지에 미리 받는다. 런타임에 받으면 executor 마다 HuggingFace 로 나가고,
+# 망이 막힌 환경에서는 그 실패가 "후보가 0개" 로만 나타난다.
+GLINER_VERSION=0.2.29
+GLINER_MODEL=urchade/gliner_multi-v2.1
+TORCH_CPU_INDEX=https://download.pytorch.org/whl/cpu

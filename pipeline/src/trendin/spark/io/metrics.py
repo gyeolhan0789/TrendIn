@@ -41,11 +41,18 @@ MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 그 타입이 스�
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Iterable, Sequence
 
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
 from trendin.spark.io import jdbc
+from trendin.spark.metrics.relations import (
+    RELATION_COLUMNS,
+    RELATION_SQL,
+    RELATIONS,
+    RelationThresholds,
+)
 
 log = get_logger(__name__)
 
@@ -282,6 +289,38 @@ SERVICE_TABLES_SQL = (
     f" AND to_regclass('{HISTORY}') IS NOT NULL"
 )
 
+# 연관([06])이 읽는 표와 쓰는 표. **`keyword_contents` 가 재료다** — 원자료에는 문서
+# 정체성이 없어 동시출현을 물을 수 없다 (`metrics/relations.py`).
+KEYWORD_CONTENTS = "keyword_contents"
+RELATION_TABLES_SQL = (
+    f"SELECT to_regclass('{RELATIONS}') IS NOT NULL"
+    f" AND to_regclass('{KEYWORD_CONTENTS}') IS NOT NULL"
+)
+
+# 국가별 일 언급량 (`V4__keyword_country_daily_metrics.sql`).
+COUNTRY_METRICS = "keyword_country_daily_metrics"
+COUNTRY_TABLE_SQL = f"SELECT to_regclass('{COUNTRY_METRICS}') IS NOT NULL"
+
+# 원자료를 그대로 국가 축에 옮긴다. **국가가 상류에 없다.**
+#
+# 마이그레이션 주석이 이 칸을 "기사가 어디서 왔는가" 로 정의했는데, 수집 봉투의
+# `source_country` 가 Spark 입력 스키마·`curated` 21칸·`pl_keyword_daily_stat` 중 어디에도
+# 없다. 네 층을 다 늘려야 문서마다 국가를 실어 나를 수 있고, `curated` 는 규격이 고정한
+# 표라 비용이 크다.
+#
+# 그래서 **`XX` 로 넣는다** — ISO 3166-1 의 사용자 지정 영역이라 "미지정" 을 뜻하고,
+# `^[A-Z]{2}$` 제약을 통과한다. `NOT NULL` 이라 비워 둘 수는 없다. 상류가 진짜 국가를 주면
+# 설정의 `aggregate.country.code` 자리에 그 값이 들어오고 이 SQL 은 그대로 둔다.
+#
+# `metric_date` 와 `stat_date` 가 둘 다 KST 달력일이라 변환이 없다.
+COUNTRY_SQL = f"""
+INSERT INTO {COUNTRY_METRICS} (keyword_id, country_code, metric_date, mention_count)
+SELECT keyword_id, %(country)s, stat_date, sum(doc_count)
+  FROM {DAILY_STAT}
+ WHERE keyword_id IS NOT NULL
+ GROUP BY keyword_id, stat_date
+"""
+
 # 컬럼의 실제 타입. 배열이면 `trend_type[]` 같은 형태로 온다.
 COLUMN_TYPE_SQL = """
 SELECT format_type(a.atttypid, a.atttypmod)
@@ -397,6 +436,64 @@ class MetricSink:
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(COLUMN_TYPE_SQL, (METRICS, TREND_COLUMN))
             return cur.fetchone() is not None
+
+    def relations_ready(self) -> bool:
+        """연관 표와 그 재료가 있는가 ([06]). `keyword_contents` 는 [05] 승격이 채운다."""
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(RELATION_TABLES_SQL)
+            return bool(cur.fetchone()[0])
+
+    def rebuild_relations(
+        self, *, since: datetime, until: datetime, thresholds: RelationThresholds
+    ) -> int:
+        """창 안의 동시출현을 다시 세어 `keyword_relations` 를 통째로 바꾼다. 쓴 행 수.
+
+        **다른 표처럼 MERGE 하지 않고 지우고 다시 넣는다.** `keyword_metrics` 는 키워드마다
+        한 행이라 이번 회차에 없는 행이 예외이지만, 연관은 **창이 하루 밀릴 때마다 쌍의
+        상당수가 바뀐다.** 남은 옛 쌍을 골라 지우는 일이 결국 전량 비교라, 지우고 넣는 것과
+        비용이 같으면서 코드만 길어진다.
+
+        한 트랜잭션 안에서 한다 — 중간에 조회가 들어와도 빈 표를 보지 않는다.
+        """
+        from psycopg2.extras import execute_values
+
+        params = {
+            "since": since,
+            "until": until,
+            "min_co": thresholds.min_co_occurrence,
+            "top_n": thresholds.top_n,
+        }
+        page = int(self._config.get("jdbc.batch_size", jdbc.DEFAULT_BATCH_SIZE))
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(RELATION_SQL, params)
+            now = datetime.now(timezone.utc)
+            rows = [(src, tgt, score, co, now) for src, tgt, score, co in cur.fetchall()]
+            cur.execute(f"DELETE FROM {RELATIONS}")
+            _insert(cur, execute_values, RELATIONS, RELATION_COLUMNS, rows, page)
+            conn.commit()
+        return len(rows)
+
+    def country_table_ready(self) -> bool:
+        """국가별 일 언급량 표가 있는가. 백엔드 마이그레이션 V4 가 만든다."""
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(COUNTRY_TABLE_SQL)
+            return bool(cur.fetchone()[0])
+
+    def rebuild_country_metrics(self, *, country_code: str) -> int:
+        """`pl_keyword_daily_stat` → `keyword_country_daily_metrics`. 쓴 행 수.
+
+        **연관과 같이 지우고 다시 넣는다.** 원자료가 누적이라 전량을 다시 써도 결과가 같고,
+        재계산 구간만 골라 지우려면 날짜 범위를 이 층까지 들고 와야 한다. 표 크기가
+        키워드 × 날짜라 작다.
+
+        한 트랜잭션 안에서 한다 — 조회가 빈 표를 보지 않는다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {COUNTRY_METRICS}")
+            cur.execute(COUNTRY_SQL, {"country": country_code})
+            written = cur.rowcount
+            conn.commit()
+        return max(0, written)
 
     def warn_missing_constraints(self) -> list[str]:
         """없는 유니크 제약을 크게 남긴다. 돌기는 돌지만 방어가 한 겹 없다."""

@@ -26,6 +26,11 @@ dependencies = [
   "kiwipiepy",
 ]
 
+# **`gliner` 는 여기에 없다** (2026-09-16). 실체 인식기는 Spark executor 에서만 돌고
+# (`src/trendin/spark/extract/entities.py`), torch 를 끌고 와 환경이 800 MB 이상 커진다.
+# Airflow 스케줄러·웹서버에는 필요 없으므로 `pyspark` 와 같은 자리에서 설치한다 —
+# 버전 핀은 `spark/versions.sh`, 설치는 `spark/scripts/dev-setup.sh` 와 `spark/Dockerfile`.
+
 [project.optional-dependencies]
 dev = [
   "pytest",

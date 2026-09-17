@@ -196,19 +196,24 @@ src/trendin/spark/    로직. jobs 가 import 한다
 ├─ ingest/    routing.py(판별→상태·단계) · objects.py(객체 검증) · batch.py(배치 배선)
 │             normalize.py(정제·적재 단계) · backfill.py(--source objects)
 ├─ normalize/ [03] documents · text · urls · lang · filters · dedup · simhash · curated · adapters/
-├─ extract/   [04] morphology(ko 형태소 분석기) · tokenize(ko 분석·en 규칙) · candidates
-│             keys · lexicon · filters · scoring
-│             document(UDF 본체) · batch(Spark 배선) · source(curated 읽기) · thresholds
+├─ extract/   [04] entities(실체 인식기) · adapters(언어별 후처리) · morphology(ko 분석기)
+│             abbreviations(약어 관측) · keys · filters · scoring
+│             document(문서 하나) · batch(Spark 배선) · source(curated 읽기) · thresholds
 ├─ registry/  [05] normalize(층1 복수형) · merge(층2 판정) · alias(대표 선정)
 │             promote(승격 관문) · review(검수 큐) · embedding(층3) · batch(단계 배선)
 │             thresholds. **pyspark 를 import 하지 않는다**
 ├─ metrics/   아직 비어 있다 ([06] [07])
 ```
 
-불용어·노이즈는 `conf/lexicon/stopwords-*.txt` · `noise-*.txt` 다 (`extract/lexicon.py`).
-같은 디렉터리의 `userdict-{domain}.txt` 는 **한국어 형태소 분석기 사용자 사전**이고
-(`extract/morphology.py`) 형식이 다르다 — 한 줄에 하나, `표기` 또는 `표기 품사`, 원표기 그대로.
-옛 `protected-*.txt`(조사 규칙이 자르면 안 되는 어절)는 2026-09-09 에 없어졌다 ([04 §2](docs/04-keyword-extraction-spec.md)).
+`conf/lexicon/userdict-{domain}.txt` 는 **한국어 형태소 분석기 사용자 사전**이다
+(`extract/morphology.py`) — 한 줄에 하나, `표기` 또는 `표기 품사`, 원표기 그대로. 모르는
+브랜드명을 고유명사로 알려 주면 조사 경계가 제대로 잡힌다.
+
+⚠️ **불용어·노이즈 사전(`stopwords-*.txt` · `noise-*.txt`)은 2026-09-17 에 지웠다.** 후보
+생성이 실체 인식으로 옮겨지면서 **무엇이 키워드인지를 라벨이 정의하므로 뺄 것을 따로 셀
+필요가 없어졌고** (`extract/entities.py`), 읽는 코드가 사라진 뒤로 파일만 남아 있었다.
+되돌려야 하면 `git log -- spark/conf/lexicon/` 에서 꺼낸다. 옛 `protected-*.txt`(조사
+규칙이 자르면 안 되는 어절)는 2026-09-09 에 없어졌다.
 
 로직을 `src/trendin/` 아래 두는 이유는 [09 §1](docs/09-dev-and-test.md) 에 있다 —
 `pipeline/Dockerfile` 이 이미 editable 설치를 하고 `compose.yaml` 이 바인드 마운트한다.

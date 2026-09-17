@@ -39,6 +39,19 @@ curl -sSfL "$CONSTRAINTS_URL" -o "$constraints"
 # pandas·pyarrow 가 Airflow 핀에서 밀려나면 DAG 쪽이 조용히 깨진다.
 uv pip install --python "$VENV_PYTHON" "pyspark==${SPARK_VERSION}" pyyaml --constraint "$constraints"
 
+# 실체 인식 ([04 §2], `extract/entities.py`). torch 를 CPU 휠로 **먼저** 깐다 — 순서를
+# 바꾸면 CUDA 런타임이 딸려와 가상환경이 3 GB 넘게 커진다. 건너뛰려면 SKIP_MODEL=1 이고,
+# 그때는 층 1 테스트만 돈다 (층 2 의 추출 테스트가 모델을 부른다).
+#
+# **constraints 를 함께 건다.** gliner 는 transformers·huggingface-hub 를 끌고 오고 그것들이
+# `fsspec` · `numpy` 처럼 Airflow 도 쓰는 패키지를 밀어 올린다. 걸지 않으면 같은 가상환경의
+# DAG 쪽이 조용히 깨진다 — pyspark 설치에 constraints 를 건 것과 같은 이유다.
+if [ "${SKIP_MODEL:-0}" != "1" ]; then
+  uv pip install --python "$VENV_PYTHON" --index-url "$TORCH_CPU_INDEX" torch \
+    --constraint "$constraints"
+  uv pip install --python "$VENV_PYTHON" "gliner==${GLINER_VERSION}" --constraint "$constraints"
+fi
+
 # 530 MB 짜리 AWS SDK 번들이 있어 처음 한 번은 오래 걸린다. 건너뛰려면 SKIP_JARS=1.
 if [ "${SKIP_JARS:-0}" != "1" ]; then
   "$HERE/fetch-jars.sh"

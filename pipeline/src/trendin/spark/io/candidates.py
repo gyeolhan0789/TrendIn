@@ -112,21 +112,33 @@ CREATE TABLE IF NOT EXISTS {DOCUMENT_CANDIDATE} (
     normalized_key  text        NOT NULL,
     -- 코퍼스 대표 표기 ([04 §4]). 문서 안 표기가 아니다.
     surface         text        NOT NULL,
+    -- **실체 유형** — `브랜드` · `인물` · `의류 품목` 같은 모델 라벨 (2026-09-16).
+    -- 옛 경로에서는 토큰 종류(`TERM` · `NGRAM` · `HASHTAG`)였고, 그 값을 만들던 토크나이저가
+    -- 없어졌다. 칸을 새로 만들지 않은 이유는 둘 다 "후보의 종류" 이고 쓰는 곳이 같기 때문이다.
+    --
+    -- ⚠️ **병합 키나 승격 조건에 쓰지 않는다.** 정답과 맞은 후보 기준으로 유형 정확도가
+    -- 77.6% 이고 `켄달 제너` 가 브랜드로 붙는다 (`scratchpad/kwlab/RANKED.md` §6.1).
+    -- 화면의 유형 필터와 유형별 순위표가 쓰는 값이다.
     kind            text        NOT NULL,
+    -- 대표 표기의 공백 기준 토큰 수.
     ntokens         integer     NOT NULL,
     tf              integer     NOT NULL,
     tf_title        integer     NOT NULL,
     in_title        boolean     NOT NULL,
-    -- 고유명사 축 두 개 ([04 §6], 2026-09-10 추가). 점수에 이미 반영돼 있지만 **원값도 남긴다** —
-    -- 가중치를 바꿔 다시 고르는 실험이 재추출 없이 되려면 축이 저장돼 있어야 한다
-    -- (`spark/scripts/sweep-extract.py`).
+    -- 표기에 라틴 문자가 섞였나 · 모델이 고유명사 유형으로 보았나. **점수 축이 아니라
+    -- 기록이다** (2026-09-16) — 옛 경로에서는 가중치를 갖는 축이었고, 지금은 점수가 모델에서
+    -- 오므로 화면 필터와 분석에만 쓴다.
     is_latin        boolean     NOT NULL DEFAULT false,
     is_proper       boolean     NOT NULL DEFAULT false,
-    -- 그 실행의 코퍼스에서 본 문서 빈도. 재추출하면 바뀐다.
+    -- **이번 배치에서 본 문서 빈도** (2026-09-16 에 뜻이 바뀌었다). 옛 경로는 최근 N 일
+    -- 코퍼스에서 셌는데, 점수를 모델이 주면서 코퍼스 통계가 선별에 관여하지 않게 되어
+    -- 대상 문서만 처리한다 (`extract/batch.py` 의 주석). 배치 크기에 따라 흔들린다.
     df              integer     NOT NULL,
+    -- **항상 0 이다.** C-value 가 없어졌고(구간을 모델이 준다) 칸만 남겨 두었다.
     c_value         double precision NOT NULL,
+    -- 기록용. **점수에 들어가지 않는다** (`extract/scoring.py` 의 주석).
     bm25            double precision NOT NULL,
-    -- 0~1. 세 축의 가중합 ([04 §6]).
+    -- 0~1. **모델이 준 확률에 문서 안 반복 가산**을 얹은 값이다 ([04 §6]).
     score           double precision NOT NULL,
     rank            integer     NOT NULL,
     -- 상위 K 이고 하한 이상 ([04 §7]). keyword_contents 로 나갈 것.
@@ -153,6 +165,7 @@ CREATE TABLE IF NOT EXISTS {CANDIDATE} (
     domain          text        NOT NULL,
     normalized_key  text        NOT NULL,
     surface         text        NOT NULL,
+    -- 실체 유형. 위 `pl_document_candidate.kind` 와 같은 값이다.
     kind            text        NOT NULL,
     ntokens         integer     NOT NULL,
     -- 최초·최근 관측일 — 발행일 기준. 서비스 테이블로 옮기지 않는다 ([05 §5], [08 §3]).

@@ -4,6 +4,10 @@
 대조한다. **품질을 재는 테스트가 아니다** — 재현성을 지킨다. 절대 수치는 사람이 매긴다
 ([04 §9]).
 
+**모델을 부르지 않는다.** 인식 구간은 `fixtures/spans.json` 에 구워져 있고 여기서는 그
+뒤의 계산만 다시 한다 — 트랜스포머 추론이 문턱 언저리에서 실행마다 흔들려 스냅샷이
+경보가 아니라 잡음이 되기 때문이다 (`spark/scripts/update-snapshots.py` 의 주석).
+
 결과가 바뀌면 실패한다. **의도한 변경이면 갱신하고 diff 를 커밋에 남긴다:**
 
     pipeline/.venv/Scripts/python.exe spark/scripts/update-snapshots.py
@@ -25,6 +29,7 @@ import pytest
 SPARK_DIR = Path(__file__).resolve().parents[2]
 CORPUS = SPARK_DIR / "tests" / "fixtures" / "corpus.json"
 SNAPSHOTS = SPARK_DIR / "tests" / "fixtures" / "snapshots.json"
+SPANS = SPARK_DIR / "tests" / "fixtures" / "spans.json"
 SCRIPT = SPARK_DIR / "scripts" / "update-snapshots.py"
 
 HINT = "의도한 변경이면 `spark/scripts/update-snapshots.py` 로 갱신하고 diff 를 커밋에 남긴다"
@@ -49,7 +54,15 @@ def _read(path: Path) -> dict:
 
 CORPUS_DATA = _read(CORPUS)
 SNAPSHOT_DATA = _read(SNAPSHOTS)
+SPAN_DATA = _read(SPANS)
 CASES = sorted(CORPUS_DATA)
+
+
+def build(name: str) -> dict:
+    """구간을 픽스처에서 읽어 그 뒤의 계산만 다시 한다."""
+    return script.snapshot_for(
+        CORPUS_DATA[name], script.load_config("local"), script.as_spans(SPAN_DATA.get(name, []))
+    )
 
 
 def test_코퍼스가_비어_있지_않다():
@@ -60,11 +73,12 @@ def test_코퍼스가_비어_있지_않다():
 def test_스냅샷과_코퍼스의_키가_짝이_맞는다():
     """코퍼스에 문서를 더하고 스냅샷을 만들지 않으면 여기서 걸린다."""
     assert sorted(SNAPSHOT_DATA) == CASES, HINT
+    assert sorted(SPAN_DATA) == CASES, HINT
 
 
 @pytest.mark.parametrize("name", CASES)
 def test_추출_결과가_스냅샷과_같다(name):
-    actual = script.snapshot_for(CORPUS_DATA[name], script.load_config("local"))
+    actual = build(name)
 
     assert actual == SNAPSHOT_DATA.get(name), f"{name} 의 추출 결과가 스냅샷과 다르다. {HINT}"
 
@@ -78,10 +92,7 @@ def test_같은_입력에_같은_결과다(name):
     않다는 것.** 프로세스당 하나를 재사용하므로(`extract/morphology.analyzer_for`) 호출이
     앞의 호출에 영향을 받으면 배치 결과가 문서 순서에 따라 달라진다.
     """
-    article = CORPUS_DATA[name]
-    config = script.load_config("local")
-
-    assert script.snapshot_for(article, config) == script.snapshot_for(article, config)
+    assert build(name) == build(name)
 
 
 def test_축을_덮는다():

@@ -58,8 +58,9 @@ _MEDIAL = (
 )
 _FINAL = (
     "", "g", "k", "k", "n", "n", "n", "d", "l", "k", "m", "b", "l", "l", "l", "l",
-    "m", "b", "s", "s", "ng", "j", "c", "k", "t", "p", "h",
+    "m", "b", "s", "s", "s", "ng", "j", "c", "k", "t", "p", "h",
 )
+assert len(_INITIAL) == 19 and len(_MEDIAL) == 21 and len(_FINAL) == 28
 
 # 이 값 이상이면 음차로 본다. 실측에서 무작위 쌍의 1% 만 넘는다 (모듈 docstring 의 표).
 DEFAULT_SIMILARITY_FLOOR = 0.5
