@@ -1172,6 +1172,152 @@ h1 { margin: 0; line-height: 1.25; }
 }
 
 
+/* 리포트 ---------------------------------------------------------------------- */
+.report-page { padding-bottom: 8px; }
+.report-page > section { width: 100%; max-width: 1280px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
+/*
+ * p 의 여백은 홑클래스로 적으면 안 됩니다. 위쪽 `.trendin-ui p { margin: 0 }` 이 (0,1,1) 이라
+ * (0,1,0) 규칙을 눌러 버립니다. 그래서 여백이 필요한 곳은 `.report-page` 를 앞에 답니다.
+ */
+.report-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 32px; padding-top: 48px; padding-bottom: 40px; }
+.report-eyebrow { color: var(--lp-faint); font-size: 14px; }
+.report-page .report-eyebrow { margin-bottom: 8px; }
+.report-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -2px; }
+.report-lead { color: var(--lp-muted); font-size: 15px; }
+.report-page .report-lead { margin-top: 12px; }
+.report-generate { display: flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 10px; background: var(--lp-indigo); color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; transition: background .15s; }
+.report-generate:hover:not(:disabled) { background: #4338ca; }
+/* 내려 줄 집계가 아직 없으면 눌러도 빈 파일이 됩니다. */
+.report-generate:disabled { background: #c7d2fe; }
+
+.report-search { padding-bottom: 32px; }
+.report-search form { display: flex; align-items: center; max-width: 560px; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fff; transition: border-color .15s; }
+.report-search form:focus-within { border-color: var(--lp-indigo); }
+.report-search form > svg { flex: 0 0 16px; margin-right: 10px; }
+.report-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--lp-ink); font-size: 14px; }
+.report-search input:focus { outline: none; }
+.report-search input::placeholder { color: var(--lp-faint); }
+.report-search-clear { margin-right: 6px; padding: 6px 10px; border-radius: 8px; color: var(--lp-muted); font-size: 13px; }
+.report-search-clear:hover { background: #f3f4f6; }
+.report-search-go { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 8px; background: var(--lp-ink); }
+.report-search-go:hover { background: #2d2d44; }
+
+.report-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.report-kind { padding: 7px 16px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: #374151; font-size: 13px; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
+.report-kind:hover:not(.is-selected) { border-color: #d1d5db; background: #f3f4f6; }
+.report-kind.is-selected { border-color: var(--lp-ink); background: var(--lp-ink); color: #fff; font-weight: 600; }
+
+.report-featured { padding-bottom: 40px; }
+.report-featured-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+
+.report-weekly { display: flex; flex-direction: column; gap: 24px; padding: 32px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.report-weekly:hover { border-color: #c7d2fe; box-shadow: 0 4px 24px rgba(79, 70, 229, .06); }
+.report-weekly-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.report-weekly-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.report-badge { padding: 4px 10px; border-radius: 6px; background: #ede9fe; color: var(--lp-indigo); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.report-weekly-title h2 { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+.report-page .report-weekly-title p { margin-top: 8px; color: var(--lp-muted); font-size: 14px; line-height: 1.6; }
+.report-page .report-weekly-range { color: var(--lp-faint); font-size: 13px; }
+
+.report-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.report-tile { padding: 16px; border-radius: 10px; background: #fafafa; }
+.report-tile-label { color: var(--lp-faint); font-size: 12px; }
+.report-tile-value { overflow: hidden; font-size: 22px; font-weight: 800; letter-spacing: -.5px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.report-page .report-tile-value { margin-top: 6px; }
+.report-tile-note { color: var(--lp-muted); font-size: 12px; font-weight: 500; }
+.report-page .report-tile-note { margin-top: 4px; }
+.report-tile-note.is-up { color: #059669; }
+
+.report-chart { position: relative; }
+.report-chart-svg { display: block; width: 100%; height: 110px; }
+/* 최고점 쪽지. 차트 위쪽 오른편에 붙어, 선이 가장 높은 자리를 가리지 않습니다. */
+.report-chart-badge { position: absolute; top: -6px; right: 4px; padding: 4px 10px; border-radius: 6px; background: var(--lp-indigo); color: #fff; font-size: 11px; font-weight: 600; }
+.report-chart-empty { padding: 40px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-insight { display: flex; align-items: flex-start; gap: 8px; padding: 14px 16px; border-radius: 10px; background: #f8f7ff; color: #374151; font-size: 13px; line-height: 1.5; }
+.report-insight > svg { flex: 0 0 16px; margin-top: 2px; }
+.report-weekly-more { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1px solid var(--lp-line); border-radius: 10px; color: #374151; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s, color .15s; }
+.report-weekly-more:hover { border-color: #c7d2fe; background: #f9fafb; color: var(--lp-indigo); }
+
+.report-side { display: flex; flex-direction: column; gap: 24px; }
+.report-panel { padding: 24px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; }
+.report-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.report-panel-head h3 { font-size: 16px; font-weight: 700; }
+.report-panel-note { margin-left: auto; color: var(--lp-faint); font-size: 12px; white-space: nowrap; }
+.report-panel-empty { padding: 24px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-quick { display: flex; flex-direction: column; gap: 8px; }
+.report-quick button { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #f3f4f6; border-radius: 10px; text-align: left; transition: border-color .15s, background .15s; }
+.report-quick button:hover:not(:disabled) { border-color: var(--lp-line); background: #f9fafb; }
+/* 아직 만들어 줄 곳이 없어 잠가 둔 갈래입니다. 흐리게만 두고 커서는 바꾸지 않습니다. */
+.report-quick button:disabled .report-quick-icon { opacity: .55; }
+.report-quick button:disabled .report-quick-label { color: var(--lp-faint); }
+.report-quick-icon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 8px; font-size: 14px; }
+.report-quick-icon--indigo { background: #ede9fe; }
+.report-quick-icon--blue { background: #dbeafe; }
+.report-quick-icon--emerald { background: #d1fae5; }
+.report-quick-icon--amber { background: #fef3c7; }
+.report-quick-label { flex: 1; min-width: 0; color: #374151; font-size: 14px; font-weight: 500; }
+
+.report-panel--grow { flex: 1; }
+.report-rank { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.report-rank:last-child { border-bottom: 0; padding-bottom: 0; }
+.report-rank-no { flex: 0 0 20px; color: var(--lp-faint); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.report-rank-no.is-top { color: var(--lp-indigo); }
+.report-rank-keyword { overflow: hidden; min-width: 0; flex: 1; color: var(--lp-ink); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.report-rank-keyword:hover { color: var(--lp-indigo); }
+.report-rank-change { color: #059669; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.report-list-section { padding-bottom: 60px; }
+.report-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.report-list-title { display: flex; align-items: center; gap: 10px; }
+.report-list-title h2 { font-size: 20px; font-weight: 700; }
+.report-count { padding: 4px 10px; border-radius: 12px; background: #f3f4f6; color: var(--lp-muted); font-size: 13px; font-weight: 600; }
+/* 표본임을 밝히는 쪽지. 눈에 띄되 경고로는 읽히지 않는 색을 씁니다 — 마이페이지 쪽지와 같은 규칙입니다. */
+.report-page .report-notice { margin-bottom: 16px; padding: 12px 16px; border: 1px solid #ddd6fe; border-radius: 10px; background: #f5f3ff; color: #4338ca; font-size: 13px; line-height: 1.6; }
+.report-notice strong { font-weight: 700; }
+
+.report-list { display: flex; flex-direction: column; gap: 12px; }
+.report-row { display: flex; align-items: center; gap: 16px; padding: 20px 24px; border: 1px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.report-row:hover { border-color: #c7d2fe; box-shadow: 0 2px 12px rgba(79, 70, 229, .04); }
+.report-tag { flex: 0 0 auto; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.report-tag--indigo { background: #ede9fe; color: #4F46E5; }
+.report-tag--rose { background: #fee2e2; color: #ef4444; }
+.report-tag--blue { background: #dbeafe; color: #3b82f6; }
+.report-tag--emerald { background: #d1fae5; color: #059669; }
+.report-row-body { min-width: 0; flex: 1; }
+.report-row-title { overflow: hidden; color: var(--lp-ink); font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.report-row-summary { overflow: hidden; color: var(--lp-faint); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.report-page .report-row-summary { margin-top: 4px; }
+.report-row-date, .report-row-period { flex: 0 0 auto; color: var(--lp-faint); font-size: 13px; white-space: nowrap; }
+.report-row-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; margin-left: 4px; }
+.report-row-actions button { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; color: var(--lp-faint); transition: background .12s, color .12s; }
+.report-row-actions button:hover:not(:disabled) { background: #f3f4f6; color: var(--lp-muted); }
+/* 리포트가 서버에 있어야 되는 일들이라 함께 잠가 둡니다. */
+.report-row-actions button:disabled { color: #d1d5db; }
+.report-list-empty { padding: 48px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-pagination { display: flex; align-items: center; justify-content: center; margin-top: 28px; }
+
+@media (max-width: 1180px) {
+  .report-featured-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .report-page > section { padding-left: 20px; padding-right: 20px; }
+  .report-hero { padding-top: 32px; }
+  .report-hero h1 { font-size: 30px; letter-spacing: -1.2px; }
+  .report-weekly { padding: 24px; }
+  /* 줄이 좁아지면 날짜·기간을 제목 아래로 흘려보냅니다. 지우면 언제 만든 리포트인지 알 수 없습니다. */
+  .report-row { flex-wrap: wrap; padding: 18px 20px; }
+  .report-row-body { flex: 1 0 100%; order: 2; }
+  .report-row-actions { order: 1; margin-left: auto; }
+  .report-row-date, .report-row-period { order: 3; }
+}
+@media (max-width: 640px) {
+  .report-tiles { grid-template-columns: minmax(0, 1fr); }
+  .report-generate { flex: 1 0 100%; justify-content: center; }
+}
+
 /* 마이페이지 무리 -------------------------------------------------------------- */
 /*
  * 마이페이지와 그 아래 화면(프로필 편집·계정 설정·알림 설정·최근 활동)이 함께 쓰는 결입니다.
