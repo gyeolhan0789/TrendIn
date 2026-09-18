@@ -110,6 +110,7 @@ def test_rss_소스는_받는다():
     assert set(backfill.BACKFILLABLE) == {
         "allure",
         "glamour_uk",
+        "gq_us",
         "gqkorea",
         "id",
         "luxe_co",

@@ -1,0 +1,9 @@
+key = "gq_us"
+domain = "fashion"
+route = "rss"
+country = "US"  # 발행 법인 Advance Magazine Publishers Inc.(Condé Nast) 의 소재지
+discover_url = "https://www.gq.com/feed/rss"
+allowed_url_prefixes = ["https://www.gq.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "page"

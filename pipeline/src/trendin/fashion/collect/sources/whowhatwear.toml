@@ -1,0 +1,8 @@
+key = "whowhatwear"
+domain = "fashion"
+route = "rss"
+country = "US"  # 발행처 Who What Wear(Future 그룹)의 소재지(미국). 법인 이름은 확인하지 못했다
+discover_url = "https://www.whowhatwear.com/feeds/tag/fashion"
+allowed_url_prefixes = ["https://www.whowhatwear.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }

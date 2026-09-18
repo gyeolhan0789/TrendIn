@@ -1,0 +1,8 @@
+key = "globenewswire"
+domain = "fashion"
+route = "rss"
+country = "US"  # 발행처 GlobeNewswire(Notified) 의 소재지(미국). 법인 이름은 확인하지 못했다
+discover_url = "https://www.globenewswire.com/AtomFeed/industry/3763-Clothing%2026%20Accessories/feedTitle/GlobeNewswire%20-%20Industry%20News%20on%20Clothing%20and%20Accessories"
+allowed_url_prefixes = ["https://www.globenewswire.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "atom_published" }

@@ -1,0 +1,8 @@
+key = "prnewswire"
+domain = "fashion"
+route = "rss"
+country = "US"  # 발행 법인 PR Newswire Association LLC(Cision) 의 소재지
+discover_url = "https://www.prnewswire.com/rss/consumer-products-retail-latest-news/fashion-list.rss"
+allowed_url_prefixes = ["https://www.prnewswire.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
