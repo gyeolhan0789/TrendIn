@@ -6,7 +6,7 @@ TrendIn 서비스는 EC2에서 Nginx와 Docker Compose를 중심으로 운영한
 
 ```text
 Client
-  └─ Nginx (:80)
+  └─ Nginx (:443 HTTPS; :80 → HTTPS)
       ├─ /, SPA 경로 ──────────> Frontend 정적 파일
       ├─ /api, 기존 API 경로 ──> Backend (:8080)
       │                           ├─ PostgreSQL (:5432)
@@ -70,7 +70,7 @@ Jenkins 파이프라인 파일은 다음과 같다.
 
 ### Nginx
 
-Nginx는 호스트의 80 포트에서 Frontend 정적 파일을 제공한다. `/api/` 요청은 접두사를 제거해 Backend로 전달하며, 기존 API 경로도 호환성을 위해 프록시한다. `/trends`는 요청의 `Accept` 헤더에 따라 SPA 화면과 기존 API를 구분한다. `/grafana/`는 loopback의 Grafana로 프록시한다.
+Nginx는 호스트의 443 포트에서 TLS를 종료하고 Frontend 정적 파일을 제공한다. 80 포트는 ACME HTTP-01 인증 경로를 제외하고 HTTPS로 리다이렉트한다. 인증서와 개인키는 EC2의 `/etc/letsencrypt/live/j15a102.p.ssafy.io/`에 보관하며 Git에 포함하지 않는다. `/api/` 요청은 접두사를 제거해 Backend로 전달하며, 기존 API 경로도 호환성을 위해 프록시한다. `/trends`는 요청의 `Accept` 헤더에 따라 SPA 화면과 기존 API를 구분한다. `/grafana/`는 loopback의 Grafana로 프록시한다.
 
 ### PostgreSQL
 
@@ -92,7 +92,7 @@ Prometheus는 자체 상태와 함께 `node_exporter:9100`, `cadvisor:8080`, 데
 docker compose --env-file infra/.env -f infra/compose.monitoring.yaml up -d
 ```
 
-두 포트는 호스트의 loopback에만 바인딩된다. 팀원은 `http://j15a102.p.ssafy.io/grafana/`에서 Grafana에 접속한다. Prometheus는 기존처럼 외부에 공개하지 않는다.
+두 포트는 호스트의 loopback에만 바인딩된다. 팀원은 `https://j15a102.p.ssafy.io/grafana/`에서 Grafana에 접속한다. Prometheus는 기존처럼 외부에 공개하지 않는다.
 
 기동 후 `docker compose --env-file infra/.env -f infra/compose.monitoring.yaml ps`로 상태를 확인한다. Prometheus의 **Status > Targets**에는 `prometheus`, `node_exporter`, `cadvisor`, `airflow`가 표시되며, Grafana Explore에서 관련 메트릭을 조회할 수 있다.
 

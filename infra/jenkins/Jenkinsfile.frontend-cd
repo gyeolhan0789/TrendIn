@@ -201,19 +201,22 @@ NODE
                     sudo -n /usr/sbin/nginx -t
                     systemctl is-active --quiet nginx
                     curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-                        -H "Host: $FRONTEND_HOST" http://127.0.0.1/ -o "$backup/served-index.html"
+                        --noproxy "$FRONTEND_HOST" --resolve "$FRONTEND_HOST:443:127.0.0.1" \
+                        "https://$FRONTEND_HOST/" -o "$backup/served-index.html"
                     cmp frontend/dist/index.html "$backup/served-index.html"
                     curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-                        -H "Host: $FRONTEND_HOST" -H 'Accept: text/html' \
-                        http://127.0.0.1/trends/1 -o "$backup/served-spa.html"
+                        --noproxy "$FRONTEND_HOST" --resolve "$FRONTEND_HOST:443:127.0.0.1" \
+                        -H 'Accept: text/html' "https://$FRONTEND_HOST/trends/1" -o "$backup/served-spa.html"
                     cmp frontend/dist/index.html "$backup/served-spa.html"
                     asset=$(node --input-type=module -e 'import fs from "node:fs"; const html=fs.readFileSync("frontend/dist/index.html", "utf8"); const match=html.match(/src="(\\/assets\\/[^" ]+\\.js)"/); if (!match) process.exit(1); console.log(match[1]);')
                     curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
-                        -H "Host: $FRONTEND_HOST" "http://127.0.0.1$asset" -o "$backup/served-asset.js"
+                        --noproxy "$FRONTEND_HOST" --resolve "$FRONTEND_HOST:443:127.0.0.1" \
+                        "https://$FRONTEND_HOST$asset" -o "$backup/served-asset.js"
                     cmp "frontend/dist$asset" "$backup/served-asset.js"
                     status=$(curl --silent --show-error --connect-timeout 5 --max-time 15 \
-                        -H "Host: $FRONTEND_HOST" -o "$backup/api.json" \
-                        --write-out '%{http_code} %{content_type}' http://127.0.0.1/api/domains)
+                        --noproxy "$FRONTEND_HOST" --resolve "$FRONTEND_HOST:443:127.0.0.1" \
+                        -o "$backup/api.json" --write-out '%{http_code} %{content_type}' \
+                        "https://$FRONTEND_HOST/api/domains")
                     case "$status" in
                         '200 application/json'*) echo 'Frontend, SPA, assets and backend API verified.' ;;
                         *) echo "Backend API verification failed: $status" >&2; exit 1 ;;
