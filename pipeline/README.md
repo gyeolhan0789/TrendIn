@@ -126,6 +126,8 @@ done; wait
 
 **실패가 찍혔으면 24시간 안에 같은 명령을 다시 돌린다.** 기사 페이지를 못 받은 기사는 장부에 대기 행으로 남고(S15P21A102-312) 다시 돌리면 후보로 통과한다. 다만 상한이 3회 또는 첫 실패로부터 24시간이고, 과거분 기사는 주기 실행의 후보에 다시 들어오지 않는다. 상한에 닿으면 주기 실행이 제목·URL·발행일·분류만으로 저장해 그대로 굳는다.
 
+**백필 전에 주기 실행이 새 코드로 한 번 돌아 있어야 한다.** 장부 표와 칸은 DAG 첫 태스크(`ensure_schema`)만 만든다. 칸이 늘어난 코드로 백필을 먼저 돌리면 `column "..." does not exist` 로 끝난다(2026-09-18 실측). 급하면 같은 함수를 한 번 부른다 — `CLI python -c "from trendin.common.collect.db import Database; from trendin.common.collect.ledger import PostgresLedger; from trendin.fashion.collect import sources; PostgresLedger(Database.from_env()).ensure_schema({k: s.country for k, s in sources.BY_KEY.items()})"`.
+
 **백필 중에는 `fashion_collect` 를 멈춘다** (`CLI airflow dags pause fashion_collect`, 끝나면 `unpause`). 백필은 2페이지부터 보고 주기 실행은 1페이지를 본다. 그 사이에 새 글이 올라오면 경계에 걸친 기사가 두 쪽에 동시에 잡히고, 둘 다 장부 거름을 통과해 MinIO 에 두 번 쓴다 — `collected_at` 이 달라 바이트가 갈리고 장부와 어긋난다(불변식 7).
 
 기사 한 건마다 기사 페이지를 받으므로 같은 호스트 3초 간격이 그대로 붙는다. vogue 6개월이면 기사 1300건 남짓이라 한 시간 안팎이 걸린다.
