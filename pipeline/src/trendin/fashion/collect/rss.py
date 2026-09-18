@@ -42,7 +42,7 @@ from trendin.common.collect.contracts import (
 )
 from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import raw_key
-from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
+from trendin.common.collect.session import CollectError, CollectSession, FetchFailed, HostBlocked
 from trendin.common.collect.urls import clean_url
 
 logger = logging.getLogger("trendin.collect.rss")
@@ -296,6 +296,9 @@ class RssAdapter:
         if response.not_modified:
             logger.info("%s: 304, 피드가 안 바뀌었다 (%s)", self.source.key, url)
             return DiscoverResult(not_modified=True)
+        if response.status != 200:
+            # 세션은 리다이렉트를 따라가지 않는다. 빈 본문을 파싱하면 상태코드가 사라진다.
+            raise FetchFailed(f"{response.status}: {url}", status=response.status)
 
         collected_at = self._now()
         body = response.body

@@ -15,7 +15,7 @@ import pytest
 
 from trendin.common.collect.contracts import ArticleFetchError, Rule, SourceDef
 from trendin.common.collect.keys import KST
-from trendin.common.collect.session import CollectSession, HostBlocked
+from trendin.common.collect.session import CollectSession, FetchFailed, HostBlocked
 from trendin.common.collect.stores import InMemoryValidatorStore
 from trendin.common.collect.urls import clean_url
 from trendin.fashion.collect import sources
@@ -445,6 +445,18 @@ def test_리다이렉트는_따라가지_않고_실패로_본다(clock, feed_byt
         with pytest.raises(ArticleFetchError, match="301") as caught:
             adapter.materialize(candidate)
     assert caught.value.retryable is True and caught.value.blocking is False
+
+
+def test_피드가_리다이렉트면_상태코드를_단_실패로_본다(clock):
+    """journaldutextile 의 `?paged=999` 가 빈 본문의 301 이다(2026-09-18).
+
+    빈 본문을 피드로 파싱하면 상태코드가 사라진다. 백필과 등록 프로브는 상태코드로 끝을 가른다.
+    """
+    adapter, session = adapter_for(SYNTHETIC_P, serve(b"", status=301), clock)
+    with session:
+        with pytest.raises(FetchFailed, match="301") as caught:
+            adapter.discover()
+    assert caught.value.status == 301
 
 
 def test_기사_페이지가_403_이면_대기로_남기고_호스트를_멈춘다(clock, feed_bytes):
