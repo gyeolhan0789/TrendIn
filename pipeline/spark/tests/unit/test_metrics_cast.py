@@ -97,10 +97,24 @@ def test_캐스트가_빈_문자열이면_SQL_에_아무것도_붙지_않는다(
 
 def test_대표_trend는_기간별_판정에서_분석과_무관하게_생성한다():
     sql = " ".join(INSERT_TREND_IDENTITIES_SQL.split())
-    assert "INSERT INTO trends (keyword_id, updated_at)" in sql
-    assert "m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']" in sql
+    assert "INSERT INTO trends (keyword_id, trend_types, description, updated_at)" in sql
+    assert "t = ANY (ARRAY['NEW', 'RISING', 'CURRENT'])" in sql
     assert "ON CONFLICT (keyword_id) DO NOTHING" in sql
-    assert "description" not in sql
+
+
+def test_대표_trend는_NOT_NULL_칸을_비워_두지_않는다():
+    """`trend_types` 와 `description` 이 둘 다 NOT NULL 이다.
+
+    승격이 스물세 건이던 동안에는 판정이 하나도 없어 **0행으로 지나가며** 통과하는 것처럼
+    보였고, 코퍼스 전체를 추출해 승격이 1,617건이 되자 첫 행에서 죽었다 (2026-09-17).
+    """
+    sql = " ".join(INSERT_TREND_IDENTITIES_SQL.split())
+    # `trend_types` — `trends` 에 기간 칸이 없으므로 기간별 판정을 합집합으로 싣는다.
+    assert "array_agg(DISTINCT t ORDER BY t)::varchar[]" in sql
+    # `description` — AI 가 채울 칸이라 빈 문자열이다. 파이프라인이 문구를 지어내지 않는다.
+    assert "::varchar[], '', now()" in sql
+    # 키워드당 한 행. `unnest` 로 편 것을 다시 접는다.
+    assert "GROUP BY m.keyword_id" in sql
 
 
 @pytest.mark.parametrize("prune_metrics, created", [(True, True), (False, False)])

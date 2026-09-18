@@ -80,11 +80,23 @@ TREND_COLUMN = "trend_types"
 # `trends` 는 키워드의 안정적인 상세 진입 ID다. AI 성공을 기다리지 않고, 현재
 # NEW/RISING/CURRENT 판정이 하나라도 있는 키워드에 대표 행을 만든다. 기존 행은
 # 저장/알림이 참조하는 ID를 유지하므로 기존 행은 갱신하지 않는다.
+# **`trend_types` 와 `description` 을 함께 넣는다** — 둘 다 `NOT NULL` 이다. 예전에는
+# `keyword_id` 만 넣었고, 승격이 스물세 건뿐이라 판정이 하나도 없어 **0행으로 지나가며**
+# 통과하는 것처럼 보였다. 코퍼스 전체를 추출해 승격이 1,617건이 되자 첫 행에서
+# `NotNullViolation` 으로 죽었다 (2026-09-17).
+#
+# `description` 은 AI 가 채우는 칸이라 여기서는 빈 문자열로 둔다. `NULL` 을 넣을 수 없고,
+# 그렇다고 파이프라인이 문구를 지어내면 **아직 아무도 쓰지 않은 설명이 진짜처럼 보인다.**
+#
+# `trends` 에는 기간 칸이 없으므로([07 §6]) 기간별 판정을 **합집합**으로 싣는다. 이 표의
+# 역할은 상세 진입 ID 이지 기간별 지표가 아니고, 그쪽은 `keyword_metrics` 가 갖는다.
 INSERT_TREND_IDENTITIES_SQL = """
-INSERT INTO trends (keyword_id, updated_at)
-SELECT DISTINCT m.keyword_id, now()
+INSERT INTO trends (keyword_id, trend_types, description, updated_at)
+SELECT m.keyword_id, array_agg(DISTINCT t ORDER BY t)::varchar[], '', now()
   FROM keyword_metrics m
- WHERE m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']::varchar[]
+ CROSS JOIN LATERAL unnest(m.trend_types) AS t
+ WHERE t = ANY (ARRAY['NEW', 'RISING', 'CURRENT'])
+ GROUP BY m.keyword_id
 ON CONFLICT (keyword_id) DO NOTHING
 """
 
