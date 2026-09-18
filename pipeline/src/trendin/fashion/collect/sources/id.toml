@@ -1,0 +1,9 @@
+key = "id"
+domain = "fashion"
+route = "rss"
+country = "GB"  # 발행처 i-D 의 소재지(런던). 법인 이름은 확인하지 못했다
+discover_url = "https://i-d.co/category/fashion/feed/"
+allowed_url_prefixes = ["https://i-d.co/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

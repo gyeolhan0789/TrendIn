@@ -1,0 +1,8 @@
+key = "hypebeast"
+domain = "fashion"
+route = "rss"
+country = "HK"  # 발행 법인 Hypebeast Limited 의 소재지
+discover_url = "https://hypebeast.com/fashion/feed"
+allowed_url_prefixes = ["https://hypebeast.com/"]
+article_id = { rule = "guid_query_param", param = "post" }
+published_at = { rule = "rss_pubdate" }

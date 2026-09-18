@@ -16,7 +16,7 @@ S15P21A102-282 에서 수집 판정 기준을 바꿨다. **새 사실이 나와�
 | 자리 | 전 | 후 |
 |---|---|---|
 | 판정 기준 | 약관 문구와 robots.txt 를 따른다 | 둘 다 판정 기준에서 뺀다. 접근 차단 우회 금지(불변식 2)와 재게시 금지(불변식 3)는 그대로다 |
-| hypebeast | 약관 8조로 제외 (확정 2-1) | 다시 후보. 등록은 291 |
+| hypebeast | 약관 8조로 제외 (확정 2-1) | 다시 후보. 291 에서 등록했다 (2026-09-18) |
 | 유료 기사 | 규칙 없음 | 유료 표시(`isAccessibleForFree=false`)가 붙은 본문은 저장하지 않는다. `paywalled` (#5.3) |
 | 본문 추출 | 피드 `content:encoded` 또는 소스별 선택자 | 피드 소스도 기사 페이지를 받는다. ld+json `articleBody` → trafilatura 2.2.0, 둘 다 비면 피드 본문 (확정 2) |
 | 본문 형식 | 수집이 태그를 벗긴 평문 | 소스별 잡음만 걷어낸 HTML 조각. 태그 제거는 Spark 가 한다 (#5.3). Spark 담당과 합의 |
@@ -48,11 +48,18 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | `allure` | fashion | https://www.allurekorea.com/style/ |
 | `marieclaire` | fashion | https://www.marieclairekorea.com/category/fashion/ |
 | `cosmopolitan` | fashion | https://www.cosmopolitan.co.kr/fashion |
+| `hypebeast` | fashion | https://hypebeast.com/fashion/feed |
+| `glamour_uk` | fashion | https://www.glamourmagazine.co.uk/feed/rss |
+| `vogue_uk` | fashion | https://www.vogue.co.uk/feed/rss |
+| `marieclaire_uk` | fashion | https://www.marieclaire.co.uk/feeds/tag/fashion |
+| `dazed` | fashion | https://www.dazeddigital.com/rss |
+| `id` | fashion | https://i-d.co/category/fashion/feed/ |
+| `theindustry` | fashion | https://www.theindustry.fashion/feed/ |
 | `hn` | dev | https://news.ycombinator.com/newest |
 
 ## 2. 소스 조사 결과 (① 실측 2026-09-03)
 
-브라우저 UA 와 curl 기본 UA 둘 다로 목록 페이지를 받았고, 아홉 곳 모두 200 이었다. 차단은 없다. 대신 이름을 지정한 봇 차단이 있다(아래 robots 열). robots 열은 그날의 기록이고 2026-09-17 부터 판정 기준이 아니다. hypebeast 행은 코드에 없는 소스지만 남긴다 — 291 이 등록할 때 출발점이다(아래 특이사항).
+브라우저 UA 와 curl 기본 UA 둘 다로 목록 페이지를 받았고, 아홉 곳 모두 200 이었다. 차단은 없다. 대신 이름을 지정한 봇 차단이 있다(아래 robots 열). robots 열은 그날의 기록이고 2026-09-17 부터 판정 기준이 아니다. hypebeast 행은 2026-09-18 291 에서 등록했다(아래 특이사항).
 
 | 소스 | 플랫폼 | robots.txt `User-agent: *` | 새 글 발견 경로 | 회당 건수 | 본문 위치 | 기사 ID | 발행일 | 과거분 |
 |---|---|---|---|---|---|---|---|---|
@@ -61,7 +68,7 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | wkorea | 위와 같음 | 위와 같음 | `/category/fashion/feed/` | 10 | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
 | allure | 위와 같음 | 위와 같음 | `/category/style/feed/` | 10 | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
 | marieclaire | WordPress (자체) | `/wp-admin/` 만 금지 | `/category/fashion/feed/` | 10 | 피드 `content:encoded` 전문. 기사 페이지 ld+json `NewsArticle.articleBody` 도 있다 | guid `?p=558420` 의 숫자 | pubDate (UTC) | `?paged=N` 동작 |
-| hypebeast (2026-09-17 재후보) | 자체 CMS (CloudFront) | `/api /_ajax /post-content /search-suggest` 등 금지, 그 외 `Allow: /` | `/fashion/feed` | 20 | 피드 `content:encoded` 전문 | guid `?post=705465` 의 숫자 | pubDate (UTC) | 없음. `?paged=2` 가 같은 20건 |
+| hypebeast (2026-09-17 재후보) | 자체 CMS (CloudFront) | `/api /_ajax /post-content /search-suggest` 등 금지, 그 외 `Allow: /` | `/fashion/feed` | 20 (2026-09-18 재측정 19) | 피드 `content:encoded` 전문 | guid `?post=705465` 의 숫자 | pubDate (UTC) | 없음. `?paged=2` 가 같은 20건. 2026-09-18 `?paged=2`·`?paged=999` 도 1페이지와 같다 |
 | harpersbazaar | 자체 플랫폼 (cosmopolitan 과 동일 템플릿) | `/event/notice` 만 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{news,style,trend,sports,watchnjewelry}` | 목록 36건 (섹션별 `?offset=N` 동작) | 기사 페이지 `div.atc_body_cont`. 그 안에 로그인 마스크(`atc_mask_login`)와 관련기사(`ab_related_article`)가 섞여 있어 둘은 걷어낸다. 바깥 `atc_body` 는 크레딧·태그·추천까지 감싸서 넓다. ld+json `NewsArticle` 에 headline·datePublished·description·author 는 있고 articleBody 는 없다 | URL `/article/{숫자}` | `article:published_time` (+09:00) | 섹션 페이지 offset 으로 일부 |
 | cosmopolitan | 위와 같음 | `/event/notice` 와 기사 1건 금지. GPTBot·CCBot 전면 금지 | 목록 HTML `/fashion` + 하위 섹션 `/fashion/{trends,item,howto,celebstyle,watchandjewelry}` | 목록 49건 (`?offset=20` 에서 10건 추가 후 멈춤) | 위와 같음 | 위와 같음 | 위와 같음 | 위와 같음 |
 | hn | 공식 API | HTML 은 `Crawl-delay: 30`. API 는 robots 대상이 아니다 | Algolia HN Search `search_by_date?tags=story&numericFilters=created_at_i>={시작},created_at_i<{끝}` | 시간당 약 26건 (1회 요청 최대 1000건) | 없음. 제목·URL·점수·댓글수·작성자만 | `objectID` | `created_at_i` (epoch) | 구간을 잘라 무제한(한 질의 1000건, 페이지 넘김 불가 — #9). 대안 Firebase `newstories` 는 500건 ≈ 10시간 |
@@ -73,7 +80,8 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
   - ⚠️ **판정에 쓰면 안 되는 것 둘.** (1) 목록 HTML 의 `membersYn` 은 **추천 위젯 JSON** 의 필드다. 그 JSON 은 페이지당 20건인데 앵커 36건 중 34건이 거기 없다 — 목록이 아니다. 목록 앵커 쪽 신호는 `div.memmark` 이고 둘은 다른 집합이다. (2) 기사 페이지의 "전체 페이지를 읽으시려면…" **마스크 문구는 8/8 전부에 있다**(숨은 모달 템플릿). 일반 기사에도 있으므로 구분자가 못 된다. `memmark` 역시 기사 페이지의 관련기사 위젯에 1~3개 나타난다.
 - **두산매거진 4곳의 피드는 10건뿐**이고 vogue 는 하루치가 10건을 넘길 때가 있다(09-02 ~ 09-03 사이 10건). 주기가 길면 놓친다. #9 의 주기가 이 관찰에서 나왔다.
 - **두산매거진 4곳은 WordPress REST(`/wp-json/wp/v2/posts`) 가 401** 이다. 피드가 유일한 구조화 경로다.
-- **hypebeast 행은 2026-09-03 실측이다.** 약관 8조 때문에 뺐다가(옛 확정 2-1) 2026-09-17 기준 전환으로 다시 후보가 됐다. 291 이 등록할 때 이 행이 출발점이다.
+- **hypebeast 행은 2026-09-03 실측이다.** 약관 8조 때문에 뺐다가(옛 확정 2-1) 2026-09-17 기준 전환으로 다시 후보가 됐고, 2026-09-18 291 에서 등록했다. 등록 측정은 `source-survey-2026-09-16/register-uk.md` 에 있다.
+- **hypebeast 피드에는 기자 이름이 없다.** `dc:creator` 가 없고 `<author>` 는 모든 item 이 `info@hypebeast.com (Hypebeast)` 다(2026-09-18). 발행처 주소라 저자로 싣지 않는다. 우리는 RSS 2.0 에서 `dc:creator` 만 읽으므로 저자가 빈다.
 - 모든 소스가 curl 기본 UA 에도 200 을 줬다. 즉 우리를 막는 건 없고, 우리가 스스로 지킬 규칙만 있다.
 
 ## 3. 법적 검토 (② 출처, 2026-09-03 조사)

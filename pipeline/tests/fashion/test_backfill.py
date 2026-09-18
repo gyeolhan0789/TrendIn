@@ -107,7 +107,17 @@ def test_목록_소스는_받지_않는다():
 
 def test_rss_소스는_받는다():
     """거부가 route 로 갈리는지 본다. 파싱까지 가지 않고 인자 검사에서 갈린다."""
-    assert set(backfill.BACKFILLABLE) == {"allure", "gqkorea", "marieclaire", "vogue", "wkorea"}
+    assert set(backfill.BACKFILLABLE) == {
+        "allure",
+        "glamour_uk",
+        "gqkorea",
+        "id",
+        "marieclaire",
+        "theindustry",
+        "vogue",
+        "vogue_uk",
+        "wkorea",
+    }
 
 
 def test_since_는_오프셋이_필수다():

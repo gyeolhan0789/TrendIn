@@ -1,0 +1,9 @@
+key = "vogue_uk"
+domain = "fashion"
+route = "rss"
+country = "GB"  # 발행 법인 The Condé Nast Publications Ltd 의 소재지
+discover_url = "https://www.vogue.co.uk/feed/rss"
+allowed_url_prefixes = ["https://www.vogue.co.uk/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "page"

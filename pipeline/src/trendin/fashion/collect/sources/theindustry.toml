@@ -1,0 +1,9 @@
+key = "theindustry"
+domain = "fashion"
+route = "rss"
+country = "GB"  # 발행처 TheIndustry.fashion 의 소재지(런던). 법인 이름은 확인하지 못했다
+discover_url = "https://www.theindustry.fashion/feed/"
+allowed_url_prefixes = ["https://www.theindustry.fashion/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

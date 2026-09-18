@@ -1,0 +1,8 @@
+key = "dazed"
+domain = "fashion"
+route = "rss"
+country = "GB"  # 발행 법인 Dazed Media Ltd 의 소재지
+discover_url = "https://www.dazeddigital.com/rss"
+allowed_url_prefixes = ["https://www.dazeddigital.com/"]
+article_id = { rule = "url_path_segment", param = 2 }
+published_at = { rule = "atom_published" }

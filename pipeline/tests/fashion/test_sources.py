@@ -9,22 +9,23 @@ from trendin.fashion.collect import sources
 ALL_SOURCES = sources.RSS_SOURCES + sources.LISTING_SOURCES
 
 
-def test_일곱_소스다():
+def test_등록한_소스_목록이다():
     assert sorted(sources.BY_KEY) == [
         "allure",
         "cosmopolitan",
+        "dazed",
+        "glamour_uk",
         "gqkorea",
         "harpersbazaar",
+        "hypebeast",
+        "id",
         "marieclaire",
+        "marieclaire_uk",
+        "theindustry",
         "vogue",
+        "vogue_uk",
         "wkorea",
     ]
-
-
-def test_hypebeast_는_없다():
-    """약관 8조가 RSS 예외 없이 자동·수동 수집을 금지한다 (확정 2-1)."""
-    assert "hypebeast" not in sources.BY_KEY
-    assert not any("hypebeast" in s.discover_url for s in ALL_SOURCES)
 
 
 def test_한_레지스트리가_두_route_를_다_찾는다():
@@ -56,11 +57,11 @@ def test_목록_소스는_하위_섹션_다섯을_가진다(source):
         assert f"{source.discover_url}/{slug}".startswith(source.allowed_url_prefixes)
 
 
-def test_일곱_소스의_국가는_전부_한국이다():
+def test_국가는_발행_법인의_소재지다():
     """국가는 본사가 아니라 **발행 법인의 소재지**다 (설계 문서 #3.2 운영 법인 표).
 
     Vogue 와 Harper's Bazaar 는 본사가 미국이지만 두산매거진과 허스트중앙(유) 가 한국에서
-    발행하므로 `KR` 이다. 이 시험이 지키는 것은 값 일곱 개가 아니라 그 기준이다 — 본사
+    발행하므로 `KR` 이다. 이 시험이 지키는 것은 값 목록이 아니라 그 기준이다 — 본사
     기준으로 되돌리면 두 소스가 `US` 로 바뀌면서 여기서 걸린다.
     """
     assert {key: source.country for key, source in sources.BY_KEY.items()} == {
@@ -71,6 +72,13 @@ def test_일곱_소스의_국가는_전부_한국이다():
         "marieclaire": "KR",
         "harpersbazaar": "KR",
         "cosmopolitan": "KR",
+        "hypebeast": "HK",
+        "glamour_uk": "GB",
+        "marieclaire_uk": "GB",
+        "dazed": "GB",
+        "vogue_uk": "GB",
+        "id": "GB",
+        "theindustry": "GB",
     }
 
 
@@ -82,4 +90,4 @@ def test_국가는_대문자_두_글자다(source):
 
 def test_모르는_소스는_있는_것을_알려주며_실패한다():
     with pytest.raises(KeyError, match="vogue"):
-        sources.get("hypebeast")
+        sources.get("nosuchsource")
