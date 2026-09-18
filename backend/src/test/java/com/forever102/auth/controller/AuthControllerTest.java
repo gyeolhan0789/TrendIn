@@ -138,7 +138,7 @@ class AuthControllerTest {
                                 fieldWithPath("email").type(JsonFieldType.STRING)
                                         .description("이메일. 필수, 이메일 형식, 최대 254자. 앞뒤 공백 제거 후 소문자로 정규화된다."),
                                 fieldWithPath("password").type(JsonFieldType.STRING)
-                                        .description("비밀번호. 필수, 10~128자, 영문·숫자·특수문자를 모두 포함."),
+                                        .description("비밀번호. 필수, 8~128자, 영문·숫자·특수문자를 모두 포함."),
                                 fieldWithPath("nickname").type(JsonFieldType.STRING)
                                         .description("닉네임. 필수, 앞뒤 공백 제거 후 2~30자.")
                         ),
@@ -216,13 +216,13 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("비밀번호가 10자 미만이면 400으로 응답한다")
+    @DisplayName("비밀번호가 8자 미만이면 400으로 응답한다")
     void signUpRejectsShortPassword() throws Exception {
         // given
         String request = """
                 {
                   "email": "test@example.com",
-                  "password": "pw12345!",
+                  "password": "pw1234!",
                   "nickname": "trenduser"
                 }
                 """;
@@ -232,7 +232,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("비밀번호는 10자 이상 128자 이하여야 합니다."));
+                .andExpect(jsonPath("$.message").value("비밀번호는 8자 이상 128자 이하여야 합니다."));
     }
 
     @Test
