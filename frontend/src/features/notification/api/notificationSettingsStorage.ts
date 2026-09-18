@@ -6,7 +6,6 @@ const settingsKey = 'trendin-notification-settings-v1';
 export const defaultNotificationSettings: NotificationSettings = {
   master: true,
   trend: { surge: true, plunge: true, discovered: true, turning: true },
-  report: { monthly: true, custom: true },
   email: { marketing: false, system: true },
   quiet: { enabled: false, start: '22:00', end: '08:00' },
 };
@@ -38,7 +37,6 @@ function parseSettings(value: unknown): NotificationSettings {
   return {
     master: stored.master !== false,
     trend: parseGroup(stored.trend, defaultNotificationSettings.trend),
-    report: parseGroup(stored.report, defaultNotificationSettings.report),
     email: parseGroup(stored.email, defaultNotificationSettings.email),
     quiet: parseQuiet(stored.quiet),
   };

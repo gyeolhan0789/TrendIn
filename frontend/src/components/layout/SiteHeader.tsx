@@ -3,9 +3,9 @@ import { AccountMenu } from '../../features/auth/components/AccountMenu';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
 /*
- * 새 시안의 공용 헤더입니다. 이제 여섯 칸 모두 갈 곳이 있습니다.
+ * 새 시안의 공용 헤더입니다. 지금 선 다섯 칸은 모두 갈 곳이 있습니다.
  *
- * 갈 곳(to)이 없는 칸은 여전히 흐리게 세웁니다. 시안이 먼저 나오고 화면이 뒤따라오는 일이
+ * 갈 곳(to)이 없는 칸은 흐리게 세웁니다. 시안이 먼저 나오고 화면이 뒤따라오는 일이
  * 되풀이되는데, 칸을 아예 빼면 그동안 가로 균형이 무너지기 때문입니다.
  */
 const navItems: { label: string; to?: string }[] = [
@@ -14,7 +14,6 @@ const navItems: { label: string; to?: string }[] = [
   { label: '관심 키워드', to: '/keywords' },
   { label: '국가별 트렌드', to: '/global' },
   { label: '저장된 트렌드', to: '/saved' },
-  { label: '리포트', to: '/report' },
 ];
 
 function BoltMark() {

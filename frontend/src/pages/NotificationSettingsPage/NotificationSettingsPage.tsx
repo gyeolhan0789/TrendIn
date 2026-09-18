@@ -3,12 +3,11 @@ import { Link } from 'react-router-dom';
 import { ToggleSwitch } from '../../components/common/ToggleSwitch';
 import { showToast } from '../../components/common/toast';
 import { MyPageCard, MyPageCrumb, MyPageNotice, MyPageRow, MyPageScreen } from '../../features/myPage/components/MyPageShell';
-import { MailIcon, MoonIcon, ReportIcon, SurgeIcon } from '../../features/myPage/components/myPageIcons';
+import { MailIcon, MoonIcon, SurgeIcon } from '../../features/myPage/components/myPageIcons';
 import { useNotificationSettings } from '../../features/notification/hooks/useNotificationSettings';
 import type {
   EmailAlertKey,
   NotificationSettings,
-  ReportAlertKey,
   TrendAlertKey,
 } from '../../features/notification/types/notificationSettings';
 
@@ -18,11 +17,6 @@ const trendRows: { key: TrendAlertKey; title: string; desc: string }[] = [
   { key: 'plunge', title: '키워드 급락 알림', desc: '관심 키워드 검색량이 급락하면 알림' },
   { key: 'discovered', title: '신규 트렌드 발견', desc: '새로운 트렌드가 감지되면 알림' },
   { key: 'turning', title: '트렌드 전환점 알림', desc: '트렌드가 상승·하락으로 돌아설 때 알림' },
-];
-
-const reportRows: { key: ReportAlertKey; title: string; desc: string }[] = [
-  { key: 'monthly', title: '월간 리포트 완성', desc: '매월 1일 월간 분석 리포트 알림' },
-  { key: 'custom', title: '맞춤 리포트 완료', desc: '요청한 맞춤 리포트 생성 완료 시 알림' },
 ];
 
 const emailRows: { key: EmailAlertKey; title: string; desc: string }[] = [
@@ -42,7 +36,7 @@ export function NotificationSettingsPage() {
   /* 전체 알림을 끄면 아래 항목을 잠급니다. 켠 자리는 지우지 않아서 다시 켜면 그대로 돌아옵니다. */
   const locked = !draft.master;
 
-  const setGroup = <G extends 'trend' | 'report' | 'email'>(group: G, key: keyof NotificationSettings[G], on: boolean) => {
+  const setGroup = <G extends 'trend' | 'email'>(group: G, key: keyof NotificationSettings[G], on: boolean) => {
     setDraft((current) => ({ ...current, [group]: { ...current[group], [key]: on } }));
   };
 
@@ -84,21 +78,6 @@ export function NotificationSettingsPage() {
                 disabled={locked}
                 label={row.title}
                 onChange={(on) => setGroup('trend', row.key, on)}
-              />
-            </MyPageRow>
-          ))}
-        </div>
-      </MyPageCard>
-
-      <MyPageCard title="리포트 알림" tone="amber" icon={<ReportIcon />}>
-        <div className="mypage-rows">
-          {reportRows.map((row) => (
-            <MyPageRow key={row.key} title={row.title} description={row.desc}>
-              <ToggleSwitch
-                checked={draft.report[row.key] && !locked}
-                disabled={locked}
-                label={row.title}
-                onChange={(on) => setGroup('report', row.key, on)}
               />
             </MyPageRow>
           ))}

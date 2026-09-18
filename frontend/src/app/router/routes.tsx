@@ -12,7 +12,6 @@ import { OnboardingPage } from '../../pages/OnboardingPage/OnboardingPage';
 import { PasswordResetPage } from '../../pages/PasswordResetPage/PasswordResetPage';
 import { ProfileEditPage } from '../../pages/ProfileEditPage/ProfileEditPage';
 import { RecentActivityPage } from '../../pages/RecentActivityPage/RecentActivityPage';
-import { ReportPage } from '../../pages/ReportPage/ReportPage';
 import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
 import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
 import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
@@ -34,7 +33,6 @@ export const siteRoutes = (
     <Route path="/mypage/activity" element={<RecentActivityPage />} />
     <Route path="/mypage/notifications" element={<NotificationSettingsPage />} />
     <Route path="/saved" element={<SavedTrendPage />} />
-    <Route path="/report" element={<ReportPage />} />
   </>
 );
 

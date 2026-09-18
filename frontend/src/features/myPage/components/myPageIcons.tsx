@@ -19,10 +19,6 @@ export function SurgeIcon({ size }: IconProps) {
   return <Icon size={size}><path d="M23 6l-9.5 9.5-5-5L1 18" /><path d="M17 6h6v6" /></Icon>;
 }
 
-export function ReportIcon({ size }: IconProps) {
-  return <Icon size={size}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6" /></Icon>;
-}
-
 export function MailIcon({ size }: IconProps) {
   return <Icon size={size}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 6l-10 7L2 6" /></Icon>;
 }
