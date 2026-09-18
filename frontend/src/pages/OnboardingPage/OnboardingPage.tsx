@@ -34,9 +34,9 @@ const DOMAIN_ICON_FALLBACK = '🏷️';
  * API 가 생기면 enabled 를 그 응답에 이어 붙이면 됩니다.
  */
 const NOTIFICATION_OPTIONS = [
-  { id: 'surging', icon: '🔥', title: '급상승 알림', desc: '지금 뜨는 트렌드를 가장 빠르게 알려드려요.', tint: '#fef2f2' },
+  { id: 'surging', icon: '🔥', title: '인기 트렌드 알림', desc: '지금 뜨는 트렌드를 가장 빠르게 알려드려요.', tint: '#fef2f2' },
   { id: 'new', icon: '🆕', title: '신규 트렌드 알림', desc: '새롭게 등장한 트렌드를 알려드려요.', tint: '#eef2ff' },
-  { id: 'resurging', icon: '📈', title: '재급상승 알림', desc: '다시 주목받는 트렌드를 알려드려요.', tint: '#f0fdf4' },
+  { id: 'resurging', icon: '📈', title: '급상승 알림', desc: '다시 주목받는 트렌드를 알려드려요.', tint: '#f0fdf4' },
   { id: 'interest', icon: '🔖', title: '관심 키워드 알림', desc: '내가 선택한 키워드의 트렌드를 알려드려요.', tint: '#fefce8' },
 ];
 
