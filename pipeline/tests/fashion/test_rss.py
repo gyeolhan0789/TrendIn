@@ -13,8 +13,9 @@ from datetime import timezone
 import httpx
 import pytest
 
-from trendin.common.collect.contracts import Rule, SourceDef
-from trendin.common.collect.session import CollectSession
+from trendin.common.collect.contracts import ArticleFetchError, Rule, SourceDef
+from trendin.common.collect.keys import KST
+from trendin.common.collect.session import CollectSession, HostBlocked
 from trendin.common.collect.stores import InMemoryValidatorStore
 from trendin.common.collect.urls import clean_url
 from trendin.fashion.collect import sources
@@ -80,6 +81,24 @@ def serve(body: bytes, status: int = 200, headers: dict | None = None):
     return handler
 
 
+# 본문도 ld+json 도 없는 기사 페이지. 본문은 피드 본문으로 떨어진다(확정 2 의 마지막 단계).
+BLANK_PAGE = b"<html><head><title>x</title></head><body></body></html>"
+
+
+def serve_pages(feed: bytes, source: SourceDef, page: bytes = BLANK_PAGE, status: int = 200):
+    """피드 주소면 피드를, 나머지(기사 페이지)는 `page` 를 준다. 받은 주소는 `.requested`."""
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if str(request.url).startswith(source.discover_url):
+            return httpx.Response(200, content=feed)
+        return httpx.Response(status, content=page)
+
+    handler.requested = requested
+    return handler
+
+
 def adapter_for(source: SourceDef, handler, clock, **kwargs):
     session = CollectSession(
         allowed_url_prefixes=source.allowed_url_prefixes,
@@ -98,19 +117,22 @@ def adapter_for(source: SourceDef, handler, clock, **kwargs):
 def test_실측_피드에서_필수_필드가_찬_article_이_나온다(key, clock, feed_bytes):
     source = sources.get(key)
     body = feed_bytes(f"{key}.xml")
-    adapter, session = adapter_for(source, serve(body), clock)
+    adapter, session = adapter_for(source, serve_pages(body, source), clock)
     with session:
         result = adapter.discover()
         assert result.candidates and not result.failures
         for candidate in result.candidates:
             raw, article = adapter.materialize(candidate)
-            assert raw == candidate.raw
+            # raw 는 item 조각이 아니라 받은 기사 페이지다 (확정 2).
+            assert raw == BLANK_PAGE
             assert article.source == key
             assert article.route == "rss"
             assert article.domain == "fashion"
             assert article.article_id.isdigit()
             assert article.title
-            assert article.raw_key.endswith(f"/{article.article_id}/raw.xml")
+            assert article.raw_key.endswith(
+                f"/rss/{article.published_at.astimezone(KST):%Y/%m/%d}/{article.article_id}/raw.html"
+            )
             assert article.content_sha256 == hashlib.sha256(raw).hexdigest()
             assert article.published_at.tzinfo is not None
             assert article.collected_at.tzinfo == timezone.utc
@@ -142,7 +164,8 @@ def test_ElementTree_로는_못_읽는_피드를_읽는다(key, clock, feed_byte
 
 def test_본문이_빈_기사도_저장한다(clock, feed_bytes):
     """실측 wkorea 1건. body_text 는 선택 필드라 없다고 실패시키지 않는다."""
-    adapter, session = adapter_for(sources.get("wkorea"), serve(feed_bytes("wkorea.xml")), clock)
+    source = sources.get("wkorea")
+    adapter, session = adapter_for(source, serve_pages(feed_bytes("wkorea.xml"), source), clock)
     with session:
         articles = [adapter.materialize(c)[1] for c in adapter.discover().candidates]
     empty = [a for a in articles if a.body_text is None]
@@ -151,7 +174,8 @@ def test_본문이_빈_기사도_저장한다(clock, feed_bytes):
 
 
 def test_사진_크레딧과_script_는_본문에_안_들어간다(clock, feed_bytes):
-    adapter, session = adapter_for(sources.get("allure"), serve(feed_bytes("allure.xml")), clock)
+    source = sources.get("allure")
+    adapter, session = adapter_for(source, serve_pages(feed_bytes("allure.xml"), source), clock)
     with session:
         bodies = [adapter.materialize(c)[1].body_text or "" for c in adapter.discover().candidates]
     joined = "\n".join(bodies)
@@ -165,15 +189,18 @@ def test_사진_크레딧과_script_는_본문에_안_들어간다(clock, feed_b
 
 def test_guid_파라미터와_author_field_가_소스마다_갈린다(clock, feed_bytes):
     body = feed_bytes("synthetic.xml")
-    adapter, session = adapter_for(SYNTHETIC_POST, serve(body), clock)
+    adapter, session = adapter_for(SYNTHETIC_POST, serve_pages(body, SYNTHETIC_POST), clock)
     with session:
         result = adapter.discover()
         assert [c.article_id for c in result.candidates] == ["705465"]
         _raw, article = adapter.materialize(result.candidates[0])
     assert article.author == "편집부"
-    # description 이 HTML 이면 요약이 아니라 본문 사본이다. 비운다.
-    assert article.summary is None
-    assert article.body_text == "첫 문단.\n\n둘째 문단."
+    # HTML 로 보이는 description 도 버리지 않고 같은 조각 규칙을 지난다 (#5.3, 2026-09-17).
+    assert article.summary == "<p>요약 자리에 본문이 들어왔다</p>"
+    # 사진 크레딧과 script 는 버리고 나머지 마크업은 남는다.
+    assert article.body_text == (
+        '<p>첫 문단.</p><figure><img src="https://example.test/a.jpg"></figure><p>둘째 문단.</p>'
+    )
 
 
 def test_article_id_를_못_뽑은_건만_실패로_빠지고_나머지는_간다(clock, feed_bytes):
@@ -196,7 +223,8 @@ def test_발행일이_없으면_정규화에서_실패한다(clock, feed_bytes):
 
 
 def test_추적_파라미터만_빼고_평문_요약은_남긴다(clock, feed_bytes):
-    adapter, session = adapter_for(SYNTHETIC_P, serve(feed_bytes("synthetic.xml")), clock)
+    handler = serve_pages(feed_bytes("synthetic.xml"), SYNTHETIC_P)
+    adapter, session = adapter_for(SYNTHETIC_P, handler, clock)
     with session:
         candidates = {c.article_id: c for c in adapter.discover().candidates}
         _raw, article = adapter.materialize(candidates["222"])
@@ -212,12 +240,13 @@ def test_추적_파라미터만_빼고_평문_요약은_남긴다(clock, feed_by
 
 def test_Atom_entry_를_article_로_읽는다(clock, feed_bytes):
     body = feed_bytes("atom.xml")
-    adapter, session = adapter_for(ATOM, serve(body), clock)
+    adapter, session = adapter_for(ATOM, serve_pages(body, ATOM), clock)
     with session:
         result = adapter.discover()
         first = result.candidates[0]
         raw, article = adapter.materialize(first)
-    assert raw.startswith(b"<entry") and raw.endswith(b"</entry>") and raw in body
+    assert first.raw.startswith(b"<entry") and first.raw.endswith(b"</entry>") and first.raw in body
+    assert raw == BLANK_PAGE
     assert first.article_id == hashlib.sha256(b"tag:atom.test,2026:article-1").hexdigest()[:16]
     # rel="self" 가 아니라 alternate 링크가 기사 주소다. 추적 파라미터는 뺀다.
     assert article.url == "https://atom.test/fashion/first"
@@ -226,7 +255,8 @@ def test_Atom_entry_를_article_로_읽는다(clock, feed_bytes):
     assert article.author == "Jane Doe"
     assert article.categories == ["Fashion", "Runway"]
     assert article.summary == "짧은 요약"
-    assert article.body_text == "첫 문단.\n\n둘째 문단."
+    # `type="html"` 이라 엔티티로 감싼 HTML 이 한 번 풀려 조각이 된다.
+    assert article.body_text == "<p>첫 문단.</p><p>둘째 문단.</p>"
 
 
 def test_Atom_발행일_규칙은_대체_순서가_없다(clock, feed_bytes):
@@ -257,7 +287,7 @@ def test_guid_hash_는_빈_guid_를_link_로_메우지_않고_실패시킨다(cl
 
 def test_RSS_1_0_item_을_article_로_읽는다(clock, feed_bytes):
     body = feed_bytes("rdf.xml")
-    adapter, session = adapter_for(RDF, serve(body), clock)
+    adapter, session = adapter_for(RDF, serve_pages(body, RDF), clock)
     with session:
         (candidate,) = adapter.discover().candidates
         _raw, article = adapter.materialize(candidate)
@@ -268,7 +298,7 @@ def test_RSS_1_0_item_을_article_로_읽는다(clock, feed_bytes):
     assert article.author == "주식회사 예시"
     assert article.categories == ["ファッション"]
     assert article.summary == "보도자료 요약"
-    assert article.body_text == "보도자료 본문."
+    assert article.body_text == "<p>보도자료 본문.</p>"
 
 
 def test_guid_hash_는_앞뒤_공백만_벗긴다():
@@ -353,3 +383,88 @@ def test_guid_에서_숫자만_뽑는다():
 def test_percent_encoding_은_그대로_둔다():
     url = "https://www.vogue.co.kr/2026/09/03/%ed%81%b4%eb%9e%98%ec%8b%9d/"
     assert clean_url(url) == url
+
+
+# --- 기사 페이지 (확정 2, S15P21A102-285) -----------------------------------
+
+LD_PAGE = """<html><head><script type="application/ld+json">
+{"@type": "NewsArticle", "headline": "x", "articleBody": "페이지 본문 <문라이트> & 끝.\\n둘째 줄."}
+</script></head><body><p>무시되는 짧은 문단</p></body></html>""".encode()
+PAYWALLED_PAGE = """<html><head><script type="application/ld+json">
+[{"@type": "Organization"}, {"@type": "NewsArticle", "isAccessibleForFree": "False",
+  "articleBody": "유료 본문"}]
+</script></head><body><p>유료 본문</p></body></html>""".encode()
+
+
+def _first_synthetic(page: bytes, clock, feed_bytes, status: int = 200):
+    handler = serve_pages(feed_bytes("synthetic.xml"), SYNTHETIC_POST, page=page, status=status)
+    adapter, session = adapter_for(SYNTHETIC_POST, handler, clock)
+    return adapter, session, handler
+
+
+def test_피드가_전문을_줘도_기사_페이지를_받고_페이지_본문을_쓴다(clock, feed_bytes):
+    adapter, session, handler = _first_synthetic(LD_PAGE, clock, feed_bytes)
+    with session:
+        (candidate,) = adapter.discover().candidates
+        raw, article = adapter.materialize(candidate)
+    assert handler.requested[-1] == "https://example.test/2026/09/other-shape/"
+    assert raw == LD_PAGE
+    assert article.body_text == "<p>페이지 본문 &lt;문라이트&gt; &amp; 끝.</p><p>둘째 줄.</p>"
+    assert article.raw_key.endswith("/705465/raw.html")
+    assert article.content_sha256 == hashlib.sha256(LD_PAGE).hexdigest()
+    assert article.paywalled is None
+
+
+def test_유료_표시_기사는_본문과_raw_를_저장하지_않는다(clock, feed_bytes):
+    """HTML 에 본문이 실려 와도 같다 (불변식 2)."""
+    adapter, session, _handler = _first_synthetic(PAYWALLED_PAGE, clock, feed_bytes)
+    with session:
+        (candidate,) = adapter.discover().candidates
+        _raw, article = adapter.materialize(candidate)
+    assert article.paywalled is True
+    assert article.body_text is None
+    assert article.raw_key is None and article.content_sha256 is None
+    assert article.title and article.summary  # 제목·요약은 남는다
+
+
+def test_404_는_다시_시도하지_않는다(clock, feed_bytes):
+    """기사가 지워진 것이라 다시 쳐도 결과가 같다 (S15P21A102-312)."""
+    adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=404)
+    with session:
+        (candidate,) = adapter.discover().candidates
+        with pytest.raises(ArticleFetchError, match="404") as caught:
+            adapter.materialize(candidate)
+    assert caught.value.retryable is False
+    assert caught.value.meta.article_id == "705465"
+
+
+def test_리다이렉트는_따라가지_않고_실패로_본다(clock, feed_bytes):
+    adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=301)
+    with session:
+        (candidate,) = adapter.discover().candidates
+        with pytest.raises(ArticleFetchError, match="301") as caught:
+            adapter.materialize(candidate)
+    assert caught.value.retryable is True and caught.value.blocking is False
+
+
+def test_기사_페이지가_403_이면_대기로_남기고_호스트를_멈춘다(clock, feed_bytes):
+    """대기 행은 남기되 그 실행에서 이 호스트는 끝이다 (불변식 2, S15P21A102-312)."""
+    adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=403)
+    with session:
+        (candidate,) = adapter.discover().candidates
+        with pytest.raises(ArticleFetchError) as caught:
+            adapter.materialize(candidate)
+    assert caught.value.blocking is True
+    assert isinstance(caught.value.__cause__, HostBlocked)
+    assert caught.value.meta.title and caught.value.meta.published_at
+
+
+def test_허용_범위_밖_링크는_치지_않고_그_기사만_실패한다(clock, feed_bytes):
+    source = dataclasses.replace(SYNTHETIC_POST, allowed_url_prefixes=("https://only.test/",))
+    handler = serve_pages(feed_bytes("synthetic.xml"), SYNTHETIC_POST)
+    adapter = RssAdapter(source, CollectSession(transport=httpx.MockTransport(handler)))
+    (candidate,) = adapter.discover().candidates
+    before = len(handler.requested)
+    with pytest.raises(ValueError, match="허용 범위"):
+        adapter.materialize(candidate)
+    assert len(handler.requested) == before

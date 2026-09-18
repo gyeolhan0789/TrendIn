@@ -18,7 +18,6 @@ article_id 만 주고, raw 로 저장할 기사 페이지는 취득에서야 받
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 from datetime import datetime, timezone
@@ -27,9 +26,10 @@ from typing import Any, Callable
 from urllib.parse import urljoin
 
 from trendin.common.collect.article import Article
+from trendin.common.collect.body import find_ld_articles, is_paywalled
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
-from trendin.common.collect.html_text import html_to_text
-from trendin.common.collect.keys import ROUTE_EXT, raw_key
+from trendin.common.collect.html_text import html_fragment
+from trendin.common.collect.keys import raw_key
 from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
 
 logger = logging.getLogger("trendin.collect.listing")
@@ -41,7 +41,6 @@ BODY_CLASS = "atc_body_cont"
 BODY_DROP_CLASSES = frozenset({"atc_mask_login", "ab_related_article"})
 # 회원 전용 표시. 본문 안에서 유료 구간이 시작되는 자리에 한 번 나온다 (① 실측 8/8).
 MEMBERS_CLASS = "membershipLine"
-LD_JSON_TYPES = frozenset({"NewsArticle", "Article", "ReportageNewsArticle"})
 
 
 class ArticleParseError(Exception):
@@ -109,30 +108,16 @@ def has_class(html: str, name: str) -> bool:
     return parser.found
 
 
-def _types(value: Any) -> set[str]:
-    """`@type` 은 문자열일 수도 배열일 수도 있다."""
-    if isinstance(value, str):
-        return {value}
-    return {v for v in (value or []) if isinstance(v, str)}
-
-
 def parse_ld_article(html: str) -> dict[str, Any]:
     """기사 페이지의 ld+json `NewsArticle` 을 돌려준다.
 
     meta 태그 대신 여기를 단일 출처로 쓴다. 발행일·url·요약은 두 곳이 8/8 같은 값을 줬고
     (① 실측), `author` 는 ld+json 에만 있다. 같은 사실을 두 자리에서 읽으면 언젠가 어긋난다.
     """
-    for block in re.findall(
-        r'(?is)<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html
-    ):
-        try:
-            data = json.loads(block.strip())
-        except json.JSONDecodeError:
-            continue
-        for node in data if isinstance(data, list) else [data]:
-            if isinstance(node, dict) and LD_JSON_TYPES.intersection(_types(node.get("@type"))):
-                return node
-    raise ArticleParseError("ld+json NewsArticle 이 없다")
+    nodes = find_ld_articles(html)
+    if not nodes:
+        raise ArticleParseError("ld+json NewsArticle 이 없다")
+    return nodes[0]
 
 
 def _author_name(value: Any) -> str | None:
@@ -223,7 +208,7 @@ class ListingAdapter:
                 article_id=article_id,
                 url=urljoin(self.source.discover_url, f"/article/{article_id}"),
                 raw=None,  # 기사 페이지는 취득에서 받는다
-                raw_ext=ROUTE_EXT[self.source.route],
+                raw_ext="html",
                 collected_at=collected_at,
                 published_at=None,  # 목록에는 없다. 기사 페이지 ld+json 이 준다
                 categories=tuple(sorted(sections[article_id])),
@@ -256,14 +241,19 @@ class ListingAdapter:
         title = (data.get("headline") or "").strip()
         url = (data.get("url") or "").strip() or candidate.url
         members_only = has_class(html, MEMBERS_CLASS)
+        # 피드 소스와 같은 판정이다 (S15P21A102-285). 2026-09-03 실측 8건엔 표시가 없었다.
+        paywalled = is_paywalled(find_ld_articles(html))
+        withheld = members_only or paywalled
 
         body_text = None
-        if members_only:
+        if withheld:
             # 본문은 HTML 에 실려 와도 저장하지 않는다 (불변식 2 · 확정 8).
-            logger.info("%s: 회원 전용 — 본문 제외 %s", self.source.key, candidate.article_id)
+            logger.info(
+                "%s: 회원 전용·유료 표시 — 본문 제외 %s", self.source.key, candidate.article_id
+            )
         else:
             body_text = (
-                html_to_text(html, within_class=BODY_CLASS, drop_classes=BODY_DROP_CLASSES) or None
+                html_fragment(html, within_class=BODY_CLASS, drop_classes=BODY_DROP_CLASSES) or None
             )
             if body_text is None:
                 logger.warning(
@@ -282,21 +272,23 @@ class ListingAdapter:
             collected_at=collected_at,
             raw_key=(
                 None
-                if members_only
+                if withheld
                 else raw_key(
                     self.source.domain,
                     self.source.key,
                     self.source.route,
                     published_at,
                     candidate.article_id,
+                    ext="html",
                 )
             ),
-            content_sha256=None if members_only else hashlib.sha256(raw).hexdigest(),
+            content_sha256=None if withheld else hashlib.sha256(raw).hexdigest(),
             modified_at=_parse_dt(modified, "dateModified") if modified else None,
-            summary=(data.get("description") or "").strip() or None,
+            summary=html_fragment(data.get("description") or "") or None,
             body_text=body_text,
             categories=list(candidate.categories),
             author=_author_name(data.get("author")),
             members_only=members_only or None,
+            paywalled=paywalled or None,
         )
         return raw, article

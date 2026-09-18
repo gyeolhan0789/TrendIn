@@ -116,13 +116,18 @@ def test_DDL_이_발급_봉투가_쓰는_컬럼을_다_만든다():
         "event_run_id",
         "article_key",
         "published_at_offset",
+        "fetch_state",
+        "fetch_attempts",
+        "first_failed_at",
     ):
         assert column in DDL
     # 재실행에도 같아야 한다 — DAG 첫 태스크가 매번 돈다.
-    # 테이블 셋 + 인덱스 셋 + 칸을 여는 ALTER 셋, 그리고 걷어내는 DROP 하나.
+    # 테이블 셋 + 인덱스 넷 + 칸을 여는 ALTER 일곱, 그리고 걷어내는 DROP 하나.
     # 뷰는 이 셈에 없다. `CREATE OR REPLACE` 라 `IF NOT EXISTS` 를 안 쓴다.
-    assert DDL.count("IF NOT EXISTS") == 9
+    assert DDL.count("IF NOT EXISTS") == 14
     assert DDL.count("DROP INDEX IF EXISTS") == 1
+    # 대기 행은 객체 키가 없다 (S15P21A102-312).
+    assert DDL.count("DROP NOT NULL") == 2
 
 
 # --- 소스 국가 참조 표 (S15P21A102-276) --------------------------------------

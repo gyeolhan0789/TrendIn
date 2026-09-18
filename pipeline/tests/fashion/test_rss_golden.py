@@ -3,8 +3,10 @@
 소스 정의를 코드 튜플에서 TOML 프로필로 옮겨도 같은 기사가 나와야 한다. 필드 몇 개를
 골라 보는 시험은 옮기면서 생긴 차이를 놓치므로, 저장되는 바이트 전체를 고정해 둔다.
 
-골든은 옮기기 전 코드로 떴다. 출력이 **의도대로** 바뀌는 작업(예: 285 의 HTML 조각
-본문)은 `UPDATE_GOLDEN=1 pytest tests/fashion/test_rss_golden.py` 로 다시 뜨고, 그 diff 가
+골든은 옮기기 전 코드로 떴다. 기사 페이지는 본문 없는 빈 페이지를 준다 — 본문이 피드
+본문으로 떨어지는 경로를 고정한다(실제 페이지 추출은 `tests/common/test_body.py`).
+출력이 **의도대로** 바뀌는 작업(예: 285 의 HTML 조각 본문)은
+`UPDATE_GOLDEN=1 pytest tests/fashion/test_rss_golden.py` 로 다시 뜨고, 그 diff 가
 무엇이 바뀌었는지의 리뷰 근거가 된다.
 """
 
@@ -25,13 +27,16 @@ from trendin.fashion.collect.rss import RssAdapter
 GOLDEN = pathlib.Path(__file__).resolve().parent.parent / "fixtures" / "rss" / "golden"
 MEASURED = ["vogue", "gqkorea", "wkorea", "allure", "marieclaire"]
 COLLECTED_AT = datetime(2026, 9, 3, 5, 0, tzinfo=timezone.utc)
+BLANK_PAGE = b"<html><body></body></html>"
 
 
 def snapshot(key: str, feed: bytes, clock) -> dict:
     source = sources.get(key)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=feed)
+        if str(request.url).startswith(source.discover_url):
+            return httpx.Response(200, content=feed)
+        return httpx.Response(200, content=BLANK_PAGE)
 
     with CollectSession(
         allowed_url_prefixes=source.allowed_url_prefixes,
