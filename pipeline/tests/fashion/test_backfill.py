@@ -112,6 +112,7 @@ def test_rss_소스는_받는다():
         "glamour_uk",
         "gqkorea",
         "id",
+        "luxe_co",
         "marieclaire",
         "theindustry",
         "vogue",

@@ -14,12 +14,14 @@ def test_등록한_소스_목록이다():
         "allure",
         "cosmopolitan",
         "dazed",
+        "elle_cn",
         "glamour_uk",
         "gqkorea",
         "harpersbazaar",
         "highsnobiety",
         "hypebeast",
         "id",
+        "luxe_co",
         "marieclaire",
         "marieclaire_uk",
         "theindustry",
@@ -80,6 +82,8 @@ def test_국가는_발행_법인의_소재지다():
         "vogue_uk": "GB",
         "id": "GB",
         "theindustry": "GB",
+        "elle_cn": "CN",
+        "luxe_co": "CN",
         "highsnobiety": "DE",
     }
 

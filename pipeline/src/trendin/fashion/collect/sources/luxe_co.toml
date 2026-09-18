@@ -1,0 +1,9 @@
+key = "luxe_co"
+domain = "fashion"
+route = "rss"
+country = "CN"  # 발행 법인 华丽集（常州）网络科技有限公司 의 소재지(사이트 바닥 표기)
+discover_url = "https://luxe.co/category/fashion/feed"
+allowed_url_prefixes = ["https://luxe.co/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"
