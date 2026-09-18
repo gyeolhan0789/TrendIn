@@ -655,7 +655,8 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-hero h1 span { color: var(--lp-indigo); }
 .landing-hero-lead { max-width: 400px; margin-top: 24px; color: var(--lp-muted); font-size: 17px; line-height: 1.7; }
 
-.landing-search { display: flex; align-items: center; max-width: 460px; margin-top: 36px; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
+.landing-search-shell { position: relative; max-width: 460px; margin-top: 36px; }
+.landing-search { display: flex; align-items: center; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .landing-search:focus-within { border-color: var(--lp-indigo); }
 .landing-search > svg { flex: 0 0 18px; margin-right: 12px; }
 .landing-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--lp-ink); font-size: 15px; }
@@ -834,6 +835,7 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-hero-note p { color: var(--lp-muted); font-size: 12px; line-height: 1.6; }
 
 .explore-searchbar { padding-bottom: 24px; }
+.explore-search-shell { position: relative; max-width: 720px; }
 .explore-searchbar form { display: flex; align-items: center; padding: 8px 8px 8px 24px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .explore-searchbar form:focus-within { border-color: var(--lp-indigo); }
 .explore-searchbar form > svg { flex: 0 0 20px; margin-right: 14px; }
@@ -844,6 +846,18 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-search-clear:hover { background: #f3f4f6; }
 .explore-search-go { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 10px; background: var(--lp-ink); }
 .explore-search-go:hover { background: #2d2d44; }
+
+/* 검색 상자 아래에 뜨는 검색어 목록. 폭은 상자를 감싼 자리에 맞추고, 8px 띄워 붙입니다. */
+.keyword-suggest { position: absolute; top: calc(100% + 8px); right: 0; left: 0; z-index: 30; overflow: hidden; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+.keyword-suggest-list { margin: 0; padding: 0; list-style: none; }
+.keyword-suggest-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+.keyword-suggest-row.is-active { background: #f5f3ff; }
+.keyword-suggest-name { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: hidden; }
+.keyword-suggest-name strong { overflow: hidden; color: var(--lp-ink); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.keyword-suggest-name mark { background: none; color: var(--lp-indigo); font-weight: 700; }
+.keyword-suggest-name small { color: var(--lp-faint); font-size: 12px; }
+.keyword-suggest-meta { flex: 0 0 auto; color: var(--lp-muted); font-size: 12px; white-space: nowrap; }
+.keyword-suggest-none { padding: 16px 12px; color: var(--lp-faint); font-size: 13px; text-align: center; }
 
 .explore-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 28px; }
 .explore-filters-right { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-left: auto; }
