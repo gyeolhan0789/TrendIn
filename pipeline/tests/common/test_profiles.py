@@ -73,6 +73,10 @@ def test_프로필이_SourceDef_가_된다(tmp_path):
         ('{ rule = "guid_hash" }', '{ rule = "atom_updated" }'),
         ('{ rule = "guid_query_param", param = "post" }', '{ rule = "dc_date" }'),
         ('{ rule = "url_path_segment", param = -2 }', '{ rule = "rss_pubdate" }'),
+        (
+            '{ rule = "link_query_param", param = "idxno" }',
+            '{ rule = "rss_pubdate_local", param = "Asia/Seoul" }',
+        ),
     ],
 )
 def test_피드_규칙_열거형을_받는다(tmp_path, article_id, published_at):
@@ -109,9 +113,19 @@ def test_선택_칸이_없으면_페이지_넘김도_라이선스도_없다(tmp_
         (with_id('rule = "guid_query_param", param = 1'), "문자열"),
         (with_id('rule = "url_path_segment", param = "-2"'), "정수"),
         (with_id('rule = "url_path_segment", param = true'), "정수"),
-        (VALID.replace('{ rule = "rss_pubdate" }', '{ rule = "rss_pubdate", param = "x" }'),
-         "param 을 받지 않는다"),
+        (
+            VALID.replace('{ rule = "rss_pubdate" }', '{ rule = "rss_pubdate", param = "x" }'),
+            "param 을 받지 않는다",
+        ),
         (VALID.replace('{ rule = "rss_pubdate" }', '"rss_pubdate"'), "표여야"),
+        (VALID.replace('{ rule = "rss_pubdate" }', '{ rule = "rss_pubdate_local" }'), "시간대"),
+        (
+            VALID.replace(
+                '{ rule = "rss_pubdate" }', '{ rule = "rss_pubdate_local", param = "KST" }'
+            ),
+            "시간대",
+        ),
+        (with_id('rule = "link_query_param"'), "문자열"),
         (VALID.replace('{ rule = "rss_pubdate" }', '{ rule = "meta_property" }'), "published_at"),
         (VALID + 'page_param = ""\n', "page_param"),
         (VALID + 'license = { name = "CC BY 4.0" }\n', "license"),

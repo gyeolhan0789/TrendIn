@@ -1,0 +1,9 @@
+key = "numero"
+domain = "fashion"
+route = "rss"
+country = "FR"  # 발행 법인 Numéro Presse SAS 의 소재지(파리)
+discover_url = "https://numero.com/category/mode/feed/"
+allowed_url_prefixes = ["https://numero.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

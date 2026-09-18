@@ -314,11 +314,13 @@ docker compose -f pipeline/compose.yaml up -d
 ```sh
 docker compose -f ../datastore/compose.yaml up -d          # Kafka · MinIO. 먼저다
 spark/scripts/fetch-jars.sh                                # jar 를 호스트에 받아둔다
-spark/scripts/build-image.sh                               # 이미지 두 단계
+spark/scripts/build-image.sh                               # 런타임 → 배포, 두 단계
 docker compose -f compose.yaml -f spark/compose.spark.yaml up -d
 ```
 
-`Dockerfile` 과 `compose.yaml` 은 건드리지 않는다 — `spark/Dockerfile` 이 `s15p21a102/pipeline:local` 을 `FROM` 으로 상속하고, `spark/compose.spark.yaml` 오버레이가 Airflow 서비스의 `image` 만 바꾼다. 되돌릴 때는 `-f` 를 뺀다.
+`compose.yaml` 은 건드리지 않는다 — `spark/compose.spark.yaml` 오버레이가 Airflow 서비스의 `image` 만 바꾼다. 되돌릴 때는 `-f` 를 뺀다.
+
+`Dockerfile` 은 `BASE_IMAGE` 인자 하나를 받는다. 기본값이 정식 Airflow 이미지라 여기까지는 종전과 같고, Spark 배포만 `spark/Dockerfile` 이 만든 런타임 이미지를 넣어 그 위에 우리 패키지를 얹는다. 무거운 것을 아래에 두는 이유는 `src` 가 바뀔 때마다 그 위의 모든 층이 캐시를 잃기 때문이다 — 순서를 반대로 두었을 때 배포 잡이 6분에서 13분이 됐다.
 
 로컬에서 호스트 `.venv` 로 돌릴 때는 `spark/compose.dev.yaml` 쪽을 쓴다.
 

@@ -55,7 +55,42 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | `dazed` | fashion | https://www.dazeddigital.com/rss |
 | `id` | fashion | https://i-d.co/category/fashion/feed/ |
 | `theindustry` | fashion | https://www.theindustry.fashion/feed/ |
+| `ktnews` | fashion | https://www.ktnews.com/rss/allArticle.xml |
+| `itnk` | fashion | https://www.itnk.co.kr/rss/allArticle.xml |
+| `mensnonno` | fashion | https://www.mensnonno.jp/fashion/feed/ |
+| `fudge` | fashion | https://fudge.jp/fashion/feed/ |
+| `oggi` | fashion | https://oggi.jp/fashion/feed |
+| `houyhnhnm` | fashion | https://www.houyhnhnm.jp/feed |
+| `vogue_jp` | fashion | https://www.vogue.co.jp/feed/rss |
+| `cancam` | fashion | https://cancam.jp/feed |
+| `fashionsnap` | fashion | https://www.fashionsnap.com/rss.xml |
+| `senken` | fashion | https://senken.co.jp/posts/feed.xml |
+| `vogue_fr` | fashion | https://www.vogue.fr/feed/rss |
+| `lofficiel` | fashion | https://www.lofficiel.com/feed.rss |
+| `numero` | fashion | https://numero.com/category/mode/feed/ |
+| `journaldutextile` | fashion | https://www.journaldutextile.com/feed |
+| `vogue_it` | fashion | https://www.vogue.it/feed/rss |
+| `iodonna` | fashion | https://www.iodonna.it/moda/feed/ |
+| `elle_it` | fashion | https://www.elle.com/it/rss/moda.xml |
+| `vogue_us` | fashion | https://www.vogue.com/feed/fashion/rss |
+| `gq_us` | fashion | https://www.gq.com/feed/rss |
+| `harpersbazaar_us` | fashion | https://www.harpersbazaar.com/rss/fashion.xml |
+| `elle_us` | fashion | https://www.elle.com/rss/fashion.xml |
+| `whowhatwear` | fashion | https://www.whowhatwear.com/feeds/tag/fashion |
+| `prnewswire` | fashion | https://www.prnewswire.com/rss/consumer-products-retail-latest-news/fashion-list.rss |
+| `globenewswire` | fashion | https://www.globenewswire.com/AtomFeed/industry/3763-Clothing%2026%20Accessories/feedTitle/GlobeNewswire%20-%20Industry%20News%20on%20Clothing%20and%20Accessories |
+| `elle_cn` | fashion | https://www.ellechina.com/rss/fashion.xml |
+| `luxe_co` | fashion | https://luxe.co/category/fashion/feed |
+| `highsnobiety` | fashion | https://www.highsnobiety.com/feeds/rss |
 | `hn` | dev | https://news.ycombinator.com/newest |
+
+**호스트 공유.** 소스 둘 이상이 같은 호스트를 치는 경우다. 소스마다 태스크가 따로라서 그 호스트는 소스 수만큼 요청을 받는다.
+
+| 호스트 | 소스 |
+|---|---|
+| `www.elle.com` | `elle_us` (등록), `elle_it` (등록, 허용 범위 `https://www.elle.com/it/`) |
+
+겹침은 받아들인다(291 결정). 세 번째 공유 소스가 생기면 호스트 단위로 태스크를 묶는 안을 연다. 국가 묶음을 등록할 때 이 표를 고친다.
 
 ## 2. 소스 조사 결과 (① 실측 2026-09-03)
 

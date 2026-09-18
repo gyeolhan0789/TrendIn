@@ -60,8 +60,9 @@ docker compose -f datastore/compose.yaml up -d
 cd pipeline
 spark/scripts/fetch-jars.sh
 
-# 3. 이미지 두 단계 — 팀 공용 이미지 → JRE·pyspark 를 얹은 파생 이미지
+# 3. 이미지 두 단계 — 런타임 이미지(JRE·pyspark·torch·GLiNER) 위에 우리 패키지
 #    pyproject.toml 의 의존성이 바뀌면 반드시 다시 돌린다 (한국어 형태소 분석기 등)
+#    versions.sh 가 그대로면 1단계는 캐시에 맞아 몇 초에 끝난다
 spark/scripts/build-image.sh
 
 # 4. 띄운다

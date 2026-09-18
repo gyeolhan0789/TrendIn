@@ -1,0 +1,8 @@
+key = "elle_cn"
+domain = "fashion"
+route = "rss"
+country = "CN"  # 발행 법인 北京赫斯特广告有限公司 의 소재지(사이트 바닥 표기)
+discover_url = "https://www.ellechina.com/rss/fashion.xml"
+allowed_url_prefixes = ["https://www.ellechina.com/"]
+article_id = { rule = "url_path_segment", param = -2 }
+published_at = { rule = "rss_pubdate" }

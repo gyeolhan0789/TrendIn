@@ -22,10 +22,17 @@ from trendin.common.collect.body import Via, decode_page, extract_body
 from trendin.common.collect.contracts import ArticleFetchError, Candidate, DiscoverResult
 from trendin.common.collect.html_text import text_length
 from trendin.common.collect.session import FetchFailed, HostBlocked
-from trendin.fashion.collect.rss import _FORMATS, RssAdapter, feed_format, parse_item
+from trendin.fashion.collect.rss import (
+    _FORMATS,
+    FeedParseError,
+    RssAdapter,
+    feed_format,
+    parse_item,
+)
 
 END_PAGE = 999
 BLOCKED = "차단"
+UNPARSED = "파싱 실패"
 
 HEADER = (
     "| key | country | 형식 | 1p 건수 | 1p 발행일 폭(일) | 본문 경로(표본별) | 본문 길이 중앙값 "
@@ -117,11 +124,14 @@ def _via(raw: bytes, candidate: Candidate) -> Via | None:
 
 
 def _discover(adapter: RssAdapter, page: int) -> DiscoverResult | str:
-    """페이지를 못 받았으면 상태코드 문자열을 돌려준다."""
+    """페이지를 못 받았거나 피드로 못 읽었으면 그 사정을 문자열로 돌려준다."""
     try:
         return adapter.discover(page=page)
     except HostBlocked:
         return BLOCKED
+    except FeedParseError:
+        # 없는 페이지에 200 과 HTML 을 주는 사이트가 있다(houyhnhnm ?paged=999, 2026-09-18).
+        return UNPARSED
     except FetchFailed as exc:
         return str(exc.status) if exc.status is not None else "오류"
 

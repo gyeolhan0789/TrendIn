@@ -21,6 +21,9 @@ set -euo pipefail
 DEPLOY_ROOT=${DEPLOY_ROOT:-/srv/trendin}
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-300}
 SKIP_VERIFY=${SKIP_VERIFY:-0}
+# 배포 끝에 남길 빌드 캐시의 양. 0 으로 두면 캐시를 전부 지운다 — 그러면 다음 배포가
+# 런타임 이미지를 처음부터 다시 만들어 5~6분을 더 쓴다.
+BUILD_CACHE_KEEP=${BUILD_CACHE_KEEP:-20GB}
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 SOURCE=$(cd "$HERE/.." && pwd)
@@ -116,8 +119,10 @@ step "2/5  Spark 런타임 jar"
 pipeline/spark/scripts/fetch-jars.sh
 
 # --- 3. 이미지 ---------------------------------------------------------------
-# 두 단계다. 파생 이미지가 기본 이미지를 FROM 하는데 컴포즈는 그 관계를 모른다.
-step "3/5  이미지 (기본 → Spark 파생)"
+# 두 단계다. 런타임 이미지(JRE·pyspark·torch·GLiNER) 위에 우리 패키지를 얹는데,
+# 컴포즈는 그 관계를 모른다. 런타임 쪽은 spark/versions.sh 가 바뀔 때만 실제로 다시
+# 만들어지므로, 보통 이 단계에서 오래 걸리는 것은 우리 패키지 한 층뿐이다.
+step "3/5  이미지 (런타임 → 배포)"
 pipeline/spark/scripts/build-image.sh
 
 # --- 4. Airflow · Spark ------------------------------------------------------
@@ -139,6 +144,25 @@ else
   step "5/5  datastore 검증"
   ./datastore/scripts/verify.sh
 fi
+
+# --- 뒷정리 ------------------------------------------------------------------
+# 배포 한 번마다 태그를 잃은 옛 이미지 한 벌과 빌드 캐시가 쌓인다. 2026-09-18 점검 때
+# 빌드 캐시가 68 GB 였다. 여기서 줄이지 않으면 언젠가 디스크가 차는데, 그때 먼저 죽는
+# 것은 배포가 아니라 Kafka·MinIO 다.
+#
+# **쓰고 있는 이미지와 볼륨은 건드리지 않는다.** `docker image prune` 은 태그 없는 것만,
+# 그중에서도 컨테이너가 쓰지 않는 것만 지운다. 여기에 `-a` 를 붙이면 다음 빌드가 다시
+# 받아야 할 정식 이미지까지 지우고, `--volumes` 는 Kafka·MinIO·Postgres 의 데이터를
+# 지운다. 둘 다 쓰지 않는다.
+#
+# 실패해도 배포를 세우지 않는다. 정리가 안 된 것은 다음 배포에서 다시 해보면 되는 일이고,
+# 여기서 멈추면 이미 다 뜬 스택을 두고 잡이 빨개진다.
+step "뒷정리  태그 없는 이미지 · 오래된 빌드 캐시"
+docker image prune -f || :
+# 빌드 캐시 쪽 `-a` 는 뜻이 다르다. 붙이지 않으면 "어디에도 매달리지 않은" 캐시만 지워서
+# 거의 줄지 않는다. 그래도 전부 지우는 것은 아니다 — 최근 것부터 남길 양만큼은 남는다.
+docker builder prune -f -a --keep-storage "$BUILD_CACHE_KEEP" || :
+df -h "$DEPLOY_ROOT" | tail -1
 
 step "배포 끝"
 docker compose -f "$DEPLOY_ROOT/datastore/compose.yaml" ps

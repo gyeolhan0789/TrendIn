@@ -1,0 +1,9 @@
+key = "cancam"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행 법인 株式会社小学館 의 소재지
+discover_url = "https://cancam.jp/feed"
+allowed_url_prefixes = ["https://cancam.jp/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

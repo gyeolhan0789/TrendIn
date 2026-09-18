@@ -1,17 +1,38 @@
-# Spark 를 쓰는 Airflow 이미지. 팀 공용 pipeline 이미지를 상속해 도구 두 개만 얹는다.
+# Spark 런타임 이미지. **우리 패키지는 들어 있지 않다** — 정식 Airflow 이미지 위에 무겁고
+# 잘 안 바뀌는 것 넷만 깔고 끝낸다.
 #
-#   1) JRE  — Spark 는 JVM 위에서 돈다. airflow 이미지에는 자바가 없다
-#   2) pyspark — spark-submit 과 파이썬 API
+#   1) JRE      — Spark 는 JVM 위에서 돈다. airflow 이미지에는 자바가 없다
+#   2) pyspark  — spark-submit 과 파이썬 API
+#   3) torch(CPU) · gliner — 실체 인식 ([04 §2], `extract/entities.py`)
+#   4) GLiNER 모델 가중치
 #
-# pipeline/Dockerfile 을 고치지 않는 이유 — 그 파일은 팀 공용이고 이미지가 바뀌면 팀 전원의
-# 빌드가 바뀐다 (09 §2 의 "compose.yaml 을 직접 고치지 않는다" 와 같은 이유). 상속으로
-# 얹으면 이 디렉터리 안에서만 끝나고, 되돌릴 때도 오버레이만 빼면 된다.
+# 이 이미지만으로는 DAG 도 Job 도 돌지 않는다. pipeline/Dockerfile 이 이 위에 우리 패키지를
+# 얹어 s15p21a102/pipeline-spark:local 을 만든다 (spark/compose.spark.yaml 의 BASE_IMAGE).
+# 두 단계를 순서대로 부르는 것은 spark/scripts/build-image.sh 다.
+#
+# --- 상속 방향이 예전과 반대다 (2026-09-18) ----------------------------------
+# 예전에는 이 파일이 s15p21a102/pipeline:local 을 FROM 했다. 그 이미지의 맨 위층이
+# `COPY src` 라 소스가 한 줄만 바뀌어도 이미지 ID 가 달라졌고, 그러면 도커는 이 아래
+# 3.5 GB(모델 2.36 GB · torch 1.04 GB · pyspark 491 MB)를 캐시 없는 것으로 보고 전부 다시
+# 받았다. 데이터 EC2 배포 잡이 6분에서 13분으로 늘어난 원인이 이것이다 (러너 로그 09-17).
+#
+# 여기 깔린 것이 실제로 의존하는 값은 versions.sh 하나다. 그 파일은 지난 한 달에 두 번
+# 바뀌었고 src 는 최근 일주일에 열네 번 바뀌었다. 안 바뀌는 것을 아래에, 자주 바뀌는 것을
+# 위에 두면 도커가 옳게 판단한다 — versions.sh 를 고치는 날에는 여기가 제대로 다시 빌드된다.
+#
+# --- pipeline/Dockerfile 을 왜 건드렸나 --------------------------------------
+# 그 파일은 팀 공용이라 손대지 않는 것이 원칙이었다 (09 §2). 그런데 "우리 패키지를 맨 위에
+# 둔다" 는 그 파일이 만드는 층의 위치에 관한 것이라 여기서는 표현할 수 없다. 대신 BASE_IMAGE
+# 기본값을 정식 이미지로 두어, Spark 를 쓰지 않는 팀의 빌드 명령과 결과는 그대로 두었다.
 #
 # 왜 아예 컨테이너에 넣나 — Airflow 가 컨테이너 안에 있으면 호스트의 spark-submit 을 부를
 # 방법이 없다. 태스크가 도는 곳에 Spark 가 있어야 DAG 로 엮인다 (09 §2).
 
-ARG PIPELINE_IMAGE=s15p21a102/pipeline:local
-FROM ${PIPELINE_IMAGE}
+ARG AIRFLOW_VERSION=3.3.1
+ARG PYTHON_VERSION=3.12
+# 정식 이미지를 직접 상속한다. 이 두 값은 pipeline/Dockerfile 과 같아야 한다 —
+# build-image.sh 가 그 파일에서 읽어 넘기므로 손으로 맞추지 않는다.
+FROM apache/airflow:${AIRFLOW_VERSION}-python${PYTHON_VERSION}
 
 # apt 는 root 로. 끝나면 airflow 로 돌려놓는다 — 그대로 두면 이후 태스크가 root 로 돈다.
 USER root
@@ -51,6 +72,9 @@ RUN . /tmp/versions.sh \
 # 안 만들면 볼륨이 root 소유로 생겨 Job 이 checkpoint 를 못 쓴다 ([01 §4]).
 RUN mkdir -p /opt/airflow/checkpoints
 
-# 설정은 yaml 로 읽는다. Airflow 가 이미 PyYAML 을 갖고 있어서 따로 설치하지 않는다 —
-# 없어지면 여기서 빌드가 실패해야 한다. 런타임에 발견하면 원인 찾기가 훨씬 어렵다.
-RUN python -c "import yaml, pyspark, gliner, kiwipiepy; print('pyspark', pyspark.__version__)"
+# 이 이미지가 책임지는 것만 본다. 설정을 읽는 yaml 은 Airflow 가 이미 갖고 있어서 따로
+# 설치하지 않는데, 없어지면 런타임이 아니라 여기서 깨져야 한다.
+#
+# **kiwipiepy 는 여기서 보지 않는다.** 그것은 우리 패키지의 의존성이라 위층에서 깔린다.
+# 다 쌓은 뒤의 검사는 build-image.sh 가 `docker run` 으로 한다.
+RUN python -c "import yaml, pyspark, gliner; print('pyspark', pyspark.__version__)"

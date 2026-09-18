@@ -1,0 +1,8 @@
+key = "lofficiel"
+domain = "fashion"
+route = "rss"
+country = "FR"  # 발행처 L'Officiel 의 소재지(파리). 법인 이름은 확인하지 못했다
+discover_url = "https://www.lofficiel.com/feed.rss"
+allowed_url_prefixes = ["https://www.lofficiel.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }

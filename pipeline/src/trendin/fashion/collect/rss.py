@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
 from urllib.parse import parse_qs, urlsplit
+from zoneinfo import ZoneInfo
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.body import decode_page, extract_body
@@ -42,7 +43,7 @@ from trendin.common.collect.contracts import (
 )
 from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import raw_key
-from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
+from trendin.common.collect.session import CollectError, CollectSession, FetchFailed, HostBlocked
 from trendin.common.collect.urls import clean_url
 
 logger = logging.getLogger("trendin.collect.rss")
@@ -193,14 +194,14 @@ def feed_format(entry: Entry) -> str:
     return "rss10" if "rdf:about" in entry.attrs else "rss20"
 
 
-def article_id_from_guid(guid: str, param: str) -> str:
-    """guid 는 `https://www.vogue.co.kr/?p=857991` 꼴이다.
+def article_id_from_query(url: str, param: str) -> str:
+    """guid `https://www.vogue.co.kr/?p=857991` 나 link `.../articleView.html?idxno=148710` 꼴이다.
 
     URL 슬러그는 쓰지 않는다 — 제목이 바뀌면 슬러그도 바뀐다.
     """
-    values = parse_qs(urlsplit(guid).query).get(param, [])
+    values = parse_qs(urlsplit(url).query).get(param, [])
     if not values or not values[0].isdigit():
-        raise ValueError(f"guid 에서 {param!r} 숫자를 못 뽑았다: {guid!r}")
+        raise ValueError(f"{param!r} 숫자를 못 뽑았다: {url!r}")
     return values[0]
 
 
@@ -227,7 +228,9 @@ def article_id_from_path(link: str, position: int) -> str:
 
 def article_id_by_rule(rule: Rule, guid: str, link: str) -> str:
     if rule.name == "guid_query_param":
-        return article_id_from_guid(guid, rule.param)
+        return article_id_from_query(guid, rule.param)
+    if rule.name == "link_query_param":
+        return article_id_from_query(link, rule.param)
     if rule.name == "url_path_segment":
         return article_id_from_path(link, rule.param)
     if rule.name == "guid_hash":
@@ -246,6 +249,8 @@ _DATE_RULES = {
     "dc_date": ("dc:date", "iso8601"),
     "atom_published": ("published", "iso8601"),
     "atom_updated": ("updated", "iso8601"),
+    # `2026-09-18 15:30:27` 처럼 오프셋 없는 값이다. 시간대는 규칙 파라미터가 준다(한국 뉴스 CMS).
+    "rss_pubdate_local": ("pubDate", "local"),
 }
 
 
@@ -261,7 +266,21 @@ def published_by_rule(rule: Rule, entry: Entry) -> datetime | None:
             parsed = datetime.fromisoformat(raw)
     except (TypeError, ValueError):
         return None
+    if form == "local" and parsed.tzinfo is None:
+        return parsed.replace(tzinfo=ZoneInfo(rule.param))
     return parsed if parsed.tzinfo is not None else None
+
+
+def _https(link: str, allowed: tuple[str, ...]) -> str:
+    """http 링크를 https 로 올린다. 올린 주소가 허용 범위 안일 때만이다.
+
+    허용 범위는 https 만 받고 세션은 리다이렉트를 따라가지 않는다. 그래서 http 링크는
+    그대로 두면 한 건도 못 받는다(한국섬유신문 피드가 https 로 오면서 link 는 http 다).
+    """
+    if not link.startswith("http://"):
+        return link
+    upgraded = "https://" + link.removeprefix("http://")
+    return upgraded if upgraded.startswith(allowed) else link
 
 
 class RssAdapter:
@@ -296,6 +315,9 @@ class RssAdapter:
         if response.not_modified:
             logger.info("%s: 304, 피드가 안 바뀌었다 (%s)", self.source.key, url)
             return DiscoverResult(not_modified=True)
+        if response.status != 200:
+            # 세션은 리다이렉트를 따라가지 않는다. 빈 본문을 파싱하면 상태코드가 사라진다.
+            raise FetchFailed(f"{response.status}: {url}", status=response.status)
 
         collected_at = self._now()
         body = response.body
@@ -306,7 +328,7 @@ class RssAdapter:
             entry = parse_item(fragment)
             shape = _FORMATS[feed_format(entry)]
             guid = shape.guid(entry)
-            link = clean_url(shape.link(entry).strip())
+            link = _https(clean_url(shape.link(entry).strip()), self.source.allowed_url_prefixes)
             try:
                 article_id = article_id_by_rule(self.source.article_id, guid, link)
             except ValueError as exc:
