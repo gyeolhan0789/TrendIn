@@ -181,9 +181,16 @@ scripts/deploy-data-ec2.sh
 
 1. Kafka · MinIO 를 띄우고 healthy 를 기다린다. 네트워크 `s15p21a102-data` 의 주인이라 항상 먼저다
 2. Spark 런타임 jar 를 받는다. 이미 있으면 건너뛴다
-3. 이미지를 두 단계로 만든다 — 팀 공용 이미지 → JRE·pyspark 를 얹은 파생 이미지
+3. 이미지를 두 단계로 만든다 — 런타임 이미지(JRE·pyspark·torch·GLiNER) 위에 우리 패키지
 4. Airflow 를 Spark 오버레이와 함께 띄우고 healthy 를 기다린다
 5. `datastore/scripts/verify.sh` 로 저장소 계약을 확인한다
+
+끝나면 태그 없는 이미지와 오래된 빌드 캐시를 지운다. 볼륨과 태그가 붙은 이미지는 건드리지
+않는다 — 남길 캐시의 양은 `BUILD_CACHE_KEEP` 으로 조절한다.
+
+3단계에서 실제로 다시 만들어지는 것은 보통 우리 패키지 한 층(약 30초)뿐이다. 그 아래
+3.5 GB 는 `spark/versions.sh` 가 바뀔 때만 다시 만든다 — 버전을 올린 날에는 이 단계가
+5~6분 걸리고, 그것이 정상이다.
 
 바꿀 수 있는 환경변수 셋이다.
 
@@ -192,6 +199,7 @@ scripts/deploy-data-ec2.sh
 | `DEPLOY_ROOT` | `/srv/trendin` | 배포 디렉터리를 옮길 때 |
 | `HEALTH_TIMEOUT` | `300` | 첫 배포에서 이미지 빌드가 길어 healthy 대기가 모자랄 때 |
 | `SKIP_VERIFY` | `0` | 검증만 건너뛰고 빨리 올릴 때. 평소에는 켜두지 않는다 |
+| `BUILD_CACHE_KEEP` | `20GB` | 배포 끝에 남길 빌드 캐시의 양. `0` 으로 두면 다음 배포가 이미지를 처음부터 만든다 |
 
 ## 4. 확인
 
