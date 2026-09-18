@@ -88,14 +88,16 @@ TOML 인 이유는 둘이다. `tomllib` 이 stdlib 이라 의존성이 안 늘�
 
 ### 3.2 추출 규칙은 열거형이다
 
-정규식을 넣지 않는다. `article_id` 는 `guid_query_param` · `url_path_segment` · `api_field` · `guid_hash` 중 하나,
-`published_at` 은 `rss_pubdate` · `dc_date` · `atom_published` · `atom_updated` · `meta_property` · `ldjson_field` 중 하나를 고르고 파라미터만 채운다.
+정규식을 넣지 않는다. `article_id` 는 `guid_query_param` · `link_query_param` · `url_path_segment` · `api_field` · `guid_hash` 중 하나,
+`published_at` 은 `rss_pubdate` · `rss_pubdate_local` · `dc_date` · `atom_published` · `atom_updated` · `meta_property` · `ldjson_field` 중 하나를 고르고 파라미터만 채운다.
 
 | 규칙 | 뜻 |
 |---|---|
 | `guid_hash` | guid 만 쓴다(Atom 은 `<id>`, RSS 1.0 은 `rdf:about`). 앞뒤 공백만 벗기고 sha256 앞 16자. 비면 그 item 은 발견 단계 실패이고 `link` 로 넘어가지 않는다 — 필요해지면 `link_hash` 를 따로 더한다. 슬러그만 있는 URL(vogue_us 등)은 제목이 바뀌면 id 가 바뀌어서 둔다 (2026-09-17 284 합의) |
 | `url_path_segment` | 기사 link 경로를 `/` 로 나눈 빈칸 아닌 조각 중 `param` 번째(정수, 음수는 뒤에서). 조각은 영숫자·`_`·`-` 만 받고, 조각이 없거나 모양이 다르면 발견 단계 실패다. guid 는 보지 않는다. 예: 미국 허스트 `/fashion/trends/a73617426/slug/` 는 `-2` (2026-09-17 284) |
+| `link_query_param` | 기사 link 쿼리의 `param` 값. 숫자만 받는다. guid 가 없는 피드용이다. 예: 한국 뉴스 CMS `articleView.html?idxno=148710` 는 `idxno` (2026-09-18 291 한국 묶음) |
 | `rss_pubdate` | `pubDate`, RFC 822 |
+| `rss_pubdate_local` | `pubDate` 가 `2026-09-18 15:30:27` 처럼 오프셋 없는 값이다. `param` 의 IANA 시간대(`Asia/Seoul`)로 읽는다. 로더가 시간대 이름을 검사한다 (2026-09-18 291 한국 묶음) |
 | `dc_date` | `dc:date`, ISO 8601 (2026-09-17 284 합의) |
 | `atom_published` · `atom_updated` | Atom `<published>` · `<updated>` (2026-09-17 284 합의) |
 | `meta_property` · `ldjson_field` | 기사 페이지를 받아야 쓸 수 있다. S15P21A102-285 이후 |
@@ -128,7 +130,7 @@ TOML 인 이유는 둘이다. `tomllib` 이 stdlib 이라 의존성이 안 늘�
 | 통과하면 | 제목·URL·발행일·요약·본문·raw 를 모은다 |
 | 사람이 보는 것 | 측정 표(피드 종류, 피드 전문 비율, 기사 추출 결과), 어댑터 종류, **프로브 3건 결과** |
 | 기계가 채우는 것 | 측정 표와 프로브 결과 |
-| 자동 탈락 | 첫 요청이 403·429 인 곳(불변식 2). robots.txt 는 기록만 한다 |
+| 자동 탈락 | 첫 요청이 403·429 인 곳(불변식 2). 첫 요청은 수집하는 주소(피드·기사)의 첫 요청이다. 섹션 피드 추측·목록 페이지처럼 수집하지 않는 주소의 403 은 그 실행에서 호스트를 멈추게 할 뿐 탈락 사유가 아니다. 그 소스는 다른 날 피드부터 다시 잰다 (2026-09-18 291). robots.txt 는 기록만 한다 |
 
 측정 표의 모양은 `source-survey-2026-09-16/` 이 처음 만들었고(① 81곳), 291 의 PR 이 이 표를 붙인다.
 

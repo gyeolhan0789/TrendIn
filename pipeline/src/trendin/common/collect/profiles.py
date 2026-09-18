@@ -19,17 +19,24 @@ import re
 import tomllib
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from trendin.common.collect.contracts import License, Rule, SourceDef
 
 # route 별로 프로필에 적을 수 있는 규칙. 값은 파라미터의 모양이다 — None 이면 파라미터가 없고,
-# "str" 이면 비지 않은 문자열, "int" 면 정수가 반드시 있어야 한다. 목록·API 소스는 아직
-# 프로필로 적지 않는다(확정 5).
+# "str" 이면 비지 않은 문자열, "int" 면 정수, "zone" 이면 IANA 시간대 이름이 반드시 있어야 한다.
+# 목록·API 소스는 아직 프로필로 적지 않는다(확정 5).
 RULES: dict[str, dict[str, dict[str, str | None]]] = {
     "rss": {
-        "article_id": {"guid_query_param": "str", "guid_hash": None, "url_path_segment": "int"},
+        "article_id": {
+            "guid_query_param": "str",
+            "link_query_param": "str",
+            "guid_hash": None,
+            "url_path_segment": "int",
+        },
         "published_at": {
             "rss_pubdate": None,
+            "rss_pubdate_local": "zone",
             "dc_date": None,
             "atom_published": None,
             "atom_updated": None,
@@ -151,6 +158,13 @@ def _rule(data: dict[str, Any], field: str, route: str) -> Rule:
         # TOML 의 true 도 파이썬에선 int 다. 위치로 읽히면 조용히 1 이 된다.
         if not isinstance(param, int) or isinstance(param, bool):
             raise ValueError(f"{field} 규칙 {name} 은 param 이 있어야 한다 (정수)")
+    elif shape == "zone":
+        try:
+            ZoneInfo(param)
+        except (TypeError, ValueError, ZoneInfoNotFoundError):
+            raise ValueError(
+                f"{field} 규칙 {name} 은 param 이 있어야 한다 (시간대 이름, 예: Asia/Seoul)"
+            ) from None
     elif param is not None:
         raise ValueError(f"{field} 규칙 {name} 은 param 을 받지 않는다")
     return Rule(name, param)

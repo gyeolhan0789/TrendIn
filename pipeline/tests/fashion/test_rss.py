@@ -22,8 +22,8 @@ from trendin.fashion.collect import sources
 from trendin.fashion.collect.rss import (
     RssAdapter,
     article_id_by_rule,
-    article_id_from_guid,
     article_id_from_path,
+    article_id_from_query,
 )
 
 MEASURED = ["vogue", "gqkorea", "wkorea", "allure", "marieclaire"]
@@ -319,6 +319,58 @@ def test_url_path_segment_는_link_경로의_조각을_위치로_고른다(clock
     assert result.failures == []
 
 
+# 한국 뉴스 CMS 피드의 모양(2026-09-18 한국섬유신문 실측). guid 가 없고, id 는 link 의 쿼리에
+# 있고, pubDate 는 오프셋 없는 한국 시각이고, 피드는 https 인데 link 는 http 다.
+KR_NEWS = SourceDef(
+    key="krnews",
+    domain="fashion",
+    route="rss",
+    discover_url="https://news.test/rss/allArticle.xml",
+    allowed_url_prefixes=("https://news.test/",),
+    country="KR",
+    article_id=Rule("link_query_param", "idxno"),
+    published_at=Rule("rss_pubdate_local", "Asia/Seoul"),
+)
+KR_NEWS_FEED = """<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0"><channel><title>t</title>
+<item><title>첫 기사</title>
+<link>http://news.test/news/articleView.html?idxno=148710</link>
+<description><![CDATA[요약]]></description>
+<pubDate>2026-09-18 15:30:27</pubDate></item>
+<item><title>둘째 기사</title>
+<link>https://news.test/news/articleView.html?idxno=148709</link>
+<pubDate>Fri, 18 Sep 2026 14:51:30 +0900</pubDate></item>
+<item><title>id 없는 기사</title>
+<link>https://news.test/news/articleList.html</link>
+<pubDate>2026-09-18 14:00:00</pubDate></item>
+</channel></rss>""".encode()
+
+
+def test_한국_뉴스_CMS_피드는_link_쿼리로_id_를_얻고_https_로_받는다(clock):
+    handler = serve_pages(KR_NEWS_FEED, KR_NEWS)
+    adapter, session = adapter_for(KR_NEWS, handler, clock)
+    with session:
+        result = adapter.discover()
+        first, second = result.candidates
+        _raw, article = adapter.materialize(first)
+    assert [c.article_id for c in result.candidates] == ["148710", "148709"]
+    assert [f.stage for f in result.failures] == ["discover"]
+    assert "idxno" in result.failures[0].reason
+    assert first.url == "https://news.test/news/articleView.html?idxno=148710"
+    assert handler.requested[-1] == first.url
+    assert article.published_at.isoformat() == "2026-09-18T15:30:27+09:00"
+    # 규칙은 하나만 고른다 — RFC 822 값을 대신 읽어 주지 않는다 (#3.2).
+    assert second.published_at is None
+
+
+def test_허용_범위_밖이면_http_링크를_올리지_않는다(clock):
+    feed = KR_NEWS_FEED.replace(b"http://news.test/", b"http://other.test/")
+    adapter, session = adapter_for(KR_NEWS, serve(feed), clock)
+    with session:
+        first = adapter.discover().candidates[0]
+    assert first.url == "http://other.test/news/articleView.html?idxno=148710"
+
+
 def test_경로_조각_위치는_뒤에서도_세고_깊이가_달라도_같은_자리다():
     """2026-09-16 실측의 미국 허스트 주소 모양. 섹션 깊이가 달라도 id 는 끝에서 둘째다."""
     for link in (
@@ -375,9 +427,9 @@ def test_304_는_새_글_0건과_다르다(clock, feed_bytes):
 
 
 def test_guid_에서_숫자만_뽑는다():
-    assert article_id_from_guid("https://www.vogue.co.kr/?p=857991", "p") == "857991"
+    assert article_id_from_query("https://www.vogue.co.kr/?p=857991", "p") == "857991"
     with pytest.raises(ValueError):
-        article_id_from_guid("https://www.vogue.co.kr/2026/09/03/slug/", "p")
+        article_id_from_query("https://www.vogue.co.kr/2026/09/03/slug/", "p")
 
 
 def test_percent_encoding_은_그대로_둔다():

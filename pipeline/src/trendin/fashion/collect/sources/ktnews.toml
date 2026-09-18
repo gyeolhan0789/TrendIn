@@ -1,0 +1,8 @@
+key = "ktnews"
+domain = "fashion"
+route = "rss"
+country = "KR"  # 발행 법인 ㈜한국섬유신문(서울)의 소재지
+discover_url = "https://www.ktnews.com/rss/allArticle.xml"
+allowed_url_prefixes = ["https://www.ktnews.com/"]
+article_id = { rule = "link_query_param", param = "idxno" }
+published_at = { rule = "rss_pubdate_local", param = "Asia/Seoul" }
