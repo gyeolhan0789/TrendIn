@@ -91,3 +91,46 @@ def test_소스_하한은_규격이_고정한_2_다():
 
     assert not promote.judge(evidence(source_count=1), lenient).promoted
     assert promote.judge(evidence(source_count=2), lenient).promoted
+
+
+def test_걸린_조건을_전부_남긴다():
+    """`reason` 하나로는 조건마다 무엇을 막는지 셀 수 없다 (`Verdict.failed` 의 주석).
+
+    2026-09-17 실행의 보류 표가 `held/documents` 1,262 · 나머지 넷 0 이었던 것이 이
+    때문이다. 문서 수에서 걸린 후보가 뒤의 넷을 **안 본 것이 아니라** 본 결과가 버려졌고,
+    그래서 그 표로는 문턱을 정할 수 없었다 ([10 §4] S6).
+    """
+    verdict = promote.judge(
+        evidence(doc_count=1, observed_days=1, source_count=1, author_count=1),
+        registry_thresholds(),
+    )
+
+    assert verdict.failed == (
+        promote.HELD_DOCUMENTS,
+        promote.HELD_OBSERVED_DAYS,
+        promote.HELD_SOURCES,
+        promote.HELD_AUTHORS,
+    )
+    assert verdict.reason == verdict.failed[0], "`reason` 은 언제나 첫 번째다"
+
+
+def test_통과한_후보는_걸린_조건이_없다():
+    assert promote.judge(evidence(), registry_thresholds()).failed == ()
+
+
+@pytest.mark.parametrize(
+    ("override", "reason"),
+    [
+        ({"doc_count": 4}, promote.HELD_DOCUMENTS),
+        ({"observed_days": 1}, promote.HELD_OBSERVED_DAYS),
+        ({"source_count": 1}, promote.HELD_SOURCES),
+        ({"author_count": 2}, promote.HELD_AUTHORS),
+        ({"representative_ratio": 0.59}, promote.HELD_REPRESENTATIVE_RATIO),
+    ],
+)
+def test_조건_하나만_걸리면_목록도_하나다(override, reason):
+    """`reason` 과 `failed` 가 같은 규칙에서 나오는지 본다 — 둘이 갈리면 두 표를 나란히
+    놓을 수 없다 (`registry/promote._failures`)."""
+    verdict = promote.judge(evidence(**override), registry_thresholds())
+
+    assert verdict.failed == (reason,)

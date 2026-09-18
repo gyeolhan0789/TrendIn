@@ -11,124 +11,20 @@ promote,review,embedding}.py` 가 이미 덮었고, 그 규칙들을 어떤 순�
 
 from __future__ import annotations
 
+from registry_support import (
+    DOMAIN,
+    DOMAIN_ENUM,
+    RUN_ID,
+    FakeKeywords,
+    FakeRegistry,
+    group,
+    observation,
+    value_of,
+)
 from registry_support import make_registry_thresholds as registry_thresholds
 
-from trendin.spark.io.keywords import AliasResult
 from trendin.spark.registry import batch, promote
 from trendin.spark.registry.merge import signal_of
-
-DOMAIN = "fashion"
-DOMAIN_ENUM = "FASHION"
-RUN_ID = "run-0001"
-
-# 문턱을 딱 만족하는 관측. 한 칸씩 깎아 그 조건이 걸리는지 본다.
-PASSING = dict(doc_count=5, observed_days=2, source_count=2, author_count=3)
-
-
-def observation(key, *, surface=None, keyword_id=None, **counts):
-    """`io/keywords.OBSERVATION_SQL` 한 행 — `(키, 표기, 상태, keyword_id, 넷)`."""
-    values = {**PASSING, **counts}
-    return (
-        key,
-        surface or key,
-        "CANDIDATE",
-        keyword_id,
-        values["doc_count"],
-        values["observed_days"],
-        values["source_count"],
-        values["author_count"],
-    )
-
-
-def group(key, **counts):
-    """`GROUP_OBSERVATION_SQL` 한 행 — 별칭을 접은 뒤의 대표별 관측."""
-    values = {**PASSING, **counts}
-    return (
-        key,
-        values["doc_count"],
-        values["observed_days"],
-        values["source_count"],
-        values["author_count"],
-    )
-
-
-class FakeRegistry:
-    """`pl_` 표 대신 메모리. **부른 순서를 기억한다** — 그것이 정확성 조건이라서다."""
-
-    def __init__(self, *, observations=(), groups=None, aliases=(), approved=(), decided=()):
-        self._observations = tuple(observations)
-        # 안 주면 관측을 그대로 쓴다 — 별칭이 없는 회차는 둘이 같다.
-        self._groups = (
-            tuple(groups)
-            if groups is not None
-            else tuple(
-                group(
-                    row[0],
-                    doc_count=row[4],
-                    observed_days=row[5],
-                    source_count=row[6],
-                    author_count=row[7],
-                )
-                for row in self._observations
-            )
-        )
-        self._aliases = tuple(aliases)
-        self._approved = tuple(approved)
-        self._decided = tuple(decided)
-        self.calls = []
-        self.applied = []
-        self.enqueued = []
-        self.encoded_models = []
-
-    def observations(self, *, domain):
-        self.calls.append("observations")
-        return self._observations
-
-    def group_observations(self, *, domain):
-        self.calls.append("group_observations")
-        return self._groups
-
-    def abbreviation_evidence(self, *, domain):
-        return ()
-
-    def aliases(self, *, domain):
-        return self._aliases
-
-    def approved_pairs(self, *, domain):
-        return tuple((domain, rep, absorbed) for rep, absorbed in self._approved)
-
-    def decided_pairs(self, *, domain):
-        return tuple((domain, rep, absorbed, status) for rep, absorbed, status in self._decided)
-
-    def apply_aliases(self, rows, *, domain):
-        self.calls.append("apply_aliases")
-        self.applied.extend(rows)
-        return AliasResult(aliases=len(rows), new_or_changed=len(rows), recounted_dates=1)
-
-    def enqueue_review(self, rows):
-        self.enqueued.extend(rows)
-        return len(rows)
-
-    def cached_vectors(self, *, model):
-        self.encoded_models.append(model)
-        return {}
-
-    def cache_vectors(self, rows):
-        return len(rows)
-
-
-class FakeKeywords:
-    def __init__(self):
-        self.promoted = []
-        self.linked = 0
-
-    def promote(self, rows):
-        self.promoted.extend(rows)
-        return len(rows)
-
-    def stage_and_link_contents(self, *, domain, extract_run_id):
-        self.linked = 2
-        return self.linked
 
 
 def run(registry, keywords=None, thresholds=None):
@@ -140,16 +36,6 @@ def run(registry, keywords=None, thresholds=None):
         keywords=keywords,
         extract_run_id=RUN_ID,
     )
-
-
-def value_of(result, metric, dimension=DOMAIN):
-    values = [
-        stat.value
-        for stat in result.stats
-        if stat.metric == metric and stat.dimension == dimension
-    ]
-    assert len(values) <= 1, f"{metric}/{dimension} 이 두 번 남았다"
-    return values[0] if values else None
 
 
 # --- 분모 0 ([09 §4] 이 못 박은 필수 경계) ---------------------------------
@@ -288,3 +174,61 @@ def test_모델이_없으면_임베딩을_아예_만지지_않는다():
 
     assert registry.encoded_models == []
     assert value_of(result, batch.EMBEDDING_ENCODED) == 0
+
+
+# --- 조건별 분포 ([10 §4] S6 가 요구하는 자료) -----------------------------
+
+
+def test_조건마다_단독으로_막은_수를_따로_센다():
+    """`HELD` 는 후보당 사유 하나라 앞선 조건이 뒤를 가린다 (`registry/promote.Verdict`).
+
+    승격 문턱은 가려진 쪽을 봐야 정할 수 있어서 `HELD_BY_CONDITION` 이 따로 있다. 이
+    시험이 지키는 것은 **두 표가 같은 심사에서 나오되 다르게 세어진다**는 것이다.
+    """
+    registry = FakeRegistry(
+        observations=[observation("와이드 데님", doc_count=1, author_count=1)],
+        groups=[group("와이드 데님", doc_count=1, author_count=1)],
+    )
+
+    result = run(registry, FakeKeywords())
+
+    assert result.promoted == ()
+    # 사유는 `HELD_REASONS` 순서의 첫 번째 하나만 — 저자 수도 걸렸지만 0 이다.
+    assert value_of(result, batch.HELD, f"{DOMAIN}/{promote.HELD_DOCUMENTS}") == 1
+    assert value_of(result, batch.HELD, f"{DOMAIN}/{promote.HELD_AUTHORS}") == 0
+    # 조건별로는 둘 다 센다. **합이 보류 수를 넘는다** — 그것이 이 지표의 성질이다.
+    assert value_of(result, batch.HELD_BY_CONDITION, f"{DOMAIN}/{promote.HELD_DOCUMENTS}") == 1
+    assert value_of(result, batch.HELD_BY_CONDITION, f"{DOMAIN}/{promote.HELD_AUTHORS}") == 1
+
+
+def test_막지_않은_조건도_0_으로_행을_남긴다():
+    """좁은 표에서는 행이 없는 것이 곧 "안 셌음" 이다 (`io/stats.py`). 0 과 부재가 같아
+    보이면 "이 조건은 아무것도 막지 않는다" 를 읽어낼 수 없다."""
+    registry = FakeRegistry(observations=[observation("와이드 데님")])
+
+    result = run(registry, FakeKeywords())
+
+    assert result.promoted == ("와이드 데님",)
+    for reason in promote.HELD_REASONS:
+        assert value_of(result, batch.HELD_BY_CONDITION, f"{DOMAIN}/{reason}") == 0
+
+
+def test_이미_승격된_후보는_조건별_분포에서_뺀다():
+    """떨어져도 되돌리지 않으므로([05 §1]) 섞으면 "지금 무엇이 막고 있나" 가 흐려진다 —
+    알고 싶은 것은 아직 올라오지 못한 쪽이다."""
+    registry = FakeRegistry(
+        observations=[
+            observation("와이드 데님", keyword_id=7, doc_count=1, author_count=1),
+            observation("카고 팬츠", doc_count=1, author_count=1),
+        ],
+        groups=[
+            group("와이드 데님", doc_count=1, author_count=1),
+            group("카고 팬츠", doc_count=1, author_count=1),
+        ],
+    )
+
+    result = run(registry, FakeKeywords())
+
+    assert result.promoted == ("와이드 데님",), "이미 승격된 것은 떨어져도 통과로 남는다"
+    assert value_of(result, batch.HELD_BY_CONDITION, f"{DOMAIN}/{promote.HELD_DOCUMENTS}") == 1
+    assert value_of(result, batch.HELD_BY_CONDITION, f"{DOMAIN}/{promote.HELD_AUTHORS}") == 1
