@@ -5,8 +5,9 @@ import { Spinner } from '../../components/common/Spinner';
 import { showToast } from '../../components/common/toast';
 import { AuthScene } from '../../features/auth/components/AuthScene';
 import { AuthSceneField } from '../../features/auth/components/AuthSceneField';
-import { LockIcon, MailIcon } from '../../features/auth/components/authIcons';
+import { GitLabIcon, LockIcon, MailIcon } from '../../features/auth/components/authIcons';
 import { getAuthSession } from '../../features/auth/api/authSessionStorage';
+import { GITLAB_PROVIDER, OAuthStartError, startOAuthLogin } from '../../features/auth/api/oauthAuthorize';
 import { describeAuthError } from '../../features/auth/authErrors';
 import { useLogin } from '../../features/auth/hooks/useLogin';
 import { validateEmail, validateLoginPassword } from '../../features/auth/validation';
@@ -29,6 +30,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<LoginErrors>({});
   const [formError, setFormError] = useState<string>();
+  const [oauthLeaving, setOauthLeaving] = useState(false);
+  const [oauthError, setOauthError] = useState<string>();
 
   const from = (location.state as LoginLocationState | null)?.from ?? '/';
   /*
@@ -36,6 +39,23 @@ export function LoginPage() {
    * 온보딩 분기를 앞질러 버려서, 들어올 때 이미 로그인 상태였는지만 한 번 붙잡아 둡니다.
    */
   const [enteredLoggedIn] = useState(() => Boolean(getAuthSession()));
+
+  /*
+   * 성공하면 브라우저가 GitLab 으로 떠나므로 이 함수의 뒷줄은 이어지지 않습니다.
+   * 떠나지 못했을 때만 사유가 남고, 그때는 단추를 다시 눌러 볼 수 있게 되돌립니다.
+   */
+  const startGitLabLogin = () => {
+    setOauthError(undefined);
+    setOauthLeaving(true);
+    try {
+      startOAuthLogin(GITLAB_PROVIDER);
+    } catch (error) {
+      setOauthLeaving(false);
+      setOauthError(error instanceof OAuthStartError
+        ? error.message
+        : 'GitLab 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -111,6 +131,21 @@ export function LoginPage() {
             {loginMutation.isPending ? '로그인 중…' : '로그인'}
           </button>
         </form>
+
+        {/* 이메일 로그인과 나란한 다른 길입니다. 아래 '회원가입' 줄보다 위에 두어 로그인 수단끼리 묶습니다. */}
+        <div className="login-oauth">
+          <p className="login-oauth-divider">또는</p>
+          <button
+            className="login-oauth-button"
+            type="button"
+            onClick={startGitLabLogin}
+            disabled={loginMutation.isPending || oauthLeaving}
+          >
+            <GitLabIcon />
+            {oauthLeaving ? 'GitLab으로 이동 중…' : 'GitLab으로 로그인'}
+          </button>
+          {oauthError && <p className="login-oauth-alert" role="alert">{oauthError}</p>}
+        </div>
 
         <p className="auth-scene-card-foot">처음이신가요? <Link to="/signup">회원가입</Link></p>
       </div>

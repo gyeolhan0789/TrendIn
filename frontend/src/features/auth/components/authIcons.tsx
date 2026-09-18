@@ -1,4 +1,8 @@
-/* 로그인·회원가입 시안이 입력 칸 안에 쓰는 선 아이콘들입니다. 크기는 칸 높이에 맞춘 18px 고정입니다. */
+/*
+ * 로그인·회원가입 시안이 입력 칸 안에 쓰는 선 아이콘들입니다. 크기는 칸 높이에 맞춘 18px 고정입니다.
+ * 맨 아래 GitLabIcon 만 성격이 다릅니다. 우리가 그린 선이 아니라 제공자의 상표라, 선 굵기도 색도
+ * 나머지에 맞추지 않고 제공자가 배포한 모양 그대로 둡니다.
+ */
 
 export function MailIcon() {
   return (
@@ -42,6 +46,15 @@ export function CheckIcon() {
 
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+/* GitLab 공식 단색 마크. 상표라서 브랜드 색(#FC6D26)까지 제공자 것을 그대로 씁니다. */
+export function GitLabIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="#FC6D26" aria-hidden="true">
+      <path d="M23.955 13.587l-1.342-4.135-2.664-8.189a.455.455 0 0 0-.867 0L16.418 9.45H7.582L4.919 1.263a.455.455 0 0 0-.867 0L1.386 9.45.044 13.587a.924.924 0 0 0 .331 1.03L12 23.054l11.625-8.436a.924.924 0 0 0 .33-1.031z" />
     </svg>
   );
 }

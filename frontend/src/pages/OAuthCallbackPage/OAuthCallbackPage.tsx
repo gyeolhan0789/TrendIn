@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { showToast } from '../../components/common/toast';
 import { AuthShell } from '../../features/auth/components/AuthShell';
 import { describeAuthError } from '../../features/auth/authErrors';
+import { consumeOAuthState } from '../../features/auth/api/oauthAuthorize';
 import { useOAuthLogin } from '../../features/auth/hooks/useOAuthLogin';
 
 /*
@@ -20,10 +21,21 @@ export function OAuthCallbackPage() {
   const deniedReason = searchParams.get('error_description') ?? searchParams.get('error');
   // 개발 모드의 이중 실행과 재렌더로 일회용 code를 두 번 쓰지 않도록 한 번만 보냅니다.
   const started = useRef(false);
+  const [forgedRequest, setForgedRequest] = useState(false);
 
   useEffect(() => {
     if (started.current || !provider || !code || !state) return;
     started.current = true;
+
+    /*
+     * state 대조는 서버가 하지 않습니다. 인가 URL 을 만든 쪽이 화면이라 서버는 발급한 값을
+     * 알지 못합니다. 그래서 떠나기 전에 심어 둔 값과 여기서 맞춰 봐야, 남이 쥐여 준 링크로 들어온
+     * 콜백이 그대로 로그인으로 이어지는 일을 막을 수 있습니다. 심어 둔 값이 아예 없어도 막습니다.
+     */
+    if (consumeOAuthState(provider) !== state) {
+      setForgedRequest(true);
+      return;
+    }
 
     oauthLoginMutation
       .mutateAsync({ provider, code, state })
@@ -40,6 +52,7 @@ export function OAuthCallbackPage() {
   const missingGrant = !code || !state;
   const failure = deniedReason
     ?? (missingGrant ? '인증 정보가 없어 로그인을 마치지 못했습니다.' : undefined)
+    ?? (forgedRequest ? '이 브라우저에서 시작한 로그인인지 확인하지 못했습니다. 로그인 화면에서 다시 시도해 주세요.' : undefined)
     ?? (oauthLoginMutation.isError ? describeAuthError(oauthLoginMutation.error, '소셜 로그인에 실패했습니다.') : undefined);
 
   return (

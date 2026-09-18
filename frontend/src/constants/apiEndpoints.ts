@@ -18,7 +18,10 @@ export const API_ENDPOINTS = {
     passwordResetCode: '/auth/password-reset/code',
     passwordReset: '/auth/password-reset',
 
-    // 소셜 로그인은 백엔드에 아직 없습니다. 경로만 남겨 두고 화면은 '준비 중'으로 안내합니다.
+    /*
+     * 소셜 로그인. 인가 화면으로 보내는 일은 화면이 하고(oauthAuthorize), 여기로는 제공자가
+     * 돌려준 code 를 넘깁니다. 지금 서버가 아는 provider 는 gitlab 하나입니다.
+     */
     oauthLogin: (provider: string) => `/auth/oauth/${encodeURIComponent(provider)}/login`,
   },
   // 고를 수 있는 관심 분야 목록. 로그인 없이 부를 수 있는 유일한 조회 API 입니다.
