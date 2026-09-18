@@ -55,6 +55,16 @@ ENV_BINDINGS: tuple[EnvBinding, ...] = (
     EnvBinding("APP_DB_USER", "jdbc.user"),
     EnvBinding("APP_DB_PASSWORD", "jdbc.password"),
     EnvBinding("SPARK_MASTER", "spark.master"),
+    # 추론 장치 (`extract/entities.py`). **파일이 아니라 환경변수로 받는 이유** — 이 값은
+    # 프로파일이 아니라 **돌리는 기계**가 정한다. GPU 가 달린 개발 PC 와 없는 데이터 EC2 가
+    # 같은 `local.yaml` 을 쓰므로, 파일에 적으면 둘 중 한쪽이 늘 틀린 값을 읽는다.
+    EnvBinding("EXTRACT_DEVICE", "extract.recognizer.device"),
+    # 한 배치의 크기. **장치마다 최적이 다르다.** CPU 기본값(2048·32)은 배치당 토막 여덟 개쯤
+    # 이라 GPU 에서는 커널이 너무 작아 실행 오버헤드만 먹는다 — 2026-09-17 실측에서 전력이
+    # 55W 중 25W, 메모리 대역폭이 0% 였고 건당 2.3초로 **CPU 보다 느렸다.**
+    EnvBinding("EXTRACT_BATCH_WORDS", "extract.recognizer.batch.words"),
+    EnvBinding("EXTRACT_BATCH_SIZE", "extract.recognizer.batch.size"),
+    EnvBinding("EXTRACT_PRECISION", "extract.recognizer.precision"),
 )
 
 

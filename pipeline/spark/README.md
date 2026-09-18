@@ -121,6 +121,8 @@ spark-submit \
 | Python | 3.12 | `pyproject.toml` 의 `>=3.12,<3.13` |
 | Hadoop | 3.4.1 | pyspark 번들. `hadoop-aws` 를 여기 맞춘다 |
 | Scala | 2.13 | Spark 4.x 는 2.13 만 낸다 |
+| torch | 2.14.0 | CPU 이미지와 CUDA 이미지를 같은 버전으로 묶는다. 핀이 없으면 인덱스마다 최신이 달라(cu128 은 2.11 에 멈춰 있다) "GPU 에서만 결과가 다르다" 를 gliner 가 아니라 torch 에서 찾게 된다 |
+| CUDA 휠 | cu126 | 드라이버는 cu130 도 받지만 cu126 이 더 오래된 드라이버에서도 돈다. 아키텍처 지원은 같다 |
 | jar 7개 | — | `--packages` 를 쓰지 않는다 ([09 §2](docs/09-dev-and-test.md)) |
 
 ### Windows 에서의 제약
@@ -148,6 +150,40 @@ Parquet 을 실제로 쓰는 다섯 건은 건너뛴다 (`conftest.py` 의 `writ
 | `winutils.exe` 설치 | 서드파티 저장소에서 받아 `HADOOP_HOME` 에 둔다. 출처는 팀이 정해야 한다 |
 
 로그의 한글이 깨지는 것도 Windows 콘솔 인코딩 탓이다. `PYTHONUTF8=1` 을 넣으면 된다.
+
+### GPU 로 추출하기 (개발 PC 전용)
+
+`extract` 의 병목은 GLiNER 추론이고 **문서당 약 1초다.** 하루치는 CPU 로 견디지만 재추출은
+코퍼스를 통째로 다시 추론하는 일이라, 임계값을 한 번 바꿔 볼 때마다 시간 단위가 된다.
+**배포(데이터 EC2)에는 GPU 가 없으므로 운영 이미지는 그대로 CPU 다.**
+
+```sh
+# 0. Docker 에 nvidia 런타임이 있는지. 없으면 NVIDIA Container Toolkit 을 먼저 깐다
+docker info | grep -i runtimes
+docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+
+# 1. CUDA 이미지 (운영 이미지 위에 torch 만 갈아끼운다. 약 2.5 GB 를 더 받는다)
+spark/scripts/build-image.sh --gpu
+
+# 2. 돌린다 — 오버레이 세 장을 겹친다
+docker compose -f compose.yaml -f spark/compose.spark.yaml -f spark/compose.gpu.yaml \
+  --profile debug run --rm --no-deps airflow-cli \
+  bash -c "spark/scripts/submit.sh extract --profile local --domain fashion --force"
+```
+
+⚠️ **워커가 하나여야 한다.** 모델은 executor 파이썬 프로세스마다 적재되므로
+(`entities.recognizer_for`) `local[*]` 로 두면 코어 수만큼 209M 파라미터가 VRAM 에 올라간다.
+터지는 자리가 `_predict_chunk` 의 `except` 안이라 **Job 은 후보 0건으로 정상 종료하고**, 로그를
+안 보면 성공으로 오인한다. `compose.gpu.yaml` 이 `SPARK_MASTER=local[1]` 을 주고,
+`extract/batch.py` 의 `_partition_count` 가 그래도 어긋나면 시작 전에 거부한다.
+
+병렬을 하나로 줄여도 느려지지 않는다. 추론이 나머지 단계를 묻고, 그 추론 자체는 GPU 안에서
+배치로 병렬이 된다.
+
+| 환경변수 | 값 | |
+| --- | --- | --- |
+| `EXTRACT_DEVICE` | `cuda` | `auto` 도 되지만 쓰지 않는다 — GPU 를 넘기지 못한 실행이 조용히 CPU 로 돌면 신호가 없다 |
+| `SPARK_MASTER` | `local[1]` | 위의 이유 |
 
 ## 설정
 

@@ -98,6 +98,31 @@ class RecognizerSpec:
     # 한 배치의 토막 수 상한. 예산이 남아도 이보다 많이 넣지 않는다 — 짧은 토막만 모이면
     # 배치가 무한정 커져 메모리를 삼킨다.
     batch_size: int = 32
+    # 추론을 올릴 장치. `cpu` · `cuda` · `cuda:N` · `auto` 중 하나다.
+    #
+    # **기본이 `cpu` 인 것은 배포가 CPU 이기 때문이다** — 데이터 EC2 에 GPU 가 없고, 이미지도
+    # torch 를 CPU 휠로 깐다 (`spark/versions.sh`). `auto` 는 쓸 수 있으면 쓰는 값이라 편하지만
+    # 기본으로 두지 않는다. GPU 가 있는 개발 PC 와 없는 서버가 **같은 설정으로 다르게 돌면**,
+    # 로컬에서 재현되지 않는 성능 차이의 원인을 설정에서 찾을 수 없게 된다.
+    #
+    # ⚠️ **`cuda` 는 워커 하나를 전제한다.** 모델이 executor 파이썬 프로세스마다 적재되므로
+    # (`recognizer_for`) 워커가 여럿이면 같은 수의 사본이 VRAM 에 올라간다. 209M 파라미터가
+    # fp32 로 약 840 MB 라 6 GB 짜리 GPU 에서도 넷을 넘기면 터진다. 막는 자리는
+    # `extract/batch.py` 의 `_partition_count` 다.
+    device: str = "cpu"
+    # 가중치의 수치 정밀도. `fp32` · `fp16` 중 하나다.
+    #
+    # **fp16 은 GPU 에서만 뜻이 있다.** Ada 세대는 반정밀도 텐서 코어를 갖고 있어 같은 일을
+    # 절반의 메모리로 두 배 빠르게 한다 — 2026-09-17 실측(문서 100건)에서 9.98초·2.33GB 가
+    # 6.43초·1.21GB 였다. **메모리가 절반인 것이 속도보다 중요하다** — 6 GB 짜리 GPU 에서
+    # fp32 는 VRAM 을 96%까지 채우고, 그 뒤로는 할당자가 매번 재조정하느라 대역폭이 0% 로
+    # 떨어져 건당 2.3초, 곧 CPU(467ms)보다 느려졌다.
+    #
+    # ⚠️ **결과가 완전히 같지는 않다.** 같은 실측에서 구간이 3,481개 대 3,475개로 0.2%
+    # 달랐다. 문턱 근처의 구간이 갈린 것이고, 그 뒤에 점수 하한([04 §7])이 한 번 더 있어
+    # 선별까지 가는 영향은 더 작다. 그래도 **운영 기본은 fp32 다** — 배포는 CPU 라 fp16 이
+    # 이득도 없이 결과만 흔든다.
+    precision: str = "fp32"
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +141,28 @@ class Span:
         return self.label in PROPER_LABELS
 
 
+AUTO_DEVICE = "auto"
+FP16 = "fp16"
+
+
+def resolve_device(device: str) -> str:
+    """설정의 장치 이름 → torch 가 받는 장치 이름.
+
+    **`auto` 만 여기서 갈린다.** `cuda` 를 달라고 했는데 없으면 CPU 로 되돌리지 않고 그대로
+    넘겨서 torch 가 죽게 둔다 — GPU 를 쓰겠다고 명시한 실행이 조용히 CPU 로 돌면, 하루치가
+    열 배 걸리는 것 말고는 아무 신호가 없다.
+
+    torch 를 여기서 import 하는 것은 `registry/embedding.py` 와 같은 이유다. 모듈을 import
+    하는 것만으로 torch 가 올라오면 층 1 테스트가 800 MB 를 끌고 온다.
+    """
+    name = (device or "cpu").strip().lower()
+    if name != AUTO_DEVICE:
+        return name
+    import torch
+
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 class Recognizer:
     """GLiNER 하나를 감싼다. **`Span` 만 내보낸다** — gliner 타입이 이 파일 밖으로 나가지
     않아야 층 1 테스트가 인식기를 흉내 낼 수 있다 (`morphology.Analyzer` 와 같은 규약).
@@ -126,6 +173,17 @@ class Recognizer:
 
         self._spec = spec
         self._model = GLiNER.from_pretrained(spec.model)
+        # **적재 뒤에 옮긴다.** `from_pretrained` 에 `map_location` 을 주는 길도 있지만, 그
+        # 인자는 gliner 판올림에서 이름이 바뀐 이력이 있고 `.to()` 는 torch 의 규약이라
+        # 흔들리지 않는다. 옮기지 못하면 여기서 죽어야 한다 — CPU 로 조용히 되돌아가면
+        # 증상이 "GPU 를 붙였는데 안 빨라졌다" 로만 나타난다.
+        self.device = resolve_device(spec.device)
+        if self.device != "cpu":
+            self._model.to(self.device)
+        # **CPU 에서는 걸지 않는다.** 반정밀도 커널이 CPU 에 거의 없어 오히려 느려지고,
+        # 배포가 CPU 라 그 경로로 결과가 흔들리면 안 된다.
+        if spec.precision == FP16 and self.device != "cpu":
+            self._model.half()
         # 추론만 한다. dropout 이 켜져 있으면 같은 문서가 실행마다 다른 값을 받는다.
         self._model.eval()
 

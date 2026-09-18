@@ -1,0 +1,43 @@
+# GPU 로 추론하는 개발 PC 용 이미지. 운영 이미지(spark/Dockerfile)를 상속해 torch 만
+# CUDA 휠로 갈아끼운다.
+#
+#   spark/scripts/build-image.sh --gpu
+#
+# --- 왜 별도 파일인가 -------------------------------------------------------
+# spark/Dockerfile 에 ARG 를 두어 인덱스를 갈아끼우는 길도 있다. 그러면 파일은 하나가
+# 되지만 **운영 이미지의 빌드 명령이 바뀌고**, 인자를 빠뜨린 빌드가 조용히 3 GB 짜리
+# CUDA 이미지를 만든다. 상속으로 얹으면 운영 경로는 한 글자도 바뀌지 않고, 되돌릴 때는
+# 이 파일을 지우면 끝이다 (spark/compose.spark.yaml 이 오버레이를 쓰는 것과 같은 이유).
+#
+# --- 무엇을 얻는가 ----------------------------------------------------------
+# GLiNER 추론이 문서당 약 1초다 (`spark/docs/04 §2`). 하루치는 CPU 로도 견디지만
+# **재추출은 코퍼스를 통째로 다시 추론하는 일이라** 임계값을 한 번 바꿔 볼 때마다 시간
+# 단위가 된다. 그 반복이 개발 PC 에서 일어난다.
+#
+# --- ⚠️ 워커가 하나여야 한다 -------------------------------------------------
+# 모델은 executor 파이썬 프로세스마다 적재된다 (`entities.recognizer_for`). CPU 에서는
+# 그것이 코어를 다 쓰는 길이지만 GPU 에서는 **같은 가중치를 VRAM 에 여러 벌 올리는
+# 길이다.** `extract/batch.py` 의 `_partition_count` 가 시작 전에 거부하므로, 돌릴 때
+# `SPARK_MASTER=local[1]` 을 준다.
+
+ARG SPARK_IMAGE=s15p21a102/pipeline-spark:local
+FROM ${SPARK_IMAGE}
+
+# 상속한 이미지가 versions.sh 를 지우고 끝난다 (같은 값을 두 벌 두지 않으려는 것이다).
+# 여기서 다시 넣고 다시 지운다. --chown 이 없으면 root 소유로 들어와 airflow 가 지우지
+# 못한다 — pip 은 성공하고 rm 에서 빌드가 깨진다.
+COPY --chown=airflow:0 versions.sh /tmp/versions.sh
+
+# **CPU 휠을 갈아끼운다.** 같은 버전의 다른 빌드라 pip 이 그냥 넘기므로 재설치를 강제한다.
+# 앞 레이어의 CPU torch 는 그대로 남아 이미지가 그만큼 커지는데, 이 이미지는 개발 PC 에만
+# 있으므로 레이어를 합치는 복잡도보다 낫다.
+RUN . /tmp/versions.sh \
+ && pip install --no-cache-dir --force-reinstall \
+      --index-url "${TORCH_CUDA_INDEX}" "torch==${TORCH_VERSION}" \
+ && rm /tmp/versions.sh
+
+# 빌드에서 잡는다. **`torch.cuda.is_available()` 을 보지 않는다** — 빌드 컨테이너에는 GPU 가
+# 붙어 있지 않아 CUDA 휠이어도 거짓이 나온다. 휠 종류를 가리는 값은 `torch.version.cuda` 다.
+RUN python -c "import torch, sys; \
+print('torch', torch.__version__); \
+sys.exit(0 if torch.version.cuda else 'CPU 휠이 깔렸다 — TORCH_CUDA_INDEX 를 확인한다')"

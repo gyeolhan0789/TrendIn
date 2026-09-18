@@ -37,7 +37,7 @@ RUN . /tmp/versions.sh \
 # 실체 인식 ([04 §2], `extract/entities.py`). torch 를 CPU 휠로 **먼저** 깔아야 gliner 가
 # 그것을 그대로 쓴다 — 순서를 바꾸면 CUDA 런타임이 딸려와 이미지가 3 GB 넘게 커진다.
 RUN . /tmp/versions.sh \
- && pip install --no-cache-dir --index-url "${TORCH_CPU_INDEX}" torch \
+ && pip install --no-cache-dir --index-url "${TORCH_CPU_INDEX}" "torch==${TORCH_VERSION}" \
  && pip install --no-cache-dir "gliner==${GLINER_VERSION}"
 
 # 모델 가중치를 이미지에 굽는다. 런타임에 받으면 executor 마다 HuggingFace 로 나가고,
