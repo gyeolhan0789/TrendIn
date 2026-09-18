@@ -1,0 +1,8 @@
+key = "highsnobiety"
+domain = "fashion"
+route = "rss"
+country = "DE"  # 발행 법인 Titel Media GmbH(베를린)의 소재지
+discover_url = "https://www.highsnobiety.com/feeds/rss"
+allowed_url_prefixes = ["https://www.highsnobiety.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }

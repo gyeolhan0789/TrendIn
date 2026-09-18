@@ -17,6 +17,7 @@ def test_등록한_소스_목록이다():
         "glamour_uk",
         "gqkorea",
         "harpersbazaar",
+        "highsnobiety",
         "hypebeast",
         "id",
         "marieclaire",
@@ -79,6 +80,7 @@ def test_국가는_발행_법인의_소재지다():
         "vogue_uk": "GB",
         "id": "GB",
         "theindustry": "GB",
+        "highsnobiety": "DE",
     }
 
 
