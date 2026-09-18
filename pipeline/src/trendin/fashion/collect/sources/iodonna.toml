@@ -1,0 +1,9 @@
+key = "iodonna"
+domain = "fashion"
+route = "rss"
+country = "IT"  # 발행 법인 RCS MediaGroup S.p.A. 의 소재지
+discover_url = "https://www.iodonna.it/moda/feed/"
+allowed_url_prefixes = ["https://www.iodonna.it/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

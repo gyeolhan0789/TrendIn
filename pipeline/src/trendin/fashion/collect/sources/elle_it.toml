@@ -1,0 +1,8 @@
+key = "elle_it"
+domain = "fashion"
+route = "rss"
+country = "IT"  # 발행 법인 Hearst Magazines Italia S.p.A. 의 소재지
+discover_url = "https://www.elle.com/it/rss/moda.xml"
+allowed_url_prefixes = ["https://www.elle.com/it/"]
+article_id = { rule = "url_path_segment", param = -2 }
+published_at = { rule = "rss_pubdate" }
