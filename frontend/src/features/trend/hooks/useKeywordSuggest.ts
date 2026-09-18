@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useKeywordSearch } from './useKeywordSearch';
-import { nextSuggestIndex } from '../keywordSuggest';
+import { nextIndex } from '../../../utils/listCursor';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import type { KeywordSearchItem } from '../types/keyword';
 
@@ -89,7 +89,7 @@ export function useKeywordSuggest(
       return;
     }
     const down = event.key === 'ArrowDown';
-    setActiveIndex((current) => nextSuggestIndex(current, items.length, down));
+    setActiveIndex((current) => nextIndex(current, items.length, down));
   };
 
   return { box, visible, items, status, activeIndex, setActiveIndex, show, hide, select, handleKeyDown };
