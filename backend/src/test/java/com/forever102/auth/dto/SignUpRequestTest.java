@@ -2,10 +2,35 @@ package com.forever102.auth.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import jakarta.validation.Validation;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class SignUpRequestTest {
+
+    @ParameterizedTest
+    @ValueSource(ints = {8, 9, 10, 128})
+    @DisplayName("영문·숫자·특수문자를 포함한 8~128자 비밀번호는 허용한다")
+    void acceptsPasswordWithinLengthRange(int length) {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var request = new SignUpRequest("test@example.com", "a1!" + "a".repeat(length - 3), "trenduser");
+            assertThat(factory.getValidator().validate(request)).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {7, 129})
+    @DisplayName("8자 미만 또는 128자 초과 비밀번호는 거부한다")
+    void rejectsPasswordOutsideLengthRange(int length) {
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var request = new SignUpRequest("test@example.com", "a1!" + "a".repeat(length - 3), "trenduser");
+            assertThat(factory.getValidator().validate(request))
+                    .anySatisfy(violation -> assertThat(violation.getMessage())
+                            .isEqualTo("비밀번호는 8자 이상 128자 이하여야 합니다."));
+        }
+    }
 
     @Test
     @DisplayName("이메일은 소문자로 정규화된다")
