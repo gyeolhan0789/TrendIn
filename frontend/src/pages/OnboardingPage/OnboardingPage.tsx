@@ -24,19 +24,32 @@ import type { DomainOption } from '../../features/onboarding/types/onboarding';
  * 그림을 붙이고 모르는 코드는 기본 그림으로 넘깁니다. 분야가 늘어도 화면은 고치지 않아도 됩니다.
  */
 const DOMAIN_ICONS: Record<string, string> = {
+  GAME: '🎮',
   DEVELOP: '💻',
   FASHION: '👗',
+  BEAUTY: '💄',
+  MUSIC: '🎵',
+  TRAVEL: '✈️',
+  CONTENT: '🎬',
+  FINANCE: '💰',
 };
 const DOMAIN_ICON_FALLBACK = '🏷️';
+const ONBOARDING_DOMAINS: DomainOption[] = [
+  { domain: 'GAME', name: '게임' }, { domain: 'DEVELOP', name: '개발' },
+  { domain: 'FASHION', name: '패션' }, { domain: 'BEAUTY', name: '뷰티' },
+  { domain: 'MUSIC', name: '음악' }, { domain: 'TRAVEL', name: '여행' },
+  { domain: 'CONTENT', name: '콘텐츠' }, { domain: 'FINANCE', name: '금융' },
+];
+const COMING_SOON_MESSAGE = '곧 오픈될 예정입니다. 추후 마이페이지에서 다시 선택하실 수 있어요!';
 
 /**
  * 시안의 알림 설정 카드입니다. 서버에 알림 설정 API 가 아직 없어 고른 값은 이 화면에만 남습니다.
  * API 가 생기면 enabled 를 그 응답에 이어 붙이면 됩니다.
  */
 const NOTIFICATION_OPTIONS = [
-  { id: 'surging', icon: '🔥', title: '인기 트렌드 알림', desc: '지금 뜨는 트렌드를 가장 빠르게 알려드려요.', tint: '#fef2f2' },
+  { id: 'surging', icon: '🔥', title: '인기 트렌드 알림', desc: '지금 주목받는 트렌드를 알려드려요.', tint: '#fef2f2' },
   { id: 'new', icon: '🆕', title: '신규 트렌드 알림', desc: '새롭게 등장한 트렌드를 알려드려요.', tint: '#eef2ff' },
-  { id: 'resurging', icon: '📈', title: '급상승 알림', desc: '다시 주목받는 트렌드를 알려드려요.', tint: '#f0fdf4' },
+  { id: 'resurging', icon: '📈', title: '급상승 트렌드 알림', desc: '빠르게 관심이 높아지는 트렌드를 알려드려요.', tint: '#f0fdf4' },
   { id: 'interest', icon: '🔖', title: '관심 키워드 알림', desc: '내가 선택한 키워드의 트렌드를 알려드려요.', tint: '#fefce8' },
 ];
 
@@ -68,13 +81,14 @@ interface DomainCardProps {
 }
 
 function DomainCard({ options, selected, disabled, onToggle }: DomainCardProps) {
+  const [notice, setNotice] = useState('');
   return (
     <section className="onboarding-card">
       <div className="onboarding-card-head">
         <span className="onboarding-card-step" aria-hidden="true">1</span>
         <h2>관심 분야 선택</h2>
       </div>
-      <p className="onboarding-card-desc">관심 있는 분야를 선택해주세요. (복수 선택 가능)</p>
+      <p className="onboarding-card-desc">현재는 패션 분야를 선택할 수 있어요.</p>
 
       <div className="onboarding-domains" role="group" aria-label="관심 분야">
         {options.map((option) => {
@@ -83,11 +97,15 @@ function DomainCard({ options, selected, disabled, onToggle }: DomainCardProps) 
             <button
               key={option.domain}
               type="button"
-              className={`onboarding-domain${on ? ' is-selected' : ''}`}
+              className={`onboarding-domain${on ? ' is-selected' : ''}${option.domain !== 'FASHION' ? ' is-coming-soon' : ''}`}
               role="checkbox"
               aria-checked={on}
               disabled={disabled}
-              onClick={() => onToggle(option.domain)}
+              onClick={() => {
+                if (option.domain !== 'FASHION') { setNotice(COMING_SOON_MESSAGE); return; }
+                setNotice('');
+                onToggle(option.domain);
+              }}
             >
               <span className="onboarding-domain-icon" aria-hidden="true">
                 {DOMAIN_ICONS[option.domain] ?? DOMAIN_ICON_FALLBACK}
@@ -97,6 +115,12 @@ function DomainCard({ options, selected, disabled, onToggle }: DomainCardProps) 
           );
         })}
       </div>
+      {notice && (
+        <p className="onboarding-domain-notice" role="status">
+          <span>곧 오픈될 예정입니다.</span>{' '}
+          <span>추후 마이페이지에서 다시 선택하실 수 있어요!</span>
+        </p>
+      )}
     </section>
   );
 }
@@ -177,8 +201,11 @@ function KeywordCard() {
           <div className="onboarding-search-menu" role="listbox" aria-label="검색 결과">
             {searching && <p className="onboarding-search-none">찾는 중…</p>}
             {!searching && searchQuery.isError && <p className="onboarding-search-none">키워드를 찾지 못했습니다.</p>}
-            {!searching && searchQuery.isSuccess && results.length === 0 && (
+            {!searching && searchQuery.isSuccess && searchQuery.data.items.length === 0 && (
               <p className="onboarding-search-none">검색어와 맞는 키워드가 없습니다.</p>
+            )}
+            {!searching && searchQuery.isSuccess && searchQuery.data.items.length > 0 && results.length === 0 && (
+              <p className="onboarding-search-none">이미 추가한 키워드입니다.</p>
             )}
             {!searching && results.map((item) => (
               <button
@@ -299,11 +326,12 @@ export function OnboardingPage() {
   // 고친 뒤 다시 들어오는 경우가 있어, 이미 고른 분야를 켜 둔 채로 시작합니다.
   useEffect(() => {
     if (seeded || !myDomainsQuery.data) return;
-    setSelected(myDomainsQuery.data.map((option) => option.domain));
+    setSelected(myDomainsQuery.data.filter((option) => option.domain === 'FASHION').map((option) => option.domain));
     setSeeded(true);
   }, [myDomainsQuery.data, seeded]);
 
   const toggle = (domain: string) => {
+    if (domain !== 'FASHION') return;
     setFormError(undefined);
     setSelected((current) => (current.includes(domain)
       ? current.filter((value) => value !== domain)
@@ -343,7 +371,7 @@ export function OnboardingPage() {
   // 로그인해야 고른 분야를 저장할 수 있습니다.
   if (!getAuthSession()) return <Navigate to="/login" state={{ from: '/onboarding' }} replace />;
 
-  const options = domainsQuery.data ?? [];
+  const options = ONBOARDING_DOMAINS;
   const loading = domainsQuery.isLoading || (myDomainsQuery.isLoading && !myDomainsQuery.isError);
   const keywordCount = keywordsQuery.data?.length ?? 0;
 

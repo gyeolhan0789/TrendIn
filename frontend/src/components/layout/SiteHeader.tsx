@@ -1,6 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AccountMenu } from '../../features/auth/components/AccountMenu';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
+import waveMark from '../../assets/trendin-wave-mark.png';
 
 /*
  * 새 시안의 공용 헤더입니다. 지금 선 다섯 칸은 모두 갈 곳이 있습니다.
@@ -16,14 +17,6 @@ const navItems: { label: string; to?: string }[] = [
   { label: '저장된 트렌드', to: '/saved' },
 ];
 
-function BoltMark() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#4F46E5" stroke="#4F46E5" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export function SiteHeader() {
   const location = useLocation();
   const session = useAuthSession();
@@ -32,7 +25,7 @@ export function SiteHeader() {
     <header className="landing-header">
       <div className="landing-header-inner">
         <Link className="landing-brand" to="/" aria-label="TrendIn 홈">
-          <BoltMark />
+          <img className="landing-brand-mark" src={waveMark} width="40" height="26" alt="" aria-hidden="true" />
           <span>TrendIn</span>
         </Link>
 
