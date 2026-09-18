@@ -113,10 +113,12 @@ def test_rss_소스는_받는다():
         "gq_us",
         "gqkorea",
         "id",
+        "iodonna",
         "luxe_co",
         "marieclaire",
         "theindustry",
         "vogue",
+        "vogue_it",
         "vogue_uk",
         "wkorea",
     }

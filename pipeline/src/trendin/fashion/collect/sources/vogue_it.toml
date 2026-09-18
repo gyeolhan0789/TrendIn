@@ -1,0 +1,9 @@
+key = "vogue_it"
+domain = "fashion"
+route = "rss"
+country = "IT"  # 발행 법인 Edizioni Condé Nast S.p.A. 의 소재지
+discover_url = "https://www.vogue.it/feed/rss"
+allowed_url_prefixes = ["https://www.vogue.it/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "page"

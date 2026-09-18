@@ -55,6 +55,9 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | `dazed` | fashion | https://www.dazeddigital.com/rss |
 | `id` | fashion | https://i-d.co/category/fashion/feed/ |
 | `theindustry` | fashion | https://www.theindustry.fashion/feed/ |
+| `vogue_it` | fashion | https://www.vogue.it/feed/rss |
+| `iodonna` | fashion | https://www.iodonna.it/moda/feed/ |
+| `elle_it` | fashion | https://www.elle.com/it/rss/moda.xml |
 | `vogue_us` | fashion | https://www.vogue.com/feed/fashion/rss |
 | `gq_us` | fashion | https://www.gq.com/feed/rss |
 | `harpersbazaar_us` | fashion | https://www.harpersbazaar.com/rss/fashion.xml |
@@ -71,7 +74,7 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 
 | 호스트 | 소스 |
 |---|---|
-| `www.elle.com` | `elle_us` (등록), `elle_it` (이탈리아 묶음 후보. 등록하면 겹친다) |
+| `www.elle.com` | `elle_us` (등록), `elle_it` (등록, 허용 범위 `https://www.elle.com/it/`) |
 
 겹침은 받아들인다(291 결정). 세 번째 공유 소스가 생기면 호스트 단위로 태스크를 묶는 안을 연다. 국가 묶음을 등록할 때 이 표를 고친다.
 
