@@ -80,23 +80,23 @@ TREND_COLUMN = "trend_types"
 # `trends` 는 키워드의 안정적인 상세 진입 ID다. AI 성공을 기다리지 않고, 현재
 # NEW/RISING/CURRENT 판정이 하나라도 있는 키워드에 대표 행을 만든다. 기존 행은
 # 저장/알림이 참조하는 ID를 유지하므로 기존 행은 갱신하지 않는다.
-# **`trend_types` 와 `description` 을 함께 넣는다** — 둘 다 `NOT NULL` 이다. 예전에는
-# `keyword_id` 만 넣었고, 승격이 스물세 건뿐이라 판정이 하나도 없어 **0행으로 지나가며**
-# 통과하는 것처럼 보였다. 코퍼스 전체를 추출해 승격이 1,617건이 되자 첫 행에서
-# `NotNullViolation` 으로 죽었다 (2026-09-17).
 #
-# `description` 은 AI 가 채우는 칸이라 여기서는 빈 문자열로 둔다. `NULL` 을 넣을 수 없고,
-# 그렇다고 파이프라인이 문구를 지어내면 **아직 아무도 쓰지 않은 설명이 진짜처럼 보인다.**
+# **`keyword_id` 와 `updated_at` 만 넣는다.** 백엔드 V7(`retire_legacy_trend_analysis_
+# columns`)이 `trend_types` · `description` · `summary` · `reason` 을 이 표에서 떼어냈다.
+# 배지는 `keyword_metrics.trend_types` 가, AI 문구는 `trend_analyses` 가 기간별로 갖는다
+# ([07 §6]). 이 표에 남은 역할은 상세 진입 ID 하나뿐이라 채울 칸도 그뿐이다.
 #
-# `trends` 에는 기간 칸이 없으므로([07 §6]) 기간별 판정을 **합집합**으로 싣는다. 이 표의
-# 역할은 상세 진입 ID 이지 기간별 지표가 아니고, 그쪽은 `keyword_metrics` 가 갖는다.
+# ⚠️ **한때 그 칸들을 채웠고, 그것이 파이프라인을 통째로 세웠다.** V7 이 드롭한 뒤에도
+# 적재가 `trend_types` · `description` 을 넣고 있어 `UndefinedColumn` 이 났는데, 이 문장이
+# 지표 병합과 **같은 트랜잭션** 안에 있어 `keyword_metrics` 까지 롤백됐다. 증상은 "AI 분석이
+# 안 나온다" 로만 보였다 — aggregate 가 죽어 `METRICS` 자산이 안 나가고, 그것을 기다리는
+# `spark_analyze` 가 아예 트리거되지 않았기 때문이다. 원인에서 가장 먼 자리에 증상이 뜬다.
+# 스키마가 또 어긋나면 같은 방식으로 조용해지므로 `legacy_trend_columns()` 가 시작 전에 본다.
 INSERT_TREND_IDENTITIES_SQL = """
-INSERT INTO trends (keyword_id, trend_types, description, updated_at)
-SELECT m.keyword_id, array_agg(DISTINCT t ORDER BY t)::varchar[], '', now()
+INSERT INTO trends (keyword_id, updated_at)
+SELECT DISTINCT m.keyword_id, now()
   FROM keyword_metrics m
- CROSS JOIN LATERAL unnest(m.trend_types) AS t
- WHERE t = ANY (ARRAY['NEW', 'RISING', 'CURRENT'])
- GROUP BY m.keyword_id
+ WHERE m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']::varchar[]
 ON CONFLICT (keyword_id) DO NOTHING
 """
 
@@ -301,6 +301,27 @@ SERVICE_TABLES_SQL = (
     f" AND to_regclass('{HISTORY}') IS NOT NULL"
 )
 
+# `trends` 에 우리가 채우지 못하는 `NOT NULL` 칸이 남아 있는가.
+#
+# 적재는 `keyword_id` · `updated_at` 만 넣는다 (V7 이후 형태). 그 둘 말고 기본값 없는
+# `NOT NULL` 칸이 있으면 **첫 행에서 `NotNullViolation` 이 나고 지표 병합까지 롤백된다.**
+# V7 이 아직 안 올라간 DB 가 정확히 그 상태다 — `trends.trend_types` 가 남아 있다.
+#
+# 칸 이름을 박지 않고 스키마에 묻는 이유는, 박아 두면 다음에 다른 칸이 늘었을 때 또
+# 런타임에서야 알게 되기 때문이다. `id` 는 identity, `keyword_id` · `updated_at` 은 우리가
+# 채우므로 뺀다. 이름을 돌려주니 오류 메시지가 어느 칸인지 그대로 말해 준다.
+LEGACY_TREND_COLUMNS_SQL = """
+SELECT coalesce(array_agg(a.attname ORDER BY a.attname), ARRAY[]::name[])
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+ WHERE c.relname = 'trends'
+   AND a.attnum > 0
+   AND NOT a.attisdropped
+   AND a.attnotnull
+   AND NOT a.atthasdef
+   AND a.attname <> ALL (ARRAY['id', 'keyword_id', 'updated_at'])
+"""
+
 # 연관([06])이 읽는 표와 쓰는 표. **`keyword_contents` 가 재료다** — 원자료에는 문서
 # 정체성이 없어 동시출현을 물을 수 없다 (`metrics/relations.py`).
 KEYWORD_CONTENTS = "keyword_contents"
@@ -448,6 +469,19 @@ class MetricSink:
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(COLUMN_TYPE_SQL, (METRICS, TREND_COLUMN))
             return cur.fetchone() is not None
+
+    def legacy_trend_columns(self) -> tuple[str, ...]:
+        """`trends` 에서 우리가 채우지 못하는 `NOT NULL` 칸들. 비어 있으면 정상이다.
+
+        `trend_column_ready()` 와 짝이지만 **방향이 반대다.** 그쪽은 칸이 생겼는지를 묻고
+        이쪽은 칸이 아직 안 사라졌는지를 묻는다. 둘 다 "표는 있는데 형태가 다른" DB 를
+        시작 전에 걸러 내려는 것이고, 그 형태 차이가 지표 병합과 한 트랜잭션에서 터지면
+        증상이 `spark_analyze` 까지 흘러가 "AI 분석이 안 나온다" 로만 보인다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(LEGACY_TREND_COLUMNS_SQL)
+            row = cur.fetchone()
+        return tuple(row[0]) if row and row[0] else ()
 
     def relations_ready(self) -> bool:
         """연관 표와 그 재료가 있는가 ([06]). `keyword_contents` 는 [05] 승격이 채운다."""

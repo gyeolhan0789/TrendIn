@@ -138,6 +138,13 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
             "keyword_metrics.trend_types 칸이 없다 — 트렌드 배지가 이 칸으로 옮겨왔는데 "
             "([07 §6]) DB 가 그전 스키마다. 백엔드 마이그레이션이 올라가야 한다 ([08 §5])"
         )
+    elif legacy := sink.legacy_trend_columns():
+        message = (
+            f"trends 에 채울 수 없는 NOT NULL 칸이 남아 있다 ({', '.join(legacy)}) — "
+            "V7 이 이 칸들을 떼어내기 전 스키마다. 이대로 적재하면 대표 trends 행 INSERT 가 "
+            "죽고 같은 트랜잭션의 지표 병합까지 롤백된다. 백엔드 마이그레이션이 올라가야 "
+            "한다 ([08 §5])"
+        )
     else:
         message = ""
     if message:

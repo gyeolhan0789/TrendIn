@@ -97,24 +97,24 @@ def test_캐스트가_빈_문자열이면_SQL_에_아무것도_붙지_않는다(
 
 def test_대표_trend는_기간별_판정에서_분석과_무관하게_생성한다():
     sql = " ".join(INSERT_TREND_IDENTITIES_SQL.split())
-    assert "INSERT INTO trends (keyword_id, trend_types, description, updated_at)" in sql
-    assert "t = ANY (ARRAY['NEW', 'RISING', 'CURRENT'])" in sql
+    assert "INSERT INTO trends (keyword_id, updated_at)" in sql
+    assert "m.trend_types && ARRAY['NEW', 'RISING', 'CURRENT']::varchar[]" in sql
     assert "ON CONFLICT (keyword_id) DO NOTHING" in sql
+    # 키워드당 한 행. 기간이 셋이라 같은 키워드가 `keyword_metrics` 에 여러 번 나온다.
+    assert "SELECT DISTINCT m.keyword_id" in sql
 
 
-def test_대표_trend는_NOT_NULL_칸을_비워_두지_않는다():
-    """`trend_types` 와 `description` 이 둘 다 NOT NULL 이다.
+def test_대표_trend는_V7이_떼어낸_칸을_건드리지_않는다():
+    """V7 이 `trends` 에서 뗀 칸에 쓰면 `UndefinedColumn` 이다.
 
-    승격이 스물세 건이던 동안에는 판정이 하나도 없어 **0행으로 지나가며** 통과하는 것처럼
-    보였고, 코퍼스 전체를 추출해 승격이 1,617건이 되자 첫 행에서 죽었다 (2026-09-17).
+    그 INSERT 가 지표 병합과 한 트랜잭션이라 `keyword_metrics` 까지 롤백되고, aggregate 가
+    죽어 `METRICS` 자산이 안 나가므로 `spark_analyze` 가 트리거되지 않는다. 증상은 원인에서
+    가장 먼 자리인 "AI 분석이 안 나온다" 로만 보인다. 한 번 그렇게 멈췄다.
     """
-    sql = " ".join(INSERT_TREND_IDENTITIES_SQL.split())
-    # `trend_types` — `trends` 에 기간 칸이 없으므로 기간별 판정을 합집합으로 싣는다.
-    assert "array_agg(DISTINCT t ORDER BY t)::varchar[]" in sql
-    # `description` — AI 가 채울 칸이라 빈 문자열이다. 파이프라인이 문구를 지어내지 않는다.
-    assert "::varchar[], '', now()" in sql
-    # 키워드당 한 행. `unnest` 로 편 것을 다시 접는다.
-    assert "GROUP BY m.keyword_id" in sql
+    # 쓰는 칸만 본다. `trend_types` 는 `keyword_metrics` 쪽 조건으로 뒤에 계속 나온다.
+    written_columns = " ".join(INSERT_TREND_IDENTITIES_SQL.split()).split("SELECT")[0]
+    for dropped in ("trend_types", "description", "summary", "reason"):
+        assert dropped not in written_columns, f"{dropped} 는 V7 이 `trends` 에서 뗀 칸이다"
 
 
 @pytest.mark.parametrize("prune_metrics, created", [(True, True), (False, False)])
