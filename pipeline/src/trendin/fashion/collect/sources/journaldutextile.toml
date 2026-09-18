@@ -1,0 +1,9 @@
+key = "journaldutextile"
+domain = "fashion"
+route = "rss"
+country = "FR"  # 발행 법인 Alea Conseil 의 소재지(파리)
+discover_url = "https://www.journaldutextile.com/feed"
+allowed_url_prefixes = ["https://www.journaldutextile.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

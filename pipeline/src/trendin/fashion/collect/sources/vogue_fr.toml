@@ -1,0 +1,9 @@
+key = "vogue_fr"
+domain = "fashion"
+route = "rss"
+country = "FR"  # 발행 법인 Les Publications Condé Nast SA 의 소재지(파리)
+discover_url = "https://www.vogue.fr/feed/rss"
+allowed_url_prefixes = ["https://www.vogue.fr/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "page"
