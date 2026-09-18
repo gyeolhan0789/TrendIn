@@ -28,18 +28,13 @@ const periodLabels: Record<PeriodCode, string> = {
   '30D': '최근 30일',
 };
 
-/** 서버가 가르는 세 갈래. 시안의 '상태' 칸이 이 값을 고릅니다. */
+/** 서버가 가르는 세 갈래. 화면의 '정렬' 칸이 이 값을 고릅니다. 주소창 이름(status)은 그대로 둡니다. */
 const typeLabels: Record<TrendType, string> = {
-  CURRENT: '급상승',
-  NEW: '신규',
-  RISING: '재급상승',
+  CURRENT: '인기 트렌드',
+  NEW: '신규 트렌드',
+  RISING: '급상승 트렌드',
 };
 
-const sorts = [
-  { value: 'rank', label: '순위순' },
-  { value: 'growth', label: '급상승순' },
-  { value: 'mentions', label: '언급량순' },
-];
 const pageSizes = [6, 12, 24];
 /** 시안의 큰 카드가 목록의 첫 자리를 가져가고, 나머지가 카드 격자로 갑니다. */
 const FEATURED_COUNT = 1;
@@ -193,7 +188,6 @@ export function HomePage() {
   const period = parsePeriod(searchParams.get('period'));
   const rawType = searchParams.get('status')?.toUpperCase() ?? '';
   const type: TrendType = (TREND_TYPES as readonly string[]).includes(rawType) ? (rawType as TrendType) : 'CURRENT';
-  const sort = sorts.some((item) => item.value === searchParams.get('sort')) ? searchParams.get('sort')! : 'rank';
   const size = pageSizes.includes(Number(searchParams.get('size'))) ? Number(searchParams.get('size')) : 6;
   const query = searchParams.get('q') ?? '';
   const [draft, setDraft] = useState(query);
@@ -237,12 +231,8 @@ export function HomePage() {
     const received = listQuery.data?.trends ?? [];
     const needle = query.trim().toLowerCase();
     // 검색은 받아 온 쪽 안에서만 걸러 줍니다. 전체 검색은 별도 화면이 생기면 그리로 옮깁니다.
-    const found = needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
-    if (sort === 'rank') return found;
-    return [...found].sort((a, b) => (sort === 'mentions'
-      ? b.mentionCount - a.mentionCount
-      : (b.growthRate ?? -Infinity) - (a.growthRate ?? -Infinity)));
-  }, [listQuery.data, query, sort]);
+    return needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
+  }, [listQuery.data, query]);
 
   const loading = domainsQuery.isLoading || listQuery.isLoading;
   const failed = domainsQuery.isError || listQuery.isError;
@@ -358,11 +348,8 @@ export function HomePage() {
         </div>
 
         <div className="explore-filters-right">
-          {/* 플랫폼별 집계는 아직 API에 없습니다. 자리만 두고 잠가 둡니다. */}
-          <FilterSelect label="플랫폼" value="all" options={[{ value: 'all', label: '전체' }]} disabled title="준비 중입니다" />
-          <FilterSelect label="정렬" value={sort} options={sorts} onChange={(value) => updateParams({ sort: value })} />
           <FilterSelect
-            label="상태"
+            label="정렬"
             value={type}
             options={TREND_TYPES.map((code) => ({ value: code, label: typeLabels[code] }))}
             onChange={(value) => updateParams({ status: value })}

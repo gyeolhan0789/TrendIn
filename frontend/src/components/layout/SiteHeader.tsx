@@ -44,12 +44,6 @@ export function SiteHeader() {
         </nav>
 
         <div className="landing-header-right">
-          <button type="button" className="landing-header-search" aria-label="검색">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </button>
           {/* 로그인한 사람에게 다시 로그인·회원가입을 권할 이유가 없어, 그 자리를 계정 메뉴가 대신합니다. */}
           {session ? <AccountMenu session={session} /> : (
             <>
