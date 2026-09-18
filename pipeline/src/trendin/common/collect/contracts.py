@@ -120,6 +120,47 @@ class Failure:
 
 
 @dataclass(frozen=True, slots=True)
+class FetchMeta:
+    """기사 페이지를 못 받았을 때 장부 대기 행에 적어 둘 값 (S15P21A102-312).
+
+    피드가 준 것만 들어 있다. 다시 시도해 성공하면 이 값은 쓰이지 않고, 포기할 때
+    본문 없는 article.json 을 이것으로 만든다.
+    """
+
+    domain: str
+    source: str
+    route: str
+    article_id: str
+    url: str
+    title: str
+    published_at: datetime
+    categories: tuple[str, ...] = ()
+
+
+class ArticleFetchError(Exception):
+    """기사 페이지를 못 받았다. 그 기사만 실패로 빠진다.
+
+    `meta` 가 있으면 장부에 대기 행으로 남겨 다음 주기에 다시 시도한다(S15P21A102-312).
+    `retryable` 이 False 면 다시 시도해도 결과가 같다 — 404·410 이다.
+    `blocking` 은 403·429 다 — 대기 행을 남긴 뒤 그 실행에서 그 호스트를 멈춘다(불변식 2).
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        meta: "FetchMeta | None" = None,
+        retryable: bool = True,
+        blocking: bool = False,
+    ):
+        super().__init__(reason)
+        self.reason = reason
+        self.meta = meta
+        self.retryable = retryable
+        self.blocking = blocking
+
+
+@dataclass(frozen=True, slots=True)
 class DiscoverResult:
     candidates: list[Candidate] = field(default_factory=list)
     failures: list[Failure] = field(default_factory=list)

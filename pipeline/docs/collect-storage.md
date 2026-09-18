@@ -63,7 +63,7 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 | 규칙 | 정본 | 같이 여는 것 |
 |---|---|---|
 | 키 모양 · 발행일 파티션 | `common/collect/keys.py` | 어댑터의 `raw_key` 계산. `store_article` 이 규칙으로 다시 만들어 대조하므로 어긋나면 예외로 드러난다 |
-| route ↔ 확장자 | `keys.ROUTE_EXT` | `sinks.CONTENT_TYPES` · `fashion/collect/runner.py` 의 `ADAPTERS` |
+| route 목록 · raw 확장자 | `keys.ROUTES` · `keys.RAW_EXTS` — 확장자는 route 가 아니라 raw 의 실제 내용이 정한다(S15P21A102-285) | `sinks.CONTENT_TYPES` · `fashion/collect/runner.py` 의 `ADAPTERS` · 어댑터가 넘기는 `ext` |
 | article.json 필드와 필수 여부 | `common/collect/article.py` | `spark-integration.md` #5, 소비 측 `EVENT_SCHEMA`(S15P21A102-206) |
 | 저장 순서와 `stat` 확인 | `flow.store_article` | 여기 하나뿐이다. 주기 실행과 백필이 같은 함수를 탄다 |
 | 객체 메타데이터 | `flow.object_metadata` | `minio_store._ascii_only` 가 ASCII 를 강제한다 |
@@ -89,5 +89,5 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 | 무엇 | 지금 상태 |
 |---|---|
 | dev 도메인 어댑터 (S15P21A102-165) | 소스 목록이 비어 `dev_collect` 은 켜도 수집 태스크가 돌지 않는다 |
-| `linked` route — HN 이 링크한 외부 원문 (`source-discovery.md` #5.1) | `keys.ROUTE_EXT` 에 아직 없다. 넣으면 확장자도 함께 정한다 |
+| `linked` route — HN 이 링크한 외부 원문 (`source-discovery.md` #5.1) | `keys.ROUTES` 에 아직 없다 |
 | 수집 중단 탐지 (S15P21A102-199) | 사람이 `README` 의 질의로 본다 |

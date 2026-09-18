@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, SourceDef
-from trendin.common.collect.keys import ROUTE_EXT, raw_key
+from trendin.common.collect.keys import raw_key
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.urls import clean_url
 
@@ -100,7 +100,7 @@ class HackerNewsAdapter:
                     article_id=str(article_id),
                     url=_article_url(hit),
                     raw=json.dumps(hit, ensure_ascii=False).encode("utf-8"),
-                    raw_ext=ROUTE_EXT[self.source.route],
+                    raw_ext="json",
                     collected_at=collected_at,
                     published_at=datetime.fromtimestamp(created, timezone.utc),
                 )
@@ -161,6 +161,7 @@ class HackerNewsAdapter:
                 self.source.route,
                 candidate.published_at,
                 candidate.article_id,
+                ext="json",
             ),
             content_sha256=hashlib.sha256(candidate.raw).hexdigest(),
             categories=[tag for tag in hit.get("_tags", []) if tag in CATEGORY_TAGS],

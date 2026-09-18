@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-# raw 확장자별 content-type. route 와 확장자는 1:1 이다 (keys.ROUTE_EXT).
+# raw 확장자별 content-type. 확장자는 raw 의 실제 내용이 정한다 (keys.RAW_EXTS).
 #
 # charset 을 붙이지 않는다. raw 는 받은 바이트 그대로고(불변식 8) 소스가 EUC-KR 로 줄 수도
 # 있다. utf-8 을 단정하면 헤더가 내용에 대해 거짓이 된다. article.json 은 우리가 만들어

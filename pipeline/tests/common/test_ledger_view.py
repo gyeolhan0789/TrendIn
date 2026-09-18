@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from trendin.common.collect.article import Article
+from trendin.common.collect.contracts import FetchMeta
 from trendin.common.collect.db import Database
 from trendin.common.collect.events import article_event
 from trendin.common.collect.ledger import PostgresLedger, to_pending
@@ -287,8 +288,10 @@ def test_창은_문자열이_아니라_timestamptz_로_자른다(ledger):
     """`collected_at_ts` 가 따로 있는 이유. 문자열로 범위를 자르면 인덱스를 못 탄다."""
     store_, db = ledger
     collected = datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc)
-    store(store_, make_article(published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
-                               collected_at=collected))
+    store(
+        store_,
+        make_article(published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST), collected_at=collected),
+    )
 
     with db.transaction() as conn, conn.cursor() as cur:
         cur.execute(
@@ -387,8 +390,6 @@ def test_레지스트리에서_사라진_소스도_봉투와_뷰가_같은_국�
     assert view_row(db)["source_country"] == "HK"
 
 
-
-
 def test_스키마_준비를_두_번_불러도_같은_끝_상태다(ledger):
     """DAG 첫 태스크가 매 회차 부른다. UPSERT 가 아니면 두 번째 호출이 유일키에서 죽는다.
 
@@ -415,3 +416,110 @@ def test_국가가_바뀌면_덮어쓴다(ledger):
     store_.ensure_schema({"vogue": "US"})
 
     assert country_rows(db) == {"vogue": "US"}
+
+
+# --- 대기 행 (S15P21A102-312) ------------------------------------------------
+
+RETRY_META = FetchMeta(
+    domain="fashion",
+    source="vogue",
+    route="rss",
+    article_id="900001",
+    url="https://www.vogue.co.kr/900001/",
+    title="아직 못 받은 기사",
+    published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+    categories=("fashion", "runway"),
+)
+RETRY_AT = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
+
+
+def test_대기_행은_창구에도_발급에도_안_나온다(ledger):
+    """MinIO 객체가 아직 없다. 소비 측이 키로 읽으면 없는 객체를 가리킨다."""
+    store, db = ledger
+    store.mark_retry(RETRY_META, at=RETRY_AT)
+
+    assert store.pending("fashion") == []
+    with db.transaction() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM collected_article_event")
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT count(*) FROM collected_article")
+        assert cur.fetchone()[0] == 1  # 행은 있다
+
+
+def test_대기_중인_id_는_다시_후보가_된다(ledger):
+    """불변식 12 에 둔 예외다. 저장을 마친 id 는 그대로 걸러진다."""
+    store, _db = ledger
+    store.mark_retry(RETRY_META, at=RETRY_AT)
+    stored = make_article(
+        article_id="854414",
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        collected_at=RETRY_AT,
+    )
+    store.record(
+        stored, article_key="fashion/vogue/rss/2026/09/03/854414/article.json", article_sha256=SHA
+    )
+
+    assert store.filter_new("vogue", ["900001", "854414", "없는것"]) == {"900001", "없는것"}
+
+
+def test_다시_실패하면_시도_횟수만_는다(ledger):
+    store, _db = ledger
+    first = store.mark_retry(RETRY_META, at=RETRY_AT)
+    second = store.mark_retry(RETRY_META, at=RETRY_AT + timedelta(hours=6))
+
+    assert (first.attempts, second.attempts) == (1, 2)
+    assert second.first_failed_at == first.first_failed_at  # 창은 첫 실패부터 센다
+
+
+def test_대기_행은_피드가_준_값을_그대로_돌려준다(ledger):
+    """포기할 때 이 값으로 본문 없는 article.json 을 만든다."""
+    store, _db = ledger
+    store.mark_retry(RETRY_META, at=RETRY_AT)
+    (row,) = store.retrying("vogue")
+
+    assert row.meta == RETRY_META  # 오프셋 표기까지 그대로다
+    assert row.attempts == 1 and row.first_failed_at == RETRY_AT
+
+
+def test_재시도가_성공하면_같은_행이_저장으로_바뀐다(ledger):
+    """불변식 7 — 기사 하나에 장부 행 하나."""
+    store, db = ledger
+    store.mark_retry(RETRY_META, at=RETRY_AT)
+    article = make_article(
+        article_id=RETRY_META.article_id,
+        published_at=RETRY_META.published_at,
+        collected_at=RETRY_AT + timedelta(hours=6),
+    )
+    assert store.record(
+        article,
+        article_key=f"fashion/vogue/rss/2026/09/03/{RETRY_META.article_id}/article.json",
+        article_sha256=SHA,
+    )
+
+    assert store.retrying("vogue") == []
+    assert len(store.pending("fashion")) == 1
+    with db.transaction() as conn, conn.cursor() as cur:
+        cur.execute("SELECT count(*), max(fetch_state) FROM collected_article")
+        assert cur.fetchone() == (1, "stored")
+
+
+def test_저장을_마친_기사는_대기로_되돌지_않는다(ledger):
+    """불변식 12 — 이미 받은 기사는 다시 받지 않는다."""
+    store, db = ledger
+    article = make_article(
+        article_id=RETRY_META.article_id,
+        published_at=RETRY_META.published_at,
+        collected_at=RETRY_AT,
+    )
+    store.record(
+        article,
+        article_key=f"fashion/vogue/rss/2026/09/03/{RETRY_META.article_id}/article.json",
+        article_sha256=SHA,
+    )
+    row = store.mark_retry(RETRY_META, at=RETRY_AT + timedelta(hours=1))
+
+    assert row.attempts == 0  # 아무 줄도 안 바뀌었다
+    assert store.retrying("vogue") == []
+    with db.transaction() as conn, conn.cursor() as cur:
+        cur.execute("SELECT fetch_state FROM collected_article")
+        assert cur.fetchone()[0] == "stored"

@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable, Mapping, Protocol, Sequence
 
 from trendin.common.collect.article import Article
+from trendin.common.collect.contracts import FetchMeta
 from trendin.common.collect.db import Database
 
 # 앱 DB 에 마이그레이션 도구가 없다 — `docker/postgres-init/` 은 빈 볼륨 초기화 때 한 번만
@@ -61,10 +62,32 @@ ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS event_run_id text;
 -- false 로 채운다. 뷰가 이 칸을 읽으므로 뷰 정의보다 앞이어야 한다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS paywalled boolean NOT NULL DEFAULT false;
 
+-- 기사 페이지를 못 받아 다시 시도할 행 (S15P21A102-312). `stored` 는 저장을 마친 행,
+-- `retrying` 은 페이지를 기다리는 행, `abandoned` 는 포기해 본문 없이 저장한 행이다.
+-- 이미 있는 행은 저장을 마친 것이라 `stored` 로 채워진다.
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS
+    fetch_state text NOT NULL DEFAULT 'stored';
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS
+    fetch_attempts smallint NOT NULL DEFAULT 0;
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS first_failed_at timestamptz;
+-- 포기할 때 본문 없는 article.json 을 이 값으로 만든다. 저장을 마친 행은 NULL 이다 —
+-- 분류는 article.json 에 이미 있고, 장부는 발급 봉투에 필요한 것만 든다.
+ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS categories text[];
+
+-- 대기 행은 MinIO 에 아무것도 쓰지 않았으므로 객체 키도 해시도 없다. 두 칸이 NOT NULL
+-- 이던 시절의 제약을 푼다 — 대기 행은 뷰와 발급 질의가 걸러 내므로 소비 측은 NULL 을 못 본다.
+ALTER TABLE collected_article ALTER COLUMN article_key DROP NOT NULL;
+ALTER TABLE collected_article ALTER COLUMN article_sha256 DROP NOT NULL;
+
 -- 발급 태스크가 미발급 행만 훑는다. 장부는 계속 자라고 미발급은 늘 소수다.
 CREATE INDEX IF NOT EXISTS collected_article_pending_idx
     ON collected_article (domain, collected_at)
     WHERE event_emitted_at IS NULL;
+
+-- 매 회차 그 소스의 대기 행을 먼저 처리한다. 대기는 늘 소수라 부분 인덱스로 짚는다.
+CREATE INDEX IF NOT EXISTS collected_article_retrying_idx
+    ON collected_article (source, first_failed_at)
+    WHERE fetch_state = 'retrying';
 
 -- 소비 측이 창을 잘라 읽을 때 쓴다 (S15P21A102-247). **위 부분 인덱스로는 안 된다** —
 -- 그쪽은 `event_emitted_at IS NULL` 조건이 붙어 있어서, 그 조건이 없는 질의는 타지 못한다.
@@ -181,6 +204,8 @@ FROM (
       -- `LEFT JOIN` 이라 참조 표에 없는 소스도 행이 사라지지 않는다. 그런 행은 바깥에서
       -- `XX` 가 되고, 참조 표가 생기기 전에 받아 둔 기사도 소급 채우기 없이 국가를 얻는다.
       LEFT JOIN collect_source_country c ON c.source = a.source
+      -- 대기 행은 창구에 내지 않는다 — MinIO 객체가 아직 없다 (S15P21A102-312).
+      WHERE a.fetch_state <> 'retrying'
 ) a;
 
 CREATE TABLE IF NOT EXISTS collect_validator (
@@ -230,6 +255,19 @@ class PendingArticle:
 
 
 @dataclass(frozen=True, slots=True)
+class RetryRow:
+    """기사 페이지를 기다리는 장부 행 (S15P21A102-312).
+
+    포기할 때 본문 없는 article.json 을 이 값으로 만든다. 그래서 피드가 준 것(제목·URL·
+    발행일·분류)이 다 들어 있다.
+    """
+
+    meta: FetchMeta
+    attempts: int
+    first_failed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class EmittedStats:
     """발급 실행별 기사 수와 가장 오래된 수집 시각. 수집 지연과 발급 지연을 구분한다."""
 
@@ -265,7 +303,11 @@ class Ledger(Protocol):
         ...
 
     def filter_new(self, source: str, article_ids: Iterable[str]) -> set[str]:
-        """아직 장부에 없는 id 만 돌려준다.
+        """아직 장부에 없는 id 와 대기 중인 id 를 돌려준다.
+
+        대기 행(`retrying`)을 통과시키는 이유는 재시도다 — 장부에 있다고 걸러 내면 그
+        기사는 영영 본문을 못 받는다. 불변식 12 의 "장부에 있는 기사는 다시 받지 않는다"
+        에 둔 예외이고, 상한은 `flow.RETRY_LIMIT`·`RETRY_WINDOW` 다 (S15P21A102-312).
 
         소스의 전체 id 를 들고 오지 않는 이유는 장부가 영구라서다(불변식 13). 질의는
         후보 쪽 건수(10~20건)로 묶는다.
@@ -275,8 +317,26 @@ class Ledger(Protocol):
     def record(self, article: Article, *, article_key: str, article_sha256: str) -> bool:
         """저장이 확인된 기사를 적는다. 이미 있으면 아무것도 하지 않고 False.
 
+        `fetch_failed` 기사는 `abandoned` 로 적는다 — 페이지를 끝내 못 받아 본문 없이
+        저장한 행이다.
+
         멱등이어야 한다 — `(source, article_id)` 하나는 장부 행 하나다(불변식 7).
+
+        대기 행(`retrying`)이 있으면 그 행을 저장 결과로 덮는다 — 재시도가 성공한 자리다
+        (S15P21A102-312). 행이 늘지 않으므로 불변식 7 은 그대로다.
         """
+        ...
+
+    def mark_retry(self, meta: FetchMeta, *, at: datetime) -> RetryRow:
+        """기사 페이지를 못 받았다고 적고, 지금까지의 시도 횟수를 돌려준다.
+
+        MinIO 에는 아무것도 쓰지 않는다. 이 행은 뷰와 발급 질의가 걸러 내므로 소비 측에
+        보이지 않는다 (S15P21A102-312).
+        """
+        ...
+
+    def retrying(self, source: str) -> list[RetryRow]:
+        """그 소스의 대기 행. 오래 기다린 것부터다."""
         ...
 
     def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
@@ -287,9 +347,7 @@ class Ledger(Protocol):
         """
         ...
 
-    def mark_emitted_many(
-        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
-    ) -> None:
+    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
         """발급된 행을 한 번에 적는다. 발급 성공 뒤에만 부른다(at-least-once).
 
         묶음으로 받는 이유는 트랜잭션이다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
@@ -310,6 +368,7 @@ class Ledger(Protocol):
         가까우면 앞 실행이 낸 것까지 뒤 실행 몫으로 센다.
         """
         ...
+
 
 def _offset_minutes(value: datetime) -> int:
     offset = value.utcoffset()
@@ -361,6 +420,7 @@ class InMemoryLedger:
     def __init__(self) -> None:
         self._rows: dict[tuple[str, str], PendingArticle] = {}
         self._emitted: dict[tuple[str, str], tuple[datetime, str]] = {}
+        self._retrying: dict[tuple[str, str], RetryRow] = {}
         # 뷰의 `LEFT JOIN` 이 읽는 참조 표에 해당한다. 만들 표가 없으니 이것만 남는다.
         self.countries: dict[str, str] = {}
 
@@ -379,21 +439,34 @@ class InMemoryLedger:
         key = (article.source, article.article_id)
         if key in self._rows:
             return False
+        self._retrying.pop(key, None)  # 재시도가 성공한 자리
         self._rows[key] = to_pending(
             article, article_key=article_key, article_sha256=article_sha256
         )
         return True
 
+    def mark_retry(self, meta: FetchMeta, *, at: datetime) -> RetryRow:
+        key = (meta.source, meta.article_id)
+        before = self._retrying.get(key)
+        row = RetryRow(
+            meta=meta,
+            attempts=(before.attempts if before else 0) + 1,
+            first_failed_at=before.first_failed_at if before else at,
+        )
+        self._retrying[key] = row
+        return row
+
+    def retrying(self, source: str) -> list[RetryRow]:
+        rows = [r for (s, _), r in self._retrying.items() if s == source]
+        rows.sort(key=lambda r: (r.first_failed_at, r.meta.article_id))
+        return rows
+
     def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
-        rows = [
-            r for k, r in self._rows.items() if k not in self._emitted and r.domain == domain
-        ]
+        rows = [r for k, r in self._rows.items() if k not in self._emitted and r.domain == domain]
         rows.sort(key=lambda r: (r.collected_at, r.source, r.article_id))
         return rows[:limit]
 
-    def mark_emitted_many(
-        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
-    ) -> None:
+    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
         for key in keys:
             self._emitted[key] = (at, run_id)
 
@@ -411,17 +484,62 @@ class InMemoryLedger:
         return stats
 
 
+# 대기 행(`retrying`)이 있으면 그 자리를 저장 결과로 덮는다 — 재시도가 성공하거나 포기해
+# 저장한 자리다. 이미 저장을 마친 행은 건드리지 않는다(불변식 7·12).
 _INSERT = """
 INSERT INTO collected_article (
     source, article_id, domain, route, url, title, published_at, published_at_offset,
-    raw_key, article_key, content_sha256, article_sha256, members_only, paywalled, collected_at
+    raw_key, article_key, content_sha256, article_sha256, members_only, paywalled, collected_at,
+    fetch_state, categories
 ) VALUES (
     %(source)s, %(article_id)s, %(domain)s, %(route)s, %(url)s, %(title)s,
     %(published_at)s, %(published_at_offset)s,
     %(raw_key)s, %(article_key)s, %(content_sha256)s, %(article_sha256)s,
-    %(members_only)s, %(paywalled)s, %(collected_at)s
+    %(members_only)s, %(paywalled)s, %(collected_at)s,
+    %(fetch_state)s, NULL
 )
-ON CONFLICT (source, article_id) DO NOTHING
+ON CONFLICT (source, article_id) DO UPDATE SET
+    url = EXCLUDED.url,
+    title = EXCLUDED.title,
+    published_at = EXCLUDED.published_at,
+    published_at_offset = EXCLUDED.published_at_offset,
+    raw_key = EXCLUDED.raw_key,
+    article_key = EXCLUDED.article_key,
+    content_sha256 = EXCLUDED.content_sha256,
+    article_sha256 = EXCLUDED.article_sha256,
+    members_only = EXCLUDED.members_only,
+    paywalled = EXCLUDED.paywalled,
+    collected_at = EXCLUDED.collected_at,
+    fetch_state = EXCLUDED.fetch_state,
+    categories = NULL
+WHERE collected_article.fetch_state = 'retrying'
+"""
+
+# 대기 행. 시도 횟수는 행이 없을 때 1 에서 시작한다.
+_MARK_RETRY = """
+INSERT INTO collected_article (
+    source, article_id, domain, route, url, title, published_at, published_at_offset,
+    collected_at, fetch_state, fetch_attempts, first_failed_at, categories
+) VALUES (
+    %(source)s, %(article_id)s, %(domain)s, %(route)s, %(url)s, %(title)s,
+    %(published_at)s, %(published_at_offset)s,
+    %(at)s, 'retrying', 1, %(at)s, %(categories)s
+)
+ON CONFLICT (source, article_id) DO UPDATE SET
+    fetch_attempts = collected_article.fetch_attempts + 1,
+    url = EXCLUDED.url,
+    title = EXCLUDED.title,
+    categories = EXCLUDED.categories
+WHERE collected_article.fetch_state = 'retrying'
+RETURNING fetch_attempts, first_failed_at
+"""
+
+_SELECT_RETRYING = """
+SELECT domain, route, article_id, url, title, published_at, published_at_offset, categories,
+       fetch_attempts, first_failed_at
+FROM collected_article
+WHERE source = %s AND fetch_state = 'retrying'
+ORDER BY first_failed_at, article_id
 """
 
 _SELECT_SOURCE_COUNTRY = """
@@ -432,7 +550,7 @@ _SELECT_PENDING = """
 SELECT source, article_id, domain, url, title, published_at, published_at_offset,
        collected_at, article_key, article_sha256, raw_key, members_only, paywalled
 FROM collected_article
-WHERE event_emitted_at IS NULL AND domain = %s
+WHERE event_emitted_at IS NULL AND domain = %s AND fetch_state <> 'retrying'
 ORDER BY collected_at, source, article_id
 LIMIT %s
 """
@@ -477,8 +595,9 @@ class PostgresLedger:
             return set()
         with self._db.transaction() as conn, conn.cursor() as cur:
             cur.execute(
+                # 대기 행은 아직 안 받은 기사다. 다시 후보가 되어야 재시도가 일어난다.
                 "SELECT article_id FROM collected_article "
-                "WHERE source = %s AND article_id = ANY(%s)",
+                "WHERE source = %s AND article_id = ANY(%s) AND fetch_state <> 'retrying'",
                 (source, ids),
             )
             known = {r[0] for r in cur.fetchall()}
@@ -504,9 +623,58 @@ class PostgresLedger:
                     "members_only": bool(article.members_only),
                     "paywalled": bool(article.paywalled),
                     "collected_at": article.collected_at,
+                    "fetch_state": "abandoned" if article.fetch_failed else "stored",
                 },
             )
             return cur.rowcount == 1
+
+    def mark_retry(self, meta: FetchMeta, *, at: datetime) -> RetryRow:
+        with self._db.transaction() as conn, conn.cursor() as cur:
+            cur.execute(
+                _MARK_RETRY,
+                {
+                    "source": meta.source,
+                    "article_id": meta.article_id,
+                    "domain": meta.domain,
+                    "route": meta.route,
+                    "url": meta.url,
+                    "title": meta.title,
+                    "published_at": meta.published_at,
+                    "published_at_offset": _offset_minutes(meta.published_at),
+                    "at": at,
+                    "categories": list(meta.categories),
+                },
+            )
+            row = cur.fetchone()
+        # 저장을 마친 행이 이미 있으면 `WHERE` 가 막아 아무 줄도 안 돌아온다 — 그 기사는
+        # 다시 받을 대상이 아니다(불변식 12).
+        return (
+            RetryRow(meta, attempts=row[0], first_failed_at=row[1])
+            if row
+            else RetryRow(meta, attempts=0, first_failed_at=at)
+        )
+
+    def retrying(self, source: str) -> list[RetryRow]:
+        with self._db.transaction() as conn, conn.cursor() as cur:
+            cur.execute(_SELECT_RETRYING, (source,))
+            rows = cur.fetchall()
+        return [
+            RetryRow(
+                meta=FetchMeta(
+                    domain=r[0],
+                    source=source,
+                    route=r[1],
+                    article_id=r[2],
+                    url=r[3],
+                    title=r[4],
+                    published_at=restore_offset(r[5], r[6]),
+                    categories=tuple(r[7] or ()),
+                ),
+                attempts=r[8],
+                first_failed_at=r[9],
+            )
+            for r in rows
+        ]
 
     def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
         with self._db.transaction() as conn, conn.cursor() as cur:
@@ -530,9 +698,7 @@ class PostgresLedger:
             for r in rows
         ]
 
-    def mark_emitted_many(
-        self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str
-    ) -> None:
+    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
         if not keys:
             return
         with self._db.transaction() as conn, conn.cursor() as cur:

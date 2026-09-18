@@ -109,7 +109,7 @@ TOML 인 이유는 둘이다. `tomllib` 이 stdlib 이라 의존성이 안 늘�
 
 ### 3.3 선택자 — 철회 (2026-09-17)
 
-본문 위치 선택자를 프로필에서 뺐다. 본문은 피드 전문 → ld+json `articleBody` → trafilatura 순서로 얻는다(`web-collect.md` 확정 2).
+본문 위치 선택자를 프로필에서 뺐다. 본문은 기사 페이지 ld+json `articleBody` → trafilatura → 피드 본문 순서로 얻고, 피드 소스도 기사 페이지를 받는다(`web-collect.md` 확정 2, 2026-09-17 개정).
 이 절의 근거였던 "파서 의존성을 늘리지 않는다"는 trafilatura 2.2.0(lxml 의존)을 들이면서 무너졌다. 아래는 옛 결정이다.
 
 > 레포에 BeautifulSoup·lxml 이 없고 `html_text.py` 가 stdlib `html.parser` 위에 있다. CSS 셀렉터 엔진이 없다.
@@ -192,7 +192,7 @@ HN 매개라는 편향은 이 프로젝트에 맞는 편향이다 — 재려는 
 근거는 이미 데이터에 있다 — WordPress 피드 하나가 5곳을, 허스트 템플릿 하나가 2곳을 먹었다.
 어댑터가 사이트를 따라 늘면 폭증이고, 플랫폼을 따라 늘면 안 는다.
 
-`route` 는 MinIO 객체 키에 영구히 박히므로(`keys.ROUTE_EXT`) 종류를 늘리는 건 공짜가 아니다.
+`route` 는 MinIO 객체 키에 영구히 박히므로(`keys.ROUTES`) 종류를 늘리는 건 공짜가 아니다.
 되돌리려면 이미 저장된 객체를 옮겨야 한다.
 
 ## 8. 불변식
@@ -224,7 +224,7 @@ HN 매개라는 편향은 이 프로젝트에 맞는 편향이다 — 재려는 
 
 | 자리 | 무엇이 바뀌나 |
 |---|---|
-| #5.1 키 | `route` 에 `linked` 가 는다. `ROUTE_EXT` · `CONTENT_TYPES` 에 항목 추가 |
+| #5.1 키 | `route` 에 `linked` 가 는다. `ROUTES` 에 항목 추가. 확장자는 내용이 정하므로(`RAW_EXTS`) 기사 페이지면 `html` 그대로 |
 | ~~#5.3 `article.json`~~ | **철회 (2026-09-17).** ~~`body_withheld` 필드 추가~~. 필수 조건은 `members_only or paywalled` 로 넓어졌다 |
 | ~~#5.4 장부~~ | **철회 (2026-09-17).** ~~`body_withheld` 컬럼 추가~~ |
 | ~~#6 이벤트~~ | **철회 (2026-09-17).** ~~봉투에 `body_withheld` 추가~~ |

@@ -123,8 +123,11 @@ pipeline:verify:
     - RUFF_SPEC=$(sed -n 's/.*"\(ruff[^"]*\)".*/\1/p' pyproject.toml | head -1)
     # 따옴표로 감싸 YAML의 `: ` 오해석을 막는다.
     - 'echo "ruff spec: ${RUFF_SPEC}"'
+    # 본문 추출이 trafilatura 를 쓴다. 추출 결과가 버전마다 달라 pyproject 의 핀을 그대로 쓴다.
+    - TRAFILATURA_SPEC=$(sed -n 's/.*"\(trafilatura[^"]*\)".*/\1/p' pyproject.toml | head -1)
+    - 'echo "trafilatura spec: ${TRAFILATURA_SPEC}"'
     # 발급 테스트가 `confluent_kafka.Producer` 를 경로로 패치해 모듈이 있어야 한다. 이미지에는 없다.
-    - pip install --no-cache-dir pytest "${RUFF_SPEC}" confluent-kafka
+    - pip install --no-cache-dir pytest "${RUFF_SPEC}" confluent-kafka "${TRAFILATURA_SPEC}"
     - ruff check .
     # 뷰 테스트가 skip 으로 새지 않는지 먼저 본다. 서비스가 안 떴거나 변수 이름이 바뀌면
     # 여기서 멈춘다 — 건너뛴 테스트는 통과와 구분되지 않아 로그만으로는 못 잡는다.

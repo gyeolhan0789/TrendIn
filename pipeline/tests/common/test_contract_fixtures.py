@@ -148,7 +148,7 @@ def test_키가_키_규칙에서_나온_값이다(article_evt):
         article_evt["article_id"],
     )
     assert article_evt["object_key"] == article_key(*args)
-    assert article_evt["raw_object_key"] == raw_key(*args)
+    assert article_evt["raw_object_key"] == raw_key(*args, ext="xml")
 
 
 def test_article_json_이_그_자체로_유효한_JSON_이다(article_evt):
