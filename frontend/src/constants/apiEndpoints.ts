@@ -33,6 +33,14 @@ export const API_ENDPOINTS = {
     history: (trendId: number) => `/trends/${trendId}/history`,
     contents: (trendId: number) => `/trends/${trendId}/contents`,
     relatedKeywords: (trendId: number) => `/trends/${trendId}/related-keywords`,
+    // 나라별 언급량과 순위. period 는 24H·7D 만 받습니다.
+    regions: (trendId: number) => `/trends/${trendId}/regions`,
+    // 나라별 최초 감지일 순서. 기간을 받지 않고 늘 30일을 봅니다.
+    regionJourney: (trendId: number) => `/trends/${trendId}/regions/journey`,
+    /*
+     * 한 나라의 날짜별 언급량도 있습니다(/regions/{countryCode}/history). 나라마다 한 번씩
+     * 불러야 해서 아직 쓰지 않습니다. 나라별 증감을 보여 주기로 하면 그때 붙입니다.
+     */
   },
   members: {
     me: '/members/me',

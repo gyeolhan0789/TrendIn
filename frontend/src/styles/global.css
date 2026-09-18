@@ -653,7 +653,8 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-hero h1 span { color: var(--lp-indigo); }
 .landing-hero-lead { max-width: 400px; margin-top: 24px; color: var(--lp-muted); font-size: 17px; line-height: 1.7; }
 
-.landing-search { display: flex; align-items: center; max-width: 460px; margin-top: 36px; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
+.landing-search-shell { position: relative; max-width: 460px; margin-top: 36px; }
+.landing-search { display: flex; align-items: center; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .landing-search:focus-within { border-color: var(--lp-indigo); }
 .landing-search > svg { flex: 0 0 18px; margin-right: 12px; }
 .landing-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--lp-ink); font-size: 15px; }
@@ -851,6 +852,7 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-hero-note p { color: var(--lp-muted); font-size: 12px; line-height: 1.6; }
 
 .explore-searchbar { padding-bottom: 24px; }
+.explore-search-shell { position: relative; max-width: 720px; }
 .explore-searchbar form { display: flex; align-items: center; padding: 8px 8px 8px 24px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .explore-searchbar form:focus-within { border-color: var(--lp-indigo); }
 .explore-searchbar form > svg { flex: 0 0 20px; margin-right: 14px; }
@@ -861,6 +863,18 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-search-clear:hover { background: #f3f4f6; }
 .explore-search-go { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 10px; background: var(--lp-ink); }
 .explore-search-go:hover { background: #2d2d44; }
+
+/* 검색 상자 아래에 뜨는 검색어 목록. 폭은 상자를 감싼 자리에 맞추고, 8px 띄워 붙입니다. */
+.keyword-suggest { position: absolute; top: calc(100% + 8px); right: 0; left: 0; z-index: 30; overflow: hidden; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+.keyword-suggest-list { margin: 0; padding: 0; list-style: none; }
+.keyword-suggest-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+.keyword-suggest-row.is-active { background: #f5f3ff; }
+.keyword-suggest-name { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: hidden; }
+.keyword-suggest-name strong { overflow: hidden; color: var(--lp-ink); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.keyword-suggest-name mark { background: none; color: var(--lp-indigo); font-weight: 700; }
+.keyword-suggest-name small { color: var(--lp-faint); font-size: 12px; }
+.keyword-suggest-meta { flex: 0 0 auto; color: var(--lp-muted); font-size: 12px; white-space: nowrap; }
+.keyword-suggest-none { padding: 16px 12px; color: var(--lp-faint); font-size: 13px; text-align: center; }
 
 .explore-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 28px; }
 .explore-filters-right { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-left: auto; }
@@ -2040,6 +2054,10 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-flow-stop.is-here { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; }
 .worldtrend-flow-name { font-weight: 600; }
 .worldtrend-flow-date { font-variant-numeric: tabular-nums; opacity: .85; }
+/* 흐름은 가로로 이어지고 설명은 그 아래 한 줄로 붙습니다. 한 줄에 나란히 세우면 경로가 밀립니다. */
+.worldtrend-flow-inner { display: flex; max-width: 100%; flex-direction: column; align-items: center; gap: 7px; }
+/* 지도 위에 얹히는 글이라 정류장과 같은 흰 바탕을 깔지 않으면 지형에 묻혀 읽히지 않습니다. */
+.worldtrend-flow-note { padding: 5px 10px; border-radius: 7px; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: var(--lp-faint); font-size: 11.5px; text-align: center; }
 
 
 .worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
@@ -2068,6 +2086,8 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-rank-bar span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4F46E5, #a5b4fc); }
 .worldtrend-chart { width: 100%; height: auto; }
 .worldtrend-chart-axis { display: flex; justify-content: space-between; margin-top: 2px; color: var(--lp-faint); font-size: 10px; }
+/* 카드 하나가 아니라 카드들에 대한 설명이라 칸을 두르지 않되, 좌우 여백은 카드와 맞춥니다. */
+.worldtrend-note { padding: 12px 18px 18px; color: var(--lp-faint); font-size: 11.5px; line-height: 1.6; }
 
 /*
  * 지도 자체. 경계선은 Natural Earth 자료 그대로라 대륙 모양이 실제 지도와 같습니다.
