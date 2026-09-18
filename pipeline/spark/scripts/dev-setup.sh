@@ -47,7 +47,7 @@ uv pip install --python "$VENV_PYTHON" "pyspark==${SPARK_VERSION}" pyyaml --cons
 # `fsspec` · `numpy` 처럼 Airflow 도 쓰는 패키지를 밀어 올린다. 걸지 않으면 같은 가상환경의
 # DAG 쪽이 조용히 깨진다 — pyspark 설치에 constraints 를 건 것과 같은 이유다.
 if [ "${SKIP_MODEL:-0}" != "1" ]; then
-  uv pip install --python "$VENV_PYTHON" --index-url "$TORCH_CPU_INDEX" torch \
+  uv pip install --python "$VENV_PYTHON" --index-url "$TORCH_CPU_INDEX" "torch==${TORCH_VERSION}" \
     --constraint "$constraints"
   uv pip install --python "$VENV_PYTHON" "gliner==${GLINER_VERSION}" --constraint "$constraints"
 fi

@@ -93,6 +93,31 @@ def test_인식기_설정이_도메인_라벨을_싣는다():
     assert "브랜드" in spec.labels and "색상" not in spec.labels
 
 
+def test_추론_장치의_기본은_cpu():
+    """**배포에 GPU 가 없다.** 기본이 `auto` 면 GPU 가 있는 개발 PC 와 없는 서버가 같은
+    설정으로 다르게 돌아, 재현되지 않는 성능 차이를 설정에서 찾을 수 없게 된다."""
+    assert recognizer_spec(profile("local"), domain="fashion").device == "cpu"
+
+
+def test_추론_장치를_환경변수로_덮는다():
+    """돌리는 기계가 정하는 값이라 파일이 아니라 `EXTRACT_DEVICE` 로 받는다."""
+    loaded = load_config("local", conf_dir=CONF_DIR, env={"EXTRACT_DEVICE": "cuda"})
+    assert recognizer_spec(loaded, domain="fashion").device == "cuda"
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda", "cuda:1", "auto"])
+def test_받아들이는_장치_이름(device):
+    spec = recognizer_spec(config({**FULL, "recognizer": {"device": device}}), domain="fashion")
+    assert spec.device == device
+
+
+def test_모르는_장치는_설정에서_거부한다():
+    """torch 는 모르는 이름을 받아도 모델을 적재한 **뒤에** 죽는다 — 5초를 기다린 다음에야
+    `cude` 를 `cuda` 로 고치게 된다."""
+    with pytest.raises(ConfigError):
+        recognizer_spec(config({**FULL, "recognizer": {"device": "cude"}}), domain="fashion")
+
+
 def test_도메인마다_라벨이_다르다():
     fashion = recognizer_spec(profile("local"), domain="fashion").labels
     dev = recognizer_spec(profile("local"), domain="dev").labels

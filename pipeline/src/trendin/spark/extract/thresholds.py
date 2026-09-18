@@ -18,6 +18,7 @@ F1 이 높았고(0.470 대 0.461), 라벨에서 색상을 뺀 것은 0.470 → 0
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,6 +31,11 @@ SECTION = "extract"
 
 # 실데이터에서 다시 재야 해 `base.yaml` 이 `null` 로 두는 키. 전부 있어야 시작한다.
 REQUIRED = ("per_document_top_k", "score_floor")
+
+# 추론 장치로 받아들이는 이름 (`extract/entities.py` 의 `resolve_device`). `mps` 는 넣지
+# 않는다 — 개발 PC 도 배포도 애플 실리콘이 아니라, 통과시켜 두면 아무도 돌려보지 않은 경로가
+# 설정으로 열린다.
+_DEVICE = re.compile(r"^(cpu|cuda(:\d+)?|auto)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +132,8 @@ def recognizer_spec(config: Config, *, domain: str) -> ent.RecognizerSpec:
         max_chunks=int(chunk.get("max_chunks", default.max_chunks)),
         batch_words=int(batch.get("words", default.batch_words)),
         batch_size=int(batch.get("size", default.batch_size)),
+        device=str(section.get("device", default.device)),
+        precision=str(section.get("precision", default.precision)),
     )
     # **여기서 막지 않으면 증상이 "후보가 줄었다" 로만 나타난다.** 겹침이 예산 이상이면
     # 토막이 앞으로 나아가지 못하고, 예산이 0 이면 토막이 서지 않는다.
@@ -136,6 +144,16 @@ def recognizer_spec(config: Config, *, domain: str) -> ent.RecognizerSpec:
     if spec.batch_words < spec.chunk_words or spec.batch_size < 1:
         raise ConfigError(
             "extract.recognizer.batch.words 는 chunk.words 이상이고 batch.size 는 1 이상이어야 한다"
+        )
+    # 오타를 여기서 잡는다. torch 는 모르는 장치 이름을 받으면 모델을 적재한 **뒤에** 죽어서,
+    # 5초를 기다린 다음에야 `cude` 를 `cuda` 로 고치게 된다.
+    if spec.precision not in ("fp32", "fp16"):
+        raise ConfigError(
+            f"extract.recognizer.precision 은 fp32 또는 fp16 이어야 한다: {spec.precision!r}"
+        )
+    if not _DEVICE.match(spec.device):
+        raise ConfigError(
+            f"extract.recognizer.device 는 cpu · cuda · cuda:N · auto 여야 한다: {spec.device!r}"
         )
     return spec
 

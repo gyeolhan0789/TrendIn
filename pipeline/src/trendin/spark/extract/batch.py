@@ -48,6 +48,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Iterator
 
+from trendin.spark.common.config import ConfigError
 from trendin.spark.common.logging import get_logger
 from trendin.spark.extract import chunking as ck
 from trendin.spark.extract import entities as ent
@@ -189,7 +190,7 @@ def _recognize(
 MAX_DOCS_PER_PARTITION = 500
 
 
-def _partition_count(session, frame: "DataFrame") -> int:
+def _partition_count(session, frame: "DataFrame", *, recognizer: ent.RecognizerSpec) -> int:
     """추론에 쓸 파티션 수.
 
     **`curated` 의 파일 수를 그대로 쓰면 안 된다.** Parquet 이 실행별로 잘게 쓰여 파티션이
@@ -197,8 +198,20 @@ def _partition_count(session, frame: "DataFrame") -> int:
     묶어서 넣으려고 `mapPartitions` 를 쓴 것이 무의미해진다.
 
     코어 수에 맞추되(모델이 코어마다 한 번 적재된다) 파티션이 너무 커지지 않게 상한을 둔다.
+
+    **GPU 에서는 코어가 하나여야 한다.** 모델은 executor 파이썬 프로세스마다 적재되는데
+    (`entities.recognizer_for`), CPU 에서 그것은 코어를 다 쓰는 길이고 GPU 에서는 **같은
+    가중치를 VRAM 에 여러 벌 올리는 길이다.** 6 GB 짜리 GPU 에 209M 모델을 넷 올리면 터지고,
+    죽는 자리가 `_predict_chunk` 의 `except` 안이라 **Job 은 후보 0건으로 정상 종료한다.**
+    그래서 계산으로 맞추지 않고 시작 전에 거부한다.
     """
     cores = max(1, session.sparkContext.defaultParallelism)
+    device = ent.resolve_device(recognizer.device)
+    if device != "cpu" and cores > 1:
+        raise ConfigError(
+            f"extract.recognizer.device 가 {device} 인데 코어가 {cores} 개다 — 모델이 워커마다 "
+            "적재되어 VRAM 을 그 수만큼 먹는다. SPARK_MASTER=local[1] 로 돌린다"
+        )
     documents = frame.count()
     needed = -(-documents // MAX_DOCS_PER_PARTITION)  # 올림
     return max(1, min(documents, max(cores, needed)))
@@ -269,7 +282,7 @@ def extract_batch(
     # 문서 식별자를 hex 문자열로 실어 보낸다 (모듈 주석의 `url_hash` 절).
     keyed = targets.withColumn("doc_key", F.hex(F.col("url_hash")))
     session = keyed.sparkSession
-    partitions = _partition_count(session, keyed)
+    partitions = _partition_count(session, keyed, recognizer=recognizer)
     rows_rdd = (
         keyed.select("doc_key", "title", "body", "lang")
         .repartition(partitions)

@@ -1,0 +1,60 @@
+# GPU 추론 오버레이. spark/compose.spark.yaml **위에** 얹는다.
+#
+#   spark/scripts/build-image.sh --gpu
+#   docker compose -f compose.yaml -f spark/compose.spark.yaml -f spark/compose.gpu.yaml \
+#     --profile debug run --rm --no-deps airflow-cli \
+#     bash -c "spark/scripts/submit.sh extract --profile local --domain fashion --force"
+#
+# --- 이 파일이 하는 일 셋 ----------------------------------------------------
+#   1) 이미지를 CUDA 휠이 든 것으로 바꾼다 (spark/Dockerfile.gpu)
+#   2) 컨테이너에 GPU 를 넘긴다
+#   3) 추론 장치와 워커 수를 GPU 에 맞게 준다
+#
+# --- ⚠️ 워커가 하나인 것이 이 파일의 핵심이다 -------------------------------
+# 모델은 executor 파이썬 프로세스마다 적재된다 (`entities.recognizer_for`). `local[*]` 로
+# 두면 코어 수만큼 209M 파라미터가 VRAM 에 올라가고, 6 GB 짜리 GPU 는 그 전에 터진다.
+# 터지는 자리가 `_predict_chunk` 의 `except` 안이라 **Job 은 후보 0건으로 정상 종료한다** —
+# 그래서 `extract/batch.py` 의 `_partition_count` 가 시작 전에 거부하고, 여기서 맞는 값을
+# 준다.
+#
+# 병렬을 하나로 줄여도 느려지지 않는다. 추론이 문서당 약 1초라 나머지 단계(조인·집계)가
+# 묻히고, 그 추론 자체는 GPU 안에서 배치로 병렬이 된다.
+#
+# --- 선행 조건 --------------------------------------------------------------
+# Docker 에 nvidia 런타임이 등록돼 있어야 한다. 확인:
+#   docker info | grep -i runtimes
+#   docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
+#
+# --- 배포에는 얹지 않는다 ---------------------------------------------------
+# 데이터 EC2 에 GPU 가 없다. 이것은 **개발 PC 에서 재추출을 반복할 때** 쓰는 오버레이다.
+
+x-gpu-airflow: &gpu-airflow
+  image: s15p21a102/pipeline-spark-gpu:local
+  build:
+    context: ./spark
+    dockerfile: Dockerfile.gpu
+    args:
+      SPARK_IMAGE: s15p21a102/pipeline-spark:local
+  gpus: all
+  environment:
+    # `auto` 가 아니라 `cuda` 다. GPU 를 넘기지 못한 실행이 조용히 CPU 로 돌면, 하루치가
+    # 열 배 걸리는 것 말고는 아무 신호가 없다 (`entities.resolve_device`).
+    EXTRACT_DEVICE: cuda
+    SPARK_MASTER: local[1]
+    # **CPU 기본값(2048·32)으로는 GPU 가 논다.** 그 예산은 배치당 토막을 여덟 개쯤으로
+    # 묶는데, 그러면 커널이 너무 작아 실행 오버헤드와 동기화가 계산을 덮는다 — 2026-09-17
+    # 실측에서 사용률은 100% 인데 전력이 55W 중 25W, 메모리 대역폭이 0% 였고 건당 2.3초로
+    # **CPU(467ms)보다 느렸다.** 배치를 네 배로 키워 토막 32개쯤으로 묶는다.
+    EXTRACT_BATCH_WORDS: "16384"
+    EXTRACT_BATCH_SIZE: "128"
+    # **VRAM 이 절반이 되는 것이 속도보다 중요하다.** fp32 로 돌리면 6 GB 중 5.9 GB 를 채우고,
+    # 그 뒤로는 할당자가 매번 재조정하느라 메모리 대역폭이 0% 로 떨어져 **CPU 보다 느려졌다**
+    # (2026-09-17 실측, 건당 2.3초 대 467ms). 구간 수가 0.2% 달라지는 값이라 운영 기본은
+    # fp32 로 두고 여기서만 켠다 (`entities.RecognizerSpec.precision`).
+    EXTRACT_PRECISION: fp16
+
+services:
+  airflow-scheduler:
+    <<: *gpu-airflow
+  airflow-cli:
+    <<: *gpu-airflow
