@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html { scrollbar-gutter: stable; }
+  body { margin: 0; background: #fff; color: #1a1a2e; font-family: "Noto Sans KR", -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+  a { color: #4F46E5; text-decoration: none; }
+  a:hover { color: #3730A3; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; background: #fff; min-width: 1100px;">
+
+  <!-- HEADER -->
+  <header style="position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.06);">
+    <div style="display: flex; align-items: center; height: 64px; max-width: 1280px; margin: 0 auto; padding: 0 40px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#4F46E5" stroke="#4F46E5" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span style="font-size: 22px; font-weight: 700; letter-spacing: -1px; color: #1a1a2e;">TrendIn</span>
+      </div>
+      <nav style="display: flex; align-items: center; gap: 32px; margin-left: 48px;">
+        <a href="TrendIn Main v2.dc.html" style="font-size: 15px; font-weight: 500; color: #6b7280;" style-hover="color: #1a1a2e;">홈</a>
+        <a href="TrendIn Explore v2.dc.html" style="position: relative; font-size: 15px; font-weight: 600; color: #1a1a2e;">트렌드 탐색<span style="position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%); width: 20px; height: 2.5px; border-radius: 2px; background: #4F46E5;"></span></a>
+        <a href="TrendIn Keywords.dc.html" style="font-size: 15px; font-weight: 500; color: #6b7280;" style-hover="color: #1a1a2e;">관심 키워드</a>
+        <a href="TrendIn Global Trends v2.dc.html" style="font-size: 15px; font-weight: 500; color: #6b7280;" style-hover="color: #1a1a2e;">국가별 트렌드</a>
+        <a href="TrendIn Saved v3.dc.html" style="font-size: 15px; font-weight: 500; color: #6b7280;" style-hover="color: #1a1a2e;">저장된 트렌드</a>
+        <a href="TrendIn Report.dc.html" style="font-size: 15px; font-weight: 500; color: #6b7280;" style-hover="color: #1a1a2e;">리포트</a>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+        <button style="display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;" style-hover="background: #f3f4f6;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+        <button style="padding: 8px 18px; font-size: 14px; font-weight: 500; color: #374151; border: 1px solid #d1d5db; border-radius: 8px;" style-hover="background: #f9fafb;">로그인</button>
+        <button style="padding: 8px 18px; font-size: 14px; font-weight: 500; color: #fff; background: #1a1a2e; border-radius: 8px;" style-hover="background: #2d2d44;">회원가입</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section style="position: relative; overflow: hidden; padding: 48px 40px 40px; max-width: 1280px; margin: 0 auto;">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+      <div>
+        <p style="margin: 0 0 8px; font-size: 14px; color: #9ca3af;">트렌드를 더 빠르게, 더 깊이</p>
+        <h1 style="margin: 0; font-size: 40px; font-weight: 800; letter-spacing: -2px; color: #1a1a2e;">트렌드 탐색</h1>
+        <p style="margin: 12px 0 0; font-size: 15px; color: #6b7280;">인기·신규·급상승 트렌드를 한눈에 확인하세요.</p>
+      </div>
+      <div style="position: relative; width: 420px; height: 140px;">
+        <img src="uploads/flowing_wave_left_to_right_heartbeat_hq_v2-783db91c.webp" alt="flowing wave" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 16px rgba(99,102,241,0.1)); opacity: 0.85;">
+        <div style="position: absolute; top: 16px; right: 0; padding: 12px 16px; border-radius: 10px; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.06); z-index: 2;">
+          <p style="margin: 0; font-size: 12px; color: #6b7280; line-height: 1.6;">지금 이 순간에도<br>새로운 트렌드가 만들어지고 있어요.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SEARCH BAR -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 0 40px 24px;">
+    <div style="display: flex; align-items: center; gap: 0; padding: 8px 8px 8px 24px; border: 1.5px solid #e5e7eb; border-radius: 14px; background: #fff;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" style="flex: 0 0 20px; margin-right: 14px;"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" placeholder="궁금한 키워드를 검색해보세요. 예) 아이폰, AI, 부동산, 넷플릭스" style="flex: 1; border: 0; outline: none; font-size: 15px; color: #1a1a2e; background: transparent; font-family: inherit;">
+      <button style="display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; background: #1a1a2e; flex: 0 0 44px;" style-hover="background: #2d2d44;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- FILTERS (simplified - no sort dropdown) -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 0 40px 32px;">
+    <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 500; color: #6b7280;">기간</span>
+        <button style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; color: #374151; background: #fff;" style-hover="background: #f9fafb;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          최근 7일 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 500; color: #6b7280;">카테고리</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button style="padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #fff; background: #4F46E5;">전체</button>
+          <sc-for list="{{ categories }}" as="cat" hint-placeholder-count="8">
+            <button style="padding: 7px 16px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 13px; color: #374151; background: #fff;" style-hover="background: #f3f4f6;">{{ cat }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 13px; font-weight: 500; color: #6b7280;">플랫폼</span>
+        <button style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; color: #374151; background: #fff;" style-hover="background: #f9fafb;">전체 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 TREND SECTIONS -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 0 40px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; align-items: stretch;">
+
+      <!-- 🔥 인기 트렌드 TOP 5 -->
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #4F46E5;">
+          <div style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #4F46E5;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a2e;">인기 트렌드</h2>
+            <p style="margin: 2px 0 0; font-size: 12px; color: #9ca3af;">언급량 기준 TOP 5</p>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0;">
+          <sc-for list="{{ popularTrends }}" as="item" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 12px; transition: all 0.15s; height: 68px;" style-hover="background: #f8f7ff; cursor: pointer;">
+              <span style="font-size: 22px; font-weight: 800; color: {{ item.rankColor }}; width: 28px; text-align: center; flex: 0 0 28px;">{{ item.rank }}</span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #1a1a2e;">{{ item.name }}</span>
+                  <span style="padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: {{ item.tagColor }}; background: {{ item.tagBg }};">{{ item.tag }}</span>
+                </div>
+              </div>
+              <div style="text-align: right; flex: 0 0 auto;">
+                <span style="font-size: 14px; font-weight: 700; color: #4F46E5;">{{ item.mentions }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+<a href="#" style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: auto; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #6b7280;" style-hover="background: #f9fafb; color: #4F46E5;">더보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+
+      <!-- 🆕 신규 트렌드 TOP 5 -->
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #059669;">
+          <div style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #059669;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a2e;">신규 트렌드</h2>
+            <p style="margin: 2px 0 0; font-size: 12px; color: #9ca3af;">최근 새로 등장한 키워드</p>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0;">
+          <sc-for list="{{ newTrends }}" as="item" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 12px; transition: all 0.15s; height: 68px;" style-hover="background: #f0fdf4; cursor: pointer;">
+              <span style="font-size: 22px; font-weight: 800; color: {{ item.rankColor }}; width: 28px; text-align: center; flex: 0 0 28px;">{{ item.rank }}</span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #1a1a2e;">{{ item.name }}</span>
+                  <span style="padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: {{ item.tagColor }}; background: {{ item.tagBg }};">{{ item.tag }}</span>
+                </div>
+                <span style="font-size: 12px; color: #9ca3af;">언급량 {{ item.mentions }}</span>
+              </div>
+              <div style="text-align: right; flex: 0 0 auto;">
+                <span style="font-size: 14px; font-weight: 700; color: #6b7280;">{{ item.detected }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+<a href="#" style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: auto; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #6b7280;" style-hover="background: #f9fafb; color: #059669;">더보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+
+      <!-- 🚀 급상승 트렌드 TOP 5 -->
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #dc2626;">
+          <div style="display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #dc2626;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/></svg>
+          </div>
+          <div>
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #1a1a2e;">급상승 트렌드</h2>
+            <p style="margin: 2px 0 0; font-size: 12px; color: #9ca3af;">증가율 기준 TOP 5</p>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0;">
+          <sc-for list="{{ risingTrends }}" as="item" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 12px; transition: all 0.15s; height: 68px;" style-hover="background: #fef2f2; cursor: pointer;">
+              <span style="font-size: 22px; font-weight: 800; color: {{ item.rankColor }}; width: 28px; text-align: center; flex: 0 0 28px;">{{ item.rank }}</span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 15px; font-weight: 600; color: #1a1a2e;">{{ item.name }}</span>
+                  <span style="padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: {{ item.tagColor }}; background: {{ item.tagBg }};">{{ item.tag }}</span>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; flex: 0 0 auto;">
+                <svg viewBox="0 0 48 20" width="48" height="20">
+                  <path d="{{ item.chartPath }}" fill="none" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"></path>
+                </svg>
+                <span style="font-size: 14px; font-weight: 700; color: #dc2626;">{{ item.delta }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+<a href="#" style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: auto; padding: 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; font-weight: 500; color: #6b7280;" style-hover="background: #f9fafb; color: #dc2626;">더보기 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- QUICK TAGS + CTA -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 40px 40px 48px;">
+    <div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px;">
+      <!-- 빠른 탐색 -->
+      <div style="border: 1px solid #e5e7eb; border-radius: 14px; padding: 24px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 14px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+          <span style="font-size: 15px; font-weight: 700; color: #1a1a2e;">빠른 탐색</span>
+          <span style="font-size: 12px; color: #9ca3af; margin-left: 4px;">관심 있는 주제로 바로 이동해보세요</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <sc-for list="{{ quickTags }}" as="qt" hint-placeholder-count="9">
+            <button style="padding: 8px 18px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; color: #374151; background: #fff;" style-hover="background: #f3f4f6; border-color: #d1d5db;">{{ qt }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <!-- CTA -->
+      <div style="border-radius: 14px; padding: 28px 24px; background: linear-gradient(135deg, #ede9fe, #e0e7ff); position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center;" style-hover="cursor: pointer;">
+        <div style="position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; background: rgba(167,139,250,0.2); filter: blur(12px);"></div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" style="margin-bottom: 8px;"><path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/></svg>
+        <p style="margin: 0; font-size: 15px; font-weight: 600; line-height: 1.6; color: #4338ca; position: relative; z-index: 1;">지금, 당신만의<br>관심 키워드를 등록해보세요.</p>
+        <p style="margin: 8px 0 0; font-size: 13px; color: #6366f1;">맞춤 트렌드 알림을 받을 수 있습니다.</p>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2.5" stroke-linecap="round" style="position: absolute; right: 20px; bottom: 24px;"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer style="border-top: 1px solid #f3f4f6; background: #fafafa;">
+    <div style="display: flex; align-items: center; justify-content: space-between; max-width: 1280px; margin: 0 auto; padding: 32px 40px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#9ca3af"/></svg>
+        <span style="font-size: 16px; font-weight: 700; color: #9ca3af;">TrendIn</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #9ca3af;">© 2026 TrendIn. 실시간 트렌드 분석 플랫폼</p>
+    </div>
+  </footer>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  renderVals() {
+    const categories = ['IT/테크', '경제', '라이프', '엔터', '사회', '스포츠', '게임', '여행', '뷰티'];
+
+    const popularTrends = [
+      { rank: '1', rankColor: '#4F46E5', name: '아이폰17', tag: 'IT/테크', tagColor: '#4F46E5', tagBg: '#ede9fe', mentions: '12.4만' },
+      { rank: '2', rankColor: '#9ca3af', name: 'AI 브라우저', tag: 'IT/테크', tagColor: '#4F46E5', tagBg: '#ede9fe', mentions: '8.7만' },
+      { rank: '3', rankColor: '#9ca3af', name: '전세사기', tag: '사회', tagColor: '#dc2626', tagBg: '#fee2e2', mentions: '6.1만' },
+      { rank: '4', rankColor: '#9ca3af', name: '여행 일본', tag: '라이프', tagColor: '#059669', tagBg: '#d1fae5', mentions: '5.8만' },
+      { rank: '5', rankColor: '#9ca3af', name: '넷플릭스', tag: '엔터', tagColor: '#7c3aed', tagBg: '#ede9fe', mentions: '4.3만' },
+    ];
+
+    const newTrends = [
+      { rank: '1', rankColor: '#059669', name: 'Claude 4', tag: 'IT/테크', tagColor: '#4F46E5', tagBg: '#ede9fe', detected: '2시간 전', mentions: '2.1만' },
+      { rank: '2', rankColor: '#9ca3af', name: '수능 개편안', tag: '사회', tagColor: '#dc2626', tagBg: '#fee2e2', detected: '5시간 전', mentions: '1.8만' },
+      { rank: '3', rankColor: '#9ca3af', name: '갤럭시 링2', tag: 'IT/테크', tagColor: '#4F46E5', tagBg: '#ede9fe', detected: '8시간 전', mentions: '1.4만' },
+      { rank: '4', rankColor: '#9ca3af', name: '올리브영 세일', tag: '뷰티', tagColor: '#db2777', tagBg: '#fce7f3', detected: '12시간 전', mentions: '9,800' },
+      { rank: '5', rankColor: '#9ca3af', name: '스타필드 수원', tag: '라이프', tagColor: '#059669', tagBg: '#d1fae5', detected: '1일 전', mentions: '7,200' },
+    ];
+
+    const risingTrends = [
+      { rank: '1', rankColor: '#dc2626', name: '금리 인하', tag: '경제', tagColor: '#d97706', tagBg: '#fef3c7', delta: '+520%', mentions: '3.2만', chartPath: 'M0,22 C10,20 20,18 30,14 C40,8 50,4 60,2' },
+      { rank: '2', rankColor: '#9ca3af', name: '태풍 경로', tag: '사회', tagColor: '#dc2626', tagBg: '#fee2e2', delta: '+380%', mentions: '2.8만', chartPath: 'M0,20 C10,18 20,16 30,10 C40,6 50,4 60,3' },
+      { rank: '3', rankColor: '#9ca3af', name: 'K-푸드 수출', tag: '경제', tagColor: '#d97706', tagBg: '#fef3c7', delta: '+312%', mentions: '1.9만', chartPath: 'M0,20 C10,18 20,16 30,12 C40,8 50,6 60,4' },
+      { rank: '4', rankColor: '#9ca3af', name: '로블록스 신작', tag: '게임', tagColor: '#2563eb', tagBg: '#dbeafe', delta: '+245%', mentions: '1.5만', chartPath: 'M0,20 C10,18 20,14 30,12 C40,10 50,8 60,5' },
+      { rank: '5', rankColor: '#9ca3af', name: '테슬라 로보택시', tag: 'IT/테크', tagColor: '#4F46E5', tagBg: '#ede9fe', delta: '+198%', mentions: '1.2만', chartPath: 'M0,20 C10,18 20,16 30,14 C40,10 50,8 60,6' },
+    ];
+
+    const quickTags = ['AI', '아이폰', '부동산', '주식', '여행', '넷플릭스', '뷰티', '건강', '자동차', '교육', '게임', '환율'];
+    return { categories, popularTrends, newTrends, risingTrends, quickTags };
+  }
+}
+
+</script>
+</body>
+</html>

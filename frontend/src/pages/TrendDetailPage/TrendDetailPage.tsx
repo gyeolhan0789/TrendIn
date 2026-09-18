@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { HomePage } from '../HomePage/HomePage';
+import { formatGrowth } from '../../features/trend/trendFormat';
 import { SavedTrendPage } from '../SavedTrendPage/SavedTrendPage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -44,10 +45,6 @@ function formatBucketLabel(point: TrendHistoryPoint, period: PeriodCode) {
 
 function formatNumber(value: number | null) {
   return value === null ? '—' : value.toLocaleString();
-}
-
-function formatGrowthRate(value: number | null) {
-  return value === null ? '—' : `${value > 0 ? '+' : ''}${value}%`;
 }
 
 function getChartBarColor(index: number, total: number) {
@@ -175,7 +172,7 @@ export function TrendDetailPage() {
 
           <section className="detail-kpis" aria-label="트렌드 핵심 지표">
             <div><span>{periodLabel} 언급량</span><strong>{formatNumber(trend.mentionCount)}</strong></div>
-            <div><span>직전 구간 대비</span><strong className="accent">{formatGrowthRate(trend.growthRate)}</strong></div>
+            <div><span>직전 구간 대비</span><strong className="accent">{formatGrowth(trend.growthRate)}</strong></div>
             <div className="detail-kpi-meta">
               {windowLabel && <span><b>{windowLabel}</b> 집계</span>}
               <span>{trend.previousMentionCount === null ? '직전 구간 집계 없음' : `직전 구간 ${trend.previousMentionCount.toLocaleString()}건`}</span>

@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { AddInterestKeywordButton } from './AddInterestKeywordButton';
 import { useKeywordSearch } from '../../trend/hooks/useKeywordSearch';
+import { formatGrowth } from '../../trend/trendFormat';
 import type { KeywordSearchItem } from '../../trend/types/keyword';
 
 /** 글자를 칠 때마다 보내지 않고, 잠시 멈춘 뒤의 값으로만 찾습니다. */
 const SEARCH_DELAY_MS = 250;
 
-function formatGrowth(item: KeywordSearchItem) {
+/** 아직 트렌드에 오르지 않은 키워드도 목록에 섞여 와서, 숫자 대신 왜 없는지를 알려 줍니다. */
+function describeGrowth(item: KeywordSearchItem) {
   if (item.trendId === null) return '트렌드 없음';
   if (item.growthRate === null) return '증감 없음';
-  return `${item.growthRate > 0 ? '+' : ''}${item.growthRate}%`;
+  return formatGrowth(item.growthRate);
 }
 
 export function KeywordSearchBar() {
@@ -66,7 +68,7 @@ export function KeywordSearchBar() {
             <div className="keywords-add-row" key={item.keywordId}>
               <span className="keywords-add-name">
                 <strong>{item.keyword}</strong>
-                <small>{item.domain.name} · {formatGrowth(item)}</small>
+                <small>{item.domain.name} · {describeGrowth(item)}</small>
               </span>
               <AddInterestKeywordButton keywordId={item.keywordId} keyword={item.keyword} />
             </div>
