@@ -18,6 +18,12 @@ services:
       DEV_REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
       DEV_JWT_SECRET: ${DEV_JWT_SECRET:?Set DEV_JWT_SECRET in infra/.env}
       DEV_CORS_ALLOWED_ORIGINS: ${DEV_CORS_ALLOWED_ORIGINS:?Set DEV_CORS_ALLOWED_ORIGINS in infra/.env}
+      # OAuth 자격증명은 다른 변수와 달리 비어 있어도 배포를 막지 않는다. 아직 이 기능에
+      # 의존하는 화면이 없어서, 값을 채우기 전에 배포 전체가 멈추는 쪽이 더 손해다.
+      # 비어 있으면 애플리케이션이 기동 로그에 경고를 남기고 OAuth 로그인만 실패한다.
+      GITLAB_OAUTH_CLIENT_ID: ${GITLAB_OAUTH_CLIENT_ID:-}
+      GITLAB_OAUTH_CLIENT_SECRET: ${GITLAB_OAUTH_CLIENT_SECRET:-}
+      GITLAB_OAUTH_REDIRECT_URI: ${GITLAB_OAUTH_REDIRECT_URI:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:?Set BACKEND_PORT in infra/.env}:8080"
     depends_on:

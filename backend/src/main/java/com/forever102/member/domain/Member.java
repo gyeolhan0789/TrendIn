@@ -31,7 +31,8 @@ public class Member extends BaseEntity {
     private String email;
 
     // 컬럼명은 DDL의 password를 따르되, 저장하는 값이 해시임을 드러내도록 필드명은 passwordHash로 둔다.
-    @Column(name = "password", nullable = false, length = 255)
+    // OAuth로만 가입한 회원은 비밀번호가 없어 null을 허용한다.
+    @Column(name = "password", length = 255)
     private String passwordHash;
 
     @Column(nullable = false, length = 30)
@@ -50,6 +51,13 @@ public class Member extends BaseEntity {
 
     public static Member create(String email, String passwordHash, String nickname) {
         return new Member(email, passwordHash, nickname);
+    }
+
+    /**
+     * OAuth 제공자로만 가입한 회원. 비밀번호가 없어 이메일·비밀번호 로그인으로는 들어올 수 없다.
+     */
+    public static Member createOAuthMember(String email, String nickname) {
+        return new Member(email, null, nickname);
     }
 
     public void updateNickname(String nickname) {
