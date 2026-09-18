@@ -201,6 +201,26 @@ def test_본문에_마스크와_관련기사가_섞이지_않는다(make_session
     assert "에디터 홍길동" not in article.body_text  # atc_body_cont 밖이다
 
 
+def test_유료_표시_기사도_본문과_raw_를_저장하지_않는다(make_session, listing_bytes):
+    """피드 소스와 같은 판정이다 (S15P21A102-285). 회원 전용과는 따로 센다."""
+    article_html = listing_bytes("synthetic_article.html").replace(
+        b'"@type":"NewsArticle",', b'"@type":"NewsArticle","isAccessibleForFree":false,'
+    )
+    routes = {
+        "/fashion": (200, listing_bytes("synthetic_listing.html")),
+        "/article/1000001": (200, article_html),
+    }
+    with make_session(routes) as session:
+        adapter = _adapter(session)
+        candidate = next(c for c in adapter.discover().candidates if c.article_id == "1000001")
+        _raw, article = adapter.materialize(candidate)
+
+    assert article.paywalled is True
+    assert article.members_only is None
+    assert article.body_text is None
+    assert article.raw_key is None and article.content_sha256 is None
+
+
 # --- 계약 -------------------------------------------------------------------
 
 

@@ -1,8 +1,9 @@
 """피드 어댑터 — RSS 2.0 · RSS 1.0 · Atom (설계 문서 확정 1·2, S15P21A102-284).
 
-피드 하나가 발견과 취득을 동시에 끝낸다 — item 조각이 곧 raw 다. 그래서 `discover` 는
-guid 만 뽑는 값싼 경로고, 본문 조각을 만드는 무거운 일은 `materialize` 로 미룬다. 그 사이에서
-장부가 이미 받은 기사를 걸러 내면 매 주기 다시 받은 10건 중 새것만 정규화된다.
+피드는 후보와 메타데이터(제목·발행일·분류·저자)를 준다. `discover` 는 guid 만 뽑는 값싼
+경로고, 기사 페이지를 받아 본문을 뽑는 무거운 일은 `materialize` 로 미룬다. 그 사이에서
+장부가 이미 받은 기사를 걸러 내면 매 주기 다시 받은 10건 중 새것만 페이지를 받는다.
+raw 는 item 조각이 아니라 기사 페이지다(확정 2, S15P21A102-285).
 
 파서는 `xml.parsers.expat` 을 네임스페이스 처리 없이 직접 쓴다. 2026-09-03 실측에서
 vogue·gqkorea·allure 피드가 `xmlns:media` 선언 없이 `<media:thumbnail>` 을 써서
@@ -29,6 +30,7 @@ from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 
 from trendin.common.collect.article import Article
+from trendin.common.collect.body import decode_page, extract_body
 from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, Rule, SourceDef
 from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import raw_key
@@ -320,20 +322,40 @@ class RssAdapter:
         return DiscoverResult(candidates, failures)
 
     def materialize(self, candidate: Candidate) -> tuple[bytes, Article]:
+        """기사 페이지를 받아 raw 와 article.json 을 만든다 (확정 2, S15P21A102-285).
+
+        피드가 전문을 줘도 페이지를 받는다 — 전문인지 요약인지 기사마다 가를 수 없어서다
+        (2026-09-16 실측: Dazed·BoF·Drapers·GlobeNewswire 가 요약을 본문 칸에 넣는다).
+        제목·발행일·분류·저자는 item 조각에서 읽고, raw 는 받은 기사 페이지다.
+
+        페이지를 못 받으면 예외를 올려 그 기사만 실패로 빠진다. 장부에 안 적혔으니 피드에
+        남아 있는 동안 다음 주기에 다시 후보가 된다. 403·429 는 세션이 `HostBlocked` 로
+        올려 그 실행의 소스를 멈춘다(불변식 2).
+        """
         if candidate.published_at is None:
             raise ValueError(f"발행일이 없어 키를 만들 수 없다: {candidate.article_id}")
+        allowed = self.source.allowed_url_prefixes
+        if allowed and not candidate.url.startswith(allowed):
+            # 세션도 막지만 거기선 소스 전체를 멈추는 예외다. 링크 하나로 멈추지 않게 먼저 거른다.
+            raise ValueError(f"기사 링크가 허용 범위 밖이다: {candidate.url}")
 
         entry = parse_item(candidate.raw)
         shape = _FORMATS[feed_format(entry)]
-        body_text = html_fragment(entry.first(shape.body)) or None
-        if body_text is None:
-            # 평소 0~1건이다. 갑자기 늘면 피드 구조가 바뀐 신호다 (2026-09-03 wkorea 1건).
+
+        response = self._session.get(candidate.url, conditional=False)
+        if response.status != 200:
+            # 세션은 리다이렉트를 따라가지 않는다(허용 범위 검사를 건너뛰게 되므로).
+            raise ValueError(f"기사 페이지가 {response.status} 다: {candidate.url}")
+        raw = response.body
+        collected_at = self._now()  # 원문을 받은 시각은 여기다 (#5.3)
+        page = extract_body(decode_page(raw), url=candidate.url, feed_body=entry.first(shape.body))
+        if page.paywalled:
+            # 본문도 raw 도 저장하지 않는다. HTML 에 본문이 실려 와도 같다 (불변식 2).
+            logger.info("%s: 유료 표시 — 본문 제외 %s", self.source.key, candidate.article_id)
+        elif page.body_text is None:
             logger.warning(
                 "%s: 본문이 비었다 — article_id=%s", self.source.key, candidate.article_id
             )
-
-        # HTML 로 보이는 description 도 버리지 않는다 — 본문과 같은 조각 규칙을 지난다(#5.3).
-        summary = html_fragment(entry.first(shape.summary)) or None
 
         article = Article(
             domain=self.source.domain,
@@ -343,19 +365,25 @@ class RssAdapter:
             url=candidate.url,
             title=entry.first("title").strip(),
             published_at=candidate.published_at,
-            collected_at=candidate.collected_at,
-            raw_key=raw_key(
-                self.source.domain,
-                self.source.key,
-                self.source.route,
-                candidate.published_at,
-                candidate.article_id,
-                ext=candidate.raw_ext,
+            collected_at=collected_at,
+            raw_key=(
+                None
+                if page.paywalled
+                else raw_key(
+                    self.source.domain,
+                    self.source.key,
+                    self.source.route,
+                    candidate.published_at,
+                    candidate.article_id,
+                    ext="html",
+                )
             ),
-            content_sha256=hashlib.sha256(candidate.raw).hexdigest(),
-            summary=summary,
-            body_text=body_text,
+            content_sha256=None if page.paywalled else hashlib.sha256(raw).hexdigest(),
+            # HTML 로 보이는 description 도 버리지 않는다 — 본문과 같은 조각 규칙을 지난다(#5.3).
+            summary=html_fragment(entry.first(shape.summary)) or None,
+            body_text=page.body_text,
             categories=[c.strip() for c in shape.categories(entry) if c.strip()],
             author=shape.author(entry, self.source).strip() or None,
+            paywalled=page.paywalled or None,
         )
-        return candidate.raw, article
+        return raw, article
