@@ -1,0 +1,8 @@
+key = "itnk"
+domain = "fashion"
+route = "rss"
+country = "KR"  # 발행 법인 (주)국제섬유신문사(서울)의 소재지
+discover_url = "https://www.itnk.co.kr/rss/allArticle.xml"
+allowed_url_prefixes = ["https://www.itnk.co.kr/"]
+article_id = { rule = "link_query_param", param = "idxno" }
+published_at = { rule = "rss_pubdate_local", param = "Asia/Seoul" }

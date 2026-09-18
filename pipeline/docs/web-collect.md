@@ -55,6 +55,8 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | `dazed` | fashion | https://www.dazeddigital.com/rss |
 | `id` | fashion | https://i-d.co/category/fashion/feed/ |
 | `theindustry` | fashion | https://www.theindustry.fashion/feed/ |
+| `ktnews` | fashion | https://www.ktnews.com/rss/allArticle.xml |
+| `itnk` | fashion | https://www.itnk.co.kr/rss/allArticle.xml |
 | `mensnonno` | fashion | https://www.mensnonno.jp/fashion/feed/ |
 | `fudge` | fashion | https://fudge.jp/fashion/feed/ |
 | `oggi` | fashion | https://oggi.jp/fashion/feed |
