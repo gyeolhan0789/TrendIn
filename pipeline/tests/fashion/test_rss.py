@@ -13,7 +13,7 @@ from datetime import timezone
 import httpx
 import pytest
 
-from trendin.common.collect.contracts import Rule, SourceDef
+from trendin.common.collect.contracts import ArticleFetchError, Rule, SourceDef
 from trendin.common.collect.keys import KST
 from trendin.common.collect.session import CollectSession, HostBlocked
 from trendin.common.collect.stores import InMemoryValidatorStore
@@ -427,28 +427,36 @@ def test_유료_표시_기사는_본문과_raw_를_저장하지_않는다(clock,
     assert article.title and article.summary  # 제목·요약은 남는다
 
 
-def test_기사_페이지를_못_받으면_그_기사만_실패한다(clock, feed_bytes):
+def test_404_는_다시_시도하지_않는다(clock, feed_bytes):
+    """기사가 지워진 것이라 다시 쳐도 결과가 같다 (S15P21A102-312)."""
     adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=404)
     with session:
         (candidate,) = adapter.discover().candidates
-        with pytest.raises(Exception, match="404"):
+        with pytest.raises(ArticleFetchError, match="404") as caught:
             adapter.materialize(candidate)
+    assert caught.value.retryable is False
+    assert caught.value.meta.article_id == "705465"
 
 
 def test_리다이렉트는_따라가지_않고_실패로_본다(clock, feed_bytes):
     adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=301)
     with session:
         (candidate,) = adapter.discover().candidates
-        with pytest.raises(ValueError, match="301"):
+        with pytest.raises(ArticleFetchError, match="301") as caught:
             adapter.materialize(candidate)
+    assert caught.value.retryable is True and caught.value.blocking is False
 
 
-def test_기사_페이지가_403_이면_호스트를_멈춘다(clock, feed_bytes):
+def test_기사_페이지가_403_이면_대기로_남기고_호스트를_멈춘다(clock, feed_bytes):
+    """대기 행은 남기되 그 실행에서 이 호스트는 끝이다 (불변식 2, S15P21A102-312)."""
     adapter, session, _handler = _first_synthetic(b"", clock, feed_bytes, status=403)
     with session:
         (candidate,) = adapter.discover().candidates
-        with pytest.raises(HostBlocked):
+        with pytest.raises(ArticleFetchError) as caught:
             adapter.materialize(candidate)
+    assert caught.value.blocking is True
+    assert isinstance(caught.value.__cause__, HostBlocked)
+    assert caught.value.meta.title and caught.value.meta.published_at
 
 
 def test_허용_범위_밖_링크는_치지_않고_그_기사만_실패한다(clock, feed_bytes):

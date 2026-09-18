@@ -4,13 +4,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { KeywordSuggestMenu } from '../../features/trend/components/KeywordSuggestMenu';
+import { useKeywordSuggest } from '../../features/trend/hooks/useKeywordSuggest';
 import { useTrends } from '../../features/trend/hooks/useTrends';
 import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
 import { DEFAULT_PERIOD } from '../../constants/filterCodes';
+import type { KeywordSearchItem } from '../../features/trend/types/keyword';
 import type { Trend, TrendType } from '../../features/trend/types/trend';
 import { landingContents } from './landingContents';
 
 type BoardTone = 'rising' | 'new' | 'resurging';
+
+/** 입력칸이 aria-controls 로 가리킬 이름입니다. 한 쪽에 검색 상자가 하나라 고정 값으로 둡니다. */
+const SUGGEST_ID = 'landing-keyword-suggest';
 
 interface TrendBoardProps {
   title: string;
@@ -142,8 +148,24 @@ export function LandingPage() {
     navigate(to, { state });
   };
 
+  /* 고른 말이 트렌드에 올라 있으면 상세로 보내고, 아직이라면 원래의 '찾지 못했습니다'로 알립니다. */
+  const selectSuggestion = (item: KeywordSearchItem) => {
+    setKeyword(item.keyword);
+    if (item.trendId === null) {
+      setSearchMiss(item.keyword);
+      return;
+    }
+    setSearchMiss(undefined);
+    const { to, state } = openDetail(item.trendId);
+    navigate(to, { state });
+  };
+
+  // 검색 API는 토큰을 요구합니다. 로그인 전에는 묻지 않고, 지금처럼 로그인으로 안내만 합니다.
+  const suggest = useKeywordSuggest(keyword, selectSuggestion, Boolean(session));
+
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
+    suggest.hide();
     goToKeyword(keyword);
   };
 
@@ -160,22 +182,44 @@ export function LandingPage() {
           <h1>지금,<br />세상을 움직이는<br /><span>트렌드</span>를 담다</h1>
           <p className="landing-hero-lead">수많은 데이터 속에서 중요한 흐름을 찾아,<br />더 빠르고, 더 깊이 있게.</p>
 
-          <form className="landing-search" onSubmit={submitSearch} role="search">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              value={keyword}
-              placeholder="관심 있는 키워드를 검색해보세요."
-              aria-label="키워드 검색"
-              onChange={(event) => { setKeyword(event.target.value); setSearchMiss(undefined); }}
-            />
-            <button type="submit" aria-label="검색">
-              <ArrowIcon size={16} color="#fff" width={2.5} />
-            </button>
-          </form>
+          <div className="landing-search-shell" ref={suggest.box}>
+            <form className="landing-search" onSubmit={submitSearch} role="search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={keyword}
+                placeholder="관심 있는 키워드를 검색해보세요."
+                aria-label="키워드 검색"
+                role="combobox"
+                aria-expanded={suggest.visible}
+                aria-controls={SUGGEST_ID}
+                aria-autocomplete="list"
+                aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
+                autoComplete="off"
+                onChange={(event) => { setKeyword(event.target.value); setSearchMiss(undefined); suggest.show(); }}
+                onFocus={suggest.show}
+                onKeyDown={suggest.handleKeyDown}
+              />
+              <button type="submit" aria-label="검색">
+                <ArrowIcon size={16} color="#fff" width={2.5} />
+              </button>
+            </form>
+
+            {suggest.visible && (
+              <KeywordSuggestMenu
+                id={SUGGEST_ID}
+                query={keyword.trim()}
+                items={suggest.items}
+                status={suggest.status}
+                activeIndex={suggest.activeIndex}
+                onHover={suggest.setActiveIndex}
+                onSelect={suggest.select}
+              />
+            )}
+          </div>
           {searchMiss && <p className="landing-search-miss" role="status">‘{searchMiss}’와 맞는 트렌드를 찾지 못했습니다.</p>}
 
           <div className="landing-tags">
@@ -219,7 +263,7 @@ export function LandingPage() {
 
         <div className="landing-boards">
           <TrendBoard
-            title="급상승 트렌드"
+            title="인기 트렌드"
             tone="rising"
             trends={topTrends}
             loading={currentQuery.isLoading}
@@ -237,7 +281,7 @@ export function LandingPage() {
             onRetry={() => void newQuery.refetch()}
           />
           <TrendBoard
-            title="재급상승 트렌드"
+            title="급상승 트렌드"
             tone="resurging"
             trends={risingQuery.data?.trends ?? []}
             loading={risingQuery.isLoading}

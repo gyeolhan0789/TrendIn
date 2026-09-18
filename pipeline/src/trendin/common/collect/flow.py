@@ -24,14 +24,16 @@ from typing import Callable, Iterable, Sequence, get_args
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import (
     UNKNOWN_COUNTRY,
+    ArticleFetchError,
     Candidate,
     Failure,
+    FetchMeta,
     SourceAdapter,
     Stage,
 )
 from trendin.common.collect.events import article_event, run_summary_event
 from trendin.common.collect.keys import article_key, raw_ext, raw_key
-from trendin.common.collect.ledger import EmittedStats, Ledger
+from trendin.common.collect.ledger import EmittedStats, Ledger, RetryRow
 from trendin.common.collect.session import (
     BlockedUserAgent,
     HostBlocked,
@@ -53,6 +55,12 @@ KST = timezone(timedelta(hours=9), "KST")
 # 요청(`source-discovery.md` 불변식 18, 불변식 2)이라 5분 뒤에 다시 보내도 똑같이 안 된다.
 # 여기 없는 실패(`FetchFailed` — 타임아웃·5xx)는 재시도가 의미 있다.
 NO_RETRY = (BlockedUserAgent, UrlNotAllowed, HostBlocked)
+
+# 기사 페이지를 못 받은 기사를 다시 시도하는 상한 (S15P21A102-312). 둘 중 하나에 닿으면
+# 포기하고 본문 없이 저장한다. 불변식 12 의 "장부에 있는 기사는 다시 받지 않는다" 에 둔
+# 예외라 상한이 필요하다 — 없으면 못 받는 기사 한 건이 매 회차 요청을 되풀이한다.
+RETRY_LIMIT = 3
+RETRY_WINDOW = timedelta(hours=24)
 
 TASK_FAILED_REASON = "태스크가 실패했다 (로그 참조)"
 
@@ -170,12 +178,34 @@ def article_bytes(article: Article) -> bytes:
     return article.model_dump_json(exclude_none=True).encode("utf-8")
 
 
+def _give_up_now(row: RetryRow, now: datetime) -> bool:
+    """더 시도하지 않는다. 횟수를 다 썼거나 창을 넘겼다."""
+    return row.attempts >= RETRY_LIMIT or now - row.first_failed_at >= RETRY_WINDOW
+
+
+def abandoned_article(meta: FetchMeta, collected_at: datetime) -> Article:
+    """페이지를 끝내 못 받은 기사. 제목·URL·발행일·분류만 있고 본문도 raw 도 없다."""
+    return Article(
+        domain=meta.domain,
+        source=meta.source,
+        route=meta.route,
+        article_id=meta.article_id,
+        url=meta.url,
+        title=meta.title,
+        published_at=meta.published_at,
+        collected_at=collected_at,
+        categories=list(meta.categories),
+        fetch_failed=True,
+    )
+
+
 def store_candidates(
     adapter: SourceAdapter,
     candidates: Iterable[Candidate],
     *,
     ledger: Ledger,
     store: ObjectStore,
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> tuple[int, int, int, list[Failure]]:
     """후보를 취득·정규화해 저장하고 장부에 적는다.
 
@@ -193,6 +223,24 @@ def store_candidates(
     for candidate in candidates:
         try:
             raw, article = adapter.materialize(candidate)
+        except ArticleFetchError as exc:
+            # 기사 페이지를 못 받았다. 장부에 대기 행으로 남겨 다음 주기에 다시 시도한다
+            # (S15P21A102-312). MinIO 에는 아무것도 쓰지 않는다.
+            logger.warning("%s: 페이지를 못 받았다 %s — %s", source.key, candidate.article_id, exc)
+            failures.append(Failure(source.key, "materialize", candidate.article_id, exc.reason))
+            if exc.meta is not None:
+                moment = now()
+                row = ledger.mark_retry(exc.meta, at=moment)
+                if not exc.retryable or _give_up_now(row, moment):
+                    article = abandoned_article(exc.meta, moment)
+                    if store_article(article, b"", store=store, ledger=ledger):
+                        stored += 1
+                        logger.info(
+                            "%s: 포기하고 본문 없이 저장 %s", source.key, article.article_id
+                        )
+            if exc.blocking:
+                raise  # 그 실행에서 이 호스트는 끝이다 (불변식 2)
+            continue
         except NO_RETRY:
             raise
         except Exception as exc:  # 기사 하나가 깨져도 나머지는 간다
@@ -224,7 +272,13 @@ def store_candidates(
     return stored, members_only_stored, paywalled_stored, failures
 
 
-def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore) -> SourceOutcome:
+def collect_source(
+    adapter: SourceAdapter,
+    *,
+    ledger: Ledger,
+    store: ObjectStore,
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+) -> SourceOutcome:
     """소스 하나를 돈다. 기사 한 건의 실패는 나머지를 멈추지 않는다(불변식 9 의 실패 단위).
 
     발견 자체가 실패하면 예외가 그대로 올라간다 — 그 소스는 이번 실행에서 할 일이 없고,
@@ -237,9 +291,15 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
     new_ids = ledger.filter_new(source.key, [c.article_id for c in result.candidates])
     fresh = [c for c in result.candidates if c.article_id in new_ids]
 
+    # 그 소스의 대기 행을 먼저 처리한다 — 오래 기다린 것이 먼저 나간다 (S15P21A102-312).
+    waiting = [row.meta.article_id for row in ledger.retrying(source.key)]
+    order = {article_id: position for position, article_id in enumerate(waiting)}
+    fresh.sort(key=lambda c: order.get(c.article_id, len(order)))
+
     stored, members_only_stored, paywalled_stored, failures = store_candidates(
-        adapter, fresh, ledger=ledger, store=store
+        adapter, fresh, ledger=ledger, store=store, now=now
     )
+    stored += abandon_expired(source.key, ledger=ledger, store=store, now=now)
     for failure in result.failures:
         logger.warning("%s: 발견 실패 %s — %s", source.key, failure.ref, failure.reason)
 
@@ -267,6 +327,30 @@ def collect_source(adapter: SourceAdapter, *, ledger: Ledger, store: ObjectStore
         members_only_stored=members_only_stored,
         paywalled_stored=paywalled_stored,
     )
+
+
+def abandon_expired(
+    source_key: str,
+    *,
+    ledger: Ledger,
+    store: ObjectStore,
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+) -> int:
+    """이번 회차 후보에 없었던 대기 행 중 상한을 넘긴 것을 포기시킨다 (S15P21A102-312).
+
+    후보에 들어 있던 대기 행은 `store_candidates` 가 이미 다뤘다. 여기 남는 것은 기사가
+    피드에서 밀려나 다시 시도할 길이 없어진 행이다 — 기다려도 결과가 달라지지 않는다.
+    """
+    moment = now()
+    abandoned = 0
+    for row in ledger.retrying(source_key):
+        if not _give_up_now(row, moment):
+            continue
+        article = abandoned_article(row.meta, moment)
+        if store_article(article, b"", store=store, ledger=ledger):
+            abandoned += 1
+            logger.info("%s: 피드에서 사라져 포기 %s", source_key, article.article_id)
+    return abandoned
 
 
 def object_metadata(collected_at: datetime, sha256: str | None) -> dict[str, str]:

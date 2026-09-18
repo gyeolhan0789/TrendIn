@@ -13,15 +13,20 @@ import pytest
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import (
     UNKNOWN_COUNTRY,
+    ArticleFetchError,
     Candidate,
     DiscoverResult,
     Failure,
+    FetchMeta,
     SourceDef,
 )
 from trendin.common.collect.doubles import InMemoryObjectStore, RecordingEventPublisher
 from trendin.common.collect.flow import (
+    RETRY_LIMIT,
+    RETRY_WINDOW,
     SourceOutcome,
     SourceStatus,
+    abandoned_article,
     collect_source,
     outcomes_from_xcom,
     publish_pending,
@@ -228,7 +233,7 @@ def test_두_번째_발급은_아무것도_내지_않는다():
             publisher=publisher,
             bucket="raw-data",
             domain="fashion",
-                run_id="20260903T110000",
+            run_id="20260903T110000",
             now=NOW,
         )
     assert len(publisher.sent) == 1
@@ -249,7 +254,7 @@ def test_발행이_실패하면_장부를_적지_않는다():
             publisher=Broken(),
             bucket="raw-data",
             domain="fashion",
-                run_id="20260903T110000",
+            run_id="20260903T110000",
             now=NOW,
         )
     assert len(ledger.pending("fashion")) == 1  # 다음 실행이 이어 낸다
@@ -279,8 +284,12 @@ def test_요약_이벤트는_0건이어도_나가고_죽은_소스는_failed_로
         run_id="20260903T100000",
         logical_date=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
         statuses=[
-            SourceStatus(source="vogue", domain="fashion", status="success",
-                         outcome=SourceOutcome(source="vogue", domain="fashion")),
+            SourceStatus(
+                source="vogue",
+                domain="fashion",
+                status="success",
+                outcome=SourceOutcome(source="vogue", domain="fashion"),
+            ),
             SourceStatus(
                 source="wkorea", domain="fashion", status="failed", failure_reason="죽었다"
             ),
@@ -470,8 +479,7 @@ def test_연달아_두_번_발급하면_두_번째는_0건이다():
     ledger = InMemoryLedger()
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
     publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion",
-              now=NOW)
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
     first = publish_pending(run_id="20260903T110000", **kw)
     second = publish_pending(run_id="20260903T120000", **kw)
     assert first == {"vogue": EmittedStats(2, NOW)}
@@ -554,8 +562,9 @@ def test_거울은_회차마다_한_번만_읽는다():
 
     ledger = CountingCountries()
     ledger.ensure_schema(COUNTRIES)
-    collect_source(FakeAdapter([str(i) for i in range(250)]), ledger=ledger,
-                   store=InMemoryObjectStore())
+    collect_source(
+        FakeAdapter([str(i) for i in range(250)]), ledger=ledger, store=InMemoryObjectStore()
+    )
     publisher = RecordingEventPublisher()
     publish_pending(
         ledger=ledger,
@@ -656,8 +665,7 @@ def test_다_비운_뒤_재시도해도_건수가_같다():
     adapter = FakeAdapter([str(i) for i in range(250)])
     collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
     publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion",
-              now=NOW)
+    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
 
     first = publish_pending(run_id="20260903T110000", batch=100, **kw)
     retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
@@ -669,10 +677,13 @@ def test_다_비운_뒤_재시도해도_건수가_같다():
 def test_실패_표본은_10건_사유는_200자로_제한하되_전체_실패를_센다():
     class BrokenFeed(FakeAdapter):
         def discover(self, page=None):
-            return DiscoverResult(candidates=[], failures=[
-                Failure(source="vogue", stage="discover", ref=str(i), reason="가" * 201)
-                for i in range(12)
-            ])
+            return DiscoverResult(
+                candidates=[],
+                failures=[
+                    Failure(source="vogue", stage="discover", ref=str(i), reason="가" * 201)
+                    for i in range(12)
+                ],
+            )
 
     outcome = collect_source(BrokenFeed([]), ledger=InMemoryLedger(), store=InMemoryObjectStore())
     assert outcome.failed == 12
@@ -695,7 +706,9 @@ def test_304는_발견_0건과_구분하고_실패_없이_빈_결과를_남긴�
 
 @pytest.mark.parametrize("summary_topic", ["", "collect-run-summary"])
 def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_별도_토픽으로_낸다(
-    monkeypatch, caplog, summary_topic,
+    monkeypatch,
+    caplog,
+    summary_topic,
 ):
     import json
     import logging
@@ -725,24 +738,30 @@ def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_
     # 인프라 어댑터 경계만 대체한다. DAG → flow → 실제 Kafka 봉투 직렬화는 모두 탄다.
     monkeypatch.setattr(dag_factory.Database, "from_env", lambda: None)
     monkeypatch.setattr(dag_factory, "PostgresLedger", lambda db: ledger)
-    monkeypatch.setattr(dag_factory.MinioObjectStore, "from_env",
-                        lambda: SimpleNamespace(bucket="raw-data"))
+    monkeypatch.setattr(
+        dag_factory.MinioObjectStore, "from_env", lambda: SimpleNamespace(bucket="raw-data")
+    )
     monkeypatch.setattr("confluent_kafka.Producer", Producer)
     monkeypatch.setenv(BOOTSTRAP_ENV, "localhost:9092")
     monkeypatch.setenv(TOPIC_ENV, "raw-file-ready")
     monkeypatch.setenv(SUMMARY_TOPIC_ENV, summary_topic)
     dag = dag_factory.build_collect_dag(
-        dag_id="fashion_summary_test", domain="fashion", schedule=None,
-        source_keys=["vogue"], domain_of=lambda key: "fashion",
-        source_countries={"vogue": "KR"}, collect=lambda **kw: None,
+        dag_id="fashion_summary_test",
+        domain="fashion",
+        schedule=None,
+        source_keys=["vogue"],
+        domain_of=lambda key: "fashion",
+        source_countries={"vogue": "KR"},
+        collect=lambda **kw: None,
         doc_md="요약 토픽 검증",
     )
     publish = dag.get_task("publish").python_callable
     # 수집 태스크는 죽었지만 이전 회차에 저장된 기사는 발급한다.
     monkeypatch.setattr(dag_factory.logger, "handlers", [caplog.handler])
     with caplog.at_level(logging.INFO):
-        result = publish(["vogue"], logical_date=NOW,
-                         ti=SimpleNamespace(xcom_pull=lambda **kw: None))
+        result = publish(
+            ["vogue"], logical_date=NOW, ti=SimpleNamespace(xcom_pull=lambda **kw: None)
+        )
     assert result["articles"] == 1
     assert result["failed_sources"] == ["vogue"]
     assert sent[0][0] == "raw-file-ready" and sent[0][1]["run_id"]
@@ -750,11 +769,165 @@ def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_
         assert result["summaries"] == 1 and result["summary_enabled"] is True
         assert sent[1][0] == "collect-run-summary"
         assert sent[1][1]["stored"] is None and sent[1][1]["emitted"] == 1
-        retry = publish(["vogue"], logical_date=NOW,
-                        ti=SimpleNamespace(xcom_pull=lambda **kw: None))
+        retry = publish(
+            ["vogue"], logical_date=NOW, ti=SimpleNamespace(xcom_pull=lambda **kw: None)
+        )
         assert retry == result
         assert sent[2] == sent[1]  # 재시도는 기사 없이 같은 요약만 다시 낸다.
     else:
         assert result["summaries"] == 0 and result["summary_enabled"] is False
         assert len(sent) == 1
         assert SUMMARY_TOPIC_ENV in caplog.text
+
+
+# --- 대기·재시도 (S15P21A102-312) -------------------------------------------
+
+
+def meta_for(article_id: str) -> FetchMeta:
+    return FetchMeta(
+        domain=SOURCE.domain,
+        source=SOURCE.key,
+        route=SOURCE.route,
+        article_id=article_id,
+        url=f"https://www.vogue.co.kr/{article_id}/",
+        title=f"제목 {article_id}",
+        published_at=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
+        categories=("fashion",),
+    )
+
+
+class FetchFailingAdapter:
+    """기사 페이지를 못 받는 대역. `ok` 에 든 id 는 그때부터 성공한다."""
+
+    source = SOURCE
+
+    def __init__(self, ids, *, ok=(), retryable=True, blocking=False):
+        self._ids = list(ids)
+        self._ok = set(ok)
+        self._retryable = retryable
+        self._blocking = blocking
+        self.materialized: list[str] = []
+
+    def discover(self, page=None) -> DiscoverResult:
+        return DiscoverResult(
+            candidates=[
+                Candidate(
+                    source=SOURCE.key,
+                    article_id=aid,
+                    url=f"https://www.vogue.co.kr/{aid}/",
+                    raw=b"<item/>",
+                    raw_ext="xml",
+                    collected_at=NOW,
+                )
+                for aid in self._ids
+            ]
+        )
+
+    def materialize(self, candidate: Candidate):
+        self.materialized.append(candidate.article_id)
+        if candidate.article_id in self._ok:
+            return b"<html/>", make_article(candidate.article_id)
+        raise ArticleFetchError(
+            "타임아웃",
+            meta=meta_for(candidate.article_id),
+            retryable=self._retryable,
+            blocking=self._blocking,
+        )
+
+
+def test_페이지를_못_받으면_저장하지_않고_대기로_남는다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    outcome = collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store)
+
+    assert outcome.stored == 0 and outcome.failed == 1
+    assert store.objects == {}  # MinIO 에 아무것도 쓰지 않는다
+    assert ledger.pending("fashion") == []  # 발급도 되지 않는다
+    (row,) = ledger.retrying(SOURCE.key)
+    assert row.attempts == 1 and row.meta.title == "제목 1"
+
+
+def test_대기_행은_다음_주기에_다시_후보가_된다():
+    """불변식 12 에 둔 예외다 — 장부에 있어도 아직 안 받은 기사다."""
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store)
+
+    again = FetchFailingAdapter(["1"], ok=["1"])
+    outcome = collect_source(again, ledger=ledger, store=store)
+
+    assert again.materialized == ["1"]
+    assert outcome.stored == 1
+    assert ledger.retrying(SOURCE.key) == []  # 성공했으니 대기가 아니다
+    assert len(ledger.pending("fashion")) == 1  # 행이 늘지 않았다 (불변식 7)
+
+
+def test_시도_상한에_닿으면_본문_없이_저장한다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    for _ in range(RETRY_LIMIT):
+        outcome = collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store)
+
+    assert outcome.stored == 1
+    assert list(store.objects) == ["fashion/vogue/rss/2026/09/03/1/article.json"]
+    (row,) = ledger.pending("fashion")
+    assert row.raw_key is None and row.title == "제목 1"
+    assert ledger.retrying(SOURCE.key) == []
+
+
+def test_24시간이_지나면_시도가_남아도_포기한다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store, now=lambda: NOW)
+    later = NOW + RETRY_WINDOW
+    collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store, now=lambda: later)
+
+    assert list(store.objects) == ["fashion/vogue/rss/2026/09/03/1/article.json"]
+    assert ledger.retrying(SOURCE.key) == []
+
+
+def test_404_는_첫_실패에_포기한다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    outcome = collect_source(
+        FetchFailingAdapter(["1"], retryable=False), ledger=ledger, store=store
+    )
+    assert outcome.stored == 1
+    assert ledger.retrying(SOURCE.key) == []
+
+
+def test_403_은_대기를_남기고_그_실행을_멈춘다():
+    """불변식 2 — 그 실행에서 이 호스트는 끝이다. 다음 주기에는 다시 시도한다."""
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    with pytest.raises(ArticleFetchError):
+        collect_source(FetchFailingAdapter(["1", "2"], blocking=True), ledger=ledger, store=store)
+
+    (row,) = ledger.retrying(SOURCE.key)
+    assert row.meta.article_id == "1"  # 둘째 기사는 치지도 않았다
+
+
+def test_피드에서_사라진_대기_행도_상한에_닿으면_포기한다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    collect_source(FetchFailingAdapter(["1"]), ledger=ledger, store=store, now=lambda: NOW)
+
+    later = NOW + RETRY_WINDOW
+    # 기사가 피드에서 밀려나 후보에 없다.
+    outcome = collect_source(FetchFailingAdapter([]), ledger=ledger, store=store, now=lambda: later)
+
+    assert outcome.stored == 1
+    assert ledger.retrying(SOURCE.key) == []
+    (row,) = ledger.pending("fashion")
+    assert row.raw_key is None
+
+
+def test_대기_행을_새_후보보다_먼저_처리한다():
+    ledger, store = InMemoryLedger(), InMemoryObjectStore()
+    collect_source(FetchFailingAdapter(["2"]), ledger=ledger, store=store)
+
+    again = FetchFailingAdapter(["1", "2"], ok=["1", "2"])
+    collect_source(again, ledger=ledger, store=store)
+
+    assert again.materialized == ["2", "1"]
+
+
+def test_포기한_기사는_본문도_raw_도_없다():
+    article = abandoned_article(meta_for("7"), NOW)
+    assert article.fetch_failed is True
+    assert article.body_text is None and article.raw_key is None
+    assert article.categories == ["fashion"]
+    assert article.to_json_dict()["fetch_failed"] is True

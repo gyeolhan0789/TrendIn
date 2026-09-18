@@ -15,6 +15,7 @@ import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
 import com.forever102.trend.domain.Content;
 import com.forever102.trend.domain.Keyword;
+import com.forever102.trend.domain.KeywordCountryDailyMetric;
 import com.forever102.trend.domain.KeywordMetric;
 import com.forever102.trend.domain.KeywordMetricHistory;
 import com.forever102.trend.domain.KeywordRelation;
@@ -23,6 +24,7 @@ import com.forever102.trend.domain.TrendAnalysis;
 import com.forever102.trend.repository.TrendAnalysisRepository;
 import com.forever102.trend.domain.TrendType;
 import com.forever102.trend.repository.ContentRepository;
+import com.forever102.trend.repository.KeywordCountryDailyMetricRepository;
 import com.forever102.trend.repository.KeywordMetricHistoryRepository;
 import com.forever102.trend.repository.KeywordMetricRepository;
 import com.forever102.trend.repository.KeywordRelationRepository;
@@ -32,6 +34,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -74,6 +77,12 @@ public class TestInitialize implements ApplicationRunner {
     private static final int BULK_TREND_EVERY = 3;
     /** 언급 순위를 매길 상위 개수. 나머지는 rank가 null이다. */
     private static final int RANKED_LIMIT = 50;
+    /** 대량 트렌드에 돌아가며 붙일 갈래. 갈래별 필터가 모두 결과를 갖도록 고루 섞는다. */
+    private static final List<List<TrendType>> BULK_TREND_TYPES = List.of(
+            List.of(TrendType.CURRENT),
+            List.of(TrendType.RISING),
+            List.of(TrendType.NEW),
+            List.of(TrendType.CURRENT, TrendType.RISING));
 
     private final MemberRepository memberRepository;
     private final MemberDomainRepository memberDomainRepository;
@@ -85,6 +94,7 @@ public class TestInitialize implements ApplicationRunner {
     private final TrendAnalysisRepository trendAnalysisRepository;
     private final KeywordMetricRepository metricRepository;
     private final KeywordMetricHistoryRepository historyRepository;
+    private final KeywordCountryDailyMetricRepository countryMetricRepository;
     private final KeywordRelationRepository relationRepository;
     private final ContentRepository contentRepository;
     private final PasswordEncoder passwordEncoder;
@@ -105,10 +115,16 @@ public class TestInitialize implements ApplicationRunner {
         long startedAt = System.currentTimeMillis();
 
         Keywords keywords = createKeywords();
-        Map<String, Trend> trends = createCuratedTrends(keywords.curated());
-        int bulkTrends = createBulkTrends(keywords);
-        createMetrics(keywords.all());
+        /*
+         * 트렌드 목록은 keyword_metrics.trend_types 로 갈래를 가린다. 그 값이 비어 있으면 어느
+         * 갈래로도 잡히지 않아 목록이 통째로 비므로, 트렌드를 만들 때 정한 갈래를 지표까지 들고 간다.
+         */
+        Map<Long, List<TrendType>> trendTypes = new LinkedHashMap<>();
+        Map<String, Trend> trends = createCuratedTrends(keywords.curated(), trendTypes);
+        int bulkTrends = createBulkTrends(keywords, trendTypes);
+        createMetrics(keywords.all(), trendTypes);
         createHistories(keywords.curated());
+        createCountryMetrics(keywords.curated());
         createRelations(keywords);
         createContents(keywords.curated());
         createMembers(keywords.curated(), trends);
@@ -230,7 +246,8 @@ public class TestInitialize implements ApplicationRunner {
      * 유형 조합과 AI 분석 유무를 섞는다.
      * 트렌드가 없는 키워드도 남겨 키워드 검색에서 trend가 null인 경우를 볼 수 있게 한다.
      */
-    private Map<String, Trend> createCuratedTrends(Map<String, Keyword> keywords) {
+    private Map<String, Trend> createCuratedTrends(Map<String, Keyword> keywords,
+            Map<Long, List<TrendType>> trendTypes) {
         OffsetDateTime now = OffsetDateTime.now(trendClock);
         Map<String, Trend> created = new LinkedHashMap<>();
 
@@ -326,6 +343,7 @@ public class TestInitialize implements ApplicationRunner {
             Trend trend = trendRepository.save(new Trend(keywords.get(spec.keyword()),
                     now.minusHours(RANDOM.nextInt(48))));
             created.put(spec.keyword(), trend);
+            trendTypes.put(trend.getKeyword().getId(), spec.types());
             for (AnalysisPeriod period : AnalysisPeriod.values()) {
                 trendAnalysisRepository.save(new TrendAnalysis(trend, period, spec.types(),
                         spec.description(), spec.summary(), spec.reason(), null, now));
@@ -338,7 +356,7 @@ public class TestInitialize implements ApplicationRunner {
      * 대량 키워드 일부에 트렌드를 붙여 트렌드 목록 페이지네이션을 확인할 수 있게 한다.
      * 유형은 세 가지를 돌아가며 배정해 필터마다 결과가 나오도록 한다.
      */
-    private int createBulkTrends(Keywords keywords) {
+    private int createBulkTrends(Keywords keywords, Map<Long, List<TrendType>> trendTypes) {
         OffsetDateTime now = OffsetDateTime.now(trendClock);
 
         int created = 0;
@@ -353,6 +371,7 @@ public class TestInitialize implements ApplicationRunner {
             }
             // 대량 데이터에는 분석을 넣지 않아 null 표기를 함께 확인한다.
             trendRepository.save(new Trend(keyword, now.minusHours(RANDOM.nextInt(72))));
+            trendTypes.put(keyword.getId(), BULK_TREND_TYPES.get(created % BULK_TREND_TYPES.size()));
             created++;
         }
         return created;
@@ -365,16 +384,16 @@ public class TestInitialize implements ApplicationRunner {
      * 키워드 검색 응답도 지표를 함께 보여주므로 대량 키워드까지 채운다.
      * 급증·급감·직전 언급량 0(증가율 null)·순위 없음을 섞는다.
      */
-    private void createMetrics(List<Keyword> keywords) {
+    private void createMetrics(List<Keyword> keywords, Map<Long, List<TrendType>> trendTypes) {
         for (AnalysisPeriod period : AnalysisPeriod.values()) {
             AnalysisWindow window = AnalysisWindow.completed(period, trendClock);
-            createDomainMetrics(keywords, period, window, Domain.DEVELOP);
-            createDomainMetrics(keywords, period, window, Domain.FASHION);
+            createDomainMetrics(keywords, period, window, Domain.DEVELOP, trendTypes);
+            createDomainMetrics(keywords, period, window, Domain.FASHION, trendTypes);
         }
     }
 
     private void createDomainMetrics(List<Keyword> keywords, AnalysisPeriod period,
-            AnalysisWindow window, Domain domain) {
+            AnalysisWindow window, Domain domain, Map<Long, List<TrendType>> trendTypes) {
         int rank = 1;
         for (Keyword keyword : keywords) {
             if (keyword.getDomain() != domain || isMetricExcluded(keyword, period)) {
@@ -398,6 +417,8 @@ public class TestInitialize implements ApplicationRunner {
                     .growthRate(growthRate)
                     // 순위를 매기지 않은 키워드도 섞어 mentionRank가 null인 경우를 만든다.
                     .mentionRank(rank > RANKED_LIMIT ? null : rank)
+                    // 트렌드가 없는 키워드는 갈래도 없다. 목록에는 잡히지 않고 검색에만 나온다.
+                    .trendTypes(trendTypes.getOrDefault(keyword.getId(), List.of()))
                     .build());
             rank++;
         }
@@ -471,6 +492,99 @@ public class TestInitialize implements ApplicationRunner {
                 }
             }
         }
+    }
+
+    // ---------------------------------------------------------------- 국가별 지표
+
+    /** 한 나라에서 잡힌 구간. 일 수는 오늘로부터 며칠 전인지이고, to가 1이면 어제까지 이어진다. */
+    private record CountryStop(String countryCode, int fromDaysAgo, int toDaysAgo, int dailyBase) {
+    }
+
+    /**
+     * 키워드가 어느 나라에서 먼저 잡혀 어디로 번졌는지 만든다.
+     *
+     * <p>확산 경로는 나라별 최초 감지일 순서로 세우므로, 나라마다 시작일을 어긋나게 두어야 줄기가
+     * 생긴다. 무작위로 흩으면 지도는 차지만 순서에 뜻이 없어 화면을 보고 판단할 수 없다.
+     *
+     * <p>국가 순위는 24H·7D만 받고 확산 경로는 30D 고정이라 두 창이 서로 다른 답을 낼 수 있다.
+     * 그 경우를 일부러 만들어 둔다.
+     */
+    private void createCountryMetrics(Map<String, Keyword> keywords) {
+        AnalysisWindow window = AnalysisWindow.completed(AnalysisPeriod.DAYS_30, trendClock);
+        LocalDate windowStart = window.getRecentStart().toLocalDate();
+        LocalDate windowEnd = window.getRecentEnd().toLocalDate();
+
+        countrySpreads().forEach((name, stops) -> {
+            Keyword keyword = keywords.get(name);
+            if (keyword == null) {
+                return;
+            }
+            for (CountryStop stop : stops) {
+                LocalDate first = notBefore(windowEnd.minusDays(stop.fromDaysAgo()), windowStart);
+                LocalDate last = windowEnd.minusDays(stop.toDaysAgo());
+                for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
+                    countryMetricRepository.save(new KeywordCountryDailyMetric(
+                            keyword, stop.countryCode(), date,
+                            stop.dailyBase() + RANDOM.nextInt(stop.dailyBase())));
+                }
+            }
+        });
+    }
+
+    private LocalDate notBefore(LocalDate date, LocalDate floor) {
+        return date.isBefore(floor) ? floor : date;
+    }
+
+    /**
+     * 나라를 붙일 키워드와 그 나라들. 여기 없는 키워드는 국가 자료가 없어,
+     * 지도와 확산 경로가 비었을 때의 화면을 그대로 확인할 수 있다.
+     */
+    private Map<String, List<CountryStop>> countrySpreads() {
+        Map<String, List<CountryStop>> spreads = new LinkedHashMap<>();
+
+        // 대륙을 가로지르는 긴 경로. 지도가 나라를 차례로 따라가는지 본다.
+        spreads.put("대규모 언어 모델", List.of(
+                new CountryStop("US", 28, 1, 42),
+                new CountryStop("GB", 24, 1, 27),
+                new CountryStop("DE", 20, 1, 21),
+                new CountryStop("IN", 16, 1, 33),
+                new CountryStop("JP", 10, 1, 18),
+                new CountryStop("KR", 6, 1, 24)));
+
+        // 영국이 중간에 끊긴다. 30D 경로에는 다섯 나라가, 7D 순위에는 네 나라가 남는다.
+        spreads.put("Quiet Luxury", List.of(
+                new CountryStop("IT", 26, 1, 30),
+                new CountryStop("FR", 22, 1, 25),
+                new CountryStop("GB", 18, 9, 16),
+                new CountryStop("US", 12, 1, 22),
+                new CountryStop("KR", 5, 1, 19)));
+
+        // 세 나라짜리 짧은 경로.
+        spreads.put("Spring Boot", List.of(
+                new CountryStop("KR", 14, 1, 35),
+                new CountryStop("JP", 9, 1, 20),
+                new CountryStop("US", 3, 1, 14)));
+
+        // 나라가 하나뿐이라 경로가 한 칸이다.
+        spreads.put("Rust", List.of(new CountryStop("KR", 11, 1, 26)));
+
+        /*
+         * 화면이 자리를 모르는 나라를 섞는다. PH와 SG는 지도 참조표에 아직 없고, XX는 파이프라인이
+         * 나라를 가리지 못했을 때 넣는 미지정 값이다. dev 서버가 지금 가진 값이 이 XX 하나뿐이라,
+         * 로컬에서도 같은 경우를 마주쳐야 한다.
+         */
+        spreads.put("Gorpcore", List.of(
+                new CountryStop("PH", 20, 1, 17),
+                new CountryStop("SG", 15, 1, 13),
+                new CountryStop("XX", 8, 1, 11),
+                new CountryStop("KR", 4, 1, 15)));
+
+        // 요 이틀에만 잡힌 새 키워드. 24H에서만 보이고 경로가 거의 없다.
+        spreads.put("발레코어", List.of(
+                new CountryStop("KR", 2, 1, 12),
+                new CountryStop("JP", 1, 1, 9)));
+
+        return spreads;
     }
 
     // ---------------------------------------------------------------- 연관 키워드

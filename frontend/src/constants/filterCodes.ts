@@ -10,6 +10,27 @@ export const ANALYSIS_PERIODS = ['24H', '7D', '30D'] as const;
 export type PeriodCode = (typeof ANALYSIS_PERIODS)[number];
 
 export const DEFAULT_PERIOD: PeriodCode = '24H';
+
+/**
+ * 국가별 조회가 받는 기간입니다. 서버는 24H 와 7D 만 받고 30D 는 거절합니다.
+ * 확산 경로(journey)는 기간을 받지 않고 늘 30D 로 봅니다.
+ */
+export const REGION_PERIODS = ['24H', '7D'] as const;
+
+export type RegionPeriodCode = (typeof REGION_PERIODS)[number];
+
+/** 24H 는 나라별 자료가 하루치뿐이라 지도가 휑해집니다. 기본은 7D 로 둡니다. */
+export const DEFAULT_REGION_PERIOD: RegionPeriodCode = '7D';
+
+export function isRegionPeriod(value: string): value is RegionPeriodCode {
+  return (REGION_PERIODS as readonly string[]).includes(value);
+}
+
+/** 국가별 조회가 못 받는 기간이 주소에 실려 와도 조회는 되어야 하므로 기본값으로 내려앉습니다. */
+export function parseRegionPeriod(raw: string | null | undefined): RegionPeriodCode {
+  const normalized = raw?.trim().toUpperCase() ?? '';
+  return isRegionPeriod(normalized) ? normalized : DEFAULT_REGION_PERIOD;
+}
 export const SAVED_TREND_PERIOD: PeriodCode = '30D';
 
 /** 상세 링크는 목록 기간을 유지하고, 저장 목록에서는 30D를 기본으로 사용합니다. */

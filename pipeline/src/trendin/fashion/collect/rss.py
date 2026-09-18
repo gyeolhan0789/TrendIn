@@ -31,10 +31,18 @@ from urllib.parse import parse_qs, urlsplit
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.body import decode_page, extract_body
-from trendin.common.collect.contracts import Candidate, DiscoverResult, Failure, Rule, SourceDef
+from trendin.common.collect.contracts import (
+    ArticleFetchError,
+    Candidate,
+    DiscoverResult,
+    Failure,
+    FetchMeta,
+    Rule,
+    SourceDef,
+)
 from trendin.common.collect.html_text import html_fragment
 from trendin.common.collect.keys import raw_key
-from trendin.common.collect.session import CollectSession
+from trendin.common.collect.session import CollectError, CollectSession, HostBlocked
 from trendin.common.collect.urls import clean_url
 
 logger = logging.getLogger("trendin.collect.rss")
@@ -328,9 +336,10 @@ class RssAdapter:
         (2026-09-16 실측: Dazed·BoF·Drapers·GlobeNewswire 가 요약을 본문 칸에 넣는다).
         제목·발행일·분류·저자는 item 조각에서 읽고, raw 는 받은 기사 페이지다.
 
-        페이지를 못 받으면 예외를 올려 그 기사만 실패로 빠진다. 장부에 안 적혔으니 피드에
-        남아 있는 동안 다음 주기에 다시 후보가 된다. 403·429 는 세션이 `HostBlocked` 로
-        올려 그 실행의 소스를 멈춘다(불변식 2).
+        페이지를 못 받으면 `ArticleFetchError` 를 올린다. 실행 흐름이 장부에 대기 행으로
+        남겨 다음 주기에 다시 시도하고, 상한(`flow.RETRY_LIMIT`·`RETRY_WINDOW`)에 닿으면
+        본문 없이 저장한다 (S15P21A102-312). 403·429 는 대기 행을 남긴 뒤 그 실행에서 그
+        호스트를 멈춘다(불변식 2).
         """
         if candidate.published_at is None:
             raise ValueError(f"발행일이 없어 키를 만들 수 없다: {candidate.article_id}")
@@ -342,10 +351,36 @@ class RssAdapter:
         entry = parse_item(candidate.raw)
         shape = _FORMATS[feed_format(entry)]
 
-        response = self._session.get(candidate.url, conditional=False)
+        meta = FetchMeta(
+            domain=self.source.domain,
+            source=self.source.key,
+            route=self.source.route,
+            article_id=candidate.article_id,
+            url=candidate.url,
+            title=entry.first("title").strip(),
+            published_at=candidate.published_at,
+            categories=tuple(c.strip() for c in shape.categories(entry) if c.strip()),
+        )
+        try:
+            response = self._session.get(candidate.url, conditional=False)
+        except HostBlocked as exc:
+            # 대기 행을 남긴 뒤 이 실행에서 이 호스트를 멈춘다 (불변식 2).
+            raise ArticleFetchError(str(exc), meta=meta, blocking=True) from exc
+        except CollectError as exc:  # 타임아웃·5xx·404
+            raise ArticleFetchError(
+                str(exc),
+                meta=meta,
+                # 404·410 은 기사가 지워진 것이라 다시 쳐도 같다.
+                retryable=getattr(exc, "status", None) not in (404, 410),
+            ) from exc
         if response.status != 200:
             # 세션은 리다이렉트를 따라가지 않는다(허용 범위 검사를 건너뛰게 되므로).
-            raise ValueError(f"기사 페이지가 {response.status} 다: {candidate.url}")
+            raise ArticleFetchError(
+                f"기사 페이지가 {response.status} 다: {candidate.url}",
+                meta=meta,
+                # 404·410 은 다시 쳐도 같다. 나머지(3xx 등)는 다음 주기에 다시 시도한다.
+                retryable=response.status not in (404, 410),
+            )
         raw = response.body
         collected_at = self._now()  # 원문을 받은 시각은 여기다 (#5.3)
         page = extract_body(decode_page(raw), url=candidate.url, feed_body=entry.first(shape.body))

@@ -639,8 +639,6 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-nav .is-upcoming { color: #c7cbd2; cursor: default; }
 
 .landing-header-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-.landing-header-search { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; }
-.landing-header-search:hover { background: #f3f4f6; }
 .landing-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; white-space: nowrap; transition: background .15s, border-color .15s; }
 .landing-btn--ghost { border: 1px solid #d1d5db; color: #374151; }
 .landing-btn--ghost:hover { background: #f9fafb; }
@@ -655,7 +653,8 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-hero h1 span { color: var(--lp-indigo); }
 .landing-hero-lead { max-width: 400px; margin-top: 24px; color: var(--lp-muted); font-size: 17px; line-height: 1.7; }
 
-.landing-search { display: flex; align-items: center; max-width: 460px; margin-top: 36px; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
+.landing-search-shell { position: relative; max-width: 460px; margin-top: 36px; }
+.landing-search { display: flex; align-items: center; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .landing-search:focus-within { border-color: var(--lp-indigo); }
 .landing-search > svg { flex: 0 0 18px; margin-right: 12px; }
 .landing-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--lp-ink); font-size: 15px; }
@@ -784,14 +783,29 @@ h1 { margin: 0; line-height: 1.25; }
 /* 새 시안 화면들이 함께 쓰는 조각: 드롭다운 한 칸, 불러오는 중·실패 표시, 분야 태그. */
 .trendin-filter { display: flex; align-items: center; gap: 8px; }
 .trendin-filter-label { color: var(--lp-muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
-/* 시안의 드롭다운 버튼 모양. 실제로는 select라서 키보드·모바일 조작이 그대로 됩니다. */
+/*
+ * 시안의 드롭다운 한 칸. 칸 모양은 그대로 두고, 눌렀을 때 내려오는 목록만 화면이 직접 그립니다.
+ * 브라우저가 그리는 select 목록은 운영체제마다 생김새가 달라 시안과 맞출 수 없기 때문입니다.
+ */
 .trendin-select { display: flex; position: relative; align-items: center; padding: 0 12px 0 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; transition: background .15s; }
 .trendin-select:hover:not(.is-disabled) { background: #f9fafb; }
-.trendin-select select { padding: 8px 22px 8px 0; border: 0; appearance: none; background: transparent; color: inherit; font-size: 13px; cursor: pointer; }
-.trendin-select select:focus { outline: none; }
-.trendin-select > svg { position: absolute; right: 12px; pointer-events: none; }
+.trendin-select-value { display: grid; padding: 8px 22px 8px 0; border: 0; background: transparent; color: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-current { grid-area: 1 / 1; text-align: left; }
+/* 가장 긴 값이 칸 너비를 정하도록 모든 값을 같은 자리에 겹쳐 둡니다. 보이지도, 눌리지도 않습니다. */
+.trendin-select-sizer { display: grid; grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; }
+.trendin-select-sizer > span { grid-area: 1 / 1; }
+.trendin-select-value:focus { outline: none; }
+.trendin-select:focus-within { border-color: var(--lp-indigo); }
+.trendin-select > svg { position: absolute; right: 12px; pointer-events: none; transition: transform .15s; }
+.trendin-select.is-open > svg { transform: rotate(180deg); }
 .trendin-select.is-disabled { background: #f9fafb; color: #b6bac1; cursor: default; }
-.trendin-select.is-disabled select { cursor: default; }
+.trendin-select.is-disabled .trendin-select-value { cursor: default; }
+
+/* 내려오는 목록. 검색 상자 아래에 뜨는 목록과 같은 흰 카드입니다. 칸보다 좁아지지 않게만 잡고 글에 맞춰 늘립니다. */
+.trendin-select-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 100%; width: max-content; max-width: 280px; margin: 0; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); list-style: none; }
+.trendin-select-row { padding: 8px 12px; border-radius: 8px; color: #374151; font-size: 13px; white-space: nowrap; cursor: pointer; }
+.trendin-select-row.is-active { background: #f5f3ff; }
+.trendin-select-row.is-selected { color: var(--lp-indigo); font-weight: 600; }
 
 .trendin-state { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 64px 0; color: var(--lp-faint); font-size: 14px; }
 .trendin-state > span { width: 7px; height: 7px; border-radius: 50%; background: #c4b5fd; animation: trend-loading 1s infinite ease-in-out; }
@@ -828,12 +842,17 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-hero-eyebrow { margin-bottom: 8px; color: var(--lp-faint); font-size: 14px; }
 .explore-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -2px; }
 .explore-hero-lead { margin-top: 12px; color: var(--lp-muted); font-size: 15px; }
-.explore-hero-visual { position: relative; flex: 0 0 420px; width: 420px; height: 140px; }
-.explore-hero-visual img { width: 100%; height: 100%; object-fit: contain; opacity: .85; filter: drop-shadow(0 4px 16px rgba(99, 102, 241, .1)); }
-.explore-hero-note { position: absolute; top: 16px; right: 0; z-index: 2; padding: 12px 16px; border-radius: 10px; background: rgba(255, 255, 255, .85); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0, 0, 0, .06); }
+.explore-hero-visual { position: relative; flex: 0 0 500px; width: 500px; height: 200px; }
+/*
+ * 그림은 16:9라 낮은 칸에서는 폭이 남습니다. contain 이 남는 폭의 가운데에 두므로,
+ * 오른쪽에 붙여 떠 있는 쪽지에 끝자락이 살짝 걸치게 합니다.
+ */
+.explore-hero-visual img { width: calc(100% - 140px); height: 100%; object-fit: contain; object-position: right center; opacity: .85; filter: drop-shadow(0 4px 16px rgba(99, 102, 241, .1)); }
+.explore-hero-note { position: absolute; top: 16px; right: 0; max-width: 200px; z-index: 2; padding: 12px 16px; border-radius: 10px; background: rgba(255, 255, 255, .85); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0, 0, 0, .06); }
 .explore-hero-note p { color: var(--lp-muted); font-size: 12px; line-height: 1.6; }
 
 .explore-searchbar { padding-bottom: 24px; }
+.explore-search-shell { position: relative; max-width: 720px; }
 .explore-searchbar form { display: flex; align-items: center; padding: 8px 8px 8px 24px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .explore-searchbar form:focus-within { border-color: var(--lp-indigo); }
 .explore-searchbar form > svg { flex: 0 0 20px; margin-right: 14px; }
@@ -844,6 +863,18 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-search-clear:hover { background: #f3f4f6; }
 .explore-search-go { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 10px; background: var(--lp-ink); }
 .explore-search-go:hover { background: #2d2d44; }
+
+/* 검색 상자 아래에 뜨는 검색어 목록. 폭은 상자를 감싼 자리에 맞추고, 8px 띄워 붙입니다. */
+.keyword-suggest { position: absolute; top: calc(100% + 8px); right: 0; left: 0; z-index: 30; overflow: hidden; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+.keyword-suggest-list { margin: 0; padding: 0; list-style: none; }
+.keyword-suggest-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+.keyword-suggest-row.is-active { background: #f5f3ff; }
+.keyword-suggest-name { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: hidden; }
+.keyword-suggest-name strong { overflow: hidden; color: var(--lp-ink); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.keyword-suggest-name mark { background: none; color: var(--lp-indigo); font-weight: 700; }
+.keyword-suggest-name small { color: var(--lp-faint); font-size: 12px; }
+.keyword-suggest-meta { flex: 0 0 auto; color: var(--lp-muted); font-size: 12px; white-space: nowrap; }
+.keyword-suggest-none { padding: 16px 12px; color: var(--lp-faint); font-size: 13px; text-align: center; }
 
 .explore-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 28px; }
 .explore-filters-right { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-left: auto; }
@@ -945,7 +976,7 @@ h1 { margin: 0; line-height: 1.25; }
   .explore-page section { padding-left: 20px; padding-right: 20px; }
   .explore-hero { flex-direction: column; padding-top: 32px; }
   .explore-hero h1 { font-size: 30px; letter-spacing: -1.2px; }
-  .explore-hero-visual { flex: 0 0 auto; width: 100%; max-width: 420px; }
+  .explore-hero-visual { flex: 0 0 auto; width: 100%; max-width: 560px; }
   .explore-filters-right { margin-left: 0; }
   .explore-grid { grid-template-columns: minmax(0, 1fr); }
   .explore-cards { grid-template-columns: minmax(0, 1fr); }
@@ -1157,6 +1188,152 @@ h1 { margin: 0; line-height: 1.25; }
   .saved-empty h2 { font-size: 18px; }
 }
 
+
+/* 리포트 ---------------------------------------------------------------------- */
+.report-page { padding-bottom: 8px; }
+.report-page > section { width: 100%; max-width: 1280px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
+/*
+ * p 의 여백은 홑클래스로 적으면 안 됩니다. 위쪽 `.trendin-ui p { margin: 0 }` 이 (0,1,1) 이라
+ * (0,1,0) 규칙을 눌러 버립니다. 그래서 여백이 필요한 곳은 `.report-page` 를 앞에 답니다.
+ */
+.report-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 32px; padding-top: 48px; padding-bottom: 40px; }
+.report-eyebrow { color: var(--lp-faint); font-size: 14px; }
+.report-page .report-eyebrow { margin-bottom: 8px; }
+.report-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -2px; }
+.report-lead { color: var(--lp-muted); font-size: 15px; }
+.report-page .report-lead { margin-top: 12px; }
+.report-generate { display: flex; align-items: center; gap: 8px; padding: 12px 28px; border-radius: 10px; background: var(--lp-indigo); color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap; transition: background .15s; }
+.report-generate:hover:not(:disabled) { background: #4338ca; }
+/* 내려 줄 집계가 아직 없으면 눌러도 빈 파일이 됩니다. */
+.report-generate:disabled { background: #c7d2fe; }
+
+.report-search { padding-bottom: 32px; }
+.report-search form { display: flex; align-items: center; max-width: 560px; padding: 6px 6px 6px 20px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fff; transition: border-color .15s; }
+.report-search form:focus-within { border-color: var(--lp-indigo); }
+.report-search form > svg { flex: 0 0 16px; margin-right: 10px; }
+.report-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--lp-ink); font-size: 14px; }
+.report-search input:focus { outline: none; }
+.report-search input::placeholder { color: var(--lp-faint); }
+.report-search-clear { margin-right: 6px; padding: 6px 10px; border-radius: 8px; color: var(--lp-muted); font-size: 13px; }
+.report-search-clear:hover { background: #f3f4f6; }
+.report-search-go { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 8px; background: var(--lp-ink); }
+.report-search-go:hover { background: #2d2d44; }
+
+.report-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.report-kind { padding: 7px 16px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: #374151; font-size: 13px; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
+.report-kind:hover:not(.is-selected) { border-color: #d1d5db; background: #f3f4f6; }
+.report-kind.is-selected { border-color: var(--lp-ink); background: var(--lp-ink); color: #fff; font-weight: 600; }
+
+.report-featured { padding-bottom: 40px; }
+.report-featured-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+
+.report-weekly { display: flex; flex-direction: column; gap: 24px; padding: 32px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.report-weekly:hover { border-color: #c7d2fe; box-shadow: 0 4px 24px rgba(79, 70, 229, .06); }
+.report-weekly-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.report-weekly-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.report-badge { padding: 4px 10px; border-radius: 6px; background: #ede9fe; color: var(--lp-indigo); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.report-weekly-title h2 { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+.report-page .report-weekly-title p { margin-top: 8px; color: var(--lp-muted); font-size: 14px; line-height: 1.6; }
+.report-page .report-weekly-range { color: var(--lp-faint); font-size: 13px; }
+
+.report-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.report-tile { padding: 16px; border-radius: 10px; background: #fafafa; }
+.report-tile-label { color: var(--lp-faint); font-size: 12px; }
+.report-tile-value { overflow: hidden; font-size: 22px; font-weight: 800; letter-spacing: -.5px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.report-page .report-tile-value { margin-top: 6px; }
+.report-tile-note { color: var(--lp-muted); font-size: 12px; font-weight: 500; }
+.report-page .report-tile-note { margin-top: 4px; }
+.report-tile-note.is-up { color: #059669; }
+
+.report-chart { position: relative; }
+.report-chart-svg { display: block; width: 100%; height: 110px; }
+/* 최고점 쪽지. 차트 위쪽 오른편에 붙어, 선이 가장 높은 자리를 가리지 않습니다. */
+.report-chart-badge { position: absolute; top: -6px; right: 4px; padding: 4px 10px; border-radius: 6px; background: var(--lp-indigo); color: #fff; font-size: 11px; font-weight: 600; }
+.report-chart-empty { padding: 40px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-insight { display: flex; align-items: flex-start; gap: 8px; padding: 14px 16px; border-radius: 10px; background: #f8f7ff; color: #374151; font-size: 13px; line-height: 1.5; }
+.report-insight > svg { flex: 0 0 16px; margin-top: 2px; }
+.report-weekly-more { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px; border: 1px solid var(--lp-line); border-radius: 10px; color: #374151; font-size: 14px; font-weight: 500; transition: border-color .15s, background .15s, color .15s; }
+.report-weekly-more:hover { border-color: #c7d2fe; background: #f9fafb; color: var(--lp-indigo); }
+
+.report-side { display: flex; flex-direction: column; gap: 24px; }
+.report-panel { padding: 24px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; }
+.report-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.report-panel-head h3 { font-size: 16px; font-weight: 700; }
+.report-panel-note { margin-left: auto; color: var(--lp-faint); font-size: 12px; white-space: nowrap; }
+.report-panel-empty { padding: 24px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-quick { display: flex; flex-direction: column; gap: 8px; }
+.report-quick button { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid #f3f4f6; border-radius: 10px; text-align: left; transition: border-color .15s, background .15s; }
+.report-quick button:hover:not(:disabled) { border-color: var(--lp-line); background: #f9fafb; }
+/* 아직 만들어 줄 곳이 없어 잠가 둔 갈래입니다. 흐리게만 두고 커서는 바꾸지 않습니다. */
+.report-quick button:disabled .report-quick-icon { opacity: .55; }
+.report-quick button:disabled .report-quick-label { color: var(--lp-faint); }
+.report-quick-icon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 8px; font-size: 14px; }
+.report-quick-icon--indigo { background: #ede9fe; }
+.report-quick-icon--blue { background: #dbeafe; }
+.report-quick-icon--emerald { background: #d1fae5; }
+.report-quick-icon--amber { background: #fef3c7; }
+.report-quick-label { flex: 1; min-width: 0; color: #374151; font-size: 14px; font-weight: 500; }
+
+.report-panel--grow { flex: 1; }
+.report-rank { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+.report-rank:last-child { border-bottom: 0; padding-bottom: 0; }
+.report-rank-no { flex: 0 0 20px; color: var(--lp-faint); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.report-rank-no.is-top { color: var(--lp-indigo); }
+.report-rank-keyword { overflow: hidden; min-width: 0; flex: 1; color: var(--lp-ink); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.report-rank-keyword:hover { color: var(--lp-indigo); }
+.report-rank-change { color: #059669; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.report-list-section { padding-bottom: 60px; }
+.report-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.report-list-title { display: flex; align-items: center; gap: 10px; }
+.report-list-title h2 { font-size: 20px; font-weight: 700; }
+.report-count { padding: 4px 10px; border-radius: 12px; background: #f3f4f6; color: var(--lp-muted); font-size: 13px; font-weight: 600; }
+/* 표본임을 밝히는 쪽지. 눈에 띄되 경고로는 읽히지 않는 색을 씁니다 — 마이페이지 쪽지와 같은 규칙입니다. */
+.report-page .report-notice { margin-bottom: 16px; padding: 12px 16px; border: 1px solid #ddd6fe; border-radius: 10px; background: #f5f3ff; color: #4338ca; font-size: 13px; line-height: 1.6; }
+.report-notice strong { font-weight: 700; }
+
+.report-list { display: flex; flex-direction: column; gap: 12px; }
+.report-row { display: flex; align-items: center; gap: 16px; padding: 20px 24px; border: 1px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .18s, box-shadow .18s; }
+.report-row:hover { border-color: #c7d2fe; box-shadow: 0 2px 12px rgba(79, 70, 229, .04); }
+.report-tag { flex: 0 0 auto; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.report-tag--indigo { background: #ede9fe; color: #4F46E5; }
+.report-tag--rose { background: #fee2e2; color: #ef4444; }
+.report-tag--blue { background: #dbeafe; color: #3b82f6; }
+.report-tag--emerald { background: #d1fae5; color: #059669; }
+.report-row-body { min-width: 0; flex: 1; }
+.report-row-title { overflow: hidden; color: var(--lp-ink); font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.report-row-summary { overflow: hidden; color: var(--lp-faint); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.report-page .report-row-summary { margin-top: 4px; }
+.report-row-date, .report-row-period { flex: 0 0 auto; color: var(--lp-faint); font-size: 13px; white-space: nowrap; }
+.report-row-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; margin-left: 4px; }
+.report-row-actions button { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; color: var(--lp-faint); transition: background .12s, color .12s; }
+.report-row-actions button:hover:not(:disabled) { background: #f3f4f6; color: var(--lp-muted); }
+/* 리포트가 서버에 있어야 되는 일들이라 함께 잠가 둡니다. */
+.report-row-actions button:disabled { color: #d1d5db; }
+.report-list-empty { padding: 48px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+
+.report-pagination { display: flex; align-items: center; justify-content: center; margin-top: 28px; }
+
+@media (max-width: 1180px) {
+  .report-featured-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .report-page > section { padding-left: 20px; padding-right: 20px; }
+  .report-hero { padding-top: 32px; }
+  .report-hero h1 { font-size: 30px; letter-spacing: -1.2px; }
+  .report-weekly { padding: 24px; }
+  /* 줄이 좁아지면 날짜·기간을 제목 아래로 흘려보냅니다. 지우면 언제 만든 리포트인지 알 수 없습니다. */
+  .report-row { flex-wrap: wrap; padding: 18px 20px; }
+  .report-row-body { flex: 1 0 100%; order: 2; }
+  .report-row-actions { order: 1; margin-left: auto; }
+  .report-row-date, .report-row-period { order: 3; }
+}
+@media (max-width: 640px) {
+  .report-tiles { grid-template-columns: minmax(0, 1fr); }
+  .report-generate { flex: 1 0 100%; justify-content: center; }
+}
 
 /* 마이페이지 무리 -------------------------------------------------------------- */
 /*
@@ -1877,6 +2054,10 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-flow-stop.is-here { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; }
 .worldtrend-flow-name { font-weight: 600; }
 .worldtrend-flow-date { font-variant-numeric: tabular-nums; opacity: .85; }
+/* 흐름은 가로로 이어지고 설명은 그 아래 한 줄로 붙습니다. 한 줄에 나란히 세우면 경로가 밀립니다. */
+.worldtrend-flow-inner { display: flex; max-width: 100%; flex-direction: column; align-items: center; gap: 7px; }
+/* 지도 위에 얹히는 글이라 정류장과 같은 흰 바탕을 깔지 않으면 지형에 묻혀 읽히지 않습니다. */
+.worldtrend-flow-note { padding: 5px 10px; border-radius: 7px; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: var(--lp-faint); font-size: 11.5px; text-align: center; }
 
 
 .worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
@@ -1905,6 +2086,8 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-rank-bar span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4F46E5, #a5b4fc); }
 .worldtrend-chart { width: 100%; height: auto; }
 .worldtrend-chart-axis { display: flex; justify-content: space-between; margin-top: 2px; color: var(--lp-faint); font-size: 10px; }
+/* 카드 하나가 아니라 카드들에 대한 설명이라 칸을 두르지 않되, 좌우 여백은 카드와 맞춥니다. */
+.worldtrend-note { padding: 12px 18px 18px; color: var(--lp-faint); font-size: 11.5px; line-height: 1.6; }
 
 /*
  * 지도 자체. 경계선은 Natural Earth 자료 그대로라 대륙 모양이 실제 지도와 같습니다.

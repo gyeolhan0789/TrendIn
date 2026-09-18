@@ -64,7 +64,15 @@ class HostBlocked(CollectError):
 
 
 class FetchFailed(CollectError):
-    """재시도를 다 쓰고도 못 받았다."""
+    """재시도를 다 쓰고도 못 받았다.
+
+    `status` 는 마지막 응답의 상태코드다. 네트워크 오류로 끝났으면 None 이다. 부르는 쪽이
+    404·410 처럼 "다시 쳐도 같은" 실패를 가르는 데 쓴다 (S15P21A102-312).
+    """
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,10 +228,12 @@ class CollectSession:
                     attempt + 1,
                     self._retries,
                 )
-                last_error = FetchFailed(f"{response.status_code}: {url}")
+                last_error = FetchFailed(
+                    f"{response.status_code}: {url}", status=response.status_code
+                )
                 continue
             if response.status_code >= 400:
-                raise FetchFailed(f"{response.status_code}: {url}")
+                raise FetchFailed(f"{response.status_code}: {url}", status=response.status_code)
 
             self._remember_validators(url, response.headers)
             logger.info("%s %s (%dB)", response.status_code, url, len(response.content))

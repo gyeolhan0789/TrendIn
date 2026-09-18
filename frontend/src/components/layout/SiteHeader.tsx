@@ -3,8 +3,10 @@ import { AccountMenu } from '../../features/auth/components/AccountMenu';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 
 /*
- * 새 시안의 공용 헤더입니다. 메뉴 여섯 칸 가운데 아직 화면이 없는 곳이 있는데,
- * 칸을 빼면 가로 균형이 무너져서 자리는 그대로 두고 누를 수 없다는 것만 표시합니다.
+ * 새 시안의 공용 헤더입니다. 이제 여섯 칸 모두 갈 곳이 있습니다.
+ *
+ * 갈 곳(to)이 없는 칸은 여전히 흐리게 세웁니다. 시안이 먼저 나오고 화면이 뒤따라오는 일이
+ * 되풀이되는데, 칸을 아예 빼면 그동안 가로 균형이 무너지기 때문입니다.
  */
 const navItems: { label: string; to?: string }[] = [
   { label: '홈', to: '/' },
@@ -12,7 +14,7 @@ const navItems: { label: string; to?: string }[] = [
   { label: '관심 키워드', to: '/keywords' },
   { label: '국가별 트렌드', to: '/global' },
   { label: '저장된 트렌드', to: '/saved' },
-  { label: '리포트' },
+  { label: '리포트', to: '/report' },
 ];
 
 function BoltMark() {
@@ -42,12 +44,6 @@ export function SiteHeader() {
         </nav>
 
         <div className="landing-header-right">
-          <button type="button" className="landing-header-search" aria-label="검색">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </button>
           {/* 로그인한 사람에게 다시 로그인·회원가입을 권할 이유가 없어, 그 자리를 계정 메뉴가 대신합니다. */}
           {session ? <AccountMenu session={session} /> : (
             <>

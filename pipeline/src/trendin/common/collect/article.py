@@ -50,6 +50,9 @@ class Article(BaseModel):
     categories: list[str] = Field(default_factory=list)
     author: str | None = None
     members_only: bool | None = None
+    # 기사 페이지를 끝내 못 받아 본문 없이 저장한 기사 (S15P21A102-312). 제목·URL·발행일은
+    # 장부의 대기 행에 적어 둔 것이다.
+    fetch_failed: bool | None = None
     # 유료 표시(`isAccessibleForFree=false`). 회원 전용과 따로 두는 이유는 둘이 다른 제한이고
     # 소비 측이 본문 없는 이유를 나눠 세기 때문이다(설계 문서 #5.3).
     # 판별은 S15P21A102-285 가 붙인다.
@@ -67,6 +70,9 @@ class Article(BaseModel):
     def _raw_unless_withheld(self) -> "Article":
         """raw 는 회원 전용도 유료 표시도 아닐 때만 필수다.
 
+        페이지를 끝내 못 받아 포기한 기사도 raw 가 없다 — 받은 바이트가 아예 없어서다
+        (S15P21A102-312).
+
         회원 전용 기사의 기사 페이지 HTML 에는 본문이 통째로 실려 온다(① 2026-09-03 실측
         8/8). 그 바이트를 raw 로 저장하면 불변식 2 의 "HTML 에 텍스트가 실려 있어도
         저장하지 않는다" 가 무의미해진다. 그래서 저장하지 않고, 여기서 필수 필드가 빈 것을
@@ -76,7 +82,7 @@ class Article(BaseModel):
         뒤집어 저장하기로 하면 이 검증을 지우면 되고, 반대로 저장해 둔 뒤 뒤집으면 MinIO 에서
         골라 지우고 이미 나간 이벤트를 좇아야 한다. 되돌림 비용이 싼 쪽을 기본으로 뒀다.
         """
-        withheld = self.members_only or self.paywalled
+        withheld = self.members_only or self.paywalled or self.fetch_failed
         if not withheld and (self.raw_key is None or self.content_sha256 is None):
             raise ValueError(
                 "회원 전용·유료 표시가 아니면 raw_key·content_sha256 이 있어야 한다"
@@ -85,6 +91,8 @@ class Article(BaseModel):
             raise ValueError("회원 전용 기사에 body_text 를 실을 수 없다")
         if self.paywalled and self.body_text is not None:
             raise ValueError("유료 표시 기사에 body_text 를 실을 수 없다")
+        if self.fetch_failed and self.body_text is not None:
+            raise ValueError("페이지를 못 받은 기사에 body_text 를 실을 수 없다")
         return self
 
     @field_validator("collected_at")

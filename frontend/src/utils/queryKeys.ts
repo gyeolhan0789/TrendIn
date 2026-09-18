@@ -14,6 +14,9 @@ export const queryKeys = {
     history: (trendId: number, period: string) => ['trends', 'history', trendId, period] as const,
     contents: (trendId: number) => ['trends', 'contents', trendId] as const,
     relatedKeywords: (trendId: number) => ['trends', 'relatedKeywords', trendId] as const,
+    // 나라별 순위는 기간마다 달라 기간까지 키에 넣습니다. 확산 경로는 늘 30일이라 넣지 않습니다.
+    regions: (trendId: number, period: string) => ['trends', 'regions', trendId, period] as const,
+    regionJourney: (trendId: number) => ['trends', 'regionJourney', trendId] as const,
   },
   keywords: {
     search: (query: string) => ['keywords', 'search', query] as const,

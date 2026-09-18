@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
 import { FilterSelect } from '../../components/common/FilterSelect';
 import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
 import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { KeywordSuggestMenu } from '../../features/trend/components/KeywordSuggestMenu';
 import { TagChip } from '../../features/trend/components/TagChip';
 import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
+import { useKeywordSuggest } from '../../features/trend/hooks/useKeywordSuggest';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
 import { useTrends } from '../../features/trend/hooks/useTrends';
@@ -18,6 +20,7 @@ import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constant
 import type { PeriodCode } from '../../constants/filterCodes';
 import { TREND_TYPES } from '../../features/trend/types/trend';
 import type { Trend, TrendAnalysisWindow, TrendType } from '../../features/trend/types/trend';
+import type { KeywordSearchItem } from '../../features/trend/types/keyword';
 
 const periodLabels: Record<PeriodCode, string> = {
   '24H': '최근 24시간',
@@ -25,21 +28,18 @@ const periodLabels: Record<PeriodCode, string> = {
   '30D': '최근 30일',
 };
 
-/** 서버가 가르는 세 갈래. 시안의 '상태' 칸이 이 값을 고릅니다. */
+/** 서버가 가르는 세 갈래. 화면의 '정렬' 칸이 이 값을 고릅니다. 주소창 이름(status)은 그대로 둡니다. */
 const typeLabels: Record<TrendType, string> = {
-  CURRENT: '급상승',
-  NEW: '신규',
-  RISING: '재급상승',
+  CURRENT: '인기 트렌드',
+  NEW: '신규 트렌드',
+  RISING: '급상승 트렌드',
 };
 
-const sorts = [
-  { value: 'rank', label: '순위순' },
-  { value: 'growth', label: '급상승순' },
-  { value: 'mentions', label: '언급량순' },
-];
 const pageSizes = [6, 12, 24];
 /** 시안의 큰 카드가 목록의 첫 자리를 가져가고, 나머지가 카드 격자로 갑니다. */
 const FEATURED_COUNT = 1;
+/** 입력칸이 aria-controls 로 가리킬 이름입니다. 한 쪽에 검색 상자가 하나라 고정 값으로 둡니다. */
+const SUGGEST_ID = 'explore-keyword-suggest';
 
 function formatWindowDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -180,13 +180,14 @@ function TrendMiniCard({ trend, rank }: { trend: Trend; rank: number }) {
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const openDetail = useTrendDetailLink();
   const domainsQuery = useDomains();
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
 
   const period = parsePeriod(searchParams.get('period'));
   const rawType = searchParams.get('status')?.toUpperCase() ?? '';
   const type: TrendType = (TREND_TYPES as readonly string[]).includes(rawType) ? (rawType as TrendType) : 'CURRENT';
-  const sort = sorts.some((item) => item.value === searchParams.get('sort')) ? searchParams.get('sort')! : 'rank';
   const size = pageSizes.includes(Number(searchParams.get('size'))) ? Number(searchParams.get('size')) : 6;
   const query = searchParams.get('q') ?? '';
   const [draft, setDraft] = useState(query);
@@ -210,16 +211,28 @@ export function HomePage() {
     setSearchParams(next);
   };
 
+  /*
+   * 자동완성은 이 쪽 목록이 아니라 서버 전체에서 찾습니다. 고른 말이 트렌드에 올라 있으면
+   * 상세를 바로 열고, 아직 오르지 않았으면 이 쪽 목록을 그 말로 걸러 없다는 것을 보여 줍니다.
+   */
+  const selectSuggestion = (item: KeywordSearchItem) => {
+    setDraft(item.keyword);
+    if (item.trendId === null) {
+      updateParams({ q: item.keyword });
+      return;
+    }
+    const { to, state } = openDetail(item.trendId);
+    navigate(to, { state });
+  };
+
+  const suggest = useKeywordSuggest(draft, selectSuggestion);
+
   const trends = useMemo(() => {
     const received = listQuery.data?.trends ?? [];
     const needle = query.trim().toLowerCase();
     // 검색은 받아 온 쪽 안에서만 걸러 줍니다. 전체 검색은 별도 화면이 생기면 그리로 옮깁니다.
-    const found = needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
-    if (sort === 'rank') return found;
-    return [...found].sort((a, b) => (sort === 'mentions'
-      ? b.mentionCount - a.mentionCount
-      : (b.growthRate ?? -Infinity) - (a.growthRate ?? -Infinity)));
-  }, [listQuery.data, query, sort]);
+    return needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
+  }, [listQuery.data, query]);
 
   const loading = domainsQuery.isLoading || listQuery.isLoading;
   const failed = domainsQuery.isError || listQuery.isError;
@@ -239,6 +252,7 @@ export function HomePage() {
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
+    suggest.hide();
     updateParams({ q: draft.trim() || undefined });
   };
 
@@ -264,24 +278,47 @@ export function HomePage() {
       </section>
 
       <section className="explore-searchbar">
-        <form onSubmit={submitSearch} role="search">
-          <SearchIcon size={20} color="#9ca3af" />
-          <input
-            type="text"
-            value={draft}
-            placeholder="이 목록에서 키워드를 찾아보세요."
-            aria-label="키워드 검색"
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          {query && (
-            <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); updateParams({ q: undefined }); }}>
-              지우기
+        {/* 목록은 검색 상자에 폭을 맞춥니다. 칸(section)에는 좌우 여백이 있어 그 기준으로 두면 밖으로 삐져나옵니다. */}
+        <div className="explore-search-shell" ref={suggest.box}>
+          <form onSubmit={submitSearch} role="search">
+            <SearchIcon size={20} color="#9ca3af" />
+            <input
+              type="text"
+              value={draft}
+              placeholder="키워드를 검색해보세요."
+              aria-label="키워드 검색"
+              role="combobox"
+              aria-expanded={suggest.visible}
+              aria-controls={SUGGEST_ID}
+              aria-autocomplete="list"
+              aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
+              autoComplete="off"
+              onChange={(event) => { setDraft(event.target.value); suggest.show(); }}
+              onFocus={suggest.show}
+              onKeyDown={suggest.handleKeyDown}
+            />
+            {query && (
+              <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); suggest.hide(); updateParams({ q: undefined }); }}>
+                지우기
+              </button>
+            )}
+            <button type="submit" className="explore-search-go" aria-label="검색">
+              <ArrowIcon size={16} color="#fff" />
             </button>
+          </form>
+
+          {suggest.visible && (
+            <KeywordSuggestMenu
+              id={SUGGEST_ID}
+              query={draft.trim()}
+              items={suggest.items}
+              status={suggest.status}
+              activeIndex={suggest.activeIndex}
+              onHover={suggest.setActiveIndex}
+              onSelect={suggest.select}
+            />
           )}
-          <button type="submit" className="explore-search-go" aria-label="검색">
-            <ArrowIcon size={16} color="#fff" />
-          </button>
-        </form>
+        </div>
       </section>
 
       <section className="explore-filters">
@@ -311,11 +348,8 @@ export function HomePage() {
         </div>
 
         <div className="explore-filters-right">
-          {/* 플랫폼별 집계는 아직 API에 없습니다. 자리만 두고 잠가 둡니다. */}
-          <FilterSelect label="플랫폼" value="all" options={[{ value: 'all', label: '전체' }]} disabled title="준비 중입니다" />
-          <FilterSelect label="정렬" value={sort} options={sorts} onChange={(value) => updateParams({ sort: value })} />
           <FilterSelect
-            label="상태"
+            label="정렬"
             value={type}
             options={TREND_TYPES.map((code) => ({ value: code, label: typeLabels[code] }))}
             onChange={(value) => updateParams({ status: value })}
