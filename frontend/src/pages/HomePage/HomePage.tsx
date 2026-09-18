@@ -30,9 +30,9 @@ const periodLabels: Record<PeriodCode, string> = {
 
 /** 서버가 가르는 세 갈래. 화면의 '정렬' 칸이 이 값을 고릅니다. 주소창 이름(status)은 그대로 둡니다. */
 const typeLabels: Record<TrendType, string> = {
-  CURRENT: '급상승',
-  NEW: '신규',
-  RISING: '재급상승',
+  CURRENT: '인기 트렌드',
+  NEW: '신규 트렌드',
+  RISING: '급상승 트렌드',
 };
 
 const pageSizes = [6, 12, 24];

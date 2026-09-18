@@ -263,7 +263,7 @@ export function LandingPage() {
 
         <div className="landing-boards">
           <TrendBoard
-            title="급상승 트렌드"
+            title="인기 트렌드"
             tone="rising"
             trends={topTrends}
             loading={currentQuery.isLoading}
@@ -281,7 +281,7 @@ export function LandingPage() {
             onRetry={() => void newQuery.refetch()}
           />
           <TrendBoard
-            title="재급상승 트렌드"
+            title="급상승 트렌드"
             tone="resurging"
             trends={risingQuery.data?.trends ?? []}
             loading={risingQuery.isLoading}
