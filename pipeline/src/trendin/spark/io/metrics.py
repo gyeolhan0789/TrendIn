@@ -41,7 +41,7 @@ MERGE 에서 **실제 컬럼 타입으로** 캐스트한다. 그 타입이 스�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Iterable, Sequence
 
 from trendin.spark.common.config import Config
@@ -334,25 +334,62 @@ RELATION_TABLES_SQL = (
 COUNTRY_METRICS = "keyword_country_daily_metrics"
 COUNTRY_TABLE_SQL = f"SELECT to_regclass('{COUNTRY_METRICS}') IS NOT NULL"
 
-# 원자료를 그대로 국가 축에 옮긴다. **국가가 상류에 없다.**
+# 원자료의 국가 칸을 그대로 국가 축 지표로 옮긴다 (2026-09-18).
 #
-# 마이그레이션 주석이 이 칸을 "기사가 어디서 왔는가" 로 정의했는데, 수집 봉투의
-# `source_country` 가 Spark 입력 스키마·`curated` 21칸·`pl_keyword_daily_stat` 중 어디에도
-# 없다. 네 층을 다 늘려야 문서마다 국가를 실어 나를 수 있고, `curated` 는 규격이 고정한
-# 표라 비용이 크다.
+# **전에는 전 키워드를 설정값 한 나라로 채웠다.** 봉투와 `curated` 에는 `source_country` 가
+# 이미 있었는데 추출이 읽는 칸 목록에 없어서 뒤로 흐르지 못했고, 그래서 `aggregate.country
+# .code` 라는 임시 설정이 표를 비워 두지 않는 역할을 하고 있었다. 이제 원자료가 나라를 알아
+# 그 설정이 없어졌다.
 #
-# 그래서 **`XX` 로 넣는다** — ISO 3166-1 의 사용자 지정 영역이라 "미지정" 을 뜻하고,
-# `^[A-Z]{2}$` 제약을 통과한다. `NOT NULL` 이라 비워 둘 수는 없다. 상류가 진짜 국가를 주면
-# 설정의 `aggregate.country.code` 자리에 그 값이 들어오고 이 SQL 은 그대로 둔다.
+# `metric_date` 와 `stat_date` 가 둘 다 KST 달력일이라 변환이 없다. 국가 코드도 원자료에서
+# 이미 `^[A-Z]{{2}}$` 모양으로 접혀 있다 (`common/countries.py`).
 #
-# `metric_date` 와 `stat_date` 가 둘 다 KST 달력일이라 변환이 없다.
+# **창 안에서만 갈아 쓴다** — 다른 두 표와 같은 `UPDATE → INSERT → 창 안 DELETE` 규약이다.
+# 전에는 날짜 조건이 하나도 없어 매 회차 전 기간을 지우고 다시 넣었다. 읽는 쪽이 최대 30일
+# (`TrendRegionJourneyService` 가 `DAYS_30`)이므로 창의 하한이 그 30일이고, 값은
+# `recompute_window_days` 가 준다.
+#
+# 마지막 `DELETE` 가 있어야 소스가 빠졌거나 병합으로 사라진 `(키워드, 날짜, 나라)` 행이
+# 실제로 없어진다. 창 밖은 건드리지 않는다 — 원자료 지평 밖의 옛 행을 이 회차가 0 으로
+# 덮어쓰거나 지우면, 화면의 옛 구간이 이유 없이 비어 버린다.
 COUNTRY_SQL = f"""
-INSERT INTO {COUNTRY_METRICS} (keyword_id, country_code, metric_date, mention_count)
-SELECT keyword_id, %(country)s, stat_date, sum(doc_count)
+CREATE TEMP TABLE _country_stat ON COMMIT DROP AS
+SELECT keyword_id,
+       source_country       AS country_code,
+       stat_date            AS metric_date,
+       sum(doc_count)::bigint AS mention_count
   FROM {DAILY_STAT}
  WHERE keyword_id IS NOT NULL
- GROUP BY keyword_id, stat_date
+   AND stat_date >= %(window_start)s AND stat_date < %(window_end)s
+ GROUP BY keyword_id, source_country, stat_date;
+
+UPDATE {COUNTRY_METRICS} m
+   SET mention_count = s.mention_count
+  FROM _country_stat s
+ WHERE m.keyword_id = s.keyword_id
+   AND m.metric_date = s.metric_date
+   AND m.country_code = s.country_code;
+
+INSERT INTO {COUNTRY_METRICS} (keyword_id, country_code, metric_date, mention_count)
+SELECT s.keyword_id, s.country_code, s.metric_date, s.mention_count
+  FROM _country_stat s
+ WHERE NOT EXISTS (
+        SELECT 1 FROM {COUNTRY_METRICS} m
+         WHERE m.keyword_id = s.keyword_id
+           AND m.metric_date = s.metric_date
+           AND m.country_code = s.country_code);
+
+DELETE FROM {COUNTRY_METRICS} m
+ WHERE m.metric_date >= %(window_start)s AND m.metric_date < %(window_end)s
+   AND NOT EXISTS (
+        SELECT 1 FROM _country_stat s
+         WHERE s.keyword_id = m.keyword_id
+           AND s.metric_date = m.metric_date
+           AND s.country_code = m.country_code);
 """
+
+# 창 안에서 쓴 행 수. `rowcount` 는 마지막 문장(`DELETE`)의 것이라 쓴 행을 세지 못한다.
+COUNTRY_STAT_COUNT_SQL = "SELECT count(*) FROM _country_stat"
 
 # 컬럼의 실제 타입. 배열이면 `trend_type[]` 같은 형태로 온다.
 COLUMN_TYPE_SQL = """
@@ -525,21 +562,21 @@ class MetricSink:
             cur.execute(COUNTRY_TABLE_SQL)
             return bool(cur.fetchone()[0])
 
-    def rebuild_country_metrics(self, *, country_code: str) -> int:
-        """`pl_keyword_daily_stat` → `keyword_country_daily_metrics`. 쓴 행 수.
+    def rebuild_country_metrics(self, *, window_start: date, window_end: date) -> int:
+        """`pl_keyword_daily_stat` → `keyword_country_daily_metrics`. 창 안에 쓴 행 수.
 
-        **연관과 같이 지우고 다시 넣는다.** 원자료가 누적이라 전량을 다시 써도 결과가 같고,
-        재계산 구간만 골라 지우려면 날짜 범위를 이 층까지 들고 와야 한다. 표 크기가
-        키워드 × 날짜라 작다.
+        **창 안에서만 갈아 쓴다** (`COUNTRY_SQL` 의 주석). 전에는 전 기간을 지우고 다시
+        넣었는데, 그러면 원자료 지평 밖의 옛 행이 회차마다 사라진다.
 
-        한 트랜잭션 안에서 한다 — 조회가 빈 표를 보지 않는다.
+        한 트랜잭션 안에서 한다 — 조회가 빈 표를 보지 않는다. 임시 테이블이
+        `ON COMMIT DROP` 이라 행 수를 커밋 **전에** 센다.
         """
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
-            cur.execute(f"DELETE FROM {COUNTRY_METRICS}")
-            cur.execute(COUNTRY_SQL, {"country": country_code})
-            written = cur.rowcount
+            cur.execute(COUNTRY_SQL, {"window_start": window_start, "window_end": window_end})
+            cur.execute(COUNTRY_STAT_COUNT_SQL)
+            written = int(cur.fetchone()[0])
             conn.commit()
-        return max(0, written)
+        return written
 
     def warn_missing_constraints(self) -> list[str]:
         """없는 유니크 제약을 크게 남긴다. 돌기는 돌지만 방어가 한 겹 없다."""

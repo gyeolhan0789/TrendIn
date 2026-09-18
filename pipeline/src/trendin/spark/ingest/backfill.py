@@ -44,9 +44,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any, Iterator
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Iterator, Mapping
 
 from trendin.spark.common.config import Config, ConfigError
+from trendin.spark.common.countries import normalize_country
 from trendin.spark.common.logging import get_logger
 from trendin.spark.ingest.routing import COMPLETED, STAGE_NORMALIZE
 from trendin.spark.io import objects as store_io
@@ -154,9 +156,18 @@ def parse_key(key: str) -> tuple[str, str, str, str] | None:
 
 
 def list_articles(
-    store: store_io.StoreConfig, bucket: str, request: BackfillRequest
+    store: store_io.StoreConfig,
+    bucket: str,
+    request: BackfillRequest,
+    *,
+    countries: Mapping[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], BackfillStats]:
     """범위 안의 `article.json` 을 훑어 봉투를 재구성한다.
+
+    **`countries` 는 소스 → 국가 지도다** (`collected.source_countries`). 국가는 기사가 아니라
+    소스의 속성이라 `article.json` 에 없고, 그래서 객체만 되읽는 이 경로는 키에서 얻은 소스
+    이름으로 지도를 찾는 것이 유일한 길이다. 넘기지 않거나 소스가 지도에 없으면 `XX` 다 —
+    이 경로로 재처리한 문서만 국가를 잃는 것을 막으려고 인자를 받는다.
 
     **프리픽스를 세 단계로 좁힌다** — 도메인 아래의 소스, 소스 아래의 `route`, 그리고 그 아래
     날짜다. 키의 날짜가 소스·route 뒤에 오기 때문에(`collect/keys.py`) 날짜만으로는 프리픽스를
@@ -194,6 +205,7 @@ def list_articles(
                             parsed,
                             checksum=checksum,
                             collected_at=metadata.get(store_io.META_COLLECTED_AT),
+                            countries=countries or {},
                         )
                     )
 
@@ -216,8 +228,13 @@ def _envelope(
     *,
     checksum: str | None,
     collected_at: str | None,
+    countries: Mapping[str, str] = MappingProxyType({}),
 ) -> dict[str, Any]:
-    """봉투 한 개. 없는 칸은 `None` 으로 둔다 — 객체 안에 있다 ([02 §6])."""
+    """봉투 한 개. 없는 칸은 `None` 으로 둔다 — 객체 안에 있다 ([02 §6]).
+
+    `source_country` 만 예외다. 객체 안에 없는데 `None` 으로 두면 국가 축이 이 경로에서만
+    끊기므로, 소스 이름으로 지도를 찾아 채운다.
+    """
     domain, source, _route, article_id = parsed
     return {
         # 규칙은 계약과 같다 ([08 §3] 의 `event_id` 꼴 표).
@@ -245,7 +262,7 @@ def _envelope(
         "failure_reason": None,
         "members_only": None,
         "paywalled": None,
-        "source_country": None,
+        "source_country": normalize_country(countries.get(source)),
         CORRUPT_FIELD: None,
     }
 

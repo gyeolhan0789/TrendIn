@@ -36,7 +36,6 @@ spark/scripts/submit.sh aggregate --profile local --date 2026-08-01 --reaggregat
 from __future__ import annotations
 
 import argparse
-import re
 from datetime import date, datetime, time, timedelta
 
 from pyspark.sql import SparkSession
@@ -48,6 +47,7 @@ from trendin.spark.common.run_id import default_run_id
 from trendin.spark.io import stats as stats_io
 from trendin.spark.io.metrics import MetricSink
 from trendin.spark.metrics import batch
+from trendin.spark.metrics import windows as window_rules
 from trendin.spark.metrics.relations import RelationThresholds
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.normalize.documents import KST
@@ -180,7 +180,7 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     # 기대지 않지만, 승격이 막히면 둘 다 쓸 것이 없다는 사정이 같다.
     if not dry_run:
         _rebuild_relations(sink, config, reference_day=result.reference_day)
-        _rebuild_country_metrics(sink, config)
+        _rebuild_country_metrics(sink, thresholds, reference_day=result.reference_day)
 
     if not dry_run:
         stats = stats_io.BatchStats(config, job=JOB)
@@ -188,33 +188,29 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
         stats.replace(result.stats, ingest_run_id=run_id)
 
 
-# 국가 코드의 형식. DB 제약(`^[A-Z]{2}$`)과 같은 규칙을 미리 본다 — 여기서 막지 않으면
-# 증상이 `ck_keyword_country_daily_metrics_country_code` 위반으로 적재 끝에서야 나온다.
-_COUNTRY_CODE = re.compile(r"^[A-Z]{2}$")
+def _rebuild_country_metrics(
+    sink: MetricSink, thresholds: AggregateThresholds, *, reference_day: date
+) -> None:
+    """원자료의 국가 칸을 국가 축 지표로 옮긴다 (`io/metrics.COUNTRY_SQL` 의 주석).
 
-# 상류에 국가가 없을 때 쓰는 값. ISO 3166-1 의 사용자 지정 영역이라 "미지정" 을 뜻한다.
-# **`KR` 로 굳히지 않는다** — 지금 매체가 전부 한국판이라 그렇게 넣어도 맞지만, 그러면
-# "기사가 어디서 왔는가" 를 실제로 아는 것처럼 보이게 된다.
-DEFAULT_COUNTRY = "XX"
+    **`aggregate.country.code` 설정이 없어졌다** (2026-09-18). 상류에 국가가 없던 동안 표를
+    비워 두지 않으려고 전 키워드를 한 나라로 채우던 임시 값이었고, 이제 원자료가 나라를
+    안다. 끊겨 있던 자리는 추출이 `curated` 에서 읽는 칸 목록 한 줄이었다.
 
-
-def _rebuild_country_metrics(sink: MetricSink, config: Config) -> None:
-    """원자료를 국가 축으로 옮긴다 (`io/metrics.COUNTRY_SQL` 의 주석).
-
-    상류가 진짜 국가를 주기 시작하면 `aggregate.country.code` 를 그 값으로 바꾸는 것이
-    아니라, 원자료에 국가 칸을 더하고 이 함수가 그 칸을 읽도록 고치는 것이 순서다. 설정
-    한 줄은 그때까지 표를 비워 두지 않으려는 임시 값이다.
+    **창이 시계열과 같다.** 국가 축만 다른 구간을 갈아 쓰면 같은 키워드의 전국 그래프와
+    나라별 그래프가 서로 다른 시기를 말한다.
     """
-    code = str(config.get("aggregate.country.code", DEFAULT_COUNTRY))
-    if not _COUNTRY_CODE.match(code):
-        raise ConfigError(
-            f"aggregate.country.code 는 대문자 두 글자여야 한다 (ISO 3166-1 alpha-2): {code!r}"
-        )
     if not sink.country_table_ready():
         log.warning("keyword_country_daily_metrics 가 없다 — 국가별 언급량을 건너뛴다")
         return
-    written = sink.rebuild_country_metrics(country_code=code)
-    log.info("국가별 일 언급량 %d행 — country_code=%s", written, code)
+    window = window_rules.history_window(reference_day, thresholds.recompute_window_days)
+    written = sink.rebuild_country_metrics(window_start=window.start, window_end=window.end)
+    log.info(
+        "국가별 일 언급량 %d행 — 재계산 [%s, %s)",
+        written,
+        window.start,
+        window.end,
+    )
 
 
 def _rebuild_relations(sink: MetricSink, config: Config, *, reference_day: date) -> None:

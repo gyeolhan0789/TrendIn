@@ -15,13 +15,12 @@ DAG 이 돌고, 아무도 모른다. 대신 CI 가 모든 프로필을 읽어 �
 from __future__ import annotations
 
 import datetime as dt
-import re
 import tomllib
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from trendin.common.collect.contracts import License, Rule, SourceDef
+from trendin.common.collect.contracts import License, Rule, SourceDef, check_country
 
 # route 별로 프로필에 적을 수 있는 규칙. 값은 파라미터의 모양이다 — None 이면 파라미터가 없고,
 # "str" 이면 비지 않은 문자열, "int" 면 정수, "zone" 이면 IANA 시간대 이름이 반드시 있어야 한다.
@@ -57,7 +56,6 @@ REQUIRED = (
 OPTIONAL = ("page_param", "license")
 LICENSE_KEYS = ("name", "url", "reviewed_on")
 
-COUNTRY = re.compile(r"[A-Z]{2}")  # ISO 3166-1 alpha-2, 판정 불가는 XX
 
 
 class ProfileError(ValueError):
@@ -100,9 +98,9 @@ def _to_source(data: dict[str, Any], *, key: str, domain: str) -> SourceDef:
     if route not in RULES:
         raise ValueError(f"프로필로 적을 수 없는 route 다: {route!r}")
 
-    country = _text(data, "country")
-    if not COUNTRY.fullmatch(country):
-        raise ValueError(f"country 는 대문자 두 글자(판정 불가는 XX)여야 한다: {country!r}")
+    # 소문자로 적어도 받지 않는다. 받아 올리면 프로필 파일마다 표기가 갈리고, 그 값이
+    # 원자료의 기본키에 들어가 같은 나라가 두 행이 된다.
+    country = check_country(_text(data, "country"), where=f"{key}.toml")
 
     prefixes = data["allowed_url_prefixes"]
     if (

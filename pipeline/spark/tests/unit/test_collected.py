@@ -152,3 +152,32 @@ def test_뷰가_없으면_조용히_0건이_아니라_죽는다(monkeypatch):
 
     with pytest.raises(ConfigError, match=collected.VIEW):
         collected.list_events(config(), since=datetime.now(timezone.utc))
+
+
+# --- 소스 → 국가 지도 -------------------------------------------------------
+
+
+def test_소스별_국가를_거울_표에서_뽑는다(monkeypatch):
+    """백필(모드 B)은 객체만 되읽어 국가를 모른다. 소스 이름으로 찾을 지도가 이것이다."""
+    monkeypatch.setattr(
+        collected.jdbc, "connection", fake_connection([("vogue", "KR"), ("hn", "XX")])
+    )
+
+    assert collected.source_countries(config()) == {"vogue": "KR", "hn": "XX"}
+
+
+def test_지도는_뷰가_아니라_거울_표에서_온다():
+    """뷰는 **장부에 기사가 있는 소스만** 낸다.
+
+    2026-09-18 로컬에서 목록 소스 둘이 그렇게 빠졌고, 백필로 되읽은 기사가 전부 `XX` 가
+    됐다. 거울에는 그 둘이 `KR` 로 있었다. 기사 수와 무관한 지도라 표를 직접 본다.
+    """
+    assert collected.SOURCE_COUNTRY_TABLE in collected.SOURCE_COUNTRY_SQL
+    assert collected.VIEW not in collected.SOURCE_COUNTRY_SQL
+
+
+def test_거울_표가_없으면_빈_지도다_죽지_않는다(monkeypatch):
+    """백필은 수집 스키마 없이도 도는 경로다. 국가는 `XX` 로 남고 화면에서 곧 보인다."""
+    monkeypatch.setattr(collected.jdbc, "connection", fake_connection([], view_exists=False))
+
+    assert collected.source_countries(config()) == {}

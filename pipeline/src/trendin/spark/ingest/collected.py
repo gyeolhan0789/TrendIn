@@ -74,6 +74,23 @@ SELECT {", ".join(VIEW_COLUMNS)}
  ORDER BY collected_at_ts, source_id, article_id
 """
 
+# 소스 → 국가. **거울 표를 직접 읽는다.**
+#
+# 처음에는 뷰에서 `DISTINCT` 로 뽑았는데 **장부에 기사가 있는 소스만 나온다.** 2026-09-18
+# 로컬에서 목록 소스 둘(`cosmopolitan` · `harpersbazaar`)이 그렇게 빠졌다 — 거울에는 `KR` 로
+# 있는데 장부에 그 소스의 행이 없어서, 백필로 되읽은 기사 39건이 전부 `XX` 가 됐다.
+#
+# 그래서 이 한 자리에서는 뷰가 아니라 거울 표를 본다. 이 모듈이 `collected_article` 을 직접
+# 읽지 않는 이유는 **칸이 자주 바뀌는 큰 표**라 뷰 한 겹이 그 변화를 흡수해야 하기 때문인데,
+# 거울은 그 사정이 없다 — 칸이 `(source, country)` 둘뿐이고 존재 목적이 "SQL 안에서 읽히는
+# 것" 이다 (`common/collect/ledger.py` 의 DDL 주석). 뷰 자신도 이 표를 JOIN 해서 읽는다.
+#
+# 진실의 자리는 여전히 코드의 `SourceDef.country` 이고, 수집 DAG 의 `ensure_schema` 가 매
+# 실행 거울을 그 값으로 UPSERT 한다.
+SOURCE_COUNTRY_TABLE = "collect_source_country"
+SOURCE_COUNTRY_EXISTS_SQL = f"SELECT to_regclass('{SOURCE_COUNTRY_TABLE}') IS NOT NULL"
+SOURCE_COUNTRY_SQL = f"SELECT source, country FROM {SOURCE_COUNTRY_TABLE}"
+
 
 def lookback(config: Config) -> timedelta:
     """창의 길이. **기본값을 코드에 두지 않는다** (S15P21A102-247 코드리뷰).
@@ -97,6 +114,26 @@ def view_ready(config: Config) -> bool:
         cur.execute(EXISTS_SQL)
         row = cur.fetchone()
     return bool(row and row[0])
+
+
+def source_countries(config: Config) -> dict[str, str]:
+    """소스 → 국가 지도. 객체만 되읽는 백필 경로(모드 B)가 국가를 채우는 데 쓴다.
+
+    **등록된 소스 전부를 낸다.** 기사가 한 건도 없는 소스도 들어 있다 — 그게 뷰가 아니라
+    거울 표를 읽는 이유다 (`SOURCE_COUNTRY_SQL` 의 주석).
+
+    표가 없으면 빈 지도다. 백필은 수집 스키마 없이도 도는 경로이므로 여기서 죽이지 않는다.
+    국가는 `XX` 로 남고, 그 상태는 통계의 구멍으로 숨지 않는다 — 국가 칸이 `XX` 인 것이
+    화면에서 곧 보인다.
+    """
+    with jdbc.connection(config) as conn, conn.cursor() as cur:
+        cur.execute(SOURCE_COUNTRY_EXISTS_SQL)
+        row = cur.fetchone()
+        if not (row and row[0]):
+            log.warning("%s 표가 없다 — 백필 봉투의 국가를 비운다 (XX)", SOURCE_COUNTRY_TABLE)
+            return {}
+        cur.execute(SOURCE_COUNTRY_SQL)
+        return {str(source): str(country) for source, country in cur.fetchall()}
 
 
 def list_events(config: Config, *, since: datetime) -> list[dict[str, Any]]:

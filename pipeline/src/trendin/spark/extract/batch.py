@@ -48,6 +48,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Iterator
 
+from trendin.spark.common import countries
 from trendin.spark.common.config import ConfigError
 from trendin.spark.common.logging import get_logger
 from trendin.spark.extract import chunking as ck
@@ -361,7 +362,16 @@ def extract_batch(
 
     # 4 — 선별. 점수는 모델이 준 값 그대로다.
     target_meta = keyed.select(
-        "doc_key", "url_hash", "source_id", "author", "published_date", "dup_of", "ingest_run_id"
+        "doc_key",
+        "url_hash",
+        "source_id",
+        "author",
+        # 국가는 문서마다 하나다 (소스의 속성이라서). 여기서 접어 두면 아래 조립과
+        # 일별 재집계가 같은 값을 본다.
+        countries.country_column(F.col("source_country")),
+        "published_date",
+        "dup_of",
+        "ingest_run_id",
     )
     rank_order = Window.partitionBy("doc_key").orderBy(
         F.col("score").desc(), F.col("normalized_key").asc()
@@ -407,6 +417,8 @@ def extract_batch(
         F.col("published_date").alias("stat_date"),
         F.col("source_id"),
         F.col("author"),
+        # 발행 매체의 나라. `target_meta` 가 이미 접어 둔 값이다.
+        F.col("source_country"),
         F.col("dup_of").isNotNull().alias("is_dup"),
         F.col("ingest_run_id"),
         F.lit(extract_run_id).alias("extract_run_id"),
