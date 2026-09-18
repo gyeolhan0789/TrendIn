@@ -97,7 +97,51 @@ pipeline {
             when { environment name: 'FRONTEND_CHANGED', value: 'true' }
             steps {
                 dir('frontend') {
-                    sh 'node --version && npm --version && npm ci && npm run build && test -s dist/index.html'
+                    sh '''
+                        set +x
+                        set -eu
+                        export FRONTEND_ENV_FILE="${DEPLOY_ENV_FILE:-/home/ubuntu/S15P21A102/infra/.env}"
+                        node --version
+                        npm --version
+                        node --input-type=module <<'NODE'
+import { readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
+import { spawnSync } from 'node:child_process';
+
+let deploymentEnv;
+try {
+    deploymentEnv = parseEnv(readFileSync(process.env.FRONTEND_ENV_FILE, 'utf8'));
+} catch {
+    console.error('Cannot read or parse the frontend deployment environment file.');
+    process.exit(1);
+}
+const buildEnv = { ...process.env };
+for (const key of [
+    'VITE_GITLAB_OAUTH_BASE_URL',
+    'VITE_GITLAB_OAUTH_CLIENT_ID',
+    'VITE_GITLAB_OAUTH_REDIRECT_URI',
+]) {
+    if (!deploymentEnv[key]?.trim()) {
+        console.error(`Required frontend deployment variable is missing: ${key}`);
+        process.exit(1);
+    }
+    buildEnv[key] = deploymentEnv[key];
+}
+// Never merge the full file: it also contains backend credentials.
+// Explicitly exclude inherited OAuth secrets from the frontend build as well.
+delete buildEnv.GITLAB_OAUTH_CLIENT_SECRET;
+delete buildEnv.VITE_GITLAB_OAUTH_CLIENT_SECRET;
+buildEnv.VITE_API_BASE_URL = '/api';
+for (const args of [['ci'], ['run', 'build']]) {
+    const result = spawnSync('npm', args, { env: buildEnv, stdio: 'inherit' });
+    if (result.error || result.status !== 0) {
+        console.error('Frontend dependency installation or production build failed.');
+        process.exit(result.status || 1);
+    }
+}
+NODE
+                        test -s dist/index.html
+                    '''
                 }
             }
         }
