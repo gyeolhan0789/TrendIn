@@ -835,7 +835,7 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-hero-note p { color: var(--lp-muted); font-size: 12px; line-height: 1.6; }
 
 .explore-searchbar { padding-bottom: 24px; }
-.explore-search-shell { position: relative; }
+.explore-search-shell { position: relative; max-width: 720px; }
 .explore-searchbar form { display: flex; align-items: center; padding: 8px 8px 8px 24px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .explore-searchbar form:focus-within { border-color: var(--lp-indigo); }
 .explore-searchbar form > svg { flex: 0 0 20px; margin-right: 14px; }
