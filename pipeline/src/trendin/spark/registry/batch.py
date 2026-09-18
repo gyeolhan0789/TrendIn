@@ -61,6 +61,14 @@ MERGES_PARKED = "merges_parked"  # 자동 적용하지 않고 큐로 보낸 쌍
 RECOUNTED_DATES = "recounted_dates"  # 병합 반영으로 다시 센 (domain, stat_date) 수
 PROMOTED = "promoted"  # 이번 회차에 keywords 로 들어간 수 (재승격 포함)
 HELD = "held"  # 차원: {domain}/{사유}. registry/promote 의 HELD_* 상수
+# 조건마다 **단독으로** 막은 수. 차원은 `HELD` 와 같지만 세는 방식이 다르다 — 위는 후보당
+# 사유 하나라 앞선 조건이 뒤를 가리고(`registry/promote.Verdict`), 이쪽은 조건마다 따로 세어
+# **합이 보류 수를 넘는다.** 승격 문턱은 위 표로 정할 수 없어서 있는 지표다 ([10 §4] S6).
+#
+# **이미 승격된 후보는 세지 않는다.** 그것은 심사 결과와 무관하게 통과하므로([05 §1])
+# 분포에 섞으면 "이 조건이 지금 무엇을 막고 있나" 가 흐려진다 — 알고 싶은 것은 아직
+# 올라오지 못한 쪽이다.
+HELD_BY_CONDITION = "held_by_condition"  # 차원: {domain}/{사유}
 REVIEW_ENQUEUED = "review_enqueued"
 EMBEDDING_ENCODED = "embedding_encoded"  # 캐시에 없어 새로 계산한 표기 수
 KEYWORD_CONTENTS_LINKED = "keyword_contents_linked"
@@ -108,7 +116,10 @@ def registry_batch(
     """도메인 하나의 정규화·통합·승격.
 
     `keywords` 가 `None` 이면 **승격만 건너뛴다** — 병합·검수 큐·이력은 전부 `pl_` 이라
-    백엔드 선행 조건과 무관하게 돈다 ([08 §1], `io/keywords.py` 의 차단 절).
+    백엔드 선행 조건과 무관하게 돈다 ([08 §1], `io/keywords.py` 의 차단 절). 그 자리는 둘이
+    쓴다: 선행 조건이 없어 **막힌** 회차와, 후보 분포를 보려고 `--skip-promotion` 으로
+    **일부러 끈** 회차다. 심사는 어느 쪽에서도 그대로 돌아 보류 분포가 남는다 — 그것이
+    문턱을 정하는 자료다 ([10 §4] S6). **이유를 로그에 남기는 것은 호출부다.**
     """
     observations = _observations(registry, domain=domain)
     if not observations:
@@ -159,17 +170,21 @@ def registry_batch(
     groups = {row[0]: row[1:] for row in registry.group_observations(domain=domain)}
     canonical_of = {item.alias_key: item.canonical_key for item in resolution.aliases}
 
-    verdicts = _judge_all(
+    judged = _judge_all(
         observations,
         domain=domain,
         groups=groups,
         canonical_of=canonical_of,
         thresholds=thresholds,
     )
+    verdicts = judged.verdicts
     passed = tuple(key for key, verdict in verdicts.items() if verdict.promoted)
     for reason in promote_rules.HELD_REASONS:
         held = sum(1 for verdict in verdicts.values() if verdict.reason == reason)
         stats.append(Stat(HELD, f"{domain}/{reason}", held))
+        stats.append(
+            Stat(HELD_BY_CONDITION, f"{domain}/{reason}", judged.condition_failures[reason])
+        )
 
     # 7 — 층 3. 대상은 심사를 통과한 것 ∪ 이미 승격된 것 (위 docstring).
     visible = tuple(sorted(set(passed) | promoted_keys))
@@ -196,7 +211,7 @@ def registry_batch(
         stats.append(Stat(PROMOTED, domain, 0))
         log.warning(
             "[%s] 승격을 건너뛴다 — 심사를 통과한 후보 %d개가 keywords 에 들어가지 않는다. "
-            "keywords (domain, normalized_name) UNIQUE 가 필요하다 ([09 §7] 항목 2)",
+            "이유는 호출부가 이미 남겼다 (선행 조건 부재 또는 --skip-promotion)",
             domain,
             len(passed),
         )
@@ -298,6 +313,16 @@ def _pairs(
     return (*plural, *abbreviation, *scan.pairs, *existing, *approved), stats
 
 
+@dataclass(frozen=True, slots=True)
+class Judged:
+    """심사 결과와 조건별 분포. 한 번의 순회에서 둘 다 나온다."""
+
+    verdicts: dict[str, promote_rules.Verdict]
+    # 사유 → 그 조건이 **단독으로** 막은 수 (`HELD_BY_CONDITION`). 사유 전부에 대해 키가
+    # 있다 — 0 인 조건도 행을 남겨야 "안 막았다" 와 "안 셌다" 가 구분된다 (`io/stats.py`).
+    condition_failures: dict[str, int]
+
+
 def _judge_all(
     observations: dict[str, Observation],
     *,
@@ -305,7 +330,7 @@ def _judge_all(
     groups: dict[str, tuple],
     canonical_of: dict[str, str],
     thresholds: RegistryThresholds,
-) -> dict[str, promote_rules.Verdict]:
+) -> Judged:
     """대표마다 심사 한 번. **별칭은 심사하지 않는다** — 그 관측은 대표에 합산돼 있다.
 
     이미 승격된 것도 다시 심사한다. 통과하면 대표 표기를 갱신하고([05 §5] "`name` 은 바뀔
@@ -313,6 +338,7 @@ def _judge_all(
     것은 무조건 통과로 본다.
     """
     verdicts: dict[str, promote_rules.Verdict] = {}
+    condition_failures = {reason: 0 for reason in promote_rules.HELD_REASONS}
     for key, item in sorted(observations.items()):
         if key in canonical_of:
             continue
@@ -332,11 +358,14 @@ def _judge_all(
             representative_ratio=(item.doc_count / doc_count) if doc_count else 0.0,
         )
         verdict = promote_rules.judge(evidence, thresholds)
-        if not verdict.promoted and item.keyword_id is not None:
+        if item.keyword_id is None:
+            for reason in verdict.failed:
+                condition_failures[reason] += 1
+        elif not verdict.promoted:
             # 이미 승격된 것은 되돌리지 않는다. 사유는 남기지 않는다 — 보류가 아니기 때문이다.
             verdict = promote_rules.Verdict(promoted=True, reason=promote_rules.PROMOTED)
         verdicts[key] = verdict
-    return verdicts
+    return Judged(verdicts=verdicts, condition_failures=condition_failures)
 
 
 def _layer3(

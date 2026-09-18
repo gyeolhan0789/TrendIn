@@ -5,6 +5,8 @@
 spark/scripts/submit.sh extract --profile local                       # 새 ingest 실행분만
 spark/scripts/submit.sh extract --profile local --domain fashion \\
     --from 2026-09-01 --to 2026-09-07 --force                          # 발행일 구간 재추출
+spark/scripts/submit.sh extract --profile local --domain fashion \
+    --force --skip-promotion                                           # 분포만 뜨고 승격 안 함
 ```
 
 **하는 것** — [04] 전부. 실체 인식(GLiNER), 언어별 후처리, 비교키·대표 표기, 필터(형태·
@@ -22,6 +24,12 @@ spark/scripts/submit.sh extract --profile local --domain fashion \\
 ([09 §7] 항목 2) `--allow-missing-keyword-unique` 로 승격을 건너뛰고 나머지를 돈다 — 병합 ·
 검수 큐 · 이력은 전부 `pl_` 이라 선행 조건이 없다. 기본은 fail-closed 다
 (`extract.registry.required`, base.yaml `true`).
+
+**승격을 일부러 끄는 것은 `--skip-promotion` 이다.** 위가 "할 수 없는데 돌았다" 를 막는다면
+이쪽은 **"보려고만 했는데 올라가 버렸다" 를 막는다.** 승격 문턱은 후보 분포를 본 뒤라야
+정할 수 있는데([10 §4] S6) 승격은 되돌릴 수 없으므로([05 §1]), 분포를 뜨는 실행과 실제로
+올리는 실행이 갈려 있어야 한다. 심사는 그대로 돌아 보류 사유가 `pl_batch_stat` 에 남는다
+(`held` · `held_by_condition`).
 
 **무엇을 처리하나** — 기본은 `curated` 에 있는데 이 Job 의 처리 이력에 없는 `ingest_run_id`
 파티션 전부다 ([01 §3], `extract/source.py`). `--from/--to` 를 주면 그 발행일 구간을 통째로 다시
@@ -103,6 +111,15 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--skip-promotion",
+        dest="skip_promotion",
+        action="store_true",
+        help=(
+            "승격만 하지 않고 나머지를 전부 돈다 — 심사·병합·검수 큐·이력은 그대로다. "
+            "후보 분포와 보류 사유를 보려고 돌릴 때 쓴다 ([10 §4] S6)"
+        ),
+    )
+    parser.add_argument(
         "--run-id",
         dest="run_id",
         default=None,
@@ -132,7 +149,11 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     sink.ensure_schema()
     registry.ensure_schema()
     stats.ensure_schema()
-    keywords = _keyword_sink(config, allow_missing_unique=args.allow_missing_unique)
+    keywords = _keyword_sink(
+        config,
+        allow_missing_unique=args.allow_missing_unique,
+        skip_promotion=args.skip_promotion,
+    )
 
     curated = source.read_curated(spark, config)
     domains = [args.domain] if args.domain else sorted(DOMAIN_VALUES)
@@ -174,13 +195,29 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     log.info("extract 끝: run_id=%s", run_id)
 
 
-def _keyword_sink(config: Config, *, allow_missing_unique: bool) -> KeywordSink | None:
-    """승격을 할 수 있는지 보고, 못 하면 `None`.
+def _keyword_sink(
+    config: Config, *, allow_missing_unique: bool, skip_promotion: bool
+) -> KeywordSink | None:
+    """승격을 할 수 있는지, 하려는지 보고, 아니면 `None`.
 
     **조용히 건너뛰지 않는다.** 없는 채로 돌면 병합·검수 큐는 채워지는데 `keywords` 가
     비어, 증상이 "트렌드가 하나도 안 나온다" 로 화면에서야 나타난다 —
     `ingest.contents.required` 와 같은 이유로 기본이 fail-closed 다 ([05 §5], [09 §7] 항목 2).
+
+    **`--skip-promotion` 은 그 fail-closed 와 반대 방향이다.** 저쪽은 "할 수 없는데 돌았다"
+    를 막고, 이쪽은 "보려고만 했는데 올라가 버렸다" 를 막는다. 승격은 되돌릴 수 없으므로
+    ([05 §1]) 문턱을 정하려고 분포를 뜨는 실행에는 끌 수단이 있어야 한다 — 없어서 2026-09-17
+    실체 인식 교체 실측이 `keywords` 1,166건과 함께 나왔다.
     """
+    if skip_promotion:
+        # 선행 조건은 보지 않는다. 있든 없든 이 회차는 어차피 `keywords` 를 건드리지 않고,
+        # 여기서 죽으면 분포를 뜨려던 실행이 백엔드 상태에 묶인다.
+        log.warning(
+            "🚫 --skip-promotion — 승격하지 않는다. 심사·병합·검수 큐·이력은 그대로 돌고 "
+            "keywords 와 keyword_contents 만 건드리지 않는다. 보류 사유 분포는 "
+            "pl_batch_stat 의 held · held_by_condition 에 남는다"
+        )
+        return None
     sink = KeywordSink(config)
     required = bool(config.get(f"{REGISTRY_SECTION}.required", True))
     missing: list[str] = []
