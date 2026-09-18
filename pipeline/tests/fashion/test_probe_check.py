@@ -82,7 +82,10 @@ class Site:
             page = int(parse_qs(parts.query).get("paged", ["1"])[0])
             if page not in self.pages:
                 return httpx.Response(404)
-            return httpx.Response(200, content=rss(self.pages[page]))
+            content = self.pages[page]
+            return httpx.Response(
+                200, content=content if isinstance(content, bytes) else rss(content)
+            )
         status, body = self.articles[int(parts.path.strip("/"))]
         return httpx.Response(status, content=body)
 
@@ -122,6 +125,13 @@ def test_2페이지가_더_오래되지_않으면_not_older_다(clock):
     site = Site({1: PAGE1, 2: [(31, NEWEST + DAY, None)], 999: []})
     row = probe_check.summary_row(run(site, clock))
     assert row.endswith("| not_older | empty |")
+
+
+def test_피드_끝이_200_인데_피드가_아니면_파싱_실패로_찍는다(clock):
+    """houyhnhnm 이 `?paged=999` 에 200 과 XML 로 못 읽는 본문을 줬다(2026-09-18)."""
+    site = Site({1: PAGE1, 2: PAGE2, 999: b"<!DOCTYPE html><html><p>a & b</p></html>"})
+    row = probe_check.summary_row(run(site, clock))
+    assert row.endswith("| ok | 파싱 실패 |")
 
 
 def test_2페이지_기사가_전부_규칙에_안_맞으면_빈_페이지가_아니다(clock):

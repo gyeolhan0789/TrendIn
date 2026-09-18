@@ -1,0 +1,8 @@
+key = "senken"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행 법인 株式会社繊研新聞社 의 소재지
+discover_url = "https://senken.co.jp/posts/feed.xml"
+allowed_url_prefixes = ["https://senken.co.jp/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }

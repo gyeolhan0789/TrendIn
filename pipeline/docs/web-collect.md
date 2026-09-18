@@ -55,6 +55,14 @@ MinIO 보존 기간(90일)은 바꾸지 않는다. 무기한 보존을 검토했
 | `dazed` | fashion | https://www.dazeddigital.com/rss |
 | `id` | fashion | https://i-d.co/category/fashion/feed/ |
 | `theindustry` | fashion | https://www.theindustry.fashion/feed/ |
+| `mensnonno` | fashion | https://www.mensnonno.jp/fashion/feed/ |
+| `fudge` | fashion | https://fudge.jp/fashion/feed/ |
+| `oggi` | fashion | https://oggi.jp/fashion/feed |
+| `houyhnhnm` | fashion | https://www.houyhnhnm.jp/feed |
+| `vogue_jp` | fashion | https://www.vogue.co.jp/feed/rss |
+| `cancam` | fashion | https://cancam.jp/feed |
+| `fashionsnap` | fashion | https://www.fashionsnap.com/rss.xml |
+| `senken` | fashion | https://senken.co.jp/posts/feed.xml |
 | `vogue_fr` | fashion | https://www.vogue.fr/feed/rss |
 | `lofficiel` | fashion | https://www.lofficiel.com/feed.rss |
 | `numero` | fashion | https://numero.com/category/mode/feed/ |
