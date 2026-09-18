@@ -1,0 +1,4139 @@
+{
+ "source": "wikidata",
+ "category": "brand",
+ "fetched_at": "2026-09-17",
+ "query": {
+  "min_langs": 3,
+  "langs": [
+   "en",
+   "ko",
+   "ja",
+   "ar",
+   "fr",
+   "it"
+  ]
+ },
+ "items": [
+  {
+   "id": "Q101108013",
+   "labels": {
+    "en": "George",
+    "fr": "George",
+    "it": "George"
+   },
+   "aliases": {
+    "en": [
+     "George at ASDA"
+    ]
+   }
+  },
+  {
+   "id": "Q1028975",
+   "labels": {
+    "en": "Jacques Fath",
+    "fr": "Jacques Fath",
+    "it": "Jacques Fath",
+    "ja": "ジャック・ファット",
+    "ko": "자크 파트"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1030922",
+   "labels": {
+    "en": "Camper",
+    "fr": "Camper",
+    "it": "Camper",
+    "ja": "カンペール",
+    "ko": "캠퍼"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q104842926",
+   "labels": {
+    "en": "Ganni",
+    "fr": "Ganni",
+    "ko": "가니"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1049887",
+   "labels": {
+    "ar": "كاسترو",
+    "en": "Castro Model Ltd.",
+    "fr": "Castro"
+   },
+   "aliases": {
+    "en": [
+     "Castro clothing",
+     "Castro model"
+    ]
+   }
+  },
+  {
+   "id": "Q1056200",
+   "labels": {
+    "ar": "شيروتي 1881",
+    "en": "Cerruti 1881",
+    "fr": "Cerruti",
+    "ja": "セルッティ",
+    "ko": "세루티 1881"
+   },
+   "aliases": {
+    "en": [
+     "Cerruti",
+     "Cerruti Jeans"
+    ],
+    "fr": [
+     "Cerruti 1881"
+    ],
+    "ja": [
+     "チェルッティ"
+    ]
+   }
+  },
+  {
+   "id": "Q1068628",
+   "labels": {
+    "ar": "كلفن كلين",
+    "en": "Calvin Klein",
+    "fr": "Calvin Klein",
+    "it": "Calvin Klein",
+    "ja": "カルバン・クライン",
+    "ko": "캘빈 클라인"
+   },
+   "aliases": {
+    "ar": [
+     "شركة كالفين كلاين",
+     "كالفن كلاين",
+     "كالفين كلاين"
+    ],
+    "en": [
+     "CK",
+     "Calvin Klein Inc."
+    ],
+    "fr": [
+     "CK",
+     "Calvin Klein Inc."
+    ],
+    "it": [
+     "Calvin Klein Inc.",
+     "Calvin Richard Klein"
+    ]
+   }
+  },
+  {
+   "id": "Q107395194",
+   "labels": {
+    "en": "Telfar",
+    "fr": "Telfar",
+    "ko": "텔파"
+   },
+   "aliases": {
+    "en": [
+     "TELFAR"
+    ]
+   }
+  },
+  {
+   "id": "Q1075391",
+   "labels": {
+    "ar": "كلويه",
+    "en": "Chloé",
+    "fr": "Chloé",
+    "it": "Chloé",
+    "ja": "クロエ (ブランド)",
+    "ko": "끌로에"
+   },
+   "aliases": {
+    "en": [
+     "Chloe"
+    ],
+    "fr": [
+     "Chloe",
+     "Gaby aghion",
+     "SOC CHLOE",
+     "Société Chloe"
+    ],
+    "it": [
+     "Chloe",
+     "Chloè"
+    ]
+   }
+  },
+  {
+   "id": "Q107835110",
+   "labels": {
+    "ar": "شيباريلي",
+    "en": "House of Schiaparelli",
+    "fr": "Schiaparelli"
+   },
+   "aliases": {
+    "en": [
+     "Maison Schiaparelli",
+     "Schiaparelli"
+    ],
+    "fr": [
+     "Maison Schiaparelli",
+     "Schiap"
+    ]
+   }
+  },
+  {
+   "id": "Q108103526",
+   "labels": {
+    "en": "Luisa Spagnoli",
+    "fr": "Luisa Spagnoli",
+    "it": "Luisa Spagnoli"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q108190893",
+   "labels": {
+    "en": "Marc Jacobs",
+    "fr": "Marc Jacobs International",
+    "ko": "마크 제이콥스"
+   },
+   "aliases": {
+    "en": [
+     "Marc Jacobs International"
+    ],
+    "ko": [
+     "마크 제이콥스 인터내셔널"
+    ]
+   }
+  },
+  {
+   "id": "Q108645806",
+   "labels": {
+    "en": "Inspected",
+    "fr": "Inspected",
+    "it": "Inspected"
+   },
+   "aliases": {
+    "en": [
+     "Inspected Records",
+     "Inspector Dubplate",
+     "InspectorDubplate"
+    ]
+   }
+  },
+  {
+   "id": "Q1089081",
+   "labels": {
+    "en": "Fiorucci",
+    "fr": "Fiorucci",
+    "it": "Fiorucci",
+    "ja": "フィオルッチ"
+   },
+   "aliases": {
+    "en": [
+     "Fiorucci Holdings Limited"
+    ]
+   }
+  },
+  {
+   "id": "Q1115170",
+   "labels": {
+    "en": "Comme des Garçons",
+    "fr": "Comme des Garçons",
+    "it": "Comme des Garçons",
+    "ja": "コム・デ・ギャルソン",
+    "ko": "꼼데가르송"
+   },
+   "aliases": {
+    "en": [
+     "CDG",
+     "CdG"
+    ],
+    "fr": [
+     "Comme des garçons"
+    ],
+    "ja": [
+     "Comme des Garçons",
+     "コムデギャルソン"
+    ]
+   }
+  },
+  {
+   "id": "Q112127488",
+   "labels": {
+    "en": "ASPESI",
+    "fr": "ASPESI",
+    "it": "ASPESI"
+   },
+   "aliases": {
+    "en": [
+     "Alberto Aspesi & C",
+     "Alberto Aspesi & Co.",
+     "Alberto Aspesi & Co. S.p.A.",
+     "Aspesi & C",
+     "Aspesi & C.",
+     "Aspesi Official Online Store",
+     "aspesi official"
+    ],
+    "fr": [
+     "Alberto Aspesi & C",
+     "Alberto Aspesi & Co. S.p.A.",
+     "Aspesi & C",
+     "Aspesi & C."
+    ],
+    "it": [
+     "Alberto Aspesi & C",
+     "Alberto Aspesi & Co.",
+     "Alberto Aspesi & Co. S.p.A.",
+     "Aspesi",
+     "Aspesi & C",
+     "Aspesi & C.",
+     "Aspesi Official Online Store",
+     "Aspesi brand",
+     "aspesi official"
+    ]
+   }
+  },
+  {
+   "id": "Q1126126",
+   "labels": {
+    "ar": "دكتور مارتينز",
+    "en": "Dr. Martens",
+    "fr": "Dr. Martens",
+    "it": "Dr. Martens",
+    "ja": "ドクターマーチン",
+    "ko": "닥터 마틴"
+   },
+   "aliases": {
+    "en": [
+     "DMs",
+     "DMs product",
+     "Doc Martens",
+     "Docs",
+     "Doctor Martens",
+     "Doctor Martens product",
+     "Dr Martens Airwair Group Limited",
+     "Dr Martens PLC",
+     "Dr Martens product",
+     "Dr. Martens product",
+     "R. Griggs Group Limited"
+    ],
+    "fr": [
+     "AirWair",
+     "Doc Marten's",
+     "Doc Martens",
+     "Docs",
+     "Dr Martins"
+    ],
+    "it": [
+     "Doc Martens",
+     "Doc. Martens",
+     "Doctor Martens"
+    ]
+   }
+  },
+  {
+   "id": "Q1132272",
+   "labels": {
+    "ar": "شركة بي في اتش",
+    "en": "PVH Corp.",
+    "fr": "PVH Corp.",
+    "it": "PVH",
+    "ja": "PVH"
+   },
+   "aliases": {
+    "en": [
+     "PVH",
+     "Phillips-Jones Corporation",
+     "Phillips-Van Heusen",
+     "Phillips-Van Heusen Corporation"
+    ],
+    "fr": [
+     "PVH",
+     "Philips-Van Heusen Corporation"
+    ]
+   }
+  },
+  {
+   "id": "Q113516684",
+   "labels": {
+    "en": "Claudie Pierlot",
+    "fr": "Claudie Pierlot",
+    "it": "Claudie Pierlot"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1136537",
+   "labels": {
+    "en": "Costume National",
+    "fr": "Costume National",
+    "it": "Costume national",
+    "ja": "コスチューム・ナショナル"
+   },
+   "aliases": {
+    "it": [
+     "C'N'C CoSTUME NATIONAL",
+     "C'n'c costume national",
+     "COSTUME NATIONAL",
+     "Costume National"
+    ],
+    "ja": [
+     "CoSTUME NATIONAL",
+     "コスチュームナショナル"
+    ]
+   }
+  },
+  {
+   "id": "Q1141151",
+   "labels": {
+    "en": "Cross Colours",
+    "fr": "Cross Colours",
+    "it": "Cross Colours"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q114736641",
+   "labels": {
+    "en": "Plan C",
+    "fr": "Plan C",
+    "it": "Plan C"
+   },
+   "aliases": {
+    "en": [
+     "GC S.r.l.",
+     "Plan-C"
+    ],
+    "it": [
+     "GC S.r.l.",
+     "Plan-C"
+    ]
+   }
+  },
+  {
+   "id": "Q1151774",
+   "labels": {
+    "ar": "ماكس مارا",
+    "en": "Max Mara",
+    "fr": "Max Mara",
+    "it": "Max Mara",
+    "ja": "マックスマーラ",
+    "ko": "막스마라"
+   },
+   "aliases": {
+    "en": [
+     "MaxMara"
+    ],
+    "it": [
+     "MaxMara"
+    ],
+    "ja": [
+     "MaxMara"
+    ]
+   }
+  },
+  {
+   "id": "Q115517249",
+   "labels": {
+    "en": "Tu",
+    "fr": "Tu",
+    "it": "Tu"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1161070",
+   "labels": {
+    "ar": "دانيال هيشتر باريس",
+    "en": "Daniel Hechter Paris",
+    "fr": "Daniel Hechter Paris",
+    "it": "Daniel Hechter Paris"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q116944210",
+   "labels": {
+    "en": "Henry a la Pensee",
+    "fr": "Henry a la Pensee",
+    "it": "Henry a la Pensee"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q12406489",
+   "labels": {
+    "ar": "honigman",
+    "en": "Honigman",
+    "fr": "Honigman"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1273449",
+   "labels": {
+    "en": "G. & E. Spitzer",
+    "fr": "G. & E. Spitzer",
+    "it": "G. & E. Spitzer"
+   },
+   "aliases": {
+    "fr": [
+     "maison Spitzer"
+    ]
+   }
+  },
+  {
+   "id": "Q130710754",
+   "labels": {
+    "en": "ARNTREAL",
+    "fr": "ARNTREAL",
+    "it": "ARNTREAL"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1320295",
+   "labels": {
+    "en": "Marithé + François Girbaud",
+    "fr": "Marithé et François Girbaud",
+    "ja": "マリテ+フランソワ・ジルボー",
+    "ko": "마리떼 프랑소와 저버"
+   },
+   "aliases": {
+    "en": [
+     "Girbaud",
+     "Marithe Francois Girbaud",
+     "Marithé et François Girbaud"
+    ],
+    "fr": [
+     "François Girbaud",
+     "Girbaud",
+     "MAD LANE",
+     "Marithe et Francois Girbaud",
+     "Marithé Bachellerie",
+     "Marithé Girbaud"
+    ],
+    "ja": [
+     "ジルボー",
+     "マリテフランソワジルボー"
+    ]
+   }
+  },
+  {
+   "id": "Q1355658",
+   "labels": {
+    "en": "Karl Kani",
+    "fr": "Karl Kani",
+    "it": "Karl Kani",
+    "ja": "カール・カナイ",
+    "ko": "칼카니"
+   },
+   "aliases": {
+    "ja": [
+     "Kani",
+     "Karl Kani",
+     "カナイ",
+     "カールカナイ"
+    ]
+   }
+  },
+  {
+   "id": "Q1355904",
+   "labels": {
+    "ar": "زينيا",
+    "en": "Zegna",
+    "fr": "Zegna",
+    "it": "Zegna",
+    "ja": "エルメネジルド・ゼニア",
+    "ko": "에르메네질도 제냐"
+   },
+   "aliases": {
+    "en": [
+     "Ermenegildo Zegna Group",
+     "Ermenegildo Zegna N.V."
+    ],
+    "fr": [
+     "Ermenegildo Zegna"
+    ],
+    "it": [
+     "Ermenegildo Zegna Holditalia",
+     "Ermenegildo Zegna Holditalia S.p.A."
+    ],
+    "ja": [
+     "ゼニア"
+    ]
+   }
+  },
+  {
+   "id": "Q136304406",
+   "labels": {
+    "en": "Fogal",
+    "fr": "Fogal",
+    "it": "Fogal"
+   },
+   "aliases": {
+    "en": [
+     "Fogal of Switzerland, Fogal Bodywear since 1921"
+    ]
+   }
+  },
+  {
+   "id": "Q1371677",
+   "labels": {
+    "en": "Etro",
+    "fr": "Etro",
+    "it": "Etro",
+    "ja": "エトロ",
+    "ko": "에트로"
+   },
+   "aliases": {
+    "en": [
+     "Etro S.p.A.",
+     "Etro SpA"
+    ],
+    "fr": [
+     "Etro S.p.A."
+    ],
+    "it": [
+     "Etro S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q137768005",
+   "labels": {
+    "en": "Zona20 Milano",
+    "fr": "Zona20 Milano",
+    "it": "Zona20 Milano"
+   },
+   "aliases": {
+    "it": [
+     "zona 20 milano",
+     "zona20",
+     "zona20milano"
+    ]
+   }
+  },
+  {
+   "id": "Q138269378",
+   "labels": {
+    "en": "Costume Privé Paris",
+    "fr": "Costume Privé Paris",
+    "it": "Costume Privé Paris"
+   },
+   "aliases": {
+    "en": [
+     "Costume Prive Paris",
+     "Costume Privé"
+    ],
+    "fr": [
+     "Costume Prive Paris, Costume Prive",
+     "Costume Privé"
+    ]
+   }
+  },
+  {
+   "id": "Q138465655",
+   "labels": {
+    "en": "ItalianModa B2B",
+    "fr": "ItalianModa B2B",
+    "it": "ItalianModa B2B"
+   },
+   "aliases": {
+    "en": [
+     "ItalianModa, italianmodab2b.com"
+    ],
+    "fr": [
+     "ItalianModa, italianmodab2b.com"
+    ],
+    "it": [
+     "ItalianModa, italianmodab2b.com"
+    ]
+   }
+  },
+  {
+   "id": "Q1385309",
+   "labels": {
+    "ar": "بالمان",
+    "en": "Balmain",
+    "fr": "Balmain",
+    "it": "Balmain",
+    "ja": "バルマン (ファッションブランド)",
+    "ko": "발망"
+   },
+   "aliases": {
+    "en": [
+     "House of Balmain"
+    ],
+    "ko": [
+     "발맹"
+    ]
+   }
+  },
+  {
+   "id": "Q13882231",
+   "labels": {
+    "ar": "ألكسندر مكوين",
+    "en": "Alexander McQueen",
+    "fr": "Alexander McQueen",
+    "it": "Alexander McQueen",
+    "ja": "アレキサンダー・マックイーン",
+    "ko": "알렉산더 맥퀸"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q139301505",
+   "labels": {
+    "en": "NAST!Q Studio",
+    "fr": "NAST!Q Studio",
+    "it": "NAST!Q Studio"
+   },
+   "aliases": {
+    "en": [
+     "NAST Q",
+     "NAST!Q",
+     "NAST!Q Agency",
+     "NAST!Q Architecture",
+     "NAST!Q Design",
+     "NAST!Q Identity",
+     "NAST!Q STUD!O",
+     "NAST!Q STUDIO",
+     "NASTIQ",
+     "NASTIQ STUDIO",
+     "NSTQ",
+     "Nast!q",
+     "Nastiq",
+     "SIA-01",
+     "Studio NAST!Q",
+     "Studio NASTIQ",
+     "nast!q",
+     "nastiq",
+     "nastiq studio",
+     "nastiq.studio"
+    ],
+    "fr": [
+     "NAST Q",
+     "NAST!Q",
+     "NAST!Q Agency",
+     "NAST!Q Architecture",
+     "NAST!Q Design",
+     "NAST!Q Identity",
+     "NAST!Q STUDIO",
+     "NASTIQ",
+     "NSTQ",
+     "Studio NAST!Q",
+     "Studio NASTIQ",
+     "nastiq.studio"
+    ],
+    "it": [
+     "NAST Q",
+     "NAST!Q",
+     "NAST!Q Agency",
+     "NAST!Q Architecture",
+     "NAST!Q Design",
+     "NAST!Q Identity",
+     "NAST!Q STUDIO",
+     "NASTIQ",
+     "NSTQ",
+     "Studio NAST!Q",
+     "Studio NASTIQ",
+     "nastiq.studio"
+    ]
+   }
+  },
+  {
+   "id": "Q139374165",
+   "labels": {
+    "en": "Dovita Milano",
+    "fr": "Dovita Milano",
+    "it": "Dovita Milano"
+   },
+   "aliases": {
+    "en": [
+     "Dovita | Dovita Bridal | Dovita Milano Bridal"
+    ]
+   }
+  },
+  {
+   "id": "Q139891838",
+   "labels": {
+    "en": "YOOX",
+    "fr": "YOOX",
+    "it": "YOOX"
+   },
+   "aliases": {
+    "en": [
+     "YOOX Group",
+     "YOOX S.p.A."
+    ],
+    "it": [
+     "YOOX Group",
+     "YOOX S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q1400977",
+   "labels": {
+    "ar": "ميسوني",
+    "en": "Missoni",
+    "fr": "Missoni",
+    "it": "Missoni",
+    "ja": "ミッソーニ",
+    "ko": "미쏘니"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q140686850",
+   "labels": {
+    "en": "Antonio Riva Milano",
+    "it": "Antonio Riva Milano",
+    "ja": "アントニオ・リヴァ・ミラノ"
+   },
+   "aliases": {
+    "en": [
+     "Antonio Riva Milano S.r.l."
+    ],
+    "it": [
+     "Antonio Riva Milano S.r.l."
+    ]
+   }
+  },
+  {
+   "id": "Q1423925",
+   "labels": {
+    "en": "Callot Soeurs",
+    "fr": "Callot Sœurs",
+    "it": "Callot Soeurs",
+    "ja": "カロ姉妹"
+   },
+   "aliases": {
+    "en": [
+     "Callot Sisters",
+     "Callot Sœurs"
+    ]
+   }
+  },
+  {
+   "id": "Q1439858",
+   "labels": {
+    "en": "Nina Ricci",
+    "fr": "Nina Ricci",
+    "it": "Nina Ricci",
+    "ja": "ニナ・リッチ",
+    "ko": "니나 리치"
+   },
+   "aliases": {
+    "ja": [
+     "Nina Ricci"
+    ]
+   }
+  },
+  {
+   "id": "Q1473396",
+   "labels": {
+    "en": "Valentino Fashion Group",
+    "fr": "Valentino Fashion Group",
+    "it": "Valentino Fashion Group",
+    "ja": "ヴァレンティノ・ファッション・グループ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1485347",
+   "labels": {
+    "en": "Skagen Designs",
+    "fr": "Skagen Designs",
+    "ja": "スカーゲン・デンマーク"
+   },
+   "aliases": {
+    "en": [
+     "Skagen",
+     "Skagen Denmark"
+    ]
+   }
+  },
+  {
+   "id": "Q15263093",
+   "labels": {
+    "en": "IRFE",
+    "fr": "IRFE",
+    "it": "IRFE"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1539185",
+   "labels": {
+    "ar": "شركة تمبرلاند",
+    "en": "The Timberland Company",
+    "fr": "Timberland",
+    "it": "Timberland",
+    "ja": "ティンバーランド",
+    "ko": "팀버랜드"
+   },
+   "aliases": {
+    "ar": [
+     "تمبرلاند"
+    ],
+    "en": [
+     "Timberland",
+     "Timberland LLC"
+    ],
+    "it": [
+     "The Timberland Company"
+    ]
+   }
+  },
+  {
+   "id": "Q1568588",
+   "labels": {
+    "en": "Juicy Couture",
+    "fr": "Juicy Couture",
+    "it": "Juicy Couture",
+    "ja": "ジューシークチュール"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1578717",
+   "labels": {
+    "en": "Rochas",
+    "fr": "Rochas",
+    "it": "Rochas",
+    "ja": "マルセル・ロシャ"
+   },
+   "aliases": {
+    "ja": [
+     "ロシャス"
+    ]
+   }
+  },
+  {
+   "id": "Q1592575",
+   "labels": {
+    "en": "Heatherette",
+    "fr": "Heatherette",
+    "it": "Heatherette"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q16243754",
+   "labels": {
+    "en": "Betabrand",
+    "fr": "Betabrand",
+    "it": "Betabrand"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1629990",
+   "labels": {
+    "en": "CoverGirl",
+    "fr": "CoverGirl",
+    "it": "CoverGirl",
+    "ko": "커버걸"
+   },
+   "aliases": {
+    "en": [
+     "Cover Girl"
+    ]
+   }
+  },
+  {
+   "id": "Q16544736",
+   "labels": {
+    "en": "Courrèges",
+    "fr": "Courrèges",
+    "it": "Courrèges",
+    "ko": "쿠레쥬"
+   },
+   "aliases": {
+    "en": [
+     "Courreges"
+    ],
+    "fr": [
+     "Courreges",
+     "GROUPE COURREGES"
+    ],
+    "it": [
+     "Courreges"
+    ],
+    "ko": [
+     "꾸레쥬"
+    ]
+   }
+  },
+  {
+   "id": "Q16966770",
+   "labels": {
+    "en": "BodyMap",
+    "fr": "BodyMap",
+    "ja": "ボディマップ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q17027528",
+   "labels": {
+    "en": "Garment Quarter",
+    "fr": "Garment Quarter",
+    "it": "Garment Quarter"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q17100478",
+   "labels": {
+    "en": "Luisa Via Roma",
+    "fr": "Luisa Via Roma",
+    "it": "Luisa Via Roma",
+    "ja": "Luisa Via Roma",
+    "ko": "Luisa Via Roma"
+   },
+   "aliases": {
+    "en": [
+     "LVR",
+     "LuisaViaRoma",
+     "Luisaviaroma",
+     "luisaviaroma.com",
+     "lvr.com"
+    ],
+    "fr": [
+     "LVR",
+     "LuisaViaRoma",
+     "Luisaviaroma",
+     "luisaviaroma.com",
+     "lvr.com"
+    ],
+    "it": [
+     "LVR",
+     "LuisaViaRoma",
+     "Luisaviaroma",
+     "luisaviaroma.com",
+     "lvr.com"
+    ],
+    "ja": [
+     "LVR",
+     "LuisaViaRoma",
+     "Luisaviaroma",
+     "luisaviaroma.com",
+     "lvr.com",
+     "ルイーザヴィアローマ"
+    ],
+    "ko": [
+     "LVR",
+     "LuisaViaRoma",
+     "Luisaviaroma",
+     "luisaviaroma.com",
+     "lvr.com",
+     "루이자 비아 로마",
+     "루이자비아로마"
+    ]
+   }
+  },
+  {
+   "id": "Q17101930",
+   "labels": {
+    "en": "Jil Sander",
+    "fr": "Jil Sander",
+    "it": "Jil Sander",
+    "ja": "ジル・サンダー",
+    "ko": "질샌더"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q17162776",
+   "labels": {
+    "en": "OTB Group",
+    "fr": "OTB Group",
+    "it": "OTB Group",
+    "ja": "OTBグループ"
+   },
+   "aliases": {
+    "en": [
+     "Only The Brave"
+    ]
+   }
+  },
+  {
+   "id": "Q1726925",
+   "labels": {
+    "ar": "ميزون مارجيلا",
+    "en": "Maison Margiela",
+    "fr": "Maison Margiela",
+    "it": "Maison Martin Margiela",
+    "ja": "メゾンマルジェラ",
+    "ko": "메종 마르지엘라"
+   },
+   "aliases": {
+    "en": [
+     "Maison Martin Margiela",
+     "Maison Martin Margiela Brand",
+     "Margiela"
+    ],
+    "fr": [
+     "Maison Martin Margiela",
+     "NEUF"
+    ]
+   }
+  },
+  {
+   "id": "Q178516",
+   "labels": {
+    "ar": "غوتشي",
+    "en": "Gucci",
+    "fr": "Gucci",
+    "it": "Gucci",
+    "ja": "グッチ",
+    "ko": "구찌"
+   },
+   "aliases": {
+    "en": [
+     "GUCCI",
+     "Guccio Gucci S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q18070575",
+   "labels": {
+    "en": "Bottega Giotti",
+    "fr": "Bottega Giotti",
+    "ja": "ボッテーガ・ジョッティ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q18088949",
+   "labels": {
+    "en": "House of Paquin",
+    "fr": "Maison Paquin",
+    "it": "Paquin"
+   },
+   "aliases": {
+    "en": [
+     "Paquin"
+    ],
+    "fr": [
+     "Paquin"
+    ]
+   }
+  },
+  {
+   "id": "Q18151544",
+   "labels": {
+    "en": "Ministry of Supply",
+    "fr": "Ministry of Supply",
+    "it": "Ministry of Supply"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q1817649",
+   "labels": {
+    "en": "Lengermann und Trieschmann",
+    "fr": "Lengermann und Trieschmann",
+    "it": "Lengermann und Trieschmann"
+   },
+   "aliases": {
+    "en": [
+     "L & T",
+     "L&T Lengermann & Trieschmann GmbH & Co. KG"
+    ]
+   }
+  },
+  {
+   "id": "Q18386374",
+   "labels": {
+    "ar": "واي جي كي بلس",
+    "en": "K-Plus",
+    "ko": "YG케이플러스"
+   },
+   "aliases": {
+    "en": [
+     "YG KPlus"
+    ]
+   }
+  },
+  {
+   "id": "Q18577819",
+   "labels": {
+    "ar": "بلانك أند إكلير",
+    "en": "Blanc & Eclare",
+    "fr": "Blanc & Eclare",
+    "ko": "블랑 & 에클레어"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q18712957",
+   "labels": {
+    "en": "Farfetch",
+    "fr": "Farfetch",
+    "it": "Farfetch",
+    "ja": "Farfetch",
+    "ko": "파페치"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q191485",
+   "labels": {
+    "ar": "لوي فيتون",
+    "en": "Louis Vuitton",
+    "fr": "Louis Vuitton",
+    "it": "Louis Vuitton",
+    "ja": "ルイ・ヴィトン",
+    "ko": "루이비통"
+   },
+   "aliases": {
+    "en": [
+     "Louis Vuitton Maletier SAS"
+    ],
+    "fr": [
+     "LOUIS VUITTON MALLETIER",
+     "Louis Vuitton Malletier SAS"
+    ],
+    "ja": [
+     "Louis vuitton",
+     "Vuitton",
+     "ルイビトン",
+     "ルイヴィトン",
+     "ルイ・ビトン",
+     "ヴィトン"
+    ]
+   }
+  },
+  {
+   "id": "Q193136",
+   "labels": {
+    "ar": "برادا",
+    "en": "Prada",
+    "fr": "Prada",
+    "it": "Prada",
+    "ja": "プラダ",
+    "ko": "프라다"
+   },
+   "aliases": {
+    "en": [
+     "Prada Group",
+     "Prada S.p.A.",
+     "Prada SpA"
+    ],
+    "ja": [
+     "Miumiu",
+     "PRADA",
+     "PRADA SPORT"
+    ]
+   }
+  },
+  {
+   "id": "Q1941779",
+   "labels": {
+    "ar": "بيت الموضة",
+    "en": "fashion house",
+    "fr": "maison de haute couture",
+    "it": "casa di moda"
+   },
+   "aliases": {
+    "en": [
+     "design house",
+     "fashion houses"
+    ],
+    "fr": [
+     "maison de couture"
+    ],
+    "it": [
+     "casa d'alta moda",
+     "case d'alta moda",
+     "case di moda",
+     "fashion house",
+     "maison"
+    ]
+   }
+  },
+  {
+   "id": "Q19604567",
+   "labels": {
+    "en": "Store Twenty One",
+    "fr": "Store Twenty One",
+    "it": "Store Twenty One"
+   },
+   "aliases": {
+    "en": [
+     "Store 21"
+    ]
+   }
+  },
+  {
+   "id": "Q19882879",
+   "labels": {
+    "en": "Regent",
+    "fr": "Regent",
+    "it": "Regent"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q19988222",
+   "labels": {
+    "ar": "توري بورش",
+    "en": "Tory Burch LLC",
+    "fr": "Tory Burch",
+    "it": "Tory Burch LLC",
+    "ko": "토리버치"
+   },
+   "aliases": {
+    "en": [
+     "TRB by Tory Burch",
+     "Tory Burch"
+    ]
+   }
+  },
+  {
+   "id": "Q2003244",
+   "labels": {
+    "en": "Thor Steinar",
+    "fr": "Thor Steinar",
+    "it": "Thor Steinar"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q20065175",
+   "labels": {
+    "en": "Lachasse",
+    "fr": "Lachasse",
+    "it": "Lachasse"
+   },
+   "aliases": {
+    "en": [
+     "Lachasse Ltd."
+    ]
+   }
+  },
+  {
+   "id": "Q20711728",
+   "labels": {
+    "en": "H. Huntsman & Sons",
+    "fr": "H. Huntsman & Sons",
+    "it": "H. Huntsman & Sons",
+    "ja": "ハンツマン"
+   },
+   "aliases": {
+    "en": [
+     "H Huntsman & Sons",
+     "H Huntsman and Sons",
+     "H. Huntsman & Sons Ltd.",
+     "H. Huntsman and Sons",
+     "H.Huntsman and Sons",
+     "Huntsman, Savile Row Tailor"
+    ],
+    "ja": [
+     "Hハンツマン",
+     "Hハンツマン&サンズ",
+     "H・ハンツマン",
+     "H・ハンツマン&サンズ",
+     "ハンツマンオブセビルロウ",
+     "ハンツマンオブセビルロー",
+     "ハンツマンオブセヴィルロウ",
+     "ハンツマンオブセヴィルロー",
+     "ハンツマン・オブ・セビル・ロウ",
+     "ハンツマン・オブ・セビル・ロー",
+     "ハンツマン・オブ・セヴィル・ロウ",
+     "ハンツマン・オブ・セヴィル・ロー"
+    ]
+   }
+  },
+  {
+   "id": "Q214480",
+   "labels": {
+    "ar": "دولتشي أند غابانا",
+    "en": "Dolce & Gabbana",
+    "fr": "Dolce & Gabbana",
+    "it": "Dolce & Gabbana",
+    "ja": "ドルチェ&ガッバーナ",
+    "ko": "돌체앤가바나"
+   },
+   "aliases": {
+    "ar": [
+     "دولتشي آند جابانا",
+     "دولشي أند غابانا",
+     "دولشي و غابانا",
+     "دولشي وغابانا"
+    ],
+    "en": [
+     "D&G",
+     "Dolce & Gabbana S.R.L.",
+     "Dolce & Gabbana SRL",
+     "Dolce and Gabbana",
+     "Dolce and Gabbana S.R.L."
+    ],
+    "fr": [
+     "D&G",
+     "Dolce & Gabanna",
+     "Dolce and Gabbana",
+     "Dolce et Gabbana"
+    ],
+    "it": [
+     "D&G",
+     "Dolce e Gabbana",
+     "Dolce&Gabbana"
+    ],
+    "ja": [
+     "D&G",
+     "DOLCE & GABBANA",
+     "Dolce&Gabana",
+     "ステファノ・ガッバーナ",
+     "ドメニコ・ドルチェ",
+     "ドルガバ",
+     "ドルチェ アンド ガッバーナ",
+     "ドルチェ&ガバーナ",
+     "ドルチェ・アンド・ガッバーナ",
+     "ドルチェ・アンド・ガバーナ",
+     "ドルチェ・ガッバーナ"
+    ],
+    "ko": [
+     "돌체 앤 가바나"
+    ]
+   }
+  },
+  {
+   "id": "Q21483974",
+   "labels": {
+    "en": "Vargas Ochagavía",
+    "fr": "Vargas Ochagavía",
+    "it": "Vargas Ochagavía"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q2349550",
+   "labels": {
+    "en": "Marina Rinaldi",
+    "fr": "Marina Rinaldi",
+    "it": "Marina Rinaldi",
+    "ja": "マリーナ・リナルディ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q23672312",
+   "labels": {
+    "en": "Herschel Supply Co.",
+    "fr": "Herschel Supply Co.",
+    "it": "Herschel Supply Co."
+   },
+   "aliases": {
+    "en": [
+     "Herschel",
+     "Herschel Supply"
+    ]
+   }
+  },
+  {
+   "id": "Q24030802",
+   "labels": {
+    "en": "Alberta Ferretti",
+    "fr": "Alberta Ferretti",
+    "it": "Alberta Ferretti"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q2436187",
+   "labels": {
+    "en": "Nudie Jeans",
+    "fr": "Nudie Jeans",
+    "ko": "누디진"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q2456630",
+   "labels": {
+    "en": "Trussardi",
+    "fr": "Trussardi",
+    "it": "Trussardi",
+    "ja": "トラサルディ",
+    "ko": "트루사르디"
+   },
+   "aliases": {
+    "en": [
+     "Tru Trussardi",
+     "Trussardi jeans",
+     "trussardi.com"
+    ]
+   }
+  },
+  {
+   "id": "Q25303062",
+   "labels": {
+    "en": "Grès",
+    "fr": "Grès",
+    "it": "Grès"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q2603072",
+   "labels": {
+    "en": "Iceberg",
+    "fr": "Iceberg",
+    "it": "Gilmar",
+    "ja": "アイスバーグ",
+    "ko": "아이스버그"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q264141",
+   "labels": {
+    "ar": "سيرجيو روسي",
+    "en": "Sergio Rossi",
+    "fr": "Sergio Rossi",
+    "it": "Sergio Rossi",
+    "ja": "セルジオ・ロッシ",
+    "ko": "세르지오 로시"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q265056",
+   "labels": {
+    "en": "s.Oliver",
+    "fr": "S.Oliver",
+    "it": "S.Oliver"
+   },
+   "aliases": {
+    "en": [
+     "s.Oliver Bernd Freier GmbH & Co. KG"
+    ]
+   }
+  },
+  {
+   "id": "Q2707765",
+   "labels": {
+    "en": "Viktor & Rolf",
+    "fr": "Viktor & Rolf",
+    "it": "Viktor & Rolf",
+    "ja": "ヴィクター&ロルフ",
+    "ko": "빅터앤롤프"
+   },
+   "aliases": {
+    "en": [
+     "Viktor Rolf",
+     "Viktor and Rolf"
+    ],
+    "fr": [
+     "Victor et Rolf",
+     "Viktor et Rolf",
+     "Viktor&Rolf"
+    ],
+    "it": [
+     "Rolf Snoeren",
+     "Viktor Horsting"
+    ]
+   }
+  },
+  {
+   "id": "Q278948",
+   "labels": {
+    "en": "Aquascutum",
+    "fr": "Aquascutum",
+    "it": "Aquascutum",
+    "ja": "アクアスキュータム",
+    "ko": "아쿠아스큐텀"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q28134387",
+   "labels": {
+    "en": "Lesara",
+    "fr": "Lesara",
+    "it": "Lesara"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q28154499",
+   "labels": {
+    "en": "Boué Soeurs",
+    "fr": "Boué Soeurs",
+    "it": "Boué Soeurs"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q28401395",
+   "labels": {
+    "en": "Orlebar Brown",
+    "fr": "Orlebar Brown",
+    "it": "Orlebar Brown"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q28494249",
+   "labels": {
+    "en": "Mason Ewing Corporation",
+    "fr": "Mason Ewing Corporation",
+    "it": "Mason Ewing Corporation",
+    "ja": "メイソン・ユーイングコーポレーション"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29016635",
+   "labels": {
+    "en": "Atelier Gustavolins",
+    "fr": "Atelier Gustavolins",
+    "it": "Atelier Gustavolins"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29017359",
+   "labels": {
+    "en": "Anne Klein",
+    "fr": "Anne Klein",
+    "it": "Anne Klein"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29017366",
+   "labels": {
+    "en": "Carolina Herrera",
+    "fr": "Carolina Herrera",
+    "it": "Carolina Herrera",
+    "ko": "캐롤리나 헤레라"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29048984",
+   "labels": {
+    "en": "Alberto Biani",
+    "fr": "Alberto Biani",
+    "it": "Alberto Biani"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29048998",
+   "labels": {
+    "en": "Erreuno",
+    "fr": "Erreuno",
+    "it": "Erreuno"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29049010",
+   "labels": {
+    "en": "Ungaro",
+    "fr": "Ungaro",
+    "it": "Ungaro"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q29380503",
+   "labels": {
+    "en": "Biotti card clothing Industry",
+    "fr": "Biotti card clothing Industry",
+    "it": "Biotti card clothing Industry",
+    "ja": "ビオッティ・カード服"
+   },
+   "aliases": {
+    "en": [
+     "Biotti Clothing",
+     "Biotti High tech manufacturing for fashion system",
+     "Biotti card clothing"
+    ],
+    "fr": [
+     "Biotti card clothing",
+     "Biotti technologies pour la mode"
+    ],
+    "it": [
+     "Biotti tecnologie per la moda"
+    ],
+    "ja": [
+     "Biotti card clothing",
+     "Biotti technologies"
+    ]
+   }
+  },
+  {
+   "id": "Q29554535",
+   "labels": {
+    "en": "Turnover",
+    "fr": "Turnover",
+    "it": "Turnover"
+   },
+   "aliases": {
+    "en": [
+     "Turnover International"
+    ],
+    "fr": [
+     "Turnover International"
+    ],
+    "it": [
+     "Turnover International"
+    ]
+   }
+  },
+  {
+   "id": "Q300220",
+   "labels": {
+    "en": "AWG Mode",
+    "fr": "AWG Mode",
+    "it": "AWG-Modecenter"
+   },
+   "aliases": {
+    "en": [
+     "AWG",
+     "AWG Allgemeine Warenvertriebs-GmbH",
+     "AWG Allgemeine Warenvertriebsgesellschaft",
+     "AWG Mode Center",
+     "AWG Modecenter",
+     "AWG-Modecenter"
+    ]
+   }
+  },
+  {
+   "id": "Q3048535",
+   "labels": {
+    "en": "Edward Green Shoes",
+    "fr": "Edward Green",
+    "ja": "エドワード・グリーン"
+   },
+   "aliases": {
+    "en": [
+     "Edward Green"
+    ],
+    "fr": [
+     "Edward Green (Cordonnier)",
+     "Edward Green Chaussures"
+    ]
+   }
+  },
+  {
+   "id": "Q3073195",
+   "labels": {
+    "en": "Furla",
+    "fr": "Furla",
+    "it": "Furla",
+    "ja": "フルラ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q307894",
+   "labels": {
+    "en": "2(x)ist",
+    "fr": "2(x)ist",
+    "it": "2(x)ist",
+    "ko": "2(x)ist"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q3173864",
+   "labels": {
+    "en": "Patou",
+    "fr": "Patou",
+    "it": "Jean Patou"
+   },
+   "aliases": {
+    "en": [
+     "House of Patou",
+     "Jean Patoe",
+     "Jean Patou Paris"
+    ],
+    "fr": [
+     "JEAN PATOU",
+     "Jean Patou Paris"
+    ],
+    "it": [
+     "Patou"
+    ]
+   }
+  },
+  {
+   "id": "Q3173870",
+   "labels": {
+    "en": "Jean-Paul Gaultier",
+    "fr": "Jean Paul Gaultier SA",
+    "it": "Jean-Paul Gaultier",
+    "ko": "장 폴 고티에"
+   },
+   "aliases": {
+    "en": [
+     "Jean-Paul Gaultier SA"
+    ],
+    "fr": [
+     "JEAN PAUL GAULTIER SA",
+     "Jean-Paul Gaultier"
+    ],
+    "it": [
+     "Jean-Paul Gaultier SA"
+    ]
+   }
+  },
+  {
+   "id": "Q3269443",
+   "labels": {
+    "en": "Lyle & Scott",
+    "fr": "Lyle and Scott",
+    "it": "Lyle & Scott"
+   },
+   "aliases": {
+    "en": [
+     "Lyle and Scott"
+    ],
+    "fr": [
+     "Lyle & Scott",
+     "Lyle And Scott",
+     "Lyle and scott"
+    ]
+   }
+  },
+  {
+   "id": "Q3270520",
+   "labels": {
+    "en": "Léo Marciano",
+    "fr": "Léo Marciano",
+    "it": "Léo Marciano"
+   },
+   "aliases": {
+    "en": [
+     "Leo Marciano"
+    ]
+   }
+  },
+  {
+   "id": "Q3282274",
+   "labels": {
+    "en": "Malo",
+    "fr": "Malo",
+    "it": "Malo"
+   },
+   "aliases": {
+    "en": [
+     "Malo (Azienda)",
+     "Malo cashmere"
+    ],
+    "fr": [
+     "Malo cashmere"
+    ],
+    "it": [
+     "Malo (Azienda)",
+     "Malo cashmere"
+    ]
+   }
+  },
+  {
+   "id": "Q3322945",
+   "labels": {
+    "ar": "ستراديفاريوس",
+    "en": "Stradivarius",
+    "fr": "Stradivarius",
+    "ko": "스트라디바리우스"
+   },
+   "aliases": {
+    "en": [
+     "Stradivarius Espana",
+     "Stradivarius España",
+     "Stradivarius España, S.A.",
+     "Stradivarius España, SA"
+    ]
+   }
+  },
+  {
+   "id": "Q3323664",
+   "labels": {
+    "en": "Morabito",
+    "fr": "Morabito",
+    "ja": "モラビト"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q3410623",
+   "labels": {
+    "ar": "بويغ",
+    "en": "Puig",
+    "fr": "Puig",
+    "it": "Puig",
+    "ja": "プーチ"
+   },
+   "aliases": {
+    "en": [
+     "Antonio Puig SA",
+     "Puig (company)",
+     "Puig Brands SA"
+    ]
+   }
+  },
+  {
+   "id": "Q3438131",
+   "labels": {
+    "en": "Rodarte",
+    "fr": "Rodarte",
+    "it": "Rodarte",
+    "ja": "ロダルテ"
+   },
+   "aliases": {
+    "fr": [
+     "Kate Mulleavy",
+     "Laura Mulleavy"
+    ]
+   }
+  },
+  {
+   "id": "Q3438188",
+   "labels": {
+    "en": "Rodier",
+    "fr": "Rodier",
+    "it": "Rodier"
+   },
+   "aliases": {
+    "en": [
+     "House of Rodier",
+     "Maison Rodier",
+     "Rodier Freres",
+     "Rodier Frères",
+     "Tissages Rodier"
+    ],
+    "fr": [
+     "Maison Rodier",
+     "Rodier Frères",
+     "Tissages Rodier"
+    ],
+    "it": [
+     "Maison Rodier",
+     "Rodier Frères",
+     "Tissages Rodier"
+    ]
+   }
+  },
+  {
+   "id": "Q3532473",
+   "labels": {
+    "en": "Torrente",
+    "fr": "Torrente",
+    "it": "Torrente"
+   },
+   "aliases": {
+    "fr": [
+     "Torrente (haute-couture)"
+    ]
+   }
+  },
+  {
+   "id": "Q3566715",
+   "labels": {
+    "ar": "واتي بي",
+    "en": "Wati B",
+    "fr": "Wati B",
+    "it": "Wati B"
+   },
+   "aliases": {
+    "fr": [
+     "WATI B",
+     "Watiii",
+     "waatibé"
+    ]
+   }
+  },
+  {
+   "id": "Q3569879",
+   "labels": {
+    "en": "WOOYOUNGMI",
+    "fr": "Wooyoungmi",
+    "ko": "우영미"
+   },
+   "aliases": {
+    "en": [
+     "Wooyoungmi"
+    ]
+   }
+  },
+  {
+   "id": "Q3641225",
+   "labels": {
+    "en": "Blufin",
+    "fr": "Blufin",
+    "it": "Blufin",
+    "ja": "アンナ・モリナーリ（ブルフィン）"
+   },
+   "aliases": {
+    "en": [
+     "Anna Molinari",
+     "Gianpaolo Tarabini"
+    ],
+    "fr": [
+     "Anna Molinari",
+     "Gianpaolo Tarabini"
+    ],
+    "it": [
+     "Anna Molinari",
+     "Blugirl",
+     "Blumarine",
+     "Gianpaolo Tarabini"
+    ]
+   }
+  },
+  {
+   "id": "Q3645582",
+   "labels": {
+    "ar": "برونيلو كوتشينيلي (علامة تجارية)",
+    "en": "Brunello Cucinelli",
+    "fr": "Brunello Cucinelli",
+    "it": "Brunello Cucinelli",
+    "ja": "ブルネロ・クチネリ",
+    "ko": "브루넬로 쿠치넬리"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q3645820",
+   "labels": {
+    "en": "Bruno Magli",
+    "fr": "Bruno Magli",
+    "it": "Bruno Magli",
+    "ja": "ブルーノ・マリ"
+   },
+   "aliases": {
+    "ja": [
+     "ブルーノマリ"
+    ]
+   }
+  },
+  {
+   "id": "Q3650853",
+   "labels": {
+    "en": "Marni",
+    "fr": "Marni",
+    "it": "Marni",
+    "ja": "マルニ",
+    "ko": "마르니"
+   },
+   "aliases": {
+    "ja": [
+     "マルニ (ファッションブランド)"
+    ]
+   }
+  },
+  {
+   "id": "Q3661184",
+   "labels": {
+    "ar": "إيرمانو شيرفينو",
+    "en": "Ermanno Scervino",
+    "fr": "Ermanno Scervino",
+    "it": "Ermanno Scervino",
+    "ja": "エルマンノ・シェルヴィーノ"
+   },
+   "aliases": {
+    "it": [
+     "Ermanno Daelli",
+     "Toni Scervino"
+    ],
+    "ja": [
+     "Ermanno Scervino"
+    ]
+   }
+  },
+  {
+   "id": "Q3866987",
+   "labels": {
+    "en": "Mulberry",
+    "fr": "Mulberry",
+    "it": "Mulberry",
+    "ja": "マルベリー",
+    "ko": "멀버리"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q3889076",
+   "labels": {
+    "en": "Pal Zileri",
+    "fr": "Pal Zileri",
+    "it": "Pal Zileri"
+   },
+   "aliases": {
+    "it": [
+     "Pal zileri"
+    ]
+   }
+  },
+  {
+   "id": "Q390107",
+   "labels": {
+    "ar": "بربري",
+    "en": "Burberry",
+    "fr": "Burberry",
+    "it": "Burberry",
+    "ja": "バーバリー",
+    "ko": "버버리"
+   },
+   "aliases": {
+    "en": [
+     "Burberry Group",
+     "Burberry Group Plc",
+     "Burberry Group, Inc."
+    ],
+    "fr": [
+     "Burberry Group Plc"
+    ],
+    "it": [
+     "Burberry Group",
+     "Burberry Group, Inc."
+    ],
+    "ja": [
+     "BURBERRY"
+    ]
+   }
+  },
+  {
+   "id": "Q3905226",
+   "labels": {
+    "en": "PINKO",
+    "fr": "Pinko",
+    "it": "Pinko",
+    "ja": "ピンコ"
+   },
+   "aliases": {
+    "en": [
+     "Pinko"
+    ]
+   }
+  },
+  {
+   "id": "Q39058850",
+   "labels": {
+    "en": "Enfants Riches Déprimés",
+    "fr": "Enfants Riches Déprimés",
+    "it": "Enfants Riches Déprimés"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q3946053",
+   "labels": {
+    "ar": "فيراغامو",
+    "en": "Salvatore Ferragamo",
+    "fr": "Salvatore Ferragamo Italia S.p.A.",
+    "it": "Salvatore Ferragamo",
+    "ko": "살바토레 페라가모 S.p.A."
+   },
+   "aliases": {
+    "en": [
+     "Ferragamo",
+     "Salvatore Ferragamo Italia S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q3954723",
+   "labels": {
+    "en": "Select Model Management",
+    "fr": "Select Model Management",
+    "it": "Select Model Management"
+   },
+   "aliases": {
+    "it": [
+     "Select Agency"
+    ]
+   }
+  },
+  {
+   "id": "Q3965055",
+   "labels": {
+    "en": "Sorelle Fontana",
+    "fr": "Sorelle Fontana",
+    "it": "Sorelle Fontana"
+   },
+   "aliases": {
+    "en": [
+     "Fontana Sisters"
+    ]
+   }
+  },
+  {
+   "id": "Q3974532",
+   "labels": {
+    "ar": "إدارة ستورم",
+    "en": "Storm Management",
+    "fr": "Storm Model Management",
+    "it": "Storm Model Agency",
+    "ja": "ストーム・モデル・マネージメント"
+   },
+   "aliases": {
+    "ar": [
+     "ستروم موديل مانجمنت"
+    ],
+    "en": [
+     "Storm Model Management"
+    ]
+   }
+  },
+  {
+   "id": "Q4038967",
+   "labels": {
+    "en": "Fred Perry",
+    "fr": "Fred Perry",
+    "ko": "프레드페리"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4120731",
+   "labels": {
+    "ar": "أندرو كريستيان",
+    "en": "Andrew Christian",
+    "fr": "Andrew Christian",
+    "it": "Andrew Christian",
+    "ko": "앤드루 크리스천"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4167754",
+   "labels": {
+    "en": "Herve Leger",
+    "fr": "Hervé Léger",
+    "ja": "エルベ・レジェ"
+   },
+   "aliases": {
+    "en": [
+     "Hervé Léger"
+    ],
+    "fr": [
+     "Herve Leger"
+    ]
+   }
+  },
+  {
+   "id": "Q420953",
+   "labels": {
+    "ar": "اير جوردن",
+    "en": "Air Jordan",
+    "fr": "Nike Air Jordan",
+    "it": "Air Jordan",
+    "ja": "エア・ジョーダン",
+    "ko": "에어 조던"
+   },
+   "aliases": {
+    "ar": [
+     "جوردنز"
+    ],
+    "en": [
+     "Air Jordan product",
+     "Air Jordan product line",
+     "Air Jordan shoes",
+     "Jordans"
+    ],
+    "ja": [
+     "エアジョーダン"
+    ]
+   }
+  },
+  {
+   "id": "Q4300530",
+   "labels": {
+    "en": "Polly Peck",
+    "fr": "Polly Peck",
+    "it": "Polly Peck",
+    "ja": "ポリー・ペック"
+   },
+   "aliases": {
+    "en": [
+     "Polly Peck International",
+     "Polly Peck International plc"
+    ],
+    "ja": [
+     "Polly Peck",
+     "Polly Peck International",
+     "Polly Peck International plc",
+     "ポリー・ペック・インターナショナル"
+    ]
+   }
+  },
+  {
+   "id": "Q43080895",
+   "labels": {
+    "en": "sacai",
+    "fr": "Sacai",
+    "it": "Sacai",
+    "ja": "sacai",
+    "ko": "사카이"
+   },
+   "aliases": {
+    "ja": [
+     "サカイ"
+    ]
+   }
+  },
+  {
+   "id": "Q4728473",
+   "labels": {
+    "en": "AllSaints",
+    "fr": "AllSaints",
+    "it": "AllSaints",
+    "ko": "올세인츠"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4736286",
+   "labels": {
+    "en": "Alter és Kiss",
+    "fr": "Alter és Kiss",
+    "ja": "アルター・エス・キス"
+   },
+   "aliases": {
+    "en": [
+     "Alter es Kiss"
+    ]
+   }
+  },
+  {
+   "id": "Q4762904",
+   "labels": {
+    "en": "Angelo Litrico",
+    "fr": "Angelo Litrico",
+    "it": "Angelo Litrico",
+    "ja": "アンジェロ・リトリコ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4787403",
+   "labels": {
+    "en": "Arckiv",
+    "fr": "Arckiv",
+    "it": "Arckiv"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4837500",
+   "labels": {
+    "en": "Babani",
+    "fr": "Babani",
+    "it": "Babani"
+   },
+   "aliases": {
+    "en": [
+     "House of Babani"
+    ],
+    "fr": [
+     "Maison Babani"
+    ]
+   }
+  },
+  {
+   "id": "Q4838385",
+   "labels": {
+    "en": "Baby Phat",
+    "fr": "Baby Phat",
+    "it": "Baby Phat",
+    "ja": "ベイビー・ファット"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4840879",
+   "labels": {
+    "en": "Badgley Mischka",
+    "fr": "Badgley Mischka",
+    "it": "Badgley Mischka"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q4884223",
+   "labels": {
+    "en": "Bellville Sassoon",
+    "fr": "Bellville Sassoon",
+    "it": "Bellville Sassoon"
+   },
+   "aliases": {
+    "en": [
+     "Bellville et Cie"
+    ]
+   }
+  },
+  {
+   "id": "Q4902942",
+   "labels": {
+    "en": "Biba",
+    "fr": "Biba",
+    "it": "Biba"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q491627",
+   "labels": {
+    "ar": "هوغو بوس",
+    "en": "Hugo Boss",
+    "fr": "Hugo Boss",
+    "it": "Hugo Boss",
+    "ja": "ヒューゴ・ボス",
+    "ko": "휴고 보스"
+   },
+   "aliases": {
+    "ar": [
+     "HUGO BOSS AG"
+    ],
+    "en": [
+     "BOSS",
+     "HUGO BOSS AG"
+    ],
+    "fr": [
+     "HUGO BOSS AG"
+    ],
+    "it": [
+     "HUGO BOSS AG"
+    ],
+    "ja": [
+     "HUGO BOSS",
+     "HUGO BOSS AG"
+    ],
+    "ko": [
+     "HUGO BOSS AG",
+     "Hugo Boss",
+     "휴고보스"
+    ]
+   }
+  },
+  {
+   "id": "Q4942146",
+   "labels": {
+    "en": "Bonmarché",
+    "fr": "Bonmarché",
+    "it": "Bonmarché"
+   },
+   "aliases": {
+    "en": [
+     "Bonmarche"
+    ]
+   }
+  },
+  {
+   "id": "Q4953489",
+   "labels": {
+    "ar": "جيني هيلستروم",
+    "en": "Jenny Hellström",
+    "fr": "Jenny Hellström",
+    "it": "Jenny Hellström Ruas"
+   },
+   "aliases": {
+    "en": [
+     "Jenny Hellström Ruas"
+    ],
+    "fr": [
+     "Jenny Hellström Ruas"
+    ]
+   }
+  },
+  {
+   "id": "Q5031925",
+   "labels": {
+    "en": "Candie's",
+    "fr": "Candie's",
+    "it": "Candie's"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q50540636",
+   "labels": {
+    "en": "Camp David",
+    "fr": "Camp David",
+    "it": "Camp David"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5113720",
+   "labels": {
+    "en": "Chromat",
+    "fr": "Chromat",
+    "it": "Chromat"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5136091",
+   "labels": {
+    "en": "Club 21",
+    "fr": "Club 21",
+    "ko": "클럽 21"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5171196",
+   "labels": {
+    "en": "Corneliani",
+    "fr": "Corneliani",
+    "it": "Corneliani",
+    "ko": "꼬르넬리아니"
+   },
+   "aliases": {
+    "en": [
+     "Corneliani S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q5175095",
+   "labels": {
+    "en": "Costello Tagliapietra",
+    "fr": "Costello Tagliapietra",
+    "it": "Costello Tagliapietra"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5196885",
+   "labels": {
+    "en": "Cutler and Gross",
+    "fr": "Cutler and Gross",
+    "ja": "CUTLER AND GROSS"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5204244",
+   "labels": {
+    "en": "DAKS",
+    "fr": "DAKS",
+    "it": "DAKS",
+    "ja": "DAKS",
+    "ko": "닥스"
+   },
+   "aliases": {
+    "en": [
+     "DAKS Simpson Group plc"
+    ]
+   }
+  },
+  {
+   "id": "Q5213855",
+   "labels": {
+    "en": "Jimmy Choo Ltd",
+    "fr": "Jimmy Choo Ltd",
+    "it": "Jimmy Choo",
+    "ja": "Jimmy Choo",
+    "ko": "지미 추"
+   },
+   "aliases": {
+    "en": [
+     "J. Choo Limited",
+     "Jimmy Choo PLC"
+    ]
+   }
+  },
+  {
+   "id": "Q5214686",
+   "labels": {
+    "en": "Dana Buchman",
+    "fr": "Dana Buchman",
+    "it": "Dana Buchman"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5297166",
+   "labels": {
+    "en": "Dooney & Bourke",
+    "fr": "Dooney & Bourke",
+    "ja": "ドゥニー&バーク"
+   },
+   "aliases": {
+    "en": [
+     "Dooney and Bourke"
+    ]
+   }
+  },
+  {
+   "id": "Q5311259",
+   "labels": {
+    "en": "Duchamp",
+    "fr": "Duchamp",
+    "it": "Duchamp"
+   },
+   "aliases": {
+    "en": [
+     "Duchamp Holdings Limited"
+    ]
+   }
+  },
+  {
+   "id": "Q5322052",
+   "labels": {
+    "en": "E. Marinella",
+    "fr": "E. Marinella",
+    "it": "E. Marinella"
+   },
+   "aliases": {
+    "en": [
+     "E Marinella",
+     "E.Marinella"
+    ]
+   }
+  },
+  {
+   "id": "Q53585032",
+   "labels": {
+    "en": "Mystic Select",
+    "fr": "Mystic Select",
+    "it": "Mystic Select"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5415033",
+   "labels": {
+    "en": "Eva Danielle",
+    "fr": "Eva Danielle",
+    "it": "Eva Danielle"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5476569",
+   "labels": {
+    "ar": "فوكس",
+    "en": "Fox-Wizel Ltd.",
+    "fr": "Fox"
+   },
+   "aliases": {
+    "en": [
+     "נס"
+    ]
+   }
+  },
+  {
+   "id": "Q5506939",
+   "labels": {
+    "en": "Fuchsia",
+    "fr": "Fuchsia",
+    "it": "Fuchsia"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q552230",
+   "labels": {
+    "ar": "ميو ميو",
+    "en": "Miu Miu",
+    "fr": "Miu Miu",
+    "it": "Miu Miu",
+    "ja": "ミュウミュウ",
+    "ko": "미우 미우"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5526347",
+   "labels": {
+    "en": "Gas jeans",
+    "fr": "Gas jeans",
+    "it": "Gas Jeans"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5531895",
+   "labels": {
+    "en": "General Eyewear",
+    "fr": "General Eyewear",
+    "it": "General Eyewear"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q55625031",
+   "labels": {
+    "en": "New Guards Group",
+    "it": "New Guards Group",
+    "ja": "New Guards Group"
+   },
+   "aliases": {
+    "ja": [
+     "ニューガーズグループ"
+    ]
+   }
+  },
+  {
+   "id": "Q5618790",
+   "labels": {
+    "en": "Gunhild",
+    "fr": "Gunhild",
+    "ja": "グンヒルド (企業)"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q56356277",
+   "labels": {
+    "en": "Paul Smith",
+    "fr": "Paul Smith Ltd",
+    "it": "Paul Smith Ltd",
+    "ko": "폴 스미스"
+   },
+   "aliases": {
+    "en": [
+     "Paul Smith",
+     "Paul Smith Limited"
+    ],
+    "fr": [
+     "Paul Smith",
+     "Paul Smith Limited"
+    ],
+    "it": [
+     "Paul Smith",
+     "Paul Smith Limited"
+    ]
+   }
+  },
+  {
+   "id": "Q564516",
+   "labels": {
+    "en": "Serendipity 3",
+    "it": "Serendipity 3",
+    "ko": "세런디피티 3"
+   },
+   "aliases": {
+    "en": [
+     "Serendipity III"
+    ],
+    "it": [
+     "Serendipity III"
+    ],
+    "ko": [
+     "세런디퍼티 3",
+     "세런디퍼티3",
+     "세런디피티3",
+     "세렌디피티 3",
+     "세렌디피티3"
+    ]
+   }
+  },
+  {
+   "id": "Q5656550",
+   "labels": {
+    "en": "Hardy Amies",
+    "fr": "Hardy Amies",
+    "it": "Hardy Amies",
+    "ja": "ハーディ・エイミス"
+   },
+   "aliases": {
+    "en": [
+     "Hardy Amies PLC"
+    ]
+   }
+  },
+  {
+   "id": "Q56884615",
+   "labels": {
+    "en": "Narciso Rodriguez",
+    "fr": "Narciso Rodriguez",
+    "it": "Narciso Rodriguez"
+   },
+   "aliases": {
+    "en": [
+     "Narciso Rodriguez LLC"
+    ],
+    "fr": [
+     "Narciso Rodriguez LLC"
+    ],
+    "it": [
+     "Narciso Rodriguez LLC"
+    ]
+   }
+  },
+  {
+   "id": "Q56884659",
+   "labels": {
+    "en": "House of Emanuel Ungaro",
+    "fr": "Emanuel Ungaro SAS",
+    "it": "Emanuel Ungaro SAS"
+   },
+   "aliases": {
+    "en": [
+     "Emanuel Ungaro",
+     "Emanuel Ungaro SAS"
+    ]
+   }
+  },
+  {
+   "id": "Q571206",
+   "labels": {
+    "en": "Tom Tailor",
+    "fr": "Tom Tailor",
+    "it": "Tom Tailor"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5757490",
+   "labels": {
+    "en": "High and Mighty",
+    "fr": "High and Mighty",
+    "it": "High and Mighty"
+   },
+   "aliases": {
+    "en": [
+     "High & Mighty"
+    ]
+   }
+  },
+  {
+   "id": "Q576316",
+   "labels": {
+    "en": "Cacharel",
+    "fr": "Cacharel",
+    "it": "Cacharel",
+    "ja": "キャシャレル"
+   },
+   "aliases": {
+    "fr": [
+     "JEAN CACHAREL SA"
+    ]
+   }
+  },
+  {
+   "id": "Q5879530",
+   "labels": {
+    "en": "Holden Outerwear",
+    "fr": "Holden Outerwear",
+    "it": "Holden Outerwear"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q5915543",
+   "labels": {
+    "en": "House of Worth",
+    "fr": "Worth",
+    "it": "Worth"
+   },
+   "aliases": {
+    "en": [
+     "Worth"
+    ],
+    "fr": [
+     "House of Worth",
+     "maison Worth"
+    ],
+    "it": [
+     "Magasin de nouveautès"
+    ]
+   }
+  },
+  {
+   "id": "Q5962345",
+   "labels": {
+    "ar": "علامة تجارية يابانية للمصممين",
+    "en": "Hysteric Glamour",
+    "fr": "Hysteric glamour",
+    "ja": "ヒステリック・グラマー",
+    "ko": "히스테릭 글래머"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q600986",
+   "labels": {
+    "ar": "إسكادا",
+    "en": "Escada SE",
+    "fr": "Escada SE",
+    "it": "Escada SE",
+    "ja": "エスカーダ",
+    "ko": "에스카다"
+   },
+   "aliases": {
+    "en": [
+     "Escada"
+    ],
+    "fr": [
+     "Escada"
+    ]
+   }
+  },
+  {
+   "id": "Q604667",
+   "labels": {
+    "en": "Emilio Pucci",
+    "fr": "Emilio Pucci",
+    "it": "Emilio Pucci",
+    "ja": "エミリオ・プッチ",
+    "ko": "에밀리오 푸치"
+   },
+   "aliases": {
+    "en": [
+     "Emilio Paoli",
+     "Emilio Pucci di Barsento"
+    ],
+    "fr": [
+     "Emilio Paoli",
+     "Emilio Pucci di Barsento"
+    ],
+    "it": [
+     "Emilio Paoli",
+     "Emilio Pucci di Barsento"
+    ]
+   }
+  },
+  {
+   "id": "Q611115",
+   "labels": {
+    "ar": "سواروفسكي",
+    "en": "Swarovski",
+    "fr": "Swarovski",
+    "it": "Swarovski",
+    "ja": "スワロフスキー",
+    "ko": "스와로브스키"
+   },
+   "aliases": {
+    "en": [
+     "D. Swarovski KG",
+     "D. Swarovski KommanditGesellschaft",
+     "D. Swarovski Kommanditgesellschaft",
+     "SWAROVSKI",
+     "Swarovski LP",
+     "Swarovski limited partnership"
+    ],
+    "it": [
+     "Swarowsky"
+    ],
+    "ja": [
+     "スヴァロフスキー"
+    ]
+   }
+  },
+  {
+   "id": "Q61655432",
+   "labels": {
+    "en": "Groisil and Co.",
+    "fr": "Groisil and Co.",
+    "it": "Groisil and Co."
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q6261838",
+   "labels": {
+    "en": "John Varvatos",
+    "fr": "John Varvatos",
+    "it": "John Varvatos",
+    "ko": "존 바바토스"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q63148490",
+   "labels": {
+    "en": "Hellstern & Sons",
+    "fr": "Hellstern",
+    "it": "Hellstern and Sons"
+   },
+   "aliases": {
+    "en": [
+     "Hellstern & Sons breveté Paris",
+     "Hellstern and Sons",
+     "House of Hellstern"
+    ],
+    "fr": [
+     "Hellstern et fils",
+     "Maison Hellstern"
+    ]
+   }
+  },
+  {
+   "id": "Q635484",
+   "labels": {
+    "ar": "أرماني",
+    "en": "Giorgio Armani",
+    "fr": "Armani",
+    "it": "Armani",
+    "ja": "アルマーニ",
+    "ko": "아르마니"
+   },
+   "aliases": {
+    "ar": [
+     "ارماني"
+    ],
+    "en": [
+     "Armani",
+     "Giorgio Armani S.p.A."
+    ],
+    "fr": [
+     "Giorgio Armani",
+     "Giorgio Armani S.p.A"
+    ],
+    "it": [
+     "Giorgio Armani",
+     "Giorgio Armani SpA"
+    ],
+    "ja": [
+     "ジョルジオ・アルマーニ",
+     "ジョルジオ・アルマーニS.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q63966312",
+   "labels": {
+    "en": "Malianta",
+    "fr": "Malianta",
+    "it": "Malianta"
+   },
+   "aliases": {
+    "en": [
+     "malianta",
+     "malianta bags",
+     "malianta.com",
+     "maliantasrl"
+    ],
+    "fr": [
+     "malianta",
+     "malianta sacs",
+     "malianta.com",
+     "maliantasrl"
+    ],
+    "it": [
+     "malianta",
+     "malianta borse",
+     "malianta srl",
+     "malianta.com"
+    ]
+   }
+  },
+  {
+   "id": "Q64833663",
+   "labels": {
+    "en": "Lucile",
+    "fr": "Lucile",
+    "it": "Lucile"
+   },
+   "aliases": {
+    "en": [
+     "Lucile Ltd.",
+     "Maison Lucile"
+    ],
+    "fr": [
+     "Lucile Ltd.",
+     "Maison Lucile"
+    ],
+    "it": [
+     "Lucile Ltd.",
+     "Maison Lucile"
+    ]
+   }
+  },
+  {
+   "id": "Q64836086",
+   "labels": {
+    "en": "Vignon",
+    "fr": "Vignon",
+    "it": "Vignon"
+   },
+   "aliases": {
+    "en": [
+     "Madame Vignon",
+     "Maison Vignon",
+     "Mon. Vignon",
+     "Monsieur Vignon",
+     "maison Vignon"
+    ],
+    "fr": [
+     "maison Vignon"
+    ],
+    "it": [
+     "maison Vignon"
+    ]
+   }
+  },
+  {
+   "id": "Q64850019",
+   "labels": {
+    "en": "Chéruit",
+    "fr": "Chéruit",
+    "it": "Chéruit"
+   },
+   "aliases": {
+    "en": [
+     "Cheruit",
+     "Huet & Cheruit",
+     "Huet et Chéruit",
+     "maison Chéruit",
+     "maison Huet & Chéruit, successeurs de Raudnitz & Co."
+    ],
+    "fr": [
+     "Huet & Chéruit",
+     "Huet et Chéruit",
+     "maison Chéruit",
+     "maison Huet & Chéruit, successeurs de Raudnitz & Co."
+    ]
+   }
+  },
+  {
+   "id": "Q64851165",
+   "labels": {
+    "en": "Rouff",
+    "fr": "Maison Rouff",
+    "it": "Rouff"
+   },
+   "aliases": {
+    "en": [
+     "House of Rouff",
+     "Maison Rouff"
+    ],
+    "fr": [
+     "maison De Rouff",
+     "maison Rouff"
+    ]
+   }
+  },
+  {
+   "id": "Q64852777",
+   "labels": {
+    "en": "Beer",
+    "fr": "Beer",
+    "it": "Beer"
+   },
+   "aliases": {
+    "en": [
+     "House of Beer",
+     "Maison Beer"
+    ],
+    "fr": [
+     "maison Beer"
+    ]
+   }
+  },
+  {
+   "id": "Q64878179",
+   "labels": {
+    "en": "Francevramant",
+    "fr": "Francevramant",
+    "it": "Francevramant"
+   },
+   "aliases": {
+    "en": [
+     "Maison Francevramant"
+    ],
+    "fr": [
+     "maison Francevramant"
+    ]
+   }
+  },
+  {
+   "id": "Q6488848",
+   "labels": {
+    "en": "Lardini",
+    "fr": "Lardini",
+    "it": "Lardini",
+    "ko": "라르디니"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q649646",
+   "labels": {
+    "ar": "فالنتينو",
+    "en": "Valentino",
+    "fr": "Valentino",
+    "it": "Valentino",
+    "ja": "ヴァレンティノ",
+    "ko": "발렌티노"
+   },
+   "aliases": {
+    "fr": [
+     "VALENTINO SPA",
+     "Valentino Spa"
+    ]
+   }
+  },
+  {
+   "id": "Q659863",
+   "labels": {
+    "ar": "موسكينو",
+    "en": "Moschino",
+    "fr": "Moschino",
+    "it": "Moschino",
+    "ja": "モスキーノ",
+    "ko": "모스키노"
+   },
+   "aliases": {
+    "en": [
+     "Moschino, Italian"
+    ]
+   }
+  },
+  {
+   "id": "Q66085085",
+   "labels": {
+    "en": "Myrbor",
+    "fr": "Myrbor",
+    "it": "Myrbor"
+   },
+   "aliases": {
+    "en": [
+     "House of Myrbor",
+     "Maison Myrbor"
+    ],
+    "fr": [
+     "Maison Myrbor"
+    ]
+   }
+  },
+  {
+   "id": "Q66085116",
+   "labels": {
+    "en": "Drecoll",
+    "fr": "Drécoll",
+    "it": "Drécoll"
+   },
+   "aliases": {
+    "en": [
+     "Ch. Drecoll",
+     "Ch. Drecoll, Paris",
+     "Drécoll",
+     "House of Drecoll",
+     "House of Drécoll",
+     "Maison Drécoll"
+    ],
+    "fr": [
+     "Maison Drécoll"
+    ]
+   }
+  },
+  {
+   "id": "Q6666247",
+   "labels": {
+    "en": "Loden Dager",
+    "fr": "Loden Dager",
+    "it": "Loden Dager"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q66741407",
+   "labels": {
+    "ar": "فيرباشي",
+    "en": "VERBACHY",
+    "fr": "VERBACHY"
+   },
+   "aliases": {
+    "en": [
+     "VV",
+     "verbachy"
+    ]
+   }
+  },
+  {
+   "id": "Q67138636",
+   "labels": {
+    "en": "Caroline Reboux",
+    "fr": "Caroline Reboux",
+    "it": "Caroline Reboux"
+   },
+   "aliases": {
+    "en": [
+     "House of Reboux"
+    ]
+   }
+  },
+  {
+   "id": "Q67139018",
+   "labels": {
+    "en": "House of Jacques Fath",
+    "fr": "maison Fath",
+    "it": "Fath"
+   },
+   "aliases": {
+    "en": [
+     "Fath",
+     "House of Fath",
+     "Jacques Fath"
+    ],
+    "fr": [
+     "maison Jacques Fath"
+    ]
+   }
+  },
+  {
+   "id": "Q67140954",
+   "labels": {
+    "en": "Rébé",
+    "fr": "Rébé",
+    "it": "Rébé"
+   },
+   "aliases": {
+    "en": [
+     "Rébé, Paris"
+    ]
+   }
+  },
+  {
+   "id": "Q67186371",
+   "labels": {
+    "en": "House of Doucet",
+    "fr": "maison Doucet",
+    "it": "Doucet"
+   },
+   "aliases": {
+    "en": [
+     "Doucet",
+     "Doucet Lingerie",
+     "Maison Doucet"
+    ],
+    "fr": [
+     "Doucet"
+    ]
+   }
+  },
+  {
+   "id": "Q6774777",
+   "labels": {
+    "en": "Martin's",
+    "fr": "Martin's",
+    "it": "Martin's"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q6786255",
+   "labels": {
+    "en": "Matches Fashion",
+    "fr": "Matches Fashion",
+    "it": "Matches Fashion",
+    "ko": "매치스패션"
+   },
+   "aliases": {
+    "en": [
+     "Matchesfashion.com"
+    ],
+    "fr": [
+     "Matchesfashion.com/fr/"
+    ]
+   }
+  },
+  {
+   "id": "Q6792377",
+   "labels": {
+    "en": "Maui Jim",
+    "fr": "Maui Jim",
+    "it": "Maui Jim",
+    "ja": "マウイジム"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q68031920",
+   "labels": {
+    "en": "Sarmi",
+    "fr": "Sarmi",
+    "it": "Sarmi"
+   },
+   "aliases": {
+    "en": [
+     "Ferdinando Sarmi"
+    ]
+   }
+  },
+  {
+   "id": "Q68053378",
+   "labels": {
+    "en": "Suzanne Talbot",
+    "fr": "Suzanne Talbot",
+    "it": "Suzanne Talbot"
+   },
+   "aliases": {
+    "en": [
+     "J. Suzanne Talbot"
+    ]
+   }
+  },
+  {
+   "id": "Q688195",
+   "labels": {
+    "en": "Bally",
+    "fr": "Bally",
+    "it": "Bally",
+    "ja": "バリー (ファッションブランド)",
+    "ko": "발리"
+   },
+   "aliases": {
+    "en": [
+     "Bally Shoe",
+     "Bally Shoe Factory",
+     "Bally of Switzerland"
+    ]
+   }
+  },
+  {
+   "id": "Q691029",
+   "labels": {
+    "ar": "بول آند بر",
+    "en": "Pull&Bear",
+    "fr": "Pull&Bear",
+    "it": "Pull&Bear",
+    "ko": "풀앤베어"
+   },
+   "aliases": {
+    "en": [
+     "Pull & Bear",
+     "Pull and Bear",
+     "PullAndBear",
+     "pullandbear.com"
+    ],
+    "it": [
+     "Pull and Bear"
+    ]
+   }
+  },
+  {
+   "id": "Q696376",
+   "labels": {
+    "ar": "فيرزاتشي",
+    "en": "Versace",
+    "fr": "Versace",
+    "it": "Gianni Versace",
+    "ja": "ヴェルサーチ",
+    "ko": "베르사체"
+   },
+   "aliases": {
+    "ar": [
+     "Versace"
+    ],
+    "en": [
+     "Gianni Versace",
+     "Gianni Versace S.p.A",
+     "VERSACE"
+    ],
+    "it": [
+     "Gianni Versace S.p.A.",
+     "Gianni Versace SpA"
+    ]
+   }
+  },
+  {
+   "id": "Q698568",
+   "labels": {
+    "ar": "فراي ويلي",
+    "en": "Frey Wille",
+    "fr": "frey wille"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7038456",
+   "labels": {
+    "en": "Nine West",
+    "fr": "Nine West",
+    "it": "Nine West",
+    "ja": "ナインウエスト"
+   },
+   "aliases": {
+    "en": [
+     "9 West"
+    ]
+   }
+  },
+  {
+   "id": "Q7079121",
+   "labels": {
+    "en": "Office Holdings",
+    "fr": "Office Holdings",
+    "it": "Office Holdings"
+   },
+   "aliases": {
+    "en": [
+     "Office",
+     "Office Shoes"
+    ]
+   }
+  },
+  {
+   "id": "Q7086035",
+   "labels": {
+    "en": "Oleg Cassini, Inc.",
+    "fr": "Oleg Cassini, Inc.",
+    "it": "Oleg Cassini, Inc."
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q71352061",
+   "labels": {
+    "en": "Boudicca",
+    "fr": "Boudicca",
+    "it": "Boudicca"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7136948",
+   "labels": {
+    "en": "Parfois",
+    "fr": "Parfois",
+    "it": "Parfois"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7157762",
+   "labels": {
+    "en": "Peacocks",
+    "fr": "Peacocks",
+    "it": "Peacocks",
+    "ja": "ピーコック"
+   },
+   "aliases": {
+    "en": [
+     "Peacocks Clothing",
+     "Peacocks Store",
+     "Peacocks Stores",
+     "Peacocks Stores Limited"
+    ]
+   }
+  },
+  {
+   "id": "Q7185734",
+   "labels": {
+    "en": "Phillip Lim",
+    "fr": "Phillip Lim",
+    "it": "Phillip Lim"
+   },
+   "aliases": {
+    "en": [
+     "Pheng Lim"
+    ]
+   }
+  },
+  {
+   "id": "Q7288307",
+   "labels": {
+    "ar": "رالف وروسو",
+    "en": "Ralph and Russo",
+    "fr": "Ralph and Russo"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7305826",
+   "labels": {
+    "en": "Redfern",
+    "fr": "Redfern",
+    "it": "Redfern"
+   },
+   "aliases": {
+    "en": [
+     "House of Redfern",
+     "John Redfern and Sons",
+     "Maison Redfern",
+     "Messrs. John Redfern and Sons",
+     "Redfern Ltd.",
+     "Redfern and Sons"
+    ],
+    "fr": [
+     "John Redfern & Sons",
+     "Maison Redfern",
+     "Messrs. John Redfern and Sons",
+     "Redfern & Sons",
+     "Redfern Ltd."
+    ]
+   }
+  },
+  {
+   "id": "Q7310479",
+   "labels": {
+    "en": "Reiss",
+    "fr": "Reiss",
+    "it": "Reiss"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7333375",
+   "labels": {
+    "en": "Rigby & Peller",
+    "fr": "Rigby & Peller",
+    "it": "Rigby & Peller"
+   },
+   "aliases": {
+    "en": [
+     "Rigby and Peller"
+    ]
+   }
+  },
+  {
+   "id": "Q737606",
+   "labels": {
+    "en": "Colette",
+    "fr": "Colette",
+    "ja": "コレット"
+   },
+   "aliases": {
+    "en": [
+     "colette"
+    ]
+   }
+  },
+  {
+   "id": "Q7447830",
+   "labels": {
+    "en": "Selena Etc.",
+    "fr": "Selena Etc.",
+    "it": "Selena Etc."
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7488518",
+   "labels": {
+    "en": "Shanghai Tang",
+    "fr": "Shanghai Tang",
+    "ja": "上海灘"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7495988",
+   "labels": {
+    "en": "Shiatzy Chen",
+    "fr": "Shiatzy Chen",
+    "ja": "シャッツィー・チェン"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7498013",
+   "labels": {
+    "en": "Shipley & Halmos",
+    "fr": "Shipley & Halmos",
+    "it": "Shipley & Halmos"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q752515",
+   "labels": {
+    "ar": "بولغاري",
+    "en": "Bulgari",
+    "fr": "Bulgari",
+    "it": "Bulgari",
+    "ja": "ブルガリ",
+    "ko": "불가리"
+   },
+   "aliases": {
+    "en": [
+     "Bulgari S.p.A.",
+     "Bvlgari"
+    ],
+    "fr": [
+     "Bvlgari"
+    ],
+    "it": [
+     "Bvlgari"
+    ],
+    "ja": [
+     "BVLGARI"
+    ]
+   }
+  },
+  {
+   "id": "Q7588866",
+   "labels": {
+    "en": "St. John Knits International Inc.",
+    "fr": "St. John Knits International Inc.",
+    "it": "St. John Knits International Inc.",
+    "ja": "セントジョン",
+    "ko": "세인트존"
+   },
+   "aliases": {
+    "en": [
+     "St. John"
+    ]
+   }
+  },
+  {
+   "id": "Q759210",
+   "labels": {
+    "ar": "جيفنشي",
+    "en": "Givenchy",
+    "fr": "Givenchy",
+    "it": "Givenchy",
+    "ja": "ジバンシィ",
+    "ko": "지방시"
+   },
+   "aliases": {
+    "en": [
+     "House of Givenchy"
+    ],
+    "fr": [
+     "GIVENCHY"
+    ],
+    "it": [
+     "Parfums Givenchy"
+    ],
+    "ja": [
+     "GIVENCHY",
+     "ジバンシー",
+     "ユベール・ド・ジバンシィ",
+     "ユベール・ド・ジバンシー"
+    ]
+   }
+  },
+  {
+   "id": "Q7743141",
+   "labels": {
+    "en": "The Jessica Simpson Collection",
+    "fr": "The Jessica Simpson Collection",
+    "it": "The Jessica Simpson Collection"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7743510",
+   "labels": {
+    "en": "The Jones Group",
+    "fr": "The Jones Group",
+    "it": "The Jones Group"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7798025",
+   "labels": {
+    "en": "threeasfour",
+    "fr": "Threeasfour",
+    "it": "Threeasfour",
+    "ko": "쓰리에즈포"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q7844948",
+   "labels": {
+    "en": "Troentorp Clogs",
+    "fr": "Troentorp Clogs",
+    "ko": "트로엔토프"
+   },
+   "aliases": {
+    "en": [
+     "Troentorp"
+    ]
+   }
+  },
+  {
+   "id": "Q7846656",
+   "labels": {
+    "en": "Trovata",
+    "fr": "Trovata",
+    "ja": "トロヴァータ",
+    "ko": "트로바타"
+   },
+   "aliases": {
+    "en": [
+     "Birds of Paradis"
+    ]
+   }
+  },
+  {
+   "id": "Q788231",
+   "labels": {
+    "ar": "ماسيمو دوتي",
+    "en": "Massimo Dutti",
+    "fr": "Massimo Dutti",
+    "ja": "マッシモ・ドゥッティ",
+    "ko": "마시모두띠"
+   },
+   "aliases": {
+    "en": [
+     "Massimo Dutti S.A.",
+     "Massimo Dutti SA",
+     "Massimo Dutti, S.A.",
+     "Massimo Dutti, SA",
+     "MassimoDutti ru"
+    ]
+   }
+  },
+  {
+   "id": "Q7994069",
+   "labels": {
+    "en": "Whistles",
+    "fr": "Whistles",
+    "it": "Whistles",
+    "ko": "휘슬즈"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q8045255",
+   "labels": {
+    "en": "Xuly Bët",
+    "fr": "Xuly Bët",
+    "it": "Xuly Bët"
+   },
+   "aliases": {
+    "en": [
+     "Xuly Bët Funkin' Fashion Factory"
+    ]
+   }
+  },
+  {
+   "id": "Q821969",
+   "labels": {
+    "en": "Berluti",
+    "fr": "Berluti",
+    "it": "Berluti",
+    "ja": "ベルルッティ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q843887",
+   "labels": {
+    "ar": "هيرميس باريس",
+    "en": "Hermès",
+    "fr": "Hermès",
+    "it": "Hermès",
+    "ja": "エルメス",
+    "ko": "에르메스"
+   },
+   "aliases": {
+    "en": [
+     "HERMES INTERNATIONAL",
+     "Hermes",
+     "Hermes International",
+     "Hermes International S.A.",
+     "Hermes International SA",
+     "Hermes of Paris",
+     "Hermès International",
+     "Hermès International S.A.",
+     "Hermès International SA",
+     "Hermès Sellier",
+     "Hermès of Paris"
+    ],
+    "fr": [
+     "Groupe Hermès",
+     "Hermes",
+     "Hermes International",
+     "Hermès International",
+     "Hermès Sellier",
+     "Société Hermès"
+    ],
+    "it": [
+     "Hermes",
+     "Hermès Sellier"
+    ],
+    "ja": [
+     "Hermès",
+     "Hermès of Paris",
+     "エルメス・インターナショナル"
+    ]
+   }
+  },
+  {
+   "id": "Q844374",
+   "labels": {
+    "en": "Trump Model Management",
+    "fr": "Trump Model Management",
+    "it": "Trump Model Management",
+    "ja": "トランプ・モデル・マネージメント"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q85862323",
+   "labels": {
+    "en": "Pucci",
+    "fr": "Pucci",
+    "it": "Pucci"
+   },
+   "aliases": {
+    "en": [
+     "Emilio Pucci",
+     "Emilio Pucci S.r.l."
+    ],
+    "fr": [
+     "Emilio Pucci"
+    ],
+    "it": [
+     "Emilio Pucci"
+    ]
+   }
+  },
+  {
+   "id": "Q866899",
+   "labels": {
+    "en": "Lanvin",
+    "fr": "Lanvin",
+    "it": "Lanvin",
+    "ja": "ランバン",
+    "ko": "랑방"
+   },
+   "aliases": {
+    "en": [
+     "House of Lanvin",
+     "Jeanne Lanvin S.A.",
+     "Jeanne Lanvin SA"
+    ]
+   }
+  },
+  {
+   "id": "Q873447",
+   "labels": {
+    "en": "Gerry Weber",
+    "fr": "Gerry Weber",
+    "ja": "ゲリー・ウェバー"
+   },
+   "aliases": {
+    "fr": [
+     "Gerry Weber International AG"
+    ],
+    "ja": [
+     "ゲリー・ヴェーバー"
+    ]
+   }
+  },
+  {
+   "id": "Q894874",
+   "labels": {
+    "ar": "بوتيغا فينيتا",
+    "en": "Bottega Veneta",
+    "fr": "Bottega Veneta",
+    "it": "Bottega Veneta",
+    "ja": "ボッテガ・ヴェネタ",
+    "ko": "보테가 베네타"
+   },
+   "aliases": {
+    "ja": [
+     "BOTTEGA VENETA",
+     "ボッテガ・ベネタ"
+    ],
+    "ko": [
+     "보테가베네타"
+    ]
+   }
+  },
+  {
+   "id": "Q907959",
+   "labels": {
+    "en": "Falc",
+    "fr": "Falc",
+    "it": "Falc"
+   },
+   "aliases": {
+    "en": [
+     "Falc S.p.A."
+    ]
+   }
+  },
+  {
+   "id": "Q926575",
+   "labels": {
+    "ar": "فيندي",
+    "en": "Fendi",
+    "fr": "Fendi",
+    "it": "Fendi",
+    "ja": "フェンディ",
+    "ko": "펜디"
+   },
+   "aliases": {
+    "en": [
+     "crée par Angelica Mercier"
+    ],
+    "ja": [
+     "FENDI"
+    ]
+   }
+  },
+  {
+   "id": "Q93451035",
+   "labels": {
+    "en": "Boggi Milano",
+    "fr": "Boggi Milano",
+    "it": "Boggi Milano"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q938773",
+   "labels": {
+    "ar": "دي كيه إن واي",
+    "en": "DKNY",
+    "fr": "DKNY",
+    "it": "DKNY",
+    "ja": "DKNY",
+    "ko": "디케이엔와이"
+   },
+   "aliases": {
+    "en": [
+     "Donna Karan New York"
+    ]
+   }
+  },
+  {
+   "id": "Q948531",
+   "labels": {
+    "ar": "سيلين (دار أزياء)",
+    "en": "Celine",
+    "fr": "Celine",
+    "it": "Celine",
+    "ja": "セリーヌ",
+    "ko": "셀린"
+   },
+   "aliases": {
+    "en": [
+     "CELINE",
+     "Celine S.A.",
+     "Céline"
+    ],
+    "fr": [
+     "CELINE"
+    ],
+    "it": [
+     "CELINE",
+     "Céline"
+    ],
+    "ja": [
+     "セリーヌ (ファッションブランド)"
+    ]
+   }
+  },
+  {
+   "id": "Q950766",
+   "labels": {
+    "en": "Safilo",
+    "fr": "Safilo",
+    "it": "Safilo",
+    "ja": "サフィログループ"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q958209",
+   "labels": {
+    "en": "Springfield",
+    "fr": "Springfield",
+    "it": "Springfield"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q96243997",
+   "labels": {
+    "en": "Agnès",
+    "fr": "Agnès",
+    "it": "Agnès"
+   },
+   "aliases": {
+    "en": [
+     "Agnes",
+     "House Of Agnés",
+     "Maison Agnès",
+     "Mme Agnès",
+     "Mon. Agnès"
+    ],
+    "fr": [
+     "Maison Agnès",
+     "Mon. Agnès"
+    ],
+    "it": [
+     "Maison Agnès"
+    ]
+   }
+  },
+  {
+   "id": "Q96245486",
+   "labels": {
+    "en": "Cristoff Drecoll",
+    "fr": "Cristoff Drecoll",
+    "it": "Cristoff Drecoll"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q96245665",
+   "labels": {
+    "en": "Ch. Drecoll, Damenkonfektionsgeschäft",
+    "fr": "Ch. Drecoll, Damenkonfektionsgeschäft",
+    "it": "Ch. Drecoll, Damenkonfektionsgeschäft"
+   },
+   "aliases": {}
+  },
+  {
+   "id": "Q96269596",
+   "labels": {
+    "en": "Maggy Rouff, Paris",
+    "fr": "Maggy Rouff, Paris",
+    "it": "Maggy Rouff, Paris"
+   },
+   "aliases": {
+    "en": [
+     "Maggy Rouff",
+     "Rouff"
+    ]
+   }
+  },
+  {
+   "id": "Q966905",
+   "labels": {
+    "ar": "لويفي",
+    "en": "Loewe",
+    "fr": "Loewe",
+    "it": "Loewe",
+    "ja": "ロエベ",
+    "ko": "로에베"
+   },
+   "aliases": {
+    "en": [
+     "LOEWE"
+    ],
+    "ja": [
+     "LOEWE",
+     "ロエヴェ"
+    ]
+   }
+  },
+  {
+   "id": "Q96791543",
+   "labels": {
+    "en": "Yeezy",
+    "it": "Yeezy",
+    "ja": "イーズィーLLC"
+   },
+   "aliases": {
+    "en": [
+     "YZY",
+     "Yeezy Apparel LLC",
+     "Yeezy LLC"
+    ],
+    "ja": [
+     "イージーLLC"
+    ]
+   }
+  }
+ ]
+}

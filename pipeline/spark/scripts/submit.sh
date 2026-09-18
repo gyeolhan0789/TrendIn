@@ -4,7 +4,7 @@
 #   spark/scripts/submit.sh ingest --profile local
 #   spark/scripts/submit.sh aggregate --profile dev --date 2026-09-03
 #
-# 첫 인자는 Job 이름(ingest · extract · aggregate · analyze), 나머지는 그대로 Job 에 넘어간다.
+# 첫 인자는 Job 이름(ingest · extract · concept · aggregate · analyze), 나머지는 그대로 Job 에 넘어간다.
 # spark-submit 자체에 옵션을 더 주려면 SPARK_SUBMIT_OPTS_EXTRA 에 넣는다.
 set -euo pipefail
 
@@ -16,9 +16,9 @@ PIPELINE_DIR=$(cd "$SPARK_DIR/.." && pwd)
 
 job=${1:-}
 case "$job" in
-  ingest|extract|aggregate|analyze) shift ;;
+  ingest|extract|concept|aggregate|analyze) shift ;;
   *)
-    echo "쓰는 법: $0 {ingest|extract|aggregate|analyze} [--profile local] ..." >&2
+    echo "쓰는 법: $0 {ingest|extract|concept|aggregate|analyze} [--profile local] ..." >&2
     exit 64
     ;;
 esac

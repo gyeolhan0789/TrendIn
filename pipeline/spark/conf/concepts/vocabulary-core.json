@@ -1,0 +1,30 @@
+{
+ "source": "seed",
+ "category": "footwear",
+ "note": "손으로 만든 씨앗 — 첫 묶음. 의류·소재·색상은 파일을 나눠 더한다. 아랍어는 확실한 것만 넣었고 비어 있으면 미등록 경로가 채운다. 상위(parent)는 같은 파일 안 labels.en 을 가리킨다.",
+ "items": [
+  {"labels": {"en": "boots", "ko": "부츠", "ja": "ブーツ", "fr": "bottes", "it": "stivali"},
+   "aliases": {"en": ["boot"], "ja": ["ブーツ類"]},
+   "description": "발목 위로 올라오는 신발 전체. 하위 개념의 상위다."},
+  {"labels": {"en": "ankle boots", "ko": "앵클부츠", "ja": "アンクルブーツ", "fr": "bottines", "it": "stivaletti"},
+   "aliases": {"ko": ["앵클 부츠"], "en": ["ankle boot", "booties"]},
+   "parent": "boots"},
+  {"labels": {"en": "long boots", "ko": "롱부츠", "ja": "ロングブーツ", "fr": "bottes hautes", "it": "stivali alti"},
+   "aliases": {"ko": ["롱 부츠"], "en": ["knee-high boots", "knee high boots"]},
+   "parent": "boots"},
+  {"labels": {"en": "loafers", "ko": "로퍼", "ja": "ローファー", "fr": "mocassins", "it": "mocassini"},
+   "aliases": {"en": ["loafer"]}},
+  {"labels": {"en": "sneakers", "ko": "스니커즈", "ja": "スニーカー", "fr": "baskets", "it": "sneakers"},
+   "aliases": {"ko": ["스니커"], "en": ["sneaker", "trainers"], "fr": ["sneakers"]}},
+  {"labels": {"en": "ballet flats", "ko": "발레 플랫", "ja": "バレエシューズ", "fr": "ballerines", "it": "ballerine"},
+   "aliases": {"ko": ["발레플랫", "발레 슈즈", "발레슈즈"], "en": ["ballet flat", "ballerina flats"]}},
+  {"labels": {"en": "mary janes", "ko": "메리제인", "ja": "メリージェーン", "fr": "babies", "it": "mary jane"},
+   "aliases": {"ko": ["메리 제인"], "en": ["mary jane", "mary jane shoes"]}},
+  {"labels": {"en": "sandals", "ko": "샌들", "ja": "サンダル", "fr": "sandales", "it": "sandali", "ar": "صنادل"},
+   "aliases": {"en": ["sandal"]}},
+  {"labels": {"en": "mules", "ko": "뮬", "ja": "ミュール", "fr": "mules", "it": "mules"},
+   "aliases": {"en": ["mule"]}},
+  {"labels": {"en": "pumps", "ko": "펌프스", "ja": "パンプス", "fr": "escarpins", "it": "décolleté"},
+   "aliases": {"en": ["pump", "court shoes"], "it": ["decolleté"]}}
+ ]
+}
