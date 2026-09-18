@@ -16,7 +16,9 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.pr
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
 import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +26,8 @@ import com.forever102.auth.dto.EmailCheckRequest;
 import com.forever102.auth.dto.EmailCheckResponse;
 import com.forever102.auth.dto.LoginRequest;
 import com.forever102.auth.dto.LoginResponse;
+import com.forever102.auth.dto.OAuthLoginRequest;
+import com.forever102.auth.dto.OAuthLoginResponse;
 import com.forever102.auth.dto.LogoutRequest;
 import com.forever102.auth.dto.ReissueRequest;
 import com.forever102.auth.dto.ReissueResponse;
@@ -31,6 +35,7 @@ import com.forever102.auth.dto.SignUpRequest;
 import com.forever102.auth.dto.SignUpResponse;
 import com.forever102.auth.jwt.JwtTokenProvider;
 import com.forever102.auth.service.AuthService;
+import com.forever102.auth.service.OAuthService;
 import com.forever102.global.config.SecurityTestConfig;
 import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
@@ -61,6 +66,8 @@ class AuthControllerTest {
             """;
 
     private static final String EMAIL_CHECK_URL = "/auth/email-check";
+    private static final String OAUTH_LOGIN_URL = "/auth/oauth/{provider}/login";
+    private static final String VALID_OAUTH_REQUEST = "{\"code\":\"example-authorization-code\",\"state\":\"example-state\"}";
     private static final String VALID_EMAIL_CHECK_REQUEST = """
             {
               "email": "test@example.com"
@@ -103,6 +110,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private OAuthService oauthService;
 
     @Test
     @DisplayName("유효한 요청이면 201과 생성된 회원 정보를 반환한다")
@@ -848,6 +858,216 @@ class AuthControllerTest {
 
         // then
         then(authService).should(never()).checkEmail(any(EmailCheckRequest.class));
+    }
+
+    @Test
+    @DisplayName("OAuth 인증에 성공하면 200과 발급된 토큰을 반환한다")
+    void oauthLoginReturnsTokens() throws Exception {
+        // given
+        given(oauthService.login(eq("gitlab"), any(OAuthLoginRequest.class)))
+                .willReturn(new OAuthLoginResponse(
+                        "example-access-token", "example-refresh-token", "Bearer",
+                        900L, 1_209_600L, true, false));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("example-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("example-refresh-token"))
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(900))
+                .andExpect(jsonPath("$.data.refreshTokenExpiresIn").value(1_209_600))
+                .andExpect(jsonPath("$.data.isNewMember").value(true))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(false))
+                .andDo(document("auth-oauth-login",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        pathParameters(parameterWithName("provider")
+                                .description("OAuth 제공자 식별자. 현재 gitlab만 지원하며 대소문자를 가리지 않는다.")),
+                        requestFields(
+                                fieldWithPath("code").type(JsonFieldType.STRING)
+                                        .description("제공자가 프론트엔드 콜백에 전달한 일회용 인가 코드. 필수."),
+                                fieldWithPath("state").type(JsonFieldType.STRING)
+                                        .description("제공자가 콜백에 반환한 state. 필수. CSRF 대조는 state를 만든 프런트가 수행한다.")
+                        ),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부"),
+                                fieldWithPath("data.accessToken").type(JsonFieldType.STRING)
+                                        .description("API 호출에 사용하는 액세스 토큰"),
+                                fieldWithPath("data.refreshToken").type(JsonFieldType.STRING)
+                                        .description("액세스 토큰 재발급에 사용하는 리프레시 토큰"),
+                                fieldWithPath("data.tokenType").type(JsonFieldType.STRING)
+                                        .description("토큰 사용 방식. 항상 Bearer"),
+                                fieldWithPath("data.accessTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("액세스 토큰의 유효 기간(초)"),
+                                fieldWithPath("data.refreshTokenExpiresIn").type(JsonFieldType.NUMBER)
+                                        .description("리프레시 토큰의 유효 기간(초)"),
+                                fieldWithPath("data.isNewMember").type(JsonFieldType.BOOLEAN)
+                                        .description("이번 요청으로 가입했는지 여부. true면 관심 분야 선택으로 보낸다."),
+                                fieldWithPath("data.onboardingCompleted").type(JsonFieldType.BOOLEAN)
+                                        .description("온보딩 완료 여부. 신규 가입 직후에는 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.NULL)
+                                        .description("성공 응답에서는 항상 null")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("이미 가입한 회원이면 isNewMember가 false다")
+    void oauthLoginReportsExistingMember() throws Exception {
+        // given
+        given(oauthService.login(eq("gitlab"), any(OAuthLoginRequest.class)))
+                .willReturn(new OAuthLoginResponse(
+                        "example-access-token", "example-refresh-token", "Bearer",
+                        900L, 1_209_600L, false, true));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.isNewMember").value(false))
+                .andExpect(jsonPath("$.data.onboardingCompleted").value(true));
+    }
+
+    @Test
+    @DisplayName("OAuth 로그인은 토큰 없이 호출할 수 있다")
+    void oauthLoginIsPublic() throws Exception {
+        // given
+        given(oauthService.login(eq("gitlab"), any(OAuthLoginRequest.class)))
+                .willReturn(new OAuthLoginResponse(
+                        "example-access-token", "example-refresh-token", "Bearer",
+                        900L, 1_209_600L, true, false));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("활성화하지 않은 제공자면 400으로 응답한다")
+    void oauthLoginRejectsUnsupportedProvider() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.UNSUPPORTED_PROVIDER))
+                .given(oauthService).login(eq("github"), any(OAuthLoginRequest.class));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "github")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("지원하지 않는 OAuth 제공자입니다."))
+                .andDo(document("auth-oauth-login-unsupported-provider",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("OAuth 인증에 실패하면 401로 응답한다")
+    void oauthLoginReturnsUnauthorized() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.OAUTH_AUTHENTICATION_FAILED))
+                .given(oauthService).login(eq("gitlab"), any(OAuthLoginRequest.class));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("OAuth 인증에 실패했습니다."))
+                .andDo(document("auth-oauth-login-authentication-failed",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지. 코드 만료·재사용과 제공자 계정 문제를 구분해 노출하지 않는다.")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("제공자와 통신하지 못하면 502로 응답한다")
+    void oauthLoginReturnsBadGateway() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.OAUTH_PROVIDER_ERROR))
+                .given(oauthService).login(eq("gitlab"), any(OAuthLoginRequest.class));
+
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_OAUTH_REQUEST))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.message").value("OAuth 제공자와 통신하지 못했습니다."))
+                .andDo(document("auth-oauth-login-provider-error",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("에러 메시지. 제공자 장애이므로 재시도할 수 있다.")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("인가 코드가 없으면 400으로 응답한다")
+    void oauthLoginRejectsMissingCode() throws Exception {
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"state\":\"example-state\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("인가 코드는 필수입니다."))
+                .andDo(document("auth-oauth-login-invalid-request",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        responseFields(
+                                fieldWithPath("success").type(JsonFieldType.BOOLEAN)
+                                        .description("요청 성공 여부. 항상 false"),
+                                fieldWithPath("message").type(JsonFieldType.STRING)
+                                        .description("검증에 실패한 첫 번째 필드의 메시지")
+                        )
+                ));
+    }
+
+    @Test
+    @DisplayName("state가 없으면 400으로 응답한다")
+    void oauthLoginRejectsMissingState() throws Exception {
+        // when & then
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"example-authorization-code\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("state는 필수입니다."));
+    }
+
+    @Test
+    @DisplayName("요청 검증에 실패하면 서비스를 호출하지 않는다")
+    void oauthLoginDoesNotCallServiceWhenInvalid() throws Exception {
+        // when
+        mockMvc.perform(post(OAUTH_LOGIN_URL, "gitlab")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"));
+
+        // then
+        then(oauthService).should(never()).login(any(), any(OAuthLoginRequest.class));
     }
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();

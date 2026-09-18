@@ -586,6 +586,58 @@ operation::auth-login-invalid-request[snippets='http-response,response-fields']
 
 operation::auth-login-invalid-credentials[snippets='http-response,response-fields']
 
+
+[[auth-oauth-login]]
+=== OAuth 로그인
+
+`POST /auth/oauth/{provider}/login`
+
+OAuth 제공자 인증 결과로 회원가입 또는 로그인을 처리한다. 인증 헤더 없이 호출한다.
+현재 지원하는 제공자는 `gitlab`뿐이며, 경로의 제공자 이름은 대소문자를 가리지 않는다.
+
+프런트엔드가 제공자 인가 화면에서 받은 일회용 `code`와 `state`를 그대로 보낸다.
+**`state`는 서버가 대조하지 않는다.** 인가 URL을 서버가 만들지 않아 발급한 `state`를 서버가 알지 못하기 때문이며,
+CSRF 대조는 `state`를 만든 프런트엔드가 콜백에서 수행한다.
+
+회원을 찾는 순서는 다음과 같다.
+
+. 제공자 연결이 이미 있으면 그 회원으로 로그인한다.
+. 연결은 없지만 같은 이메일의 회원이 있으면 **기존 계정에 연결을 붙인다.** 한 사람이 계정 두 개로 쪼개지지 않게 하기 위함이다.
+. 둘 다 없으면 새로 가입시킨다. 이때 `isNewMember`가 `true`이고 `onboardingCompleted`는 `false`다.
+
+신규 회원은 관심 분야를 최소 1개 선택해야 온보딩이 완료된다.
+OAuth로만 가입한 회원은 비밀번호가 없어 이메일·비밀번호 로그인으로는 들어올 수 없다.
+
+==== 요청 및 응답
+
+operation::auth-oauth-login[snippets='http-request,path-parameters,request-fields,http-response,response-fields']
+
+==== 에러
+
+===== 400 Bad Request — 필수값 검증 실패
+
+`code` 또는 `state`가 없거나 비어 있는 경우.
+
+operation::auth-oauth-login-invalid-request[snippets='http-response,response-fields']
+
+===== 400 Bad Request — 활성화하지 않은 제공자
+
+경로의 제공자가 지원 목록에 없는 경우. 제공자에 요청을 보내지 않는다.
+
+operation::auth-oauth-login-unsupported-provider[snippets='http-response,response-fields']
+
+===== 401 Unauthorized — OAuth 인증 실패
+
+인가 코드가 이미 사용됐거나 만료된 경우, `redirect_uri`가 제공자에 등록한 값과 다른 경우,
+제공자가 이메일을 주지 않아 회원을 식별할 수 없는 경우. 원인을 구분해 노출하지 않는다.
+
+operation::auth-oauth-login-authentication-failed[snippets='http-response,response-fields']
+
+===== 502 Bad Gateway — 제공자 통신 실패
+
+제공자가 5xx로 응답하거나 아예 닿지 못한 경우. 제공자 장애이므로 재시도할 수 있다.
+
+operation::auth-oauth-login-provider-error[snippets='http-response,response-fields']
 [[auth-reissue]]
 === 토큰 재발급
 
