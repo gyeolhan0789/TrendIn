@@ -2023,6 +2023,10 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-flow-stop.is-here { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; }
 .worldtrend-flow-name { font-weight: 600; }
 .worldtrend-flow-date { font-variant-numeric: tabular-nums; opacity: .85; }
+/* 흐름은 가로로 이어지고 설명은 그 아래 한 줄로 붙습니다. 한 줄에 나란히 세우면 경로가 밀립니다. */
+.worldtrend-flow-inner { display: flex; max-width: 100%; flex-direction: column; align-items: center; gap: 7px; }
+/* 지도 위에 얹히는 글이라 정류장과 같은 흰 바탕을 깔지 않으면 지형에 묻혀 읽히지 않습니다. */
+.worldtrend-flow-note { padding: 5px 10px; border-radius: 7px; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: var(--lp-faint); font-size: 11.5px; text-align: center; }
 
 
 .worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
@@ -2051,6 +2055,8 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-rank-bar span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4F46E5, #a5b4fc); }
 .worldtrend-chart { width: 100%; height: auto; }
 .worldtrend-chart-axis { display: flex; justify-content: space-between; margin-top: 2px; color: var(--lp-faint); font-size: 10px; }
+/* 카드 하나가 아니라 카드들에 대한 설명이라 칸을 두르지 않되, 좌우 여백은 카드와 맞춥니다. */
+.worldtrend-note { padding: 12px 18px 18px; color: var(--lp-faint); font-size: 11.5px; line-height: 1.6; }
 
 /*
  * 지도 자체. 경계선은 Natural Earth 자료 그대로라 대륙 모양이 실제 지도와 같습니다.
