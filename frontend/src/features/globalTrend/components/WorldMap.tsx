@@ -10,7 +10,7 @@ import {
   projectFlat,
   projectGlobe,
 } from '../geo/projection';
-import type { Country } from '../globalTrendSample';
+import type { CountryGeo } from '../data/countryGeo';
 import type { MapView } from '../hooks/useSpreadTour';
 
 /*
@@ -54,8 +54,12 @@ const FLAT_BY_ID = new Map(WORLD_COUNTRIES.map((country) => [country.id, flatPat
 const SHAPE_BY_ID = new Map(WORLD_COUNTRIES.map((country) => [country.id, country]));
 
 export interface MapStop {
-  country: Country;
-  growth: number;
+  country: CountryGeo;
+  /** 핀을 얼마나 진하게 칠할지 정하는 값. 클수록 진합니다. */
+  weight: number;
+  /** 핀에 적을 값. 무엇을 재는 값인지 아는 쪽에서 다듬어 넘깁니다. */
+  label: string;
+  /** 그 나라에서 처음 잡힌 날. */
   since: string;
 }
 
@@ -219,17 +223,17 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, onPickStop 
   }, [stops, focusIndex, mode, globe, flat, width]);
 
   /*
-   * 트렌드가 닿은 나라는 그 나라의 증가율만큼 진하게 칠합니다. 같은 색으로 모두 덮으면
-   * 어디가 더 뜨거운지 지도에서 읽을 수 없습니다. 가장 높은 곳을 1로 두고 견줍니다.
+   * 트렌드가 닿은 나라는 그 나라의 값만큼 진하게 칠합니다. 같은 색으로 모두 덮으면 어디가 더
+   * 뜨거운지 지도에서 읽을 수 없습니다. 가장 높은 곳을 1로 두고 견줍니다.
    */
-  const hottest = Math.max(...stops.map((stop) => Math.abs(stop.growth)), 1);
+  const hottest = Math.max(...stops.map((stop) => Math.abs(stop.weight)), 1);
 
   const highlights = stops.map((stop, index) => ({
     index,
     id: stop.country.atlasId,
     passed: index <= focusIndex,
     here: index === stopIndex,
-    depth: 0.32 + 0.53 * (Math.abs(stop.growth) / hottest),
+    depth: 0.32 + 0.53 * (Math.abs(stop.weight) / hottest),
   }));
 
   return (
@@ -336,7 +340,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, onPickStop 
           <span className="worldmap-pin-label">
             <span className="worldmap-pin-name">{pin.stop.country.flag} {pin.stop.country.name}</span>
             <span className="worldmap-pin-figures">
-              <span className="worldmap-pin-growth">{pin.stop.growth > 0 ? '+' : ''}{pin.stop.growth}%</span>
+              <span className="worldmap-pin-growth">{pin.stop.label}</span>
               <span className="worldmap-pin-date">{pin.stop.since}부터</span>
             </span>
           </span>
