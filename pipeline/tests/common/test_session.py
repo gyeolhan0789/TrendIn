@@ -91,6 +91,17 @@ def test_403_429_는_재시도하지_않고_그_호스트를_멈춘다(clock, st
         assert len(seen) == 1
 
 
+@pytest.mark.parametrize("status", [404, 410])
+def test_404_410_은_재시도하지_않고_상태를_실어_보낸다(clock, status):
+    """부르는 쪽이 "다시 쳐도 같은" 실패를 가른다 — 백필은 피드 끝으로 읽는다."""
+    handler, seen = recorder(httpx.Response(status))
+    with make_session(handler, clock) as session:
+        with pytest.raises(FetchFailed) as exc:
+            session.get(FEED)
+    assert exc.value.status == status
+    assert len(seen) == 1
+
+
 def test_5xx_는_두_번_재시도한다(clock):
     handler, seen = recorder(httpx.Response(503))
     with make_session(handler, clock) as session:

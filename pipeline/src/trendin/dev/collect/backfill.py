@@ -7,8 +7,8 @@
 1000건까지만 주고 페이지를 넘기지 못하게 해서다. 대신 `created_at_i` 로 구간을 자른다.
 
 구간을 `SLICE` 조각으로 돌며 조각마다 저장까지 끝낸다. 도중에 죽어도 받은 조각은 장부에
-남고, 같은 명령을 다시 돌리면 장부가 이미 받은 글을 거른다. 그래서 fashion 백필과 달리
-"이미 받은 조각이면 멈춘다" 를 두지 않는다 — 빈 구간이 어느 조각에 있을지 모른다.
+남고, 같은 명령을 다시 돌리면 장부가 이미 받은 글을 거른다. 그래서 "이미 받은 조각이면
+멈춘다" 를 두지 않는다 — 빈 구간이 어느 조각에 있을지 모른다. fashion 백필도 같다.
 
 발급은 여기서 하지 않는다. 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 전부 낸다.
 """
@@ -21,6 +21,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from trendin.common.collect import flow
+from trendin.common.collect.cli import offset_datetime
 from trendin.common.collect.db import Database
 from trendin.common.collect.ledger import PostgresLedger
 from trendin.common.collect.minio_store import MinioObjectStore
@@ -43,23 +44,16 @@ MAX_RANGE = timedelta(weeks=6)
 SLICE = WINDOW
 
 
-def _offset_datetime(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        raise argparse.ArgumentTypeError(f"오프셋이 없다 — KST 면 +09:00 을 붙인다: {value!r}")
-    return parsed
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="backfill", description=__doc__)
     parser.add_argument("source", choices=BACKFILLABLE, help="소스 키")
     parser.add_argument(
         "--since",
-        type=_offset_datetime,
+        type=offset_datetime,
         required=True,
         help="구간 시작(포함). ISO-8601, 오프셋 필수. 기본값은 없다. 구간은 6주까지",
     )
-    parser.add_argument("--until", type=_offset_datetime, help="구간 끝(제외). 기본은 지금")
+    parser.add_argument("--until", type=offset_datetime, help="구간 끝(제외). 기본은 지금")
     parser.add_argument("--json", action="store_true", help="article.json 을 JSON Lines 로")
     parser.add_argument(
         "--store",
