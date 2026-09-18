@@ -629,6 +629,7 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(0, 0, 0, .06); background: rgba(255, 255, 255, .92); backdrop-filter: blur(12px); }
 .landing-header-inner { display: flex; align-items: center; height: 64px; max-width: 1280px; margin: 0 auto; padding: 0 40px; }
 .landing-brand { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 700; letter-spacing: -1px; }
+.landing-brand-mark { display: block; flex-shrink: 0; width: 40px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 4px rgba(131, 143, 239, .32)); }
 
 .landing-nav { display: flex; align-items: center; gap: 32px; margin-left: 48px; }
 .landing-nav a, .landing-nav span { position: relative; font-size: 15px; font-weight: 500; color: var(--lp-muted); white-space: nowrap; }
@@ -1728,16 +1729,16 @@ h1 { margin: 0; line-height: 1.25; }
 .onboarding-card-link:disabled { color: #c7d2fe; }
 .onboarding-page .onboarding-card-desc { margin: 6px 0 20px; padding-left: 40px; color: var(--lp-faint); font-size: 14px; }
 
-/*
- * 분야는 둘뿐이라 시안의 5단 격자 대신 가운데로 모읍니다. 늘어나면 줄을 바꿔 흐릅니다.
- * 옆 카드와 키를 맞추느라 카드가 늘어나므로, 남는 높이 가운데에 서게 둡니다.
- */
-.onboarding-domains { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
-.onboarding-domain { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 148px; padding: 20px 8px; border: 1.5px solid var(--lp-line); border-radius: 16px; background: #fff; color: #374151; font-size: 15px; font-weight: 500; transition: border-color .15s, background .15s, color .15s, transform .15s, box-shadow .15s; }
+/* 여덟 분야를 네 개씩 배치해 선택 영역의 높이를 줄입니다. */
+.onboarding-domains { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: center; gap: 10px; }
+.onboarding-domain { display: flex; min-width: 0; min-height: 86px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 10px 4px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fff; color: #374151; font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s, color .15s, transform .15s, box-shadow .15s; }
 .onboarding-domain:hover:not(:disabled) { border-color: var(--lp-indigo); background: #f5f3ff; box-shadow: 0 4px 12px rgba(79, 70, 229, .1); transform: translateY(-2px); }
 .onboarding-domain.is-selected { border-color: var(--lp-indigo); background: #f5f3ff; color: var(--lp-indigo); font-weight: 600; }
 .onboarding-domain:disabled { color: var(--lp-faint); }
-.onboarding-domain-icon { font-size: 26px; line-height: 1; }
+.onboarding-domain-icon { font-size: 22px; line-height: 1; }
+.onboarding-domain.is-coming-soon { background: #f8f9fc; color: #8b91a0; }
+.onboarding-domain-notice { margin-top: 16px !important; color: #6b63b5; font-size: 14px; line-height: 1.6; text-wrap: balance; word-break: keep-all; }
+.onboarding-domain-notice span { display: block; }
 
 .onboarding-search { display: flex; position: relative; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border: 1.5px solid var(--lp-line); border-radius: 12px; background: #fafafa; transition: border-color .15s, background .15s; }
 .onboarding-search:focus-within { border-color: var(--lp-indigo); background: #fff; }
@@ -1810,7 +1811,7 @@ h1 { margin: 0; line-height: 1.25; }
   .onboarding-actions { margin-top: 18px; }
   .onboarding-card { padding: 18px 26px; }
   .onboarding-page .onboarding-card-desc { margin: 5px 0 16px; }
-  .onboarding-domain { padding: 15px 8px; }
+  .onboarding-domain { min-height: 76px; padding: 8px 4px; }
   .onboarding-notif { padding: 14px 18px; }
 }
 @media (max-height: 660px) {
@@ -1826,8 +1827,8 @@ h1 { margin: 0; line-height: 1.25; }
   .onboarding-card { padding: 14px 22px; }
   .onboarding-card-head h2 { font-size: 17px; }
   .onboarding-page .onboarding-card-desc { margin: 4px 0 12px; font-size: 13px; }
-  .onboarding-domain { width: 132px; padding: 11px 8px; }
-  .onboarding-domain-icon { font-size: 21px; }
+  .onboarding-domain { min-height: 68px; padding: 7px 4px; }
+  .onboarding-domain-icon { font-size: 19px; }
   .onboarding-search { height: 42px; }
   .onboarding-chips { margin-top: 12px; }
   .onboarding-notif { padding: 11px 16px; }
@@ -1847,6 +1848,7 @@ h1 { margin: 0; line-height: 1.25; }
 /* 더 좁아지면 알림도 한 단으로 내립니다. */
 @media (max-width: 720px) {
   .onboarding-header, .onboarding-main { padding-left: 20px; padding-right: 20px; }
+  .onboarding-domains { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .onboarding-steps li + li::before { width: 24px; margin: 0 8px; }
   .onboarding-step-text { display: none; }
   .onboarding-notifs { grid-template-columns: minmax(0, 1fr); }

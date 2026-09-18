@@ -7,4 +7,3 @@ export function splitMatch(text: string, query: string): [string, string, string
   if (at < 0) return [text, '', ''];
   return [text.slice(0, at), text.slice(at, at + query.length), text.slice(at + query.length)];
 }
-

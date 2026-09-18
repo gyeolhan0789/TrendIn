@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { URLSearchParams } from 'node:url';
 import { trendDetailSearch, SAVED_TREND_PERIOD } from '../src/constants/filterCodes.ts';
 
 for (const period of ['24H', '7D', '30D']) {
