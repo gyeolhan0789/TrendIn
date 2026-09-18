@@ -1,0 +1,8 @@
+key = "harpersbazaar_us"
+domain = "fashion"
+route = "rss"
+country = "US"  # 발행 법인 Hearst Communications, Inc.(Hearst Magazines) 의 소재지
+discover_url = "https://www.harpersbazaar.com/rss/fashion.xml"
+allowed_url_prefixes = ["https://www.harpersbazaar.com/"]
+article_id = { rule = "url_path_segment", param = -2 }
+published_at = { rule = "rss_pubdate" }
