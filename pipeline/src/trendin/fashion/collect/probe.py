@@ -3,24 +3,29 @@
     python -m trendin.fashion.collect.probe vogue
     python -m trendin.fashion.collect.probe vogue --json
     python -m trendin.fashion.collect.probe harpersbazaar
+    python -m trendin.fashion.collect.probe vogue_uk --check --page-param page --header
 
 어댑터는 `source.route` 로 고른다. 목록 소스는 목록 6장을 돌고 기사 페이지를 건마다 받으므로
 호스트 간격 3초 × 건수만큼 걸린다 — 처음 돌리면 사이트당 5분 넘는다.
 
 스토리 완료 조건이 "저장 샘플을 열어 제목·발행일·본문이 원문과 맞다" 라서, 기본 출력은
 훑을 수 있는 표다. 저장·발급을 하지 않고 stdout 에만 쓴다.
+
+`--check` 는 등록 프로브다(`probe_check.py`). 표본 몇 건과 2페이지·피드 끝을 재서 측정 표
+한 줄을 낸다.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import sys
 
 from trendin.common.collect.session import CollectSession
 from trendin.common.collect.stores import InMemoryValidatorStore
-from trendin.fashion.collect import sources
+from trendin.fashion.collect import probe_check, sources
 from trendin.fashion.collect.runner import build_adapter
 
 
@@ -37,19 +42,40 @@ def _build_parser() -> argparse.ArgumentParser:
             "목록 소스와 페이지 넘김이 안 되는 피드는 거부한다"
         ),
     )
+    parser.add_argument("--check", action="store_true", help="등록 프로브. 측정 표 한 줄을 낸다")
+    parser.add_argument("--samples", type=int, default=3, help="--check 가 받을 표본 기사 수")
+    parser.add_argument("--header", action="store_true", help="--check 의 표 머리를 먼저 찍는다")
+    parser.add_argument(
+        "--page-param",
+        default=None,
+        help="이번 실행에만 쓸 페이지 넘김 파라미터. 프로필에 아직 없는 값을 잴 때 쓴다",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 
     source = sources.get(args.source)
+    if args.check and source.route != "rss":
+        parser.error("--check 는 피드 소스만 잰다")
+    if args.page_param is not None:
+        source = dataclasses.replace(source, page_param=args.page_param)
     with CollectSession(
         allowed_url_prefixes=source.allowed_url_prefixes,
         validators=InMemoryValidatorStore(),
     ) as session:
         adapter = build_adapter(source, session)
+        if args.check:
+            report = probe_check.check(adapter, samples=args.samples)
+            for line in probe_check.sample_lines(report):
+                print(line)
+            if args.header:
+                print(probe_check.HEADER)
+            print(probe_check.summary_row(report))
+            return 0
         result = adapter.discover(page=args.page)
         if result.not_modified:
             print("304 — 안 바뀌었다")
