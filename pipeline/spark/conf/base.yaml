@@ -251,12 +251,12 @@ aggregate:
   # `@EnumeratedValue` 가 이 문자열을 그대로 쓰고, 컬럼 타입은 네이티브 enum `metric_period` 다.
   # 그래서 적재에 `::metric_period` 캐스트가 붙는다 (`io/metrics.py`).
   periods: ["24H", "7D", "30D"]
-  # 국가별 일 언급량 ([08 §4] `keyword_country_daily_metrics`). **상류에 국가가 없다** —
-  # 수집 봉투의 `source_country` 가 Spark 입력·`curated`·원자료 어디에도 실리지 않는다
-  # (`io/metrics.COUNTRY_SQL` 의 주석). 표를 비워 두지 않으려는 임시 값이고, `KR` 로 굳히지
-  # 않는 이유는 그렇게 넣으면 출처를 실제로 아는 것처럼 보이기 때문이다.
-  country:
-    code: "XX"   # ISO 3166-1 사용자 지정 영역 = 미지정
+  # 국가별 일 언급량 ([08 §4] `keyword_country_daily_metrics`) 에는 **설정이 없다**
+  # (2026-09-18). 전에는 `country.code` 로 전 키워드를 한 나라로 채웠는데, 상류에 국가가
+  # 없던 동안 표를 비워 두지 않으려는 임시 값이었다. 이제 원자료(`pl_keyword_daily_stat
+  # .source_country`)가 나라를 알고, 재계산 창은 아래 `recompute_window_days` 를 함께 쓴다.
+  #
+  # 값이 오는 길은 `src/trendin/spark/common/countries.py` 의 머리말에 있다.
   # 연관 키워드 ([06], `metrics/relations.py`). **코퍼스를 기다릴 값이 아니다** — 창은 가장
   # 긴 기간(`30D`)에 맞춘 기획 결정이고, 나머지 둘은 표 크기를 묶는 값이다.
   relations:

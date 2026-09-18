@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Literal, Protocol
 
+from trendin.common.collect.iso3166 import is_known_country
+
 if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
     from trendin.common.collect.article import Article
 
@@ -22,6 +24,29 @@ if TYPE_CHECKING:  # 순환 import 를 피한다. 런타임엔 필요 없다.
 # 이 상수를 끼워 넣지 않았다 — DDL 을 f-string 으로 바꾸면 그 안의 중괄호가 전부 조용히
 # 포맷 자리가 된다. 대신 `tests/common/test_ledger.py` 가 둘이 같은지 본다.
 UNKNOWN_COUNTRY = "XX"
+
+
+def check_country(value: str, *, where: str) -> str:
+    """국가 코드를 받거나 거절한다. 통과한 값을 그대로 돌려준다.
+
+    **받는 것은 실재하는 ISO 3166-1 alpha-2 코드와 `UNKNOWN_COUNTRY` 뿐이다.** 모양만 보면
+    (`[A-Z]{2}`) `UK` 와 `EN` 이 지나가는데 둘 다 없는 코드이고, 영국은 `GB` 다. 그런 값은
+    화면에서 이름 없이 코드 그대로 나올 때까지 아무 데서도 안 걸린다 (`iso3166.py`).
+
+    **여기가 유일한 관문이다.** 소스 등록 뒤로는 이 값이 봉투·장부 뷰·정제 문서·원자료·
+    서비스 표를 차례로 지나는데, 어느 층도 나라 목록을 들고 있지 않다. 잘못 등록된 나라를
+    나중에 고치려면 프로필을 고치고 재추출까지 해야 한다.
+
+    `where` 는 어디서 왔는지다 — 프로필 파일 이름이거나 소스 키다. 목록에 없는 코드는
+    대개 오타라서, 어느 소스인지가 메시지에 있어야 바로 고칠 수 있다.
+    """
+    if value == UNKNOWN_COUNTRY or is_known_country(value):
+        return value
+    raise ValueError(
+        f"{where}: country 가 실재하지 않는 코드다: {value!r} — "
+        f"ISO 3166-1 alpha-2 (영국은 UK 가 아니라 GB) 이거나, "
+        f"판정할 수 없으면 {UNKNOWN_COUNTRY!r} 여야 한다"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +93,10 @@ class SourceDef:
     # `null` 을 쓰지 않는 이유는 "아직 안 붙였다"와 "붙일 수 없다"를 구분하지 못하기 때문이다.
     #
     # 기본값을 두지 않는다. 기본값이 있으면 소스를 하나 더할 때 국가를 빼먹고도 통과한다.
+    #
+    # **값은 `__post_init__` 이 목록으로 검사한다** (`check_country`). 프로필 로더가 이미 보지만
+    # 목록 소스와 API 소스는 코드에 직접 적혀 로더를 지나지 않는다 — 검사가 로더에만 있으면
+    # 그쪽으로 오기가 들어온다.
     country: str
     # 피드 소스가 article_id·발행일을 뽑는 규칙(`source-discovery.md` #3.2). 프로필이 채운다.
     # 목록·API 소스는 어댑터가 제 방식으로 뽑으므로 None 이다.
@@ -80,6 +109,9 @@ class SourceDef:
     license: License | None = None
     # 목록 루트 밑으로 함께 도는 하위 섹션 슬러그. 피드 소스는 빈 튜플이다.
     listing_sections: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        check_country(self.country, where=f"소스 {self.key!r}")
 
 
 @dataclass(frozen=True, slots=True)

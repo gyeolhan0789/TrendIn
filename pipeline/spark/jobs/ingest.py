@@ -289,7 +289,11 @@ def _run_backfill(
         args.force,
     )
 
-    envelopes, listing = backfill.list_articles(store, bucket, request)
+    # 국가는 `article.json` 에 없다 (소스의 속성이라서). 소스 이름으로 찾을 지도를 장부 뷰에서
+    # 조달한다 — 없으면 빈 지도이고 국가가 `XX` 로 남는다 (`collected.source_countries`).
+    envelopes, listing = backfill.list_articles(
+        store, bucket, request, countries=collected.source_countries(config)
+    )
     # 목록 조회에서 이미 안 것을 [03 §7] 에 남긴다. 검증 단계까지 들고 갈 이유가 없다.
     run_stats.add(
         [

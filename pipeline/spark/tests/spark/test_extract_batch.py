@@ -56,6 +56,7 @@ def doc(
     source_id="vogue",
     domain="fashion",
     author=None,
+    source_country="KR",
     day="2026-09-03",
     dup_of=None,
     run=RUN,
@@ -69,6 +70,7 @@ def doc(
         "body": body,
         "lang": lang,
         "author": author,
+        "source_country": source_country,
         "published_at": published,
         "published_date": dt.date.fromisoformat(day),
         "dup_of": None if dup_of is None else bytearray(h(dup_of)),
@@ -78,8 +80,8 @@ def doc(
 
 SCHEMA = (
     "url_hash binary, source_id string, domain string, title string, body string, lang string, "
-    "author string, published_at timestamp, published_date date, dup_of binary, "
-    "ingest_run_id string"
+    "author string, source_country string, published_at timestamp, published_date date, "
+    "dup_of binary, ingest_run_id string"
 )
 
 
@@ -232,6 +234,46 @@ def test_근사_중복은_표시되고_저자와_소스가_실린다(spark):
         assert authors[h("u2")] == "김기자" and authors[h("u1")] is None
         sources = {bytes(row["url_hash"]): row["source_id"] for row in rows}
         assert sources[h("u3")] == "wkorea"
+    finally:
+        result.release()
+
+
+def test_발행_매체의_나라가_후보_행에_실린다(spark):
+    """국가 축의 상류가 `curated.source_country` 다 (`extract/source.COLUMNS`).
+
+    이 칸이 끊겨 있던 동안 `keyword_country_daily_metrics` 가 전 키워드를 한 나라로 채웠다.
+    """
+    docs = [
+        doc("k1", "샤넬 크루즈 컬렉션", "샤넬의 새 시즌이다.", source_country="KR"),
+        doc("k2", "Prada resort show", "Prada unveiled a nylon bag.", source_country="IT"),
+    ]
+    result = run_batch(spark, docs)
+    try:
+        rows = result.document_candidates.collect()
+        countries = {bytes(row["url_hash"]): row["source_country"] for row in rows}
+        assert countries[h("k1")] == "KR"
+        assert countries[h("k2")] == "IT"
+    finally:
+        result.release()
+
+
+def test_국가를_모르거나_모양이_틀리면_XX_로_접힌다(spark):
+    """기본키에 들어가는 칸이라 `NULL` 을 허용할 수 없다 (`common/countries.py`).
+
+    소문자는 올려 받는다 — 프로필 로더가 막지만 그쪽을 지나지 않는 경로(백필)가 있다.
+    """
+    docs = [
+        doc("n1", "샤넬 크루즈 컬렉션", "샤넬의 새 시즌이다.", source_country=None),
+        doc("n2", "프라다 신상", "프라다의 나일론 백.", source_country="kr"),
+        doc("n3", "미우미우 니트", "미우미우의 니트 카디건.", source_country="KOR"),
+    ]
+    result = run_batch(spark, docs)
+    try:
+        rows = result.document_candidates.collect()
+        countries = {bytes(row["url_hash"]): row["source_country"] for row in rows}
+        assert countries[h("n1")] == "XX"
+        assert countries[h("n2")] == "KR"
+        assert countries[h("n3")] == "XX"
     finally:
         result.release()
 

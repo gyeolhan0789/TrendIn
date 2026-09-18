@@ -11,7 +11,8 @@ from datetime import date
 import pytest
 
 from trendin.spark.common.config import ConfigError
-from trendin.spark.ingest.backfill import build_request, parse_day, parse_key
+from trendin.spark.common.countries import UNKNOWN_COUNTRY
+from trendin.spark.ingest.backfill import _envelope, build_request, parse_day, parse_key
 
 KEY = "fashion/vogue/rss/2026/09/03/854414/article.json"
 
@@ -99,3 +100,35 @@ def test_날짜_형태가_아니면_거절한다(raw):
 
 def test_공백은_다듬는다():
     assert parse_day(" 2026-09-03 ", flag="--from") == date(2026, 9, 3)
+
+
+# --- 국가 ------------------------------------------------------------------
+
+
+def envelope(source: str, countries: dict[str, str] | None = None) -> dict:
+    parsed = ("fashion", source, "rss", "854414")
+    return _envelope(
+        "raw-data",
+        KEY,
+        parsed,
+        checksum=None,
+        collected_at=None,
+        countries=countries or {},
+    )
+
+
+def test_소스_이름으로_국가를_채운다():
+    """국가는 소스의 속성이라 `article.json` 에 없다. 지도를 찾는 것이 유일한 길이다."""
+    assert envelope("vogue", {"vogue": "KR"})["source_country"] == "KR"
+
+
+def test_지도에_없는_소스는_XX_다():
+    """비워 두면 이 경로로 재처리한 문서만 국가를 잃는다."""
+    assert envelope("vogue", {"hn": "XX"})["source_country"] == UNKNOWN_COUNTRY
+    assert envelope("vogue")["source_country"] == UNKNOWN_COUNTRY
+
+
+def test_지도의_값도_모양을_검사한다():
+    """거울이 오염돼도 적재 끝의 CHECK 위반으로 번지지 않게 한다."""
+    assert envelope("vogue", {"vogue": "kr"})["source_country"] == "KR"
+    assert envelope("vogue", {"vogue": "KOR"})["source_country"] == UNKNOWN_COUNTRY

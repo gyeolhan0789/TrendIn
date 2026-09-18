@@ -22,9 +22,13 @@
 
 ## `dup_of` 와 대표 표기 비율이 어디서 오나
 
-`doc_count` · `source_count` · `author_count` 는 `pl_keyword_daily_stat` 에서 온다. 그 표가
-이미 `is_dup` 문서를 빼고 세므로([08 §3]) 여기서 다시 걸러낼 것이 없다 — 다섯째 조건은
-집계 쪽에서 이미 충족돼 있다.
+`doc_count` · `source_count` · `author_count` 는 `pl_document_candidate` 를 직접 센 값이다
+(`io/keywords.OBSERVATION_SQL` · `GROUP_OBSERVATION_SQL`). 그 질의가 `is_dup` 문서를 빼므로
+여기서 다시 걸러낼 것이 없다 — 다섯째 조건은 조달 쪽에서 이미 충족돼 있다.
+
+**`pl_keyword_daily_stat` 이 아니다.** 일별 원자료에도 같은 이름의 칸이 있지만 그쪽은 날짜와
+**국가**로 쪼개져 있어(2026-09-18) 더하면 유일 개수가 아니라 합이 된다. 심사가 그 표를 읽게
+되면 날짜와 국가를 먼저 접어야 한다.
 
 **대표 표기 비율은 병합 그룹 기준으로 읽는다.** [05 §5] 의 원문은 표기 분포를 뜻하지만
 문서별 원표기가 저장되지 않는다 — [04] 가 코퍼스 대표 표기 하나로 접어 `pl_document_candidate`

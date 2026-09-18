@@ -31,13 +31,20 @@ from typing import TYPE_CHECKING
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
 from trendin.spark.normalize.curated import curated_root
+from trendin.spark.normalize.schema import DOCUMENT_SCHEMA
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
+    from pyspark.sql.types import StructType
 
 log = get_logger(__name__)
 
 # `extract` 가 `curated` 에서 읽는 칸. 나머지는 Parquet 이라 디스크에서 올라오지 않는다.
+#
+# **`source_country` 가 국가 축의 유일한 상류다.** 수집 봉투에서 `curated` 스물세 칸까지는
+# 값이 이미 실려 있었는데 이 목록에 없어서 추출 뒤로 흐르지 못했고, 그래서
+# `keyword_country_daily_metrics` 가 전 키워드를 한 나라로 채우고 있었다. 국가는 기사가
+# 아니라 **소스**의 속성이므로 문서마다 값이 하나이고, 이 칸을 그대로 내려보내면 된다.
 COLUMNS = (
     "url_hash",
     "source_id",
@@ -46,6 +53,7 @@ COLUMNS = (
     "body",
     "lang",
     "author",
+    "source_country",
     "published_at",
     "published_date",
     "dup_of",
@@ -67,12 +75,40 @@ class Selection:
         return self.date_from is not None or self.date_to is not None
 
 
+def curated_schema() -> "StructType":
+    """읽을 칸의 스키마. `normalize/schema.DOCUMENT_SCHEMA` 에서 `COLUMNS` 만 뽑는다.
+
+    두 정의가 한 쌍이므로 타입을 여기서 다시 적지 않는다 — 적으면 한쪽만 고쳐졌을 때
+    파케이가 조용히 다른 타입으로 읽힌다.
+    """
+    from pyspark.sql.types import StructType
+
+    fields = {field.name: field for field in DOCUMENT_SCHEMA.fields}
+    return StructType([fields[name] for name in COLUMNS])
+
+
 def read_curated(spark, config: Config, *, root: str | None = None) -> "DataFrame":
     """버킷 루트에서 통째로. 파티션 프루닝은 뒤의 `where` 가 한다.
 
+    **스키마를 명시해 읽는다.** 추론에 맡기면 `mergeSchema` 가 꺼져 있는 기본 설정에서
+    Spark 가 **파일 하나의 풋터로** 전체 스키마를 정하고, 어느 파일이 뽑히는지는 리스팅
+    순서에 달렸다. `curated` 에는 칸이 다른 세대가 섞여 있다 — `source_country` 는
+    2026-09-17 에 들어왔고 그전 파티션에는 없다. 추론에 맡기면 같은 버킷을 읽는 실행이
+    어떤 날은 그 칸을 찾지 못해 죽고 어떤 날은 도는, 재현되지 않는 실패가 된다.
+
+    명시하면 없는 칸이 `null` 로 채워지고, 국가는 뒤에서 `XX` 로 접힌다
+    (`extract/batch.py`). 옛 파티션의 기사는 실제로 나라를 모르므로 그 값이 맞다.
+
+    `mergeSchema` 를 켜지 않는 이유는 모든 파일의 풋터를 열기 때문이다. 스키마는 계약이라
+    파일에 물어볼 값이 아니다.
+
     `root` 는 층 2 테스트가 임시 디렉터리를 넣는 자리다 ([09 §4]).
     """
-    return spark.read.parquet(root or curated_root(config)).select(*COLUMNS)
+    return (
+        spark.read.schema(curated_schema())
+        .parquet(root or curated_root(config))
+        .select(*COLUMNS)
+    )
 
 
 def ingest_run_ids(curated: "DataFrame", *, domain: str) -> list[str]:
