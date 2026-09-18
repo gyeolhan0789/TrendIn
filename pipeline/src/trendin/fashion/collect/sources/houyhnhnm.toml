@@ -1,0 +1,9 @@
+key = "houyhnhnm"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행처 HOUYHNHNM 의 소재지(도쿄). 법인 이름은 확인하지 못했다
+discover_url = "https://www.houyhnhnm.jp/feed"
+allowed_url_prefixes = ["https://www.houyhnhnm.jp/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"

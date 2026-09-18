@@ -1,0 +1,9 @@
+key = "vogue_jp"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행 법인 合同会社コンデナスト・ジャパン 의 소재지
+discover_url = "https://www.vogue.co.jp/feed/rss"
+allowed_url_prefixes = ["https://www.vogue.co.jp/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }
+page_param = "page"

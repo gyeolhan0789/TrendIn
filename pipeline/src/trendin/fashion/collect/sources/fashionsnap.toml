@@ -1,0 +1,8 @@
+key = "fashionsnap"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행 법인 株式会社レコオーランド 의 소재지
+discover_url = "https://www.fashionsnap.com/rss.xml"
+allowed_url_prefixes = ["https://www.fashionsnap.com/"]
+article_id = { rule = "guid_hash" }
+published_at = { rule = "rss_pubdate" }

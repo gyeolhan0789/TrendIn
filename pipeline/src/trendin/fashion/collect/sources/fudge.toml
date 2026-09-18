@@ -1,0 +1,9 @@
+key = "fudge"
+domain = "fashion"
+route = "rss"
+country = "JP"  # 발행 법인 株式会社三栄 의 소재지
+discover_url = "https://fudge.jp/fashion/feed/"
+allowed_url_prefixes = ["https://fudge.jp/"]
+article_id = { rule = "guid_query_param", param = "p" }
+published_at = { rule = "rss_pubdate" }
+page_param = "paged"
