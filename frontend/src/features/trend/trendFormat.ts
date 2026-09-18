@@ -15,8 +15,13 @@ export function formatCount(count: number) {
   return count.toLocaleString();
 }
 
-/** 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그 자리에 숫자를 지어내지 않습니다. */
+/**
+ * 이전 구간 언급량이 없으면 서버가 증가율을 비워 둡니다. 그 자리에 숫자를 지어내지 않습니다.
+ *
+ * 소수 첫째 자리까지 늘 붙입니다. 정수일 때만 자리가 빠지면 목록에서 값마다 자릿수가 달라져
+ * 숫자 끝이 들쭉날쭉해 보입니다.
+ */
 export function formatGrowth(growthRate: number | null) {
   if (growthRate === null) return '—';
-  return `${growthRate > 0 ? '+' : ''}${growthRate}%`;
+  return `${growthRate > 0 ? '+' : ''}${growthRate.toFixed(1)}%`;
 }

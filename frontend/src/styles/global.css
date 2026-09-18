@@ -824,6 +824,14 @@ h1 { margin: 0; line-height: 1.25; }
 .trendin-tag--amber { background: #fef3c7; color: #d97706; }
 
 /*
+ * 카드나 줄 전체를 눌러도 링크가 열리게 하는 덮개입니다. 제목에 붙은 링크가 ::after 로
+ * 카드를 통째로 덮습니다. 링크 자체는 그대로라 새 탭으로 열기·키보드 이동·주소 미리보기가
+ * 모두 살아 있습니다. 덮는 자리를 정하는 것은 카드 쪽이라, 카드에 position: relative 가 있어야 합니다.
+ * 카드 안에서 따로 눌려야 하는 단추(담기 등)는 z-index 로 덮개보다 위에 올려 둡니다.
+ */
+.cover-link::after { position: absolute; z-index: 1; inset: 0; content: ""; }
+
+/*
  * 쪽 번호 줄. 트렌드 탐색과 저장된 트렌드가 같은 모양을 씁니다.
  * 앞뒤로 넘기는 화살표는 있는 화면과 없는 화면이 있어, 자리가 아니라 is-step 으로 가립니다.
  */
@@ -839,21 +847,28 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-page { --ex-w: 1280px; padding-bottom: 8px; }
 .explore-page section { width: 100%; max-width: var(--ex-w); margin: 0 auto; padding-left: 40px; padding-right: 40px; }
 
-.explore-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; padding-top: 48px; padding-bottom: 40px; }
+.explore-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; padding-top: 48px; padding-bottom: 10px; }
 .explore-hero-eyebrow { margin-bottom: 8px; color: var(--lp-faint); font-size: 14px; }
 .explore-hero h1 { font-size: 40px; font-weight: 800; letter-spacing: -2px; }
 .explore-hero-lead { margin-top: 12px; color: var(--lp-muted); font-size: 15px; }
-.explore-hero-visual { position: relative; flex: 0 0 500px; width: 500px; height: 200px; }
 /*
- * 그림은 16:9라 낮은 칸에서는 폭이 남습니다. contain 이 남는 폭의 가운데에 두므로,
- * 오른쪽에 붙여 떠 있는 쪽지에 끝자락이 살짝 걸치게 합니다.
+ * 물결 칸이 글 덩어리보다 높으면 그만큼 검색창과 필터가 아래로 밀립니다. 글 높이보다 낮게 잡아
+ * 머리글 높이를 글이 정하게 두면, 관심 키워드 화면의 요약 석 장과 같은 자리에서 시작합니다.
  */
-.explore-hero-visual img { width: calc(100% - 140px); height: 100%; object-fit: contain; object-position: right center; opacity: .85; filter: drop-shadow(0 4px 16px rgba(99, 102, 241, .1)); }
-.explore-hero-note { position: absolute; top: 16px; right: 0; max-width: 200px; z-index: 2; padding: 12px 16px; border-radius: 10px; background: rgba(255, 255, 255, .85); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0, 0, 0, .06); }
+.explore-hero-visual { position: relative; flex: 0 0 480px; width: 480px; height: 108px; }
+/*
+ * 칸 높이(108px)는 검색창을 끌어내리지 않으려고 글 덩어리에 맞춰 둔 값이라, 그 안에 맞추면 물결이
+ * 너무 작아집니다. 그래서 그림만 칸 밖으로 띄워 머리글 위쪽 빈자리로 넘칩니다. 아래로는 머리글
+ * 아래 여백(40px) 안에서 끝나므로 검색창을 건드리지 않습니다.
+ */
+.explore-hero-visual img { position: absolute; top: -46px; left: 4px; width: 310px; height: 164px; object-fit: contain; object-position: left center; opacity: .85; filter: drop-shadow(0 4px 16px rgba(99, 102, 241, .1)); }
+/* 물결이 쪽지 뒤로 비쳐야 겹쳐 떠 있는 것으로 읽힙니다. 글이 묻히지 않을 만큼만 남깁니다. */
+.explore-hero-note { position: absolute; top: 4px; right: 0; max-width: 200px; z-index: 2; padding: 12px 16px; border-radius: 10px; background: rgba(255, 255, 255, .5); backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0, 0, 0, .05); }
 .explore-hero-note p { color: var(--lp-muted); font-size: 12px; line-height: 1.6; }
 
-.explore-searchbar { padding-bottom: 24px; }
-.explore-search-shell { position: relative; max-width: 720px; }
+/* 검색 상자와 조건 칸이 한 줄을 나눠 씁니다. 자리가 모자라면 조건 칸이 아랫줄로 내려갑니다. */
+.explore-searchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; padding-bottom: 14px; }
+.explore-search-shell { position: relative; flex: 1 1 360px; max-width: 470px; }
 .explore-searchbar form { display: flex; align-items: center; padding: 8px 8px 8px 24px; border: 1.5px solid var(--lp-line); border-radius: 14px; background: #fff; transition: border-color .15s; }
 .explore-searchbar form:focus-within { border-color: var(--lp-indigo); }
 .explore-searchbar form > svg { flex: 0 0 20px; margin-right: 14px; }
@@ -877,112 +892,178 @@ h1 { margin: 0; line-height: 1.25; }
 .keyword-suggest-meta { flex: 0 0 auto; color: var(--lp-muted); font-size: 12px; white-space: nowrap; }
 .keyword-suggest-none { padding: 16px 12px; color: var(--lp-faint); font-size: 13px; text-align: center; }
 
-.explore-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding-bottom: 28px; }
-.explore-filters-right { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-left: auto; }
+.explore-filters { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 20px; }
 .explore-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .explore-cat { padding: 7px 16px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: #374151; font-size: 13px; white-space: nowrap; transition: background .15s, border-color .15s; }
 .explore-cat:hover:not(.is-selected) { background: #f3f4f6; }
 .explore-cat.is-selected { border-color: var(--lp-indigo); background: var(--lp-indigo); color: #fff; font-weight: 600; }
 
-.explore-main { padding-bottom: 48px; }
-/* minmax(0, 1fr)이라야 두 단이 반씩 나눠 갖습니다. 그냥 1fr이면 가운데 카드들의
-   최소 너비가 단을 밀어내서 왼쪽 큰 카드만 좁아집니다. */
-.explore-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 260px; align-items: start; gap: 20px; }
+/*
+ * 순위판만 다른 칸보다 넓게 쓰고 좌우 여백도 뗍니다. 카드가 넓어야 키워드가 말줄임으로 잘리지 않고,
+ * 여백이 없어야 좌우 화살표가 카드 영역 양끝까지 밀려납니다.
+ */
+.explore-page .explore-main { --ex-w: 1480px; padding: 0 0 8px; }
 
-.explore-keyword { color: var(--lp-ink); font-size: 15px; font-weight: 600; }
-.explore-keyword:hover { color: var(--lp-indigo); }
-.explore-keyword--lg { font-size: 24px; font-weight: 700; letter-spacing: -.5px; }
-.explore-keyword[data-collect-grabbed] { color: var(--lp-indigo); }
+/*
+ * 순위판 캐러셀. 원근은 바깥 틀이, 3차원 공간은 무대(cylinder-stage)가 들고 있어야
+ * 낱장들이 같은 소실점을 보며 원통 옆면처럼 돌아눕습니다.
+ *
+ * 자리 이동은 모두 transform 이라 글 자리가 다시 잡히지 않습니다. 각도·깊이·투명도는
+ * 손끝을 따라 화면 쪽에서 매 칸 계산하고, CSS 는 손을 뗀 뒤 붙는 마무리만 맡습니다.
+ */
+/* 낱장 너비를 변수로 둡니다. 화살표 자리를 벽이 아니라 가운데 카드 모서리에서 재기 위함입니다. */
+.cylinder { --cc-slide: min(820px, 60%); user-select: none; }
+/* 화살표가 카드 한가운데 높이에 서도록, 낱장 무대만 감싸서 그 기준이 되는 틀입니다. */
+.cylinder-frame { position: relative; }
+/*
+ * 좌우로 삐져나가는 옆장만 자릅니다. overflow: hidden 으로 막으면 카드 그림자의 아래쪽까지
+ * 같이 잘려 바닥에 선이 그어지므로, 가로만 clip 하고 세로는 흘러나가게 둡니다.
+ */
+.cylinder-viewport { overflow-x: clip; overflow-y: visible; padding: 14px 0; perspective: 1500px; cursor: grab; touch-action: pan-y; }
+.cylinder-viewport.is-dragging { cursor: grabbing; }
+.cylinder-stage { display: grid; position: relative; margin: 0; padding: 0; justify-items: center; list-style: none; transform-style: preserve-3d; }
+/* 낱장을 모두 같은 칸에 겹쳐 두고 자리는 transform 으로만 냅니다. 칸 높이는 가장 큰 장이 정합니다. */
+.cylinder-slide { grid-area: 1 / 1; width: var(--cc-slide); backface-visibility: hidden; transition: transform .62s cubic-bezier(.22, 1, .3, 1), opacity .46s ease, filter .46s ease; }
+/* 끄는 동안과 너비를 아직 재지 못한 첫 칸에는 전환이 붙으면 안 됩니다. */
+.cylinder-viewport.is-dragging .cylinder-slide, .cylinder-viewport.is-measuring .cylinder-slide { transition: none; }
+.cylinder-slide:not(.is-active) { cursor: pointer; }
+.cylinder-slide-body { height: 100%; }
 
-.explore-bookmark { display: grid; width: 28px; height: 28px; place-items: center; margin-left: auto; border-radius: 6px; color: #b6bac1; transition: background .12s, color .12s; }
-.explore-bookmark:hover { background: #f3f4f6; color: #6b7280; }
-.explore-bookmark.is-saved { color: var(--lp-indigo); }
-.explore-bookmark--sm { width: 24px; height: 24px; border-radius: 4px; }
+/* 화살표는 틀의 좌우 끝에서 카드와 같은 눈높이에 섭니다. 낱장 위에 얹히므로 흰 바탕을 깔아 둡니다. */
+.cylinder-step { display: grid; position: absolute; z-index: 5; top: 50%; width: 38px; height: 38px; place-items: center; border: 1px solid var(--lp-line); border-radius: 50%; background: #fff; color: var(--lp-muted); box-shadow: 0 4px 14px rgba(16, 24, 40, .08); transform: translateY(-50%); transition: background .15s, color .15s, box-shadow .15s; }
+.cylinder-step:hover { background: #f9fafb; color: var(--lp-ink); box-shadow: 0 6px 18px rgba(16, 24, 40, .14); }
+/*
+ * 벽에서 떨어뜨리는 대신 가운데 카드 모서리에 붙입니다. 66px 은 화살표 지름 38px 에 카드와 띄울 28px
+ * 을 더한 값입니다. 창이 넓어져 카드가 최대 폭에 멈춰도 화살표는 벽이 아니라 카드를 따라갑니다.
+ */
+.cylinder-step--prev { left: calc(50% - var(--cc-slide) / 2 - 66px); }
+.cylinder-step--next { right: calc(50% - var(--cc-slide) / 2 - 66px); }
 
-/* 왼쪽 큰 카드: 1위 트렌드 한 건을 자세히 보여 줍니다. */
-.explore-featured { position: relative; overflow: hidden; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; }
-.explore-featured-body { padding: 28px 28px 24px; }
-.explore-featured-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-right: 30px; }
-.explore-featured-rank { color: var(--lp-indigo); font-size: 32px; font-weight: 800; line-height: 1.1; }
-.explore-featured-head h2 { min-width: 0; }
-.explore-featured .explore-bookmark { position: absolute; top: 26px; right: 24px; margin-left: 0; }
-.explore-featured-growth { margin-top: 12px; color: var(--lp-indigo); font-size: 48px; font-weight: 800; letter-spacing: -2px; }
-.explore-featured-growth-label { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--lp-muted); font-size: 14px; }
-.explore-featured-desc { margin-top: 16px; color: var(--lp-muted); font-size: 14px; line-height: 1.7; }
-.explore-featured-stats { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
-.explore-featured-stats span { color: var(--lp-faint); font-size: 12px; }
-.explore-featured-stats strong { margin-left: 6px; font-size: 15px; font-weight: 700; }
-.explore-featured-meta { margin-top: 6px; color: var(--lp-faint); font-size: 12px; }
+.cylinder-dots { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 18px 0 40px; }
+.cylinder-dots button { width: 8px; height: 8px; border-radius: 50%; background: #d7d9e1; transition: width .25s, background .18s; }
+.cylinder-dots button:hover:not(.is-current) { background: #b4b8c2; }
+.cylinder-dots button.is-current { width: 22px; border-radius: 999px; background: var(--lp-ink); }
 
-.explore-featured-chart { position: relative; padding: 0 28px 20px; }
-.explore-chart-svg { display: block; width: 100%; height: 100px; }
-.explore-chart-badge { position: absolute; top: -6px; right: 36px; padding: 4px 10px; border-radius: 6px; background: var(--lp-indigo); color: #fff; font-size: 11px; font-weight: 600; }
+/* 순위판 한 장. 갈래마다 머리 띠와 강조 색만 다르고 짜임은 같습니다. */
+/* 안쪽 여백을 변수로 둡니다. 머리 띠가 이 값만큼 밖으로 되물려야 카드 폭을 끝까지 가로지릅니다. */
+.rank-board { --rank-pad: 22px; display: flex; height: 100%; flex-direction: column; padding: var(--rank-pad); border: 1px solid #f1f2f6; border-radius: 18px; background: #fff; box-shadow: 0 14px 40px rgba(17, 24, 39, .07); }
+.cylinder-slide:not(.is-active) .rank-board { box-shadow: none; }
+/*
+ * accent 는 강조 글자·띠, tint 는 배지와 1위 카드 바탕, wash 는 줄에 손을 얹었을 때입니다.
+ * wave-a·wave-b 는 1위 카드 물결이 왼쪽에서 오른쪽으로 건너가며 섞는 두 색입니다.
+ * pill 은 순위 알약 바탕입니다. 1위 카드 바탕이 이미 tint 라, 한 단 더 짙어야 알약이 보입니다.
+ */
+.rank-board--indigo { --rank-accent: #4F46E5; --rank-tint: #eef0fe; --rank-wash: #f7f7ff; --rank-wave-a: #3b82f6; --rank-wave-b: #8b5cf6; --rank-pill: #dcdffb; }
+.rank-board--emerald { --rank-accent: #059669; --rank-tint: #e4f6ee; --rank-wash: #f5fdf9; --rank-wave-a: #10b981; --rank-wave-b: #a3e635; --rank-pill: #c7ecda; }
+.rank-board--rose { --rank-accent: #dc2626; --rank-tint: #fdeceb; --rank-wash: #fff7f6; --rank-wave-a: #ef4444; --rank-wave-b: #f97316; --rank-pill: #fbd6d2; }
 
-.explore-featured-keywords { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 28px 24px; border-top: 1px solid #f3f4f6; }
-.explore-featured-keywords-label { color: var(--lp-muted); font-size: 13px; font-weight: 600; }
-.explore-chip { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px 4px 12px; border: 1px solid var(--lp-line); border-radius: 6px; }
-.explore-chip a { color: #374151; font-size: 12px; }
-.explore-chip a:hover { color: var(--lp-indigo); }
-.explore-featured-more { color: var(--lp-faint); font-size: 12px; }
-.explore-featured-detail { display: flex; align-items: center; gap: 4px; margin-left: auto; color: var(--lp-indigo); font-size: 13px; font-weight: 500; white-space: nowrap; }
-.explore-featured-detail:hover { color: #3730A3; }
+/* 옅은 실선 바로 아래에 강조색 띠가 붙습니다. 두 줄을 쌓으려고 아래 띠는 그림자로 깝니다. */
+.rank-board-head { display: flex; align-items: center; gap: 11px; margin: 0 calc(var(--rank-pad) * -1) 16px; padding: 0 var(--rank-pad) 14px; border-bottom: 1px solid #eceef3; box-shadow: 0 2px 0 var(--rank-accent); }
+.rank-board-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 11px; background: var(--rank-tint); color: var(--rank-accent); }
+.rank-board-head h2 { color: var(--lp-ink); font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
+.rank-board-head p { margin-top: 2px; color: var(--lp-faint); font-size: 12px; }
 
-/* 가운데: 나머지 트렌드를 두 칸씩 늘어놓습니다. */
-.explore-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-auto-rows: minmax(132px, auto); gap: 12px; }
-.explore-card { display: flex; position: relative; flex-direction: column; padding: 18px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; transition: box-shadow .2s, transform .2s; }
-.explore-card:hover { box-shadow: 0 4px 20px rgba(0, 0, 0, .06); transform: translateY(-1px); }
-/* 키워드가 길면 줄을 바꿔 흐르게 둡니다. 한 줄에 욱여넣으면 'Re⋯'처럼 못 읽는 이름이 됩니다. */
-.explore-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 8px; padding-right: 26px; }
-.explore-card-rank { color: var(--lp-muted); font-size: 18px; font-weight: 700; }
-.explore-card .explore-keyword { min-width: 0; line-height: 1.35; }
-/* 담기 버튼은 줄이 늘어나도 카드 오른쪽 위에 그대로 있어야 합니다. */
-.explore-card .explore-bookmark { position: absolute; top: 14px; right: 14px; margin-left: 0; }
-.explore-card-delta { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
-.explore-card-delta--indigo { color: #4F46E5; }
-.explore-card-delta--rose { color: #dc2626; }
-.explore-card-delta--emerald { color: #059669; }
-.explore-card-delta--violet { color: #7c3aed; }
-.explore-card-delta--amber { color: #d97706; }
-.explore-card-mentions { margin-top: 4px; color: var(--lp-faint); font-size: 13px; }
-.explore-card-chart { display: block; width: 100%; height: 32px; margin-top: auto; padding-top: 8px; }
+/* 왼쪽 한 단은 1위가 통째로 쓰고, 오른쪽 단에 2위부터 네 줄이 쌓입니다.
+   minmax(0, ·)이라야 긴 키워드가 제 단을 넘겨 짚지 않습니다. */
+.rank-board-body { display: grid; flex: 1; grid-template-columns: minmax(0, .86fr) minmax(0, 1fr); gap: 14px; }
+.rank-board-list { display: flex; min-width: 0; flex-direction: column; }
+/* 줄과 같은 칸 나누기를 씁니다. 마지막 칸의 오른쪽 여백은 줄에 늘 자리 잡아 둔 담기 단추 몫입니다. */
+.rank-list-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; padding: 0 10px 7px; border-bottom: 1px solid #eff0f4; color: var(--lp-faint); font-size: 11px; font-weight: 600; white-space: nowrap; }
+/* 칸 이름이 줄 안의 숫자보다 넓어서, 두 쪽 폭을 함께 넓혀야 세로로 접히지 않고 줄과도 맞습니다. */
+.rank-list-head span:first-child { flex: 0 0 26px; text-align: center; }
+.rank-list-head span:nth-child(2) { min-width: 0; flex: 1; }
+.rank-list-head span:last-child { flex: 0 0 auto; padding-right: 32px; }
+.rank-board-rest { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
 
-/* 오른쪽 곁열 */
-.explore-side { display: flex; flex-direction: column; gap: 20px; }
-.explore-panel { padding: 20px; border: 1px solid var(--lp-line); border-radius: 14px; background: #fff; }
+/* 1위 카드: 순위 알약과 키워드를 위에 두고, 줄을 세운 값 하나를 바닥에 크게 깝니다. */
+/*
+ * isolation 으로 이 카드 안에 층을 가둡니다. 그래야 물결에 준 음수 z-index 가 카드 밖으로 새지 않고,
+ * 카드 바탕 위·글 아래라는 제자리에 깔립니다. 글에 따로 z-index 를 주면 제목 링크의 덮개가
+ * 카드 전체가 아니라 그 줄에만 맞춰져 카드 전체 누르기가 깨집니다.
+ */
+.rank-hero { display: flex; position: relative; isolation: isolate; overflow: hidden; height: 100%; flex-direction: column; padding: 20px 18px 6px; border-radius: 16px; background: linear-gradient(150deg, var(--rank-tint), var(--rank-wash) 62%); transition: box-shadow .18s, transform .18s; }
+.rank-hero:hover { box-shadow: 0 10px 24px rgba(17, 24, 39, .09); transform: translateY(-2px); }
+/*
+ * svg 는 제 뷰포트 밖을 잘라 내므로, 폭을 줄이면 잘린 자리에 세로선이 생깁니다. 물결을 오른쪽에
+ * 몰아 두고 싶어도 칸은 카드 폭 그대로 두고, 색을 오른쪽으로 치우치게 해서 옮겨야 경계가 안 생깁니다.
+ * 폭을 100% 로 못 박는 것도 같은 이유입니다. 비워 두면 높이에 맞춘 제 비율만큼만 그리고 끊깁니다.
+ */
+.rank-hero-wave { position: absolute; z-index: -1; right: 0; bottom: 0; width: 100%; height: 100%; pointer-events: none; }
+/* 순위는 알약 한 알로 줄이고 자리만 표시합니다. 카드의 주인공은 키워드와 값입니다. */
+.rank-hero-rank { align-self: flex-start; padding: 4px 13px; border-radius: 999px; background: var(--rank-pill); color: var(--rank-accent); font-size: 14px; font-weight: 800; letter-spacing: .3px; font-variant-numeric: tabular-nums; }
+/* 위아래로 여유가 있어 줄임표 대신 두 줄까지 흘려 씁니다. */
+.rank-hero-keyword { display: -webkit-box; overflow: hidden; margin-top: 16px; color: var(--lp-ink); font-size: 26px; font-weight: 800; letter-spacing: -1px; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.rank-hero:hover .rank-hero-keyword { color: var(--rank-accent); }
+/*
+ * 값 덩어리는 카드 바닥에 붙습니다. 키워드가 한 줄이든 두 줄이든 판마다 눈높이가 같습니다.
+ *
+ * 위쪽 여백은 키워드와 벌리는 거리입니다. margin-top: auto 가 카드에 남는 자리를 먼저 다 몰아주고,
+ * 그러고도 모자라면 카드가 그만큼 길어집니다. 그래서 이 값을 키우면 어느 쪽이든 사이가 벌어집니다.
+ */
+.rank-hero-label { margin-top: auto; padding-top: 40px; color: var(--lp-faint); font-size: 13px; }
+.rank-hero-headline { margin-top: 2px; color: var(--rank-accent); font-size: 34px; font-weight: 800; letter-spacing: -1.6px; line-height: 1.05; }
+
+.rank-row { display: flex; position: relative; flex: 1; align-items: center; gap: 8px; min-height: 46px; padding: 7px 10px; border-radius: 10px; transition: background .15s; }
+.rank-row:hover { background: var(--rank-wash); }
+.rank-row-rank { flex: 0 0 26px; color: #b4b8c2; font-size: 15px; font-weight: 700; text-align: center; }
+/* 자리를 넓혔어도 유난히 긴 키워드는 있을 수 있어, 줄을 밀어내는 대신 끝을 줄임표로 막습니다. */
+.rank-row-keyword { min-width: 0; overflow: hidden; color: var(--lp-ink); font-size: 14px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.rank-row:hover .rank-row-keyword { color: var(--rank-accent); }
+.rank-row-value { flex: 0 0 auto; margin-left: auto; color: var(--rank-accent); font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+/*
+ * 담기 단추는 평소 자리만 잡아 두고 숨어 있습니다. 손을 얹거나 초점이 오면 드러나고,
+ * 이미 담은 것은 늘 보입니다. 숨기는 데 display 를 쓰면 드러날 때 줄이 흔들려 투명도만 씁니다.
+ */
+.rank-bookmark { display: grid; position: relative; z-index: 2; flex: 0 0 24px; width: 24px; height: 24px; place-items: center; border-radius: 7px; opacity: 0; color: #b6bac1; transition: opacity .15s, background .12s, color .12s; }
+/* 1위 카드의 담기는 늘 보입니다. 줄 쪽만 평소 숨겼다가 손이 닿으면 드러납니다. */
+.rank-bookmark--float, .rank-row:hover .rank-bookmark, .rank-bookmark:focus-visible, .rank-bookmark.is-saved { opacity: 1; }
+.rank-bookmark:hover { background: rgba(255, 255, 255, .8); color: var(--lp-muted); }
+.rank-bookmark.is-saved { color: var(--rank-accent); }
+.rank-bookmark--float { position: absolute; top: 18px; right: 16px; }
+
+/* 머리글 오른쪽 끝에 붙는 화살표 단추. 제목 덩어리가 자리를 다 쓰지 않게 auto 로 밀어 둡니다. */
+.rank-board-more { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; margin-left: auto; border: 1px solid #eceef3; border-radius: 50%; color: var(--lp-faint); transition: background .15s, border-color .15s, color .15s; }
+.rank-board-more:hover { border-color: var(--rank-accent); background: var(--rank-wash); color: var(--rank-accent); }
+
+/* 순위판 아래 줄: 빠른 탐색과 관심 키워드 안내가 나란히 섭니다. */
+.explore-extra { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; padding-bottom: 48px; }
+.explore-panel { padding: 24px; border: 1px solid var(--lp-line); border-radius: 14px; background: #fff; }
 .explore-panel-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 15px; font-weight: 700; }
 .explore-panel-lead { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; }
-.explore-popular { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f3f4f6; }
-.explore-popular .explore-keyword { flex: 1; min-width: 0; overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.explore-popular-rank { display: grid; flex: 0 0 22px; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #f3f4f6; color: var(--lp-muted); font-size: 11px; font-weight: 700; }
 .explore-quick { display: flex; flex-wrap: wrap; gap: 8px; }
-.explore-quick button { padding: 6px 14px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s; }
+.explore-quick button { padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s; }
 .explore-quick button:hover { border-color: #d1d5db; background: #f3f4f6; }
 
-.explore-cta { display: block; position: relative; overflow: hidden; padding: 20px 44px 20px 20px; border-radius: 14px; background: linear-gradient(135deg, #ede9fe, #e0e7ff); }
+.explore-cta { display: flex; position: relative; overflow: hidden; flex-direction: column; justify-content: center; padding: 28px 44px 28px 24px; border-radius: 14px; background: linear-gradient(135deg, #ede9fe, #e0e7ff); }
 .explore-cta-glow { position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; background: rgba(167, 139, 250, .2); filter: blur(12px); }
-.explore-cta p { position: relative; z-index: 1; color: #4338ca; font-size: 13px; line-height: 1.6; }
+.explore-cta p { position: relative; z-index: 1; color: #4338ca; font-size: 15px; font-weight: 600; line-height: 1.6; }
 .explore-cta p svg { vertical-align: -2px; margin-right: 4px; }
-.explore-cta > svg { position: absolute; right: 16px; bottom: 18px; }
-
-.explore-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 48px; }
-.explore-total { color: var(--lp-muted); font-size: 14px; }
-.explore-total strong { color: var(--lp-ink); font-weight: 700; }
+/* .explore-cta p 보다 자세히 짚어야 크기·굵기를 되돌릴 수 있습니다. */
+.explore-cta p.explore-cta-sub { margin-top: 8px; color: #6366f1; font-size: 13px; font-weight: 400; }
+.explore-cta > svg { position: absolute; right: 20px; bottom: 24px; }
 
 @media (max-width: 1180px) {
-  .explore-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .explore-side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
-  .explore-side > * { flex: 1 1 260px; }
+  .cylinder { --cc-slide: min(820px, 74%); }
+  .explore-extra { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
   .explore-page section { padding-left: 20px; padding-right: 20px; }
   .explore-hero { flex-direction: column; padding-top: 32px; }
   .explore-hero h1 { font-size: 30px; letter-spacing: -1.2px; }
   .explore-hero-visual { flex: 0 0 auto; width: 100%; max-width: 560px; }
-  .explore-filters-right { margin-left: 0; }
-  .explore-grid { grid-template-columns: minmax(0, 1fr); }
-  .explore-cards { grid-template-columns: minmax(0, 1fr); }
-  .explore-featured-growth { font-size: 38px; }
-  .explore-pagination { justify-content: center; }
+  /* 좁은 화면에서는 옆장을 살짝만 내밀고, 1위와 나머지 줄을 위아래로 폅니다. */
+  .cylinder { --cc-slide: 88%; }
+  /* 좁은 화면에서는 낱장이 폭을 거의 다 써서, 화살표를 더 들이면 카드를 덮습니다. */
+  .cylinder-step { width: 32px; height: 32px; }
+  .cylinder-step--prev { left: 6px; }
+  .cylinder-step--next { right: 6px; }
+  .rank-board { --rank-pad: 16px; border-radius: 16px; }
+  .rank-board-head h2 { font-size: 16px; }
+  .rank-board-body { grid-template-columns: minmax(0, 1fr); }
+  .rank-hero-rank { font-size: 13px; }
+  .rank-hero-keyword { font-size: 22px; }
+  .rank-hero-headline { font-size: 28px; }
 }
 /* 알림 --------------------------------------------------------------------- */
 .header-notification { position: relative; }
@@ -1008,9 +1089,6 @@ h1 { margin: 0; line-height: 1.25; }
 .header-notification-more { width: 100%; padding: 10px; border-top: 1px solid #f0f1f4; color: #6d737c; font-size: 12px; }
 .header-notification-more:hover:not(:disabled) { background: #f7f8f9; color: #202226; }
 .header-notification-more:disabled { color: #c8ccd2; }
-
-/* 이력이 아직 없거나 불러오는 중일 때 큰 차트 자리를 지킵니다. */
-.explore-chart-empty { display: grid; height: 100px; place-items: center; color: var(--lp-faint); font-size: 13px; }
 
 /* 관심 키워드: 히어로 → 요약 석 장 → 도구줄 → 표 → 추천 순서입니다. */
 .keywords-page { padding-bottom: 8px; }
@@ -1144,13 +1222,11 @@ h1 { margin: 0; line-height: 1.25; }
 .saved-card:hover { border-color: #c7d2fe; box-shadow: 0 4px 20px rgba(79, 70, 229, .06); }
 .saved-card-head { display: flex; align-items: center; gap: 8px; }
 /* 담긴 표시이자 담기 취소 단추입니다. 카드를 덮은 제목 링크 위로 올려 눌리게 둡니다. */
-.saved-card-bookmark { display: grid; position: relative; z-index: 1; flex: 0 0 22px; width: 22px; height: 22px; place-items: center; border-radius: 6px; color: var(--lp-indigo); transition: background .12s, color .12s; }
+.saved-card-bookmark { display: grid; position: relative; z-index: 2; flex: 0 0 22px; width: 22px; height: 22px; place-items: center; border-radius: 6px; color: var(--lp-indigo); transition: background .12s, color .12s; }
 .saved-card-bookmark:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
 .saved-card-bookmark:disabled { color: #c7d2fe; }
 .saved-card-bookmark .spinner { margin: 0; }
 .saved-card-title { overflow: hidden; min-width: 0; flex: 1; color: var(--lp-ink); font-size: 16px; font-weight: 700; letter-spacing: -.5px; text-overflow: ellipsis; white-space: nowrap; }
-/* 시안의 카드는 어디를 눌러도 상세로 갑니다. 링크 안에 단추를 넣지 않으려고 제목만 카드 전체로 넓힙니다. */
-.saved-card-title::after { position: absolute; inset: 0; border-radius: 14px; content: ""; }
 .saved-card:hover .saved-card-title { color: var(--lp-indigo); }
 .saved-card-metrics { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 .saved-card-metrics strong { font-size: 24px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }

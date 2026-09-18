@@ -30,7 +30,8 @@ export function SavedTrendCard({ trend }: { trend: SavedTrend }) {
     <article className="saved-card">
       <div className="saved-card-head">
         <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="saved-card-bookmark" />
-        <Link className="saved-card-title" {...openDetail(trend.trendId, '?from=saved')}>{trend.keyword}</Link>
+        {/* 제목 링크가 카드 전체를 덮어, 어디를 눌러도 상세가 열립니다(cover-link). */}
+        <Link className="saved-card-title cover-link" {...openDetail(trend.trendId, '?from=saved')}>{trend.keyword}</Link>
         <TagChip label={trend.domain.name} />
       </div>
 
