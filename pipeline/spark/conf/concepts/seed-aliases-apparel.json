@@ -1,0 +1,47 @@
+{
+  "source": "seed",
+  "category": "apparel",
+  "note": "기존 apparel 개념에 빠진 표기를 더한다. 영어 복수형은 적지 않았다 — `seed.py` 의 `_plural` 이 이번 적재에서 기존 개념에도 만들어 붙인다 (`blazers` 22 · `T-shirts` 26 · `dresses` 18 · `coats` 16 · `jackets` 18 · `skirts` 14).",
+  "items": [
+    {
+      "labels": { "en": "suit" },
+      "aliases": { "fr": ["tailleur", "costume"], "it": ["completo"], "ko": ["정장", "수트"] }
+    },
+    {
+      "labels": { "en": "midi skirt" },
+      "aliases": { "it": ["gonne midi", "gonna midi", "longuette"], "fr": ["jupe midi"] }
+    },
+    {
+      "labels": { "en": "pencil skirt" },
+      "aliases": { "fr": ["jupe crayon"] }
+    },
+    {
+      "labels": { "en": "wide pants" },
+      "aliases": { "en": ["wide-leg trousers", "wide leg trousers"], "it": ["pantaloni a gamba larga"] }
+    },
+    {
+      "labels": { "en": "shirt" },
+      "aliases": { "it": ["camicie"], "ko": ["남방"] }
+    },
+    {
+      "labels": { "en": "coat" },
+      "aliases": { "it": ["cappotto", "cappotti"], "fr": ["manteau"] }
+    },
+    {
+      "labels": { "en": "jacket" },
+      "aliases": { "it": ["giacca", "giacche"], "fr": ["veste"], "ko": ["자켓"] }
+    },
+    {
+      "labels": { "en": "dress" },
+      "aliases": { "it": ["vestito", "abito"], "fr": ["robe"], "ko": ["원피스", "드레스"] }
+    },
+    {
+      "labels": { "en": "skirt" },
+      "aliases": { "it": ["gonna", "gonne"], "fr": ["jupe", "jupes"], "ko": ["치마"] }
+    },
+    {
+      "labels": { "en": "knitwear" },
+      "aliases": { "it": ["maglia", "maglieria"], "ko": ["니트웨어"] }
+    }
+  ]
+}

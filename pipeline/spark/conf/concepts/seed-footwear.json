@@ -1,0 +1,47 @@
+{
+  "source": "seed",
+  "category": "footwear",
+  "note": "신발 보충. `shoes` 는 품목이 아니라 분류 이름이라 세지 않는다 — 이 말 하나가 네 언어에서 98기사였다 (`슈즈` 32 · `scarpe` 21 · `shoes` 18 · `신발` 16 · `chaussures` 11).",
+  "items": [
+    {
+      "labels": { "en": "stiletto", "ko": "스틸레토" },
+      "aliases": { "en": ["stilettos", "stiletto heels"], "it": ["stiletto"], "ko": ["스틸레토 힐"] }
+    },
+    {
+      "labels": { "en": "flip-flops", "ko": "플립플롭", "it": "infradito" },
+      "aliases": { "en": ["flip flops", "thong sandals"], "ko": ["쪼리", "플립 플롭"] }
+    },
+    {
+      "labels": { "en": "kitten heels", "ko": "키튼 힐" },
+      "aliases": { "en": ["kitten heel"], "ko": ["키튼힐"] }
+    },
+    {
+      "labels": { "en": "flats", "ko": "플랫 슈즈" },
+      "aliases": { "en": ["flat shoes"], "it": ["scarpe basse"], "ko": ["플랫슈즈", "플랫"] }
+    },
+    {
+      "labels": { "en": "heels", "ko": "하이힐" },
+      "aliases": { "en": ["high heels"], "it": ["tacchi", "tacchi alti"], "ko": ["힐", "하이 힐"] }
+    },
+    {
+      "labels": { "en": "slippers", "ko": "슬리퍼" },
+      "aliases": { "it": ["pantofole"], "ja": ["スリッパ"] }
+    },
+    {
+      "labels": { "en": "clogs", "ko": "클로그" },
+      "aliases": { "it": ["zoccoli"] }
+    },
+    {
+      "labels": { "en": "shoes", "ko": "신발" },
+      "aliases": {
+        "en": ["shoe", "footwear"],
+        "it": ["scarpe", "calzature"],
+        "fr": ["chaussures"],
+        "ko": ["슈즈", "구두"],
+        "ja": ["シューズ"]
+      },
+      "countable": false,
+      "description": "분류 이름이다. 개별 품목(로퍼 · 부츠 · 스니커즈)이 따로 있으므로 이 말 자체는 세지 않는다."
+    }
+  ]
+}

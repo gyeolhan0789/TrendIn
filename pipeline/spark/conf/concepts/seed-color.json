@@ -1,0 +1,23 @@
+{
+  "source": "seed",
+  "category": "color",
+  "note": "색상 보충. `vocabulary-color.json` 의 23개가 기본 색을 덮었고, 기사가 부르는 조합 색 이름을 더한다.",
+  "items": [
+    {
+      "labels": { "en": "chocolate brown", "ko": "초콜릿 브라운" },
+      "aliases": { "it": ["marrone cioccolato"], "ko": ["초콜릿브라운", "초코 브라운"] }
+    },
+    {
+      "labels": { "en": "butter yellow", "ko": "버터 옐로" },
+      "aliases": { "ko": ["버터옐로우"] }
+    },
+    {
+      "labels": { "en": "cherry red", "ko": "체리 레드" },
+      "aliases": { "it": ["rosso ciliegia"], "ko": ["체리레드"] }
+    },
+    {
+      "labels": { "en": "powder blue", "ko": "파우더 블루" },
+      "aliases": { "ko": ["파우더블루"] }
+    }
+  ]
+}

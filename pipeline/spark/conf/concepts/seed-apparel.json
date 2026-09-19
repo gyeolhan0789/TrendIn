@@ -1,0 +1,195 @@
+{
+  "source": "seed",
+  "category": "apparel",
+  "note": "의류 보충 — `vocabulary-apparel.json` 의 38개가 큰 품목을 덮었고, 그 아래에서 갈려 있던 것을 채운다. 여기서 가장 큰 것은 **번역쌍**이다. 테일러드 팬츠 하나가 세 표기로 흩어져 있었다 (`pantaloni sartoriali` 39 · `tailored trousers` 24 · `테일러드 팬츠` 21 = 84기사).\n\n복수형은 적지 않았다 — `seed.py` 의 `_plural` 이 영어 표기에서 만든다.\n\n`상의` 45 · `아우터` 39 · `하의` 22 처럼 분류 이름에 가까운 말은 `countable: false` 다. 개념으로 두는 것은 매일 미등록으로 다시 올라오지 않게 하려는 것이고, 세면 순위표가 일반 품목으로 덮인다.\n\n라틴 표기는 `la` 색인이 언어 무관으로 잡으므로 이탈리아어·프랑스어를 `labels` 에 적어도 en 과 같은 칸에서 걸린다.",
+  "items": [
+    {
+      "labels": { "en": "oversized t-shirt", "ko": "오버사이즈 티셔츠" },
+      "aliases": { "en": ["oversize t-shirt"], "ko": ["오버사이즈티셔츠", "오버핏 티셔츠"] }
+    },
+    {
+      "labels": { "en": "white trousers", "ko": "화이트 팬츠" },
+      "aliases": { "en": ["white pants"], "it": ["pantaloni bianchi"], "ko": ["화이트팬츠", "흰 바지"] }
+    },
+    {
+      "labels": { "en": "denim shorts", "ko": "데님 쇼츠" },
+      "aliases": { "ko": ["데님쇼츠", "청반바지"] }
+    },
+    {
+      "labels": { "en": "work jacket", "ko": "워크 재킷" },
+      "aliases": { "ko": ["워크재킷", "워크 자켓"] }
+    },
+    {
+      "labels": { "en": "short-sleeve t-shirt", "ko": "반팔 티셔츠" },
+      "aliases": { "en": ["short sleeve t-shirt"], "ko": ["반팔티셔츠", "반팔 티", "반팔티"] }
+    },
+    {
+      "labels": { "en": "white top", "ko": "화이트 톱" },
+      "aliases": { "ko": ["화이트톱", "흰 상의"] }
+    },
+    {
+      "labels": { "en": "oversized blazer", "ko": "오버사이즈 블레이저" },
+      "aliases": { "en": ["oversize blazer"], "it": ["blazer oversize"], "ko": ["오버사이즈 재킷"] }
+    },
+    {
+      "labels": { "en": "black jacket", "ko": "블랙 재킷" },
+      "aliases": { "it": ["giacca nera"], "ko": ["블랙재킷", "검정 재킷"] }
+    },
+    {
+      "labels": { "en": "black trousers", "ko": "블랙 팬츠", "it": "pantaloni neri" },
+      "aliases": { "en": ["black pants"], "ko": ["블랙팬츠", "검정 바지"] }
+    },
+    {
+      "labels": { "en": "cashmere sweater", "ko": "캐시미어 스웨터" },
+      "aliases": { "ko": ["캐시미어 니트"] }
+    },
+    {
+      "labels": { "en": "tailored trousers", "ko": "테일러드 팬츠", "it": "pantaloni sartoriali" },
+      "aliases": { "en": ["tailored pants", "tailoring trousers"], "ko": ["테일러드팬츠", "슬랙스 팬츠"] }
+    },
+    {
+      "labels": { "en": "slip dress", "ko": "슬립 드레스", "it": "slip dress" },
+      "aliases": { "ko": ["슬립드레스", "슬립 원피스"] }
+    },
+    {
+      "labels": { "en": "little black dress", "ko": "블랙 드레스" },
+      "aliases": { "en": ["LBD"], "it": ["little black dress", "tubino nero"], "ko": ["블랙드레스", "리틀 블랙 드레스"] }
+    },
+    {
+      "labels": { "en": "white shirt", "ko": "화이트 셔츠", "it": "camicia bianca" },
+      "aliases": { "fr": ["chemise blanche"], "ko": ["화이트셔츠", "흰 셔츠", "흰셔츠"] }
+    },
+    {
+      "labels": { "en": "white t-shirt", "ko": "화이트 티셔츠", "it": "T-shirt bianca" },
+      "aliases": { "en": ["white tee"], "ko": ["화이트티셔츠", "흰 티셔츠", "화이트 티"] }
+    },
+    {
+      "labels": { "en": "check shirt", "ko": "체크 셔츠" },
+      "aliases": { "en": ["checked shirt", "plaid shirt"], "it": ["camicia a quadri"], "ko": ["체크셔츠"] }
+    },
+    {
+      "labels": { "en": "striped shirt", "ko": "스트라이프 셔츠" },
+      "aliases": { "it": ["camicia a righe"], "ko": ["스트라이프셔츠", "줄무늬 셔츠"] }
+    },
+    {
+      "labels": { "en": "straight-leg jeans", "ko": "스트레이트 진", "it": "jeans dritti" },
+      "aliases": { "en": ["straight leg jeans", "straight jeans"], "ko": ["스트레이트진", "일자 데님"] }
+    },
+    {
+      "labels": { "en": "baggy jeans", "ko": "배기 진", "it": "jeans baggy" },
+      "aliases": { "en": ["baggy denim"], "ko": ["배기진", "배기 데님"] }
+    },
+    {
+      "labels": { "en": "wide-leg jeans", "ko": "와이드 진" },
+      "aliases": { "en": ["wide leg jeans", "wide-leg denim"], "it": ["jeans a gamba larga"], "ko": ["와이드진", "와이드 데님"] }
+    },
+    {
+      "labels": { "en": "skinny jeans", "ko": "스키니 진" },
+      "aliases": { "it": ["jeans skinny"], "ko": ["스키니진"] }
+    },
+    {
+      "labels": { "en": "barrel leg jeans" },
+      "aliases": { "en": ["barrel jeans", "barrel-leg jeans"], "ko": ["배럴 진"] }
+    },
+    {
+      "labels": { "en": "cigarette jeans" },
+      "aliases": { "en": ["cigarette pants"], "ko": ["시가렛 팬츠"] }
+    },
+    {
+      "labels": { "en": "denim jacket", "ko": "데님 재킷" },
+      "aliases": { "it": ["giacca di jeans"], "ko": ["데님재킷", "청자켓", "데님 자켓"] }
+    },
+    {
+      "labels": { "en": "chinos", "ko": "치노 팬츠" },
+      "aliases": { "en": ["chino pants"], "ko": ["치노팬츠", "치노"] }
+    },
+    {
+      "labels": { "en": "sweatpants", "ko": "트레이닝 팬츠" },
+      "aliases": { "en": ["jogger pants", "joggers"], "ko": ["트레이닝팬츠", "스웨트팬츠", "조거 팬츠"] }
+    },
+    {
+      "labels": { "en": "sweatshirt", "ko": "스웨트셔츠" },
+      "aliases": { "en": ["sweat shirt"], "ko": ["스웻셔츠", "맨투맨"] }
+    },
+    {
+      "labels": { "en": "zip-up hoodie", "ko": "후드 집업" },
+      "aliases": { "en": ["zip up hoodie", "zip hoodie"], "ko": ["후드집업", "집업 후드"] }
+    },
+    {
+      "labels": { "en": "raglan t-shirt", "ko": "래글런 티셔츠" },
+      "aliases": { "en": ["raglan tee"], "ko": ["래글런티셔츠", "나그랑 티셔츠"] }
+    },
+    {
+      "labels": { "en": "tank top", "ko": "슬리브리스 톱" },
+      "aliases": { "en": ["sleeveless top", "camisole"], "it": ["canotta"], "ko": ["탱크톱", "탱크 톱", "슬리브리스", "민소매"] }
+    },
+    {
+      "labels": { "en": "bustier", "ko": "뷔스티에" },
+      "aliases": { "it": ["bustier"] }
+    },
+    {
+      "labels": { "en": "v-neck knit", "ko": "브이넥 니트" },
+      "aliases": { "en": ["v neck knit", "v-neck sweater"], "ko": ["브이넥니트", "V넥 니트"] }
+    },
+    {
+      "labels": { "en": "capri pants", "ko": "카프리 팬츠" },
+      "aliases": { "it": ["pantaloni capri"], "ko": ["카프리팬츠", "카프리 바지", "카프리"] }
+    },
+    {
+      "labels": { "en": "bermuda shorts", "ko": "버뮤다" },
+      "aliases": { "en": ["bermudas"], "it": ["bermuda"], "ko": ["버뮤다 팬츠", "버뮤다팬츠", "버뮤다 쇼츠"] }
+    },
+    {
+      "labels": { "en": "pencil skirt", "ko": "펜슬 스커트" },
+      "aliases": { "it": ["gonna a tubino"], "ko": ["펜슬스커트", "연필 치마"] }
+    },
+    {
+      "labels": { "en": "tuxedo", "ko": "턱시도" },
+      "aliases": { "it": ["smoking"], "fr": ["smoking"], "ja": ["タキシード"] },
+      "description": "이탈리아어·프랑스어의 `smoking` 이 이것이다 (12기사). 영어의 동명사와 같은 키로 접히는데, 패션 코퍼스에서는 이쪽이 맞다."
+    },
+    {
+      "labels": { "en": "outerwear", "ko": "아우터" },
+      "aliases": { "en": ["outer"], "ko": ["아웃터", "겉옷"] },
+      "countable": false,
+      "description": "품목이 아니라 묶음 이름이다 (39기사). 세면 순위표를 덮는다."
+    },
+    {
+      "labels": { "en": "tops", "ko": "상의" },
+      "aliases": { "en": ["top"], "it": ["top"], "ko": ["윗옷"] },
+      "countable": false,
+      "description": "`상의` 45 · `top` 28. 개별 품목(블라우스 · 니트)이 따로 있으므로 이 말 자체는 세지 않는다."
+    },
+    {
+      "labels": { "en": "bottoms", "ko": "하의" },
+      "aliases": { "ko": ["아래옷"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "clothing", "ko": "의류" },
+      "aliases": {
+        "en": ["clothes", "garment"],
+        "it": ["abiti", "vestiti", "abbigliamento"],
+        "fr": ["vêtements", "robes"],
+        "ko": ["옷", "의복"]
+      },
+      "countable": false,
+      "description": "`abiti` 34 · `clothes` 16 · `vestiti` 14 · `robes` 13 · `의류` 12."
+    },
+    {
+      "labels": { "en": "menswear", "ko": "남성복" },
+      "aliases": { "en": ["men's wear"], "it": ["moda uomo"], "ko": ["맨즈웨어"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "womenswear", "ko": "여성복" },
+      "aliases": { "en": ["women's wear"], "it": ["moda donna"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "ready-to-wear", "ko": "레디투웨어" },
+      "aliases": { "en": ["ready to wear", "RTW"], "fr": ["prêt-à-porter"], "it": ["prêt-à-porter"] },
+      "countable": false
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "source": "seed",
+  "category": "accessory",
+  "note": "기존 accessory 개념에 빠진 표기를 더한다. 이탈리아어 복수(`borse` 22)는 영어 복수형 규칙이 만들어 주지 않는다.",
+  "items": [
+    {
+      "labels": { "en": "bag" },
+      "aliases": { "it": ["borse"], "fr": ["sacs"] }
+    },
+    {
+      "labels": { "en": "sunglasses" },
+      "aliases": { "it": ["occhiali da sole"], "ko": ["선글래스"] }
+    },
+    {
+      "labels": { "en": "jewelry" },
+      "aliases": { "en": ["jewellery"], "it": ["gioielli", "gioielleria"], "fr": ["bijoux"], "ko": ["주얼리"] }
+    },
+    {
+      "labels": { "en": "scarf" },
+      "aliases": { "it": ["foulard"], "ko": ["스카프"] }
+    }
+  ]
+}

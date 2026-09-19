@@ -1,0 +1,29 @@
+{
+  "source": "seed",
+  "category": "designer",
+  "note": "기존 designer 개념에 빠진 한국어 표기를 더한다 (새 개념이 아니다 — `seed-aliases-brand.json` 의 설명과 같은 규약).\n\n위키데이터가 넣은 한국어 음차가 국립국어원 규범이고 매체는 관용 표기를 쓴다. 정규화는 공백을 접지 않으므로 띄어쓰기 차이만으로도 안 붙는다.\n\n```\n랠프 로런 (개념)  대  랄프 로렌 21기사\n이자벨마랑 (개념) 대  이자벨 마랑 15기사\n```\n\n이 브랜드들을 designer 분류에 두는 것은 의미가 어긋나지만, 위키데이터 수집이 designer 축을 2,631개 채우고 brand 축을 비워 둔 결과다. 여기서 brand 개념을 새로 만들면 라틴 표기가 두 개념에 걸려 유보가 늘어난다 — 축 정리는 별개 작업으로 남긴다.",
+  "items": [
+    {
+      "labels": { "en": "Ralph Lauren" },
+      "aliases": { "ko": ["랄프 로렌", "랄프로렌", "폴로 랄프 로렌"] }
+    },
+    {
+      "labels": { "en": "Isabel Marant" },
+      "aliases": { "ko": ["이자벨 마랑", "이사벨 마랑"] }
+    },
+    {
+      "labels": { "en": "Jonathan Anderson" },
+      "aliases": { "ko": ["조나단 앤더슨", "조나단앤더슨"] }
+    },
+    {
+      "labels": { "en": "Cristóbal Balenciaga" },
+      "aliases": { "ko": ["발렌시아가", "크리스토발 발렌시아가"], "ja": ["バレンシアガ"] },
+      "description": "`발렌시아가` 22 · `バレンシアガ` 13. 브랜드 개념을 새로 만들지 않은 이유는 라틴 `Balenciaga` 가 이 개념의 별칭으로 이미 붙어 있어, 두 개념이 되면 그 표기가 모호해지기 때문이다."
+    },
+    {
+      "labels": { "en": "Paco Rabanne" },
+      "aliases": { "en": ["Rabanne"], "ko": ["파코 라반", "라반"] },
+      "description": "브랜드가 2023년에 `Rabanne` 으로 이름을 바꿨다 (14기사). 위와 같은 이유로 여기서 받는다."
+    }
+  ]
+}

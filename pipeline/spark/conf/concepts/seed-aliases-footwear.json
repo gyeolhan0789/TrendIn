@@ -1,0 +1,19 @@
+{
+  "source": "seed",
+  "category": "footwear",
+  "note": "기존 footwear 개념에 빠진 표기를 더한다.",
+  "items": [
+    {
+      "labels": { "en": "ballet flats" },
+      "aliases": { "en": ["ballet pumps"], "it": ["ballerina"] }
+    },
+    {
+      "labels": { "en": "boots" },
+      "aliases": { "it": ["stivale"], "ko": ["부티"] }
+    },
+    {
+      "labels": { "en": "sandals" },
+      "aliases": { "it": ["sandalo"], "ko": ["샌달"] }
+    }
+  ]
+}

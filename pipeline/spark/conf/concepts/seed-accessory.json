@@ -1,0 +1,53 @@
+{
+  "source": "seed",
+  "category": "accessory",
+  "note": "액세서리 보충. `accessories` 51 이 미등록 어휘 1위였는데 이것은 분류 이름이라 세지 않는다 — 세 언어를 합치면 96기사다 (`accessories` 51 · `accessori` 33 · `accessoires` 12).",
+  "items": [
+    {
+      "labels": { "en": "accessory", "ko": "액세서리" },
+      "aliases": {
+        "it": ["accessori", "accessorio"],
+        "fr": ["accessoires", "accessoire"],
+        "ko": ["악세서리", "액세사리"]
+      },
+      "countable": false,
+      "description": "분류 이름이다. 개별 품목(백 · 벨트 · 목걸이)이 따로 있다."
+    },
+    {
+      "labels": { "en": "baguette bag", "ko": "바게트 백" },
+      "aliases": { "en": ["Baguette"], "it": ["baguette"], "ko": ["바게트백"] },
+      "description": "Fendi 의 제품명에서 가방 종류로 일반화된 이름이다 (12기사)."
+    },
+    {
+      "labels": { "en": "hobo bag", "ko": "호보 백" },
+      "aliases": { "ko": ["호보백"] }
+    },
+    {
+      "labels": { "en": "bucket bag", "ko": "버킷 백" },
+      "aliases": { "ko": ["버킷백"] }
+    },
+    {
+      "labels": { "en": "top handle bag" },
+      "aliases": { "en": ["top-handle bag"], "ko": ["탑 핸들 백"] }
+    },
+    {
+      "labels": { "en": "headband", "ko": "헤어밴드" },
+      "aliases": { "it": ["fascia per capelli"], "ko": ["머리띠", "헤어 밴드"] }
+    },
+    {
+      "labels": { "en": "hair clip", "ko": "헤어 클립" },
+      "aliases": { "ko": ["헤어클립", "머리 집게"] }
+    },
+    {
+      "labels": { "en": "anklet", "ko": "발찌" }
+    },
+    {
+      "labels": { "en": "cufflinks", "ko": "커프스" },
+      "aliases": { "en": ["cuff links"], "ko": ["커프스 버튼"] }
+    },
+    {
+      "labels": { "en": "tie", "ko": "넥타이" },
+      "aliases": { "en": ["necktie"], "it": ["cravatta"], "ko": ["타이"] }
+    }
+  ]
+}
