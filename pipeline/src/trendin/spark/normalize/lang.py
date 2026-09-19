@@ -1,16 +1,22 @@
 """언어 판별 ([03 §5](../../../../spark/docs/03-normalization-spec.md)).
 
-**문자 비율로 판별하고 언어 판별 라이브러리를 쓰지 않는다.** 이유는 규격 그대로 셋이다 —
+**문자 비율로 판별하고 언어 판별 라이브러리를 쓰지 않는다.** 규격이 든 이유는 셋이었다 —
 (a) 키워드를 뽑는 언어가 사실상 한/영 둘뿐이고 (b) 개발 도메인 텍스트는 코드·식별자가 섞여
 있어 일반 판별기가 자주 틀리며 (c) 의존성이 하나 줄어든다.
+
+**(a) 는 2026-09-19 에 없어졌다** — 아래 여섯이 전부 `extractable` 이다. 남은 근거는 (b)·(c)
+이고, 판별을 라이브러리로 바꾸려면 `hn` 제목이 프랑스어·이탈리아어로 뒤집히지 않는지를
+먼저 재야 한다.
 
 `lang` 이 필요한 이유는 [04 §2] 에서 토크나이저를 고르기 때문이다. `mixed` 는 두
 토크나이저를 모두 돌리고, `unknown` 은 [03 §6] 의 품질 필터에서 대개 걸러진다.
 
-**알아보는 언어와 추출하는 언어가 다르다** (`LANGUAGES`). 해외 소스가 늘면서 일본어·중국어가
-`unknown` 으로, 프랑스어·이탈리아어가 `en` 으로 떨어져 조용히 버려지거나 영어 토크나이저를
-탔다. 추출을 넓히지 않고 알아보기만 해서, 필터가 그 문서를 이유를 붙여 뺀다
-(`filters.UNSUPPORTED_LANG`).
+**알아보는 언어와 추출하는 언어가 같아졌다** (`LANGUAGES`). 2026-09-19 이전에는 달랐다 —
+해외 소스가 늘면서 일본어·중국어가 `unknown` 으로, 프랑스어·이탈리아어가 `en` 으로 떨어지는
+것을 막으려고 판별만 넓히고 추출은 넓히지 않았고, 그래서 필터가 그 문서를 이유를 붙여 뺐다
+(`filters.UNSUPPORTED_LANG`). 그 상태로 3개월치를 돌리자 **12,553건 중 6,948건이 그 사유로
+버려졌다** — 일본 매체 7곳·이탈리아 3곳·프랑스 3곳·중국 2곳이 통째로였다. 사유 상수는
+그대로 둔다. 언어를 다시 닫을 자리가 여기 한 칸이라 그때 다시 쓰인다.
 
 **pyspark 를 import 하지 않는다** ([09 §4] 층 1).
 """
@@ -63,12 +69,12 @@ LANGUAGES: dict[str, Language] = {
         # 한글과 라틴 문자가 둘 다 유의미하다.
         Language(MIXED, extractable=True),
         # 한자·가나가 유의미하고 가나가 섞여 있다.
-        Language(JA, extractable=False),
+        Language(JA, extractable=True),
         # 한자가 유의미하고 가나가 (거의) 없다.
-        Language(ZH, extractable=False),
+        Language(ZH, extractable=True),
         Language(
             FR,
-            extractable=False,
+            extractable=True,
             function_words=frozenset(
                 "les des du une est et dans avec pour sur qui que pas aux au cette ces sont "
                 "ses nous vous mais ont été être très où à leur leurs aussi elle elles ils "
@@ -77,7 +83,7 @@ LANGUAGES: dict[str, Language] = {
         ),
         Language(
             IT,
-            extractable=False,
+            extractable=True,
             function_words=frozenset(
                 "il di della delle dello dei degli nel nella nelle che sono una uno gli alla "
                 "alle anche questo questa più è dalla dal sulla sul tra hanno essere stato "
