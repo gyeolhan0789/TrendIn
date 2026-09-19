@@ -1,0 +1,27 @@
+{
+  "source": "seed",
+  "category": "designer",
+  "note": "디자이너 보충 — `wikidata-designers.json` 이 2,631개를 담았는데도 **지금 샤넬을 맡은 사람이 없었다.** `Matthieu Blazy` 가 미등록 66기사에 한국어 표기 `마티유 블라지` 17기사까지 합쳐 83기사로 올라와 있었다. 위키데이터 수집이 표본 축을 언어 수(`min_langs: 3`)로 잡아서, 최근에 자리를 옮긴 사람이 빠진다. 2026년에 하우스를 맡은 이름을 채운다.",
+  "items": [
+    { "labels": { "en": "Anthony Vaccarello", "ko": "안토니 바카렐로" } },
+    { "labels": { "en": "Phoebe Philo", "ko": "피비 파일" }, "aliases": { "ko": ["피비 파일로"] } },
+    { "labels": { "en": "Nicola Brognano" } },
+    { "labels": { "en": "Matthieu Blazy", "ko": "마티유 블라지" }, "aliases": { "ko": ["마티유블라지", "마티유 블라제"] } },
+    { "labels": { "en": "Pieter Mulier", "ko": "피터 뮐리에" } },
+    { "labels": { "en": "Demna", "ko": "뎀나" }, "aliases": { "en": ["Demna Gvasalia"] } },
+    { "labels": { "en": "Sarah Burton" } },
+    { "labels": { "en": "Dario Vitale" } },
+    { "labels": { "en": "Veronica Leoni" } },
+    { "labels": { "en": "Conner Ives" } },
+    { "labels": { "en": "Julie Kegels" } },
+    { "labels": { "en": "Henry Zankov" } },
+    { "labels": { "en": "Rachel Scott" } },
+    { "labels": { "en": "Lazaro Hernandez" }, "description": "Proenza Schouler 의 공동 창업자." },
+    { "labels": { "en": "Jack McCollough" }, "description": "같은 하우스의 다른 공동 창업자." },
+    { "labels": { "en": "Silvana Armani" } },
+    { "labels": { "en": "Louise Trotter" } },
+    { "labels": { "en": "Glenn Martens" } },
+    { "labels": { "en": "Duran Lantink" } },
+    { "labels": { "en": "Simone Bellotti" } }
+  ]
+}

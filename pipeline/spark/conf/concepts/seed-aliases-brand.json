@@ -1,0 +1,52 @@
+{
+  "source": "seed",
+  "category": "brand",
+  "note": "**새 개념이 아니라 기존 개념에 빠진 표기를 더하는 파일이다.** `ON CONFLICT (canonical_name, category)` 가 같은 이름·분류를 찾아 표현만 붙인다 — 그래서 `labels.en` 은 기존 개념의 대표 이름과 **글자까지 같아야** 한다.\n\n미등록에 축약형과 한국어 표기가 남아 있던 것을 메운다. 일본어 표기는 이번에 정규화가 공백을 접게 되어(`concept/normalize.py`) 별칭 없이도 붙는다 — `メゾン マルジェラ` 11기사가 그 경우다.",
+  "items": [
+    {
+      "labels": { "en": "Hermès" },
+      "aliases": { "en": ["Hermes"], "ja": ["エルメスジャポン", "エルメス"], "ko": ["에르메스"] }
+    },
+    {
+      "labels": { "en": "Levi's" },
+      "aliases": { "ja": ["リーバイ", "リーバイス"] }
+    },
+    {
+      "labels": { "en": "Salvatore Ferragamo" },
+      "aliases": { "ko": ["페라가모"] }
+    },
+    {
+      "labels": { "en": "Dolce & Gabbana" },
+      "aliases": { "en": ["D&G"], "ko": ["돌체앤가바나", "돌체앤가바", "돌체 앤 가바나"] }
+    },
+    {
+      "labels": { "en": "Gucci" },
+      "aliases": { "en": ["GG"], "ko": ["구찌 GG"] }
+    },
+    {
+      "labels": { "en": "Alexander McQueen" },
+      "aliases": { "en": ["McQueen"], "ko": ["알렉산더 맥퀸", "맥퀸"] },
+      "description": "`McQueen` 35기사. 이 이름은 brand(172)와 designer(1328) 두 개념에 걸려 이미 모호한데, 축약형은 기사에서 브랜드를 뜻하므로 brand 쪽에만 넣어 모호하지 않게 둔다."
+    },
+    {
+      "labels": { "en": "Bottega Veneta" },
+      "aliases": { "ko": ["보테가"] }
+    },
+    {
+      "labels": { "en": "Acne Studios" },
+      "aliases": { "ko": ["아크네"] }
+    },
+    {
+      "labels": { "en": "Maison Margiela" },
+      "aliases": { "ko": ["마르지엘라", "메종마르지엘라"] }
+    },
+    {
+      "labels": { "en": "Giorgio Armani" },
+      "aliases": { "ko": ["아르마니"], "ja": ["アルマーニ"] }
+    },
+    {
+      "labels": { "en": "Calvin Klein" },
+      "aliases": { "en": ["CK"], "ko": ["캘빈클라인", "캘빈 클라인"] }
+    }
+  ]
+}

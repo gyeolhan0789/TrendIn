@@ -1,0 +1,131 @@
+{
+  "source": "seed",
+  "category": "material",
+  "note": "소재 · 패턴 보충. `fabric` 은 분류 이름이라 세지 않는다 — 이 말 하나가 일곱 표기로 146기사였다 (`소재` 28 · `tessuto` 20 · `원단` 19 · `materiali` 17 · `fabric` 15 · `matière` 15 · `matières` 11).\n\n패턴을 소재 분류에 두는 것은 `vocabulary-material.json` 이 이미 `sequin` · `lace` 를 그렇게 둔 선을 따른 것이다. 패턴만의 분류를 새로 만들 근거는 아직 없다.",
+  "items": [
+    {
+      "labels": { "en": "patent leather", "ko": "에나멜", "it": "vernice" },
+      "aliases": { "it": ["pelle verniciata"], "ko": ["파텐트 레더", "에나멜 가죽"] }
+    },
+    {
+      "labels": { "en": "feather", "ko": "페더", "it": "piume" },
+      "aliases": { "fr": ["plumes", "plume"], "it": ["piuma"], "ko": ["깃털"] }
+    },
+    { "labels": { "en": "platinum", "ko": "플래티넘" }, "aliases": { "it": ["platino"], "ko": ["백금"] } },
+    { "labels": { "en": "bouclé", "ko": "부클레" }, "aliases": { "en": ["boucle"], "it": ["bouclé"] } },
+    { "labels": { "en": "faux leather", "ko": "페이크 레더" }, "aliases": { "en": ["vegan leather"], "it": ["ecopelle"], "ko": ["비건 레더", "인조 가죽"] } },
+    { "labels": { "en": "metal", "ko": "메탈", "it": "metallo" }, "aliases": { "ko": ["금속"] } },
+    { "labels": { "en": "flannel", "ko": "플란넬" }, "aliases": { "it": ["flanella"] } },
+    { "labels": { "en": "jacquard", "ko": "자카드" }, "aliases": { "it": ["jacquard"] } },
+    {
+      "labels": { "en": "floral print", "ko": "플로럴 프린트" },
+      "aliases": { "en": ["florals", "floral"], "it": ["fiori", "floreale"], "ko": ["꽃무늬", "플라워 프린트"] }
+    },
+    {
+      "labels": { "en": "fabric", "ko": "소재", "it": "tessuto", "fr": "matière" },
+      "aliases": {
+        "en": ["textile", "material"],
+        "it": ["tessuti", "materiali", "materiale"],
+        "fr": ["matières", "tissu"],
+        "ko": ["원단", "패브릭"]
+      },
+      "countable": false,
+      "description": "분류 이름이다. 개별 소재(실크 · 캐시미어)가 따로 있다."
+    },
+    {
+      "labels": { "en": "animal print", "ko": "애니멀 프린트", "it": "animalier" },
+      "aliases": {
+        "en": ["leopard print", "animal printed"],
+        "fr": ["léopard", "imprimé animalier"],
+        "it": ["stampa animalier", "leopardato"],
+        "ko": ["애니멀프린트", "레오파드", "호피"]
+      }
+    },
+    {
+      "labels": { "en": "check", "ko": "체크", "it": "quadri" },
+      "aliases": {
+        "en": ["checked", "plaid", "tartan", "check pattern"],
+        "it": ["tartan", "a quadri"],
+        "fr": ["carreaux"],
+        "ko": ["체크 패턴", "체크패턴", "타탄", "격자"]
+      }
+    },
+    {
+      "labels": { "en": "stripe", "ko": "스트라이프", "it": "righe" },
+      "aliases": {
+        "en": ["striped", "stripes"],
+        "it": ["a righe", "rigato"],
+        "fr": ["rayures"],
+        "ko": ["줄무늬", "스트라입"]
+      }
+    },
+    {
+      "labels": { "en": "polka dot", "ko": "도트" },
+      "aliases": { "en": ["polka dots"], "it": ["pois"], "ko": ["물방울무늬", "폴카 도트"] }
+    },
+    {
+      "labels": { "en": "camouflage", "ko": "카무플라주" },
+      "aliases": { "en": ["camo"], "it": ["camouflage"], "ko": ["카모플라쥬", "군복무늬"] }
+    },
+    {
+      "labels": { "en": "embroidery", "ko": "자수" },
+      "aliases": { "it": ["ricamo"], "fr": ["broderie"], "ko": ["엠브로이더리"] }
+    },
+    {
+      "labels": { "en": "crochet", "ko": "크로셰" },
+      "aliases": { "it": ["uncinetto"], "ko": ["크로쉐", "뜨개"] }
+    },
+    {
+      "labels": { "en": "tulle", "ko": "튤" },
+      "aliases": { "it": ["tulle"], "ko": ["튈"] }
+    },
+    {
+      "labels": { "en": "jersey", "ko": "저지" },
+      "aliases": { "it": ["jersey"] }
+    },
+    {
+      "labels": { "en": "canvas", "ko": "캔버스" },
+      "aliases": { "it": ["tela"] }
+    },
+    {
+      "labels": { "en": "black leather", "ko": "블랙 레더", "it": "pelle nera" },
+      "aliases": { "ko": ["블랙레더", "검정 가죽"] }
+    },
+    {
+      "labels": { "en": "white gold", "ko": "화이트 골드", "it": "oro bianco" },
+      "aliases": { "ko": ["화이트골드"] }
+    },
+    {
+      "labels": { "en": "yellow gold", "ko": "옐로 골드", "it": "oro giallo" },
+      "aliases": { "ko": ["옐로골드", "옐로우 골드"] }
+    },
+    {
+      "labels": { "en": "rose gold", "ko": "핑크 골드", "it": "oro rosa" },
+      "aliases": { "en": ["pink gold"], "ko": ["핑크골드", "로즈 골드"] }
+    },
+    {
+      "labels": { "en": "sapphire", "ko": "사파이어" },
+      "aliases": { "it": ["zaffiro"], "ko": ["사파이어 스톤"] }
+    },
+    {
+      "labels": { "en": "emerald", "ko": "에메랄드" },
+      "aliases": { "it": ["smeraldo"] }
+    },
+    {
+      "labels": { "en": "ruby", "ko": "루비" },
+      "aliases": { "it": ["rubino"] }
+    },
+    {
+      "labels": { "en": "crystal", "ko": "크리스털" },
+      "aliases": { "en": ["rhinestone"], "it": ["cristalli", "cristallo", "strass"], "ko": ["크리스탈", "스트라스"] }
+    },
+    {
+      "labels": { "en": "wood", "ko": "우드", "it": "legno" },
+      "aliases": { "fr": ["bois"], "ko": ["나무"] }
+    },
+    {
+      "labels": { "en": "raffia", "ko": "라피아" },
+      "aliases": { "it": ["rafia"] }
+    }
+  ]
+}

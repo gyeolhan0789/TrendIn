@@ -1,0 +1,47 @@
+{
+  "source": "seed",
+  "category": "material",
+  "note": "기존 material 개념에 빠진 표기를 더한다. 두 갈래다.\n\n첫째는 이탈리아어의 다른 낱말이다 — 위키데이터·초기 씨앗이 한 단어씩만 담았다 (`camoscio` 20 은 `scamosciato` 와 같은 스웨이드, `cuoio` 13 은 `pelle` 와 같은 가죽).\n\n둘째는 한국 매체의 `X 소재` 관용 표현이다 (`스웨이드 소재` 13 · `코튼 소재` 11 · `실크 소재` 10 · `새틴 소재` 10). 정규화가 공백을 접지 않으므로 이 꼴을 따로 적어야 한다.",
+  "items": [
+    {
+      "labels": { "en": "suede" },
+      "aliases": { "it": ["camoscio", "pelle scamosciata"], "ko": ["스웨이드 소재", "스웨이드소재"] }
+    },
+    {
+      "labels": { "en": "leather" },
+      "aliases": { "it": ["cuoio"], "ko": ["가죽 소재", "레더 소재"] }
+    },
+    {
+      "labels": { "en": "cotton" },
+      "aliases": { "ko": ["코튼 소재", "면 소재"] }
+    },
+    {
+      "labels": { "en": "silk" },
+      "aliases": { "ko": ["실크 소재"] }
+    },
+    {
+      "labels": { "en": "satin" },
+      "aliases": { "ko": ["새틴 소재", "사틴 소재"] }
+    },
+    {
+      "labels": { "en": "denim" },
+      "aliases": { "ko": ["데님 소재"], "it": ["denim"] }
+    },
+    {
+      "labels": { "en": "wool" },
+      "aliases": { "it": ["lana"], "ko": ["울 소재", "모 소재"] }
+    },
+    {
+      "labels": { "en": "cashmere" },
+      "aliases": { "it": ["cashmere"], "ko": ["캐시미어 소재"] }
+    },
+    {
+      "labels": { "en": "diamond" },
+      "aliases": { "it": ["diamanti"] }
+    },
+    {
+      "labels": { "en": "fur" },
+      "aliases": { "it": ["pelliccia"], "ko": ["퍼 소재"] }
+    }
+  ]
+}

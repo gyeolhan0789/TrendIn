@@ -1,0 +1,259 @@
+{
+  "source": "seed",
+  "category": "generic",
+  "note": "무정보어 — `generic-ko.json` 이 한국어 열 개로 시작한 칸을 다국어로 넓힌다. 전부 `countable: false` 라 랭킹이 거르고, 사전에 두는 이유는 매일 미등록으로 다시 올라오지 않게 하려는 것이다.\n\n다국어를 열자 이 칸이 가장 크게 불었다. 한 말이 네 언어로 갈려 쌓인다.\n\n```\nrunway   152기사  passerelle 30 · défilé 30 · passerella 29 · sfilate 22 · 런웨이 17 · sfilata 12 · défilés 12\nautumn   116기사  올가을 33 · 가을 31 · autumn 19 · rentrée 18 · fall 12 · 가을 룩 13\ncollection 83기사  collection 44 · collezione 13 · 컬렉션 13 · 2026 가을/겨울 컬렉션 13\nstyle     78기사  stile 40 · style 38\nfashion   74기사  fashion 34 · moda 21 · fashioniste 19\n```\n\n대명사(`she` 50 · `you` 27 · `he` 15)가 올라오는 것은 실체 인식기가 사람으로 잡은 것이다. 여기서 접는다.",
+  "items": [
+    {
+      "labels": { "en": "person", "ko": "사람", "it": "persona" },
+      "aliases": { "it": ["persone"], "ko": ["인물"] },
+      "countable": false,
+      "description": "개별 인물은 `person` 분류의 개념이고 이것은 일반어다."
+    },
+    {
+      "labels": { "en": "atelier", "ko": "아틀리에" },
+      "aliases": { "fr": ["atelier"], "it": ["atelier"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "contemporary", "ko": "컨템포러리" },
+      "aliases": { "it": ["contemporaneo"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "effortless" },
+      "aliases": { "it": ["effortless"], "ko": ["에포트리스"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "Art Deco", "ko": "아르 데코" },
+      "aliases": { "fr": ["Art Déco"], "it": ["Art Déco"], "ko": ["아르데코"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "silhouette", "ko": "실루엣" },
+      "aliases": { "it": ["silhouette"], "fr": ["silhouette"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "elegance", "ko": "우아함" },
+      "aliases": { "it": ["eleganza", "elegante"], "fr": ["élégance"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "modernity" },
+      "aliases": { "fr": ["modernité", "la mode"], "it": ["modernità"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "mother", "ko": "어머니" },
+      "aliases": { "it": ["madre"], "fr": ["mère"], "ko": ["엄마"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "runway", "ko": "런웨이", "it": "passerella", "fr": "défilé" },
+      "aliases": {
+        "en": ["catwalk", "runway show"],
+        "it": ["passerelle", "sfilata", "sfilate"],
+        "fr": ["défilés", "podium"],
+        "ko": ["런웨이 쇼", "패션쇼"]
+      },
+      "countable": false
+    },
+    {
+      "labels": { "en": "collection", "ko": "컬렉션", "it": "collezione" },
+      "aliases": { "it": ["collezioni"], "fr": ["collection"], "ko": ["콜렉션"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "autumn", "ko": "가을", "it": "autunno", "fr": "automne" },
+      "aliases": {
+        "en": ["fall"],
+        "fr": ["rentrée"],
+        "ko": ["올가을", "가을 룩", "가을룩", "추석 룩"]
+      },
+      "countable": false,
+      "description": "계절 이름. 트렌드 기사의 시간 표현이라 세지 않는다."
+    },
+    { "labels": { "en": "spring", "ko": "봄", "it": "primavera" }, "aliases": { "ko": ["올봄"] }, "countable": false },
+    { "labels": { "en": "summer", "ko": "여름", "it": "estate" }, "aliases": { "ko": ["올여름"] }, "countable": false },
+    { "labels": { "en": "winter", "ko": "겨울", "it": "inverno" }, "aliases": { "ko": ["올겨울"] }, "countable": false },
+    {
+      "labels": { "en": "season", "ko": "시즌" },
+      "aliases": {
+        "en": ["AW26", "FW26", "SS26", "SS27", "AW27", "AW 26", "2026 F/W", "2026 FW", "2026 F/W Collection", "fall winter 2026"],
+        "it": ["Autunno 2026", "Autunno-Inverno 2026", "stagione"], "fr": ["automne-hiver 2026-2027", "automne-hiver"],
+        "ko": ["2026 가을/겨울 컬렉션", "2026 가을·겨울 컬렉션", "26 FW", "시즌별"]
+      },
+      "countable": false,
+      "description": "시즌 표기. 회차마다 문자열이 달라져 매번 새 미등록으로 올라온다 — 다음 시즌 표기는 별칭에 더한다."
+    },
+    {
+      "labels": { "en": "style", "ko": "스타일", "it": "stile" },
+      "aliases": { "it": ["stili"], "fr": ["style"], "ja": ["スタイル"] },
+      "countable": false,
+      "description": "개별 스타일(스트리트 스타일 · 프레피)은 `style` 분류의 개념이고 여기가 아니다."
+    },
+    {
+      "labels": { "en": "fashion", "ko": "패션", "it": "moda" },
+      "aliases": { "fr": ["mode", "fashioniste", "fashionistes"], "it": ["fashion"], "ja": ["ファッション"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "texture", "ko": "텍스처" },
+      "aliases": { "it": ["texture"], "ko": ["텍스쳐", "질감"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "celebrity", "ko": "셀럽" },
+      "aliases": {
+        "en": ["star", "celebrities", "stars", "it girl"],
+        "it": ["star", "celebrità", "vip"],
+        "ko": ["연예인", "스타"]
+      },
+      "countable": false
+    },
+    {
+      "labels": { "en": "actor", "ko": "배우", "it": "attore" },
+      "aliases": { "it": ["attrice", "attrici"], "fr": ["actrice", "acteur"], "ko": ["여배우"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "model", "ko": "모델", "ja": "モデル" },
+      "aliases": { "it": ["modella", "modelle"], "fr": ["mannequin", "mannequins"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "designer", "ko": "디자이너" },
+      "aliases": { "it": ["designer", "stilista", "stilisti"], "fr": ["créateur"] },
+      "countable": false,
+      "description": "개별 디자이너는 `designer` 분류의 개념이고 이것은 직함이다."
+    },
+    {
+      "labels": { "en": "brand", "ko": "브랜드" },
+      "aliases": { "it": ["marchio", "marchi", "brand"], "fr": ["marque"], "ja": ["ブランド"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "maison", "ko": "메종" },
+      "aliases": { "ko": ["하우스"] },
+      "countable": false,
+      "description": "브랜드를 부르는 말 (27기사). 특정 하우스를 가리키지 않는다."
+    },
+    {
+      "labels": { "en": "wardrobe", "ko": "옷장", "it": "guardaroba" },
+      "aliases": { "en": ["closet"], "fr": ["garde-robe"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "tailoring", "ko": "테일러링" },
+      "aliases": { "it": ["sartoria", "sartoriale"] },
+      "countable": false,
+      "description": "`tailored trousers` 는 apparel 의 개념이고 이것은 기법 일반이다."
+    },
+    {
+      "labels": { "en": "washing", "ko": "워싱" },
+      "aliases": { "en": ["washed"], "ko": ["워싱 가공"] },
+      "countable": false,
+      "description": "데님 가공 일반 (31기사). 단독으로는 어떤 워싱인지 말하지 않는다."
+    },
+    {
+      "labels": { "en": "innerwear", "ko": "이너" },
+      "aliases": { "ko": ["이너웨어", "속옷"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "hair", "ko": "헤어" },
+      "aliases": { "it": ["capelli"], "fr": ["cheveux"], "ko": ["머리", "헤어스타일"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "skin", "ko": "피부" },
+      "aliases": { "fr": ["peau"], "ko": ["스킨"] },
+      "countable": false,
+      "description": "`pelle` 는 이탈리아어로 가죽도 뜻하는데, 가죽은 `pelle nera` 처럼 꾸밈말과 함께 온다."
+    },
+    {
+      "labels": { "en": "beauty", "ko": "뷰티" },
+      "aliases": { "en": ["make-up", "makeup"], "it": ["bellezza", "make-up"], "ko": ["메이크업", "화장"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "Gen Z", "ko": "Z세대" },
+      "aliases": { "en": ["Generation Z", "Gen-Z"], "it": ["Gen Z", "generazione Z"], "ko": ["젠지", "Z 세대"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "millennial", "ko": "밀레니얼" },
+      "aliases": { "en": ["millennials"], "ko": ["밀레니얼 세대"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "chic" },
+      "aliases": { "it": ["chic"], "fr": ["chic"], "ko": ["시크"] },
+      "countable": false,
+      "description": "이탈리아어·프랑스어 기사의 형용사다 (13기사). `casual chic` 은 `style` 의 개념이다."
+    },
+    {
+      "labels": { "en": "outfit", "ko": "아웃핏" },
+      "aliases": { "it": ["outfit"], "ko": ["코디", "코디네이트"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "trend", "ko": "트렌드" },
+      "aliases": { "it": ["tendenza", "tendenze", "trend"], "fr": ["tendance"], "ko": ["유행"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "wedding", "ko": "웨딩", "it": "matrimonio" },
+      "aliases": { "it": ["cerimonia"], "ko": ["결혼식", "예식"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "festival", "ko": "페스티벌" },
+      "aliases": { "it": ["festival"], "fr": ["festival"], "ko": ["축제"] },
+      "countable": false,
+      "description": "개별 행사(베니스 영화제)는 `event` 의 개념이고 이것은 일반어다."
+    },
+    {
+      "labels": { "en": "exhibition", "ko": "전시" },
+      "aliases": { "it": ["mostra", "mostre"], "ko": ["전시회"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "photocall" },
+      "aliases": { "it": ["photocall"], "ko": ["포토콜"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "editor", "ko": "에디터" },
+      "aliases": { "en": ["shopping editor", "fashion editor"], "it": ["direttore creativo"], "ko": ["편집장"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "CEO" },
+      "aliases": { "ko": ["최고경영자"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "rock", "ko": "록" },
+      "aliases": { "ko": ["락"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "she" },
+      "aliases": { "en": ["her", "he", "him", "you", "they", "me"] },
+      "countable": false,
+      "description": "대명사 (`she` 50 · `you` 27 · `he` 15). 실체 인식기가 사람으로 잡은 것이다."
+    },
+    {
+      "labels": { "en": "women", "ko": "여성" },
+      "aliases": { "en": ["woman"], "it": ["donne", "donna"], "fr": ["femmes", "femme"], "ko": ["여자"] },
+      "countable": false
+    },
+    {
+      "labels": { "en": "men", "ko": "남성" },
+      "aliases": { "en": ["man"], "it": ["uomini", "uomo"], "fr": ["hommes", "homme"], "ko": ["남자"] },
+      "countable": false
+    }
+  ]
+}

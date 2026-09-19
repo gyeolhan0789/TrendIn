@@ -1,0 +1,157 @@
+{
+  "source": "seed",
+  "category": "style",
+  "note": "스타일 — 분류는 처음부터 있었지만 개념이 0개였다. 트렌드 기사가 실제로 다루는 축인데 비어 있어서 전부 미등록으로 쌓였다.\n\n번역쌍이 미등록 안에서 갈려 있던 것이 여기서 가장 크다. 미니멀리즘 하나가 다섯 표기로 흩어져 있었다 (`minimalismo` 37 · `minimal` 17 · `minimalista` 14 · `minimalisme` 13 · `minimalism` 11 = 92기사).\n\n`chic` 13 과 `Gen Z` 27 은 여기 없다 — 앞은 이탈리아어·프랑스어 기사의 형용사이고 뒤는 세대 이름이라 둘 다 `generic` 으로 보냈다.",
+  "items": [
+    { "labels": { "en": "total white", "ko": "올 화이트" }, "aliases": { "en": ["all white"], "it": ["total white"], "ko": ["올화이트"] } },
+    { "labels": { "en": "office look", "ko": "오피스 룩" }, "aliases": { "ko": ["오피스룩", "출근 룩"] } },
+    { "labels": { "en": "classic", "ko": "클래식" }, "aliases": { "it": ["classico"], "fr": ["classique"] } },
+    {
+      "labels": { "en": "street style", "ko": "스트리트 스타일", "ja": "ストリートスタイル", "it": "street style" },
+      "aliases": { "ko": ["스트릿 스타일", "스트릿스타일", "스트리트스타일"] }
+    },
+    {
+      "labels": { "en": "streetwear", "ko": "스트리트웨어" },
+      "aliases": { "ko": ["스트릿웨어"], "it": ["streetwear"] }
+    },
+    {
+      "labels": { "en": "minimalism", "ko": "미니멀리즘", "it": "minimalismo", "fr": "minimalisme" },
+      "aliases": {
+        "en": ["minimal", "minimalist"],
+        "it": ["minimalista", "minimal"],
+        "fr": ["minimaliste"],
+        "ko": ["미니멀", "미니멀리스트"]
+      }
+    },
+    {
+      "labels": { "en": "quiet luxury", "ko": "콰이어트 럭셔리" },
+      "aliases": { "en": ["stealth wealth"], "it": ["quiet luxury"], "ko": ["콰이어트럭셔리", "조용한 럭셔리"] }
+    },
+    {
+      "labels": { "en": "Y2K", "ko": "Y2K" },
+      "aliases": { "ko": ["와이투케이"] }
+    },
+    {
+      "labels": { "en": "nineties style", "ko": "1990년대" },
+      "aliases": {
+        "en": ["nineties", "90s", "Noughties"],
+        "it": ["anni Novanta", "anni '90"],
+        "fr": ["années 90"],
+        "ko": ["90년대", "구십년대"]
+      },
+      "description": "90년대·2000년대 복고. `Y2K` 와 겹치지만 기사가 부르는 이름이 달라 따로 둔다."
+    },
+    {
+      "labels": { "en": "retro", "ko": "레트로", "fr": "rétro", "it": "retrò" },
+      "aliases": { "ko": ["복고"], "it": ["retro"] }
+    },
+    {
+      "labels": { "en": "vintage", "ko": "빈티지", "it": "vintage", "fr": "vintage" },
+      "aliases": { "ja": ["ヴィンテージ", "ビンテージ"] }
+    },
+    {
+      "labels": { "en": "preppy", "ko": "프레피" },
+      "aliases": { "en": ["preppy style"], "it": ["preppy"], "ko": ["프레피 룩", "프레피룩"] }
+    },
+    {
+      "labels": { "en": "boho", "ko": "보호" },
+      "aliases": {
+        "en": ["boho chic", "bohemian", "boho style"],
+        "fr": ["bohème", "boho"],
+        "it": ["boho"],
+        "ko": ["보헤미안", "보호 시크", "보헤미안 룩"]
+      }
+    },
+    {
+      "labels": { "en": "grunge", "ko": "그런지" },
+      "aliases": { "it": ["grunge"] }
+    },
+    {
+      "labels": { "en": "total black", "ko": "올 블랙" },
+      "aliases": { "en": ["all black"], "it": ["total black"], "ko": ["올블랙", "블랙 온 블랙"] }
+    },
+    {
+      "labels": { "en": "total look" },
+      "aliases": { "it": ["total look"], "ko": ["토탈룩", "토탈 룩"] }
+    },
+    {
+      "labels": { "en": "red carpet", "ko": "레드 카펫" },
+      "aliases": {
+        "it": ["red carpet", "tappeto rosso"],
+        "fr": ["tapis rouge"],
+        "ko": ["레드카펫", "레드 카펫 룩"]
+      }
+    },
+    {
+      "labels": { "en": "daily look", "ko": "데일리 룩" },
+      "aliases": { "ko": ["데일리룩"] }
+    },
+    {
+      "labels": { "en": "casual chic" },
+      "aliases": { "it": ["casual chic"], "fr": ["casual chic"], "ko": ["캐주얼 시크"] }
+    },
+    {
+      "labels": { "en": "casual", "ko": "캐주얼" },
+      "aliases": { "it": ["casual"], "ja": ["カジュアル"] }
+    },
+    {
+      "labels": { "en": "sportswear", "ko": "스포츠웨어" },
+      "aliases": { "en": ["athleisure"], "it": ["sportswear"], "ko": ["애슬레저"] }
+    },
+    {
+      "labels": { "en": "workwear", "ko": "워크웨어" },
+      "aliases": { "it": ["workwear"] }
+    },
+    {
+      "labels": { "en": "power dressing" },
+      "aliases": { "it": ["power dressing"], "ko": ["파워 드레싱"] }
+    },
+    {
+      "labels": { "en": "personal style" },
+      "aliases": { "it": ["personal style"], "ko": ["퍼스널 스타일"] }
+    },
+    {
+      "labels": { "en": "layering", "ko": "레이어드" },
+      "aliases": { "en": ["layered"], "it": ["layering"], "ko": ["레이어링", "레이어드 룩"] }
+    },
+    {
+      "labels": { "en": "K-beauty", "ko": "케이뷰티" },
+      "aliases": { "en": ["K beauty"], "ko": ["K-뷰티"] }
+    },
+    {
+      "labels": { "en": "K-fashion", "ko": "케이패션" },
+      "aliases": { "en": ["K fashion"], "ko": ["K-패션"] }
+    },
+    {
+      "labels": { "en": "pixie cut", "ko": "픽시컷" },
+      "aliases": { "en": ["pixie"], "it": ["pixie"], "ko": ["픽시 컷"] }
+    },
+    {
+      "labels": { "en": "old money", "ko": "올드 머니" },
+      "aliases": { "ko": ["올드머니"] }
+    },
+    {
+      "labels": { "en": "balletcore", "ko": "발레코어" },
+      "aliases": { "ja": ["バレエコア"], "it": ["balletcore"] }
+    },
+    {
+      "labels": { "en": "coquette" },
+      "aliases": { "it": ["coquette"], "ko": ["코케트"] }
+    },
+    {
+      "labels": { "en": "mob wife" },
+      "aliases": { "ko": ["맙 와이프"] }
+    },
+    {
+      "labels": { "en": "gorpcore" },
+      "aliases": { "ko": ["고프코어"] }
+    },
+    {
+      "labels": { "en": "normcore", "ko": "놈코어" }
+    },
+    {
+      "labels": { "en": "genderless", "ko": "젠더리스" },
+      "aliases": { "en": ["gender fluid", "genderless fashion"], "ja": ["ジェンダーレス"] }
+    }
+  ]
+}
