@@ -1,0 +1,31 @@
+{
+  "source": "seed",
+  "category": "style",
+  "note": "검수로 들어온 것 — 2026-09-19 에 `scripts/concept-review.py` 로 승인한 제안을 시드로 옮겼다. DB 에만 있으면 환경마다 다시 검수해야 해서 저장소로 내린다. 원문은 `제안 그대로 (gpt-5.4-nano)` 이고, 판정이 의심스러운 것은 여기서 고친다.",
+  "items": [
+    {
+      "labels": {
+        "en": "baggy"
+      },
+      "countable": false
+    },
+    {
+      "labels": {
+        "en": "Haute couture"
+      },
+      "countable": false
+    },
+    {
+      "labels": {
+        "en": "It Bag"
+      },
+      "countable": false
+    },
+    {
+      "labels": {
+        "en": "minimal chic"
+      },
+      "countable": false
+    }
+  ]
+}

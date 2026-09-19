@@ -138,6 +138,7 @@ def judge(
     rows: list[MetricRow],
     evidence: dict[tuple[int, str], Evidence],
     thresholds: AggregateThresholds,
+    rising_blocked: frozenset[int] = frozenset(),
 ) -> dict[tuple[int, str], tuple[str, ...]]:
     """기간별 판별. `(keyword_id, period)` → 받은 유형들.
 
@@ -150,6 +151,10 @@ def judge(
 
     **돌려주는 배열의 차례를 `TREND_TYPES` 로 고정한다.** 판별 차례가 이미 그 순서지만,
     조건이 하나 더 붙는 날 조용히 어긋나는 것을 막으려고 마지막에 한 번 더 세운다.
+
+    `rising_blocked` 는 분류로 급상승에서만 빼는 키워드다 (`rising.exclude_categories`,
+    `metrics/concepts.py`). **`CURRENT` 와 `NEW` 는 그대로 받는다** — 거기는 소재가 나와도
+    사실에 맞고, 막을 이유가 급상승 목록의 쓸모 하나뿐이라 그 하나만 막는다.
     """
     verdict: dict[tuple[int, str], list[str]] = {}
     by_scope: dict[tuple[str, str], list[MetricRow]] = {}
@@ -166,7 +171,9 @@ def judge(
                 continue
             if is_current(row, thresholds.current_top_n):
                 verdict.setdefault((row.keyword_id, period), []).append(CURRENT)
-            if is_rising(row, found, thresholds.rising, thresholds.zscore):
+            if row.keyword_id not in rising_blocked and is_rising(
+                row, found, thresholds.rising, thresholds.zscore
+            ):
                 rising.append(row)
             if window is not None and is_new(row, found, window):
                 fresh.append(row)
