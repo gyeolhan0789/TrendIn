@@ -32,6 +32,7 @@ from trendin.spark.io.metrics import MetricSink
 from trendin.spark.io.stats import Stat
 from trendin.spark.metrics import trends as trend_rules
 from trendin.spark.metrics import windows as window_rules
+from trendin.spark.metrics.concepts import ConceptRef, Grouping, build_grouping
 from trendin.spark.metrics.growth import MetricRow, assign_ranks, build_row
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.metrics.trends import Evidence
@@ -52,6 +53,8 @@ METRIC_ROWS = "metric_rows"  # 차원: 기간
 # (키워드, 기간) 으로 바뀌었으므로 같은 키로 두면 값이 조용히 뛴 것처럼 보인다.
 TREND_TYPES = "trend_types"
 ZSCORE_BLOCKED = "zscore_blocked"  # z 하한에 걸려 RISING 에서 빠진 수 — 무정보어 제거의 효과
+CONCEPT_FOLDED = "concept_folded"  # 개념으로 접힌 표기 수 — 순위표에서 되찾은 자리
+CONCEPT_SILENCED = "concept_silenced"  # countable=false 로 순위에서 뺀 키워드 수
 
 
 @dataclass
@@ -122,6 +125,101 @@ def load_series(sink: MetricSink, horizon: Window) -> dict[int, Series]:
     return series
 
 
+def load_grouping(
+    sink: MetricSink,
+    series: dict[int, Series],
+    thresholds: AggregateThresholds | None = None,
+) -> Grouping:
+    """개념 접기 규칙을 읽는다. 개념 표가 없으면 아무것도 접지 않는 규칙이 나온다.
+
+    대표를 고르는 무게로 **지평 전체의 언급량**을 쓴다 (`concepts.build_grouping` 의 주석).
+    기간별 언급량이 아니라 한 번 정한 값이라, 같은 개념이 `24H` 와 `30D` 에서 다른 이름으로
+    나오지 않는다.
+
+    `aggregate.concepts.fold` 가 꺼져 있으면 조회조차 하지 않는다 — 끈 사람이 기대하는 것은
+    "표기 단위로 돌던 때 그대로" 이고, 그때 개념 표를 읽을 이유가 없다.
+    """
+    fold = thresholds is None or thresholds.fold_concepts
+    drop = thresholds is None or thresholds.drop_uncountable
+    blocks = thresholds is not None and bool(thresholds.rising.exclude_categories)
+    if not fold and not drop and not blocks:
+        return Grouping(representative={}, silenced=frozenset())
+    refs = [
+        ConceptRef(keyword_id, concept_id, countable if drop else True, category)
+        for keyword_id, concept_id, countable, category in sink.concept_groups()
+    ]
+    if not fold:
+        # 세지 않을 개념과 급상승에서 뺄 개념만 가려내고 접지는 않는다. 같은 개념의 두
+        # 표기를 서로 다른 개념 번호로 흩어 놓으면 `build_grouping` 이 묶을 짝을 못 찾는다.
+        excluded = thresholds.rising.exclude_categories if thresholds else frozenset()
+        refs = [
+            ref for ref in refs if not ref.countable or ref.category in excluded
+        ]
+    weights = {
+        keyword_id: sum(item.daily.values()) for keyword_id, item in series.items()
+    }
+    excluded = (
+        frozenset() if thresholds is None else thresholds.rising.exclude_categories
+    )
+    return build_grouping(
+        refs, weights, keywords=set(series), rising_excluded=excluded
+    )
+
+
+def fold_series(
+    series: dict[int, Series], grouping: Grouping
+) -> tuple[dict[int, Series], dict[int, Series]]:
+    """개념으로 접는다 → `(세는 것, 접혀 들어간 것)`.
+
+    **접는 자리가 여기인 이유** — 뒤따르는 전부(지표·이력·조용함 창·배경 z)가 `Series` 하나만
+    보므로, 여기서 한 번 합치면 그 모두가 저절로 개념 단위가 된다. 단계마다 따로 접으면
+    같은 규칙을 네 곳에 적게 되고, 그중 하나를 고치지 않는 날 지표와 그래프가 어긋난다.
+
+    **접혀 들어간 쪽도 돌려준다.** 지표 행과 이력은 그대로 만들어야 하기 때문이다 —
+    `청바지` 로 들어온 사용자가 자기 숫자와 그래프를 봐야 하고, 없애면 `keyword_contents` ·
+    `keyword_relations` 가 가리키는 키워드에 지표만 비는 상태가 된다. 순위와 배지만 주지
+    않는다 (`metric_rows` 의 `ranked` 인자).
+    """
+    counted: dict[int, Series] = {}
+    absorbed: dict[int, Series] = {}
+    # **원본을 복사해서 담는다.** 대표의 `Series` 에 그대로 더하면 흡수분이 원본에 섞이고,
+    # 그 원본을 다시 읽는 곳(흡수된 쪽의 지표 행)이 부풀려진 값을 보게 된다.
+    for keyword_id, item in series.items():
+        if keyword_id in grouping.representative:
+            absorbed[keyword_id] = item
+        else:
+            counted[keyword_id] = Series(keyword_id, item.domain, dict(item.daily))
+
+    for keyword_id, item in absorbed.items():
+        leader = grouping.representative[keyword_id]
+        into = counted.get(leader)
+        if into is None:
+            # `build_grouping` 이 원자료가 있는 키워드만 대표로 뽑으므로 여기 오지 않는다.
+            # 그래도 두는 것은 `series` 와 `grouping` 이 따로 들어오기 때문이다 — 어긋나면
+            # 그 개념이 통째로 순위에서 사라지는데, 그 증상은 조용하다.
+            into = Series(leader, item.domain)
+            counted[leader] = into
+        for day, count in item.daily.items():
+            into.daily[day] = into.daily.get(day, 0) + count
+    return counted, absorbed
+
+
+def fold_sources(
+    sources: dict[int, set[str]], grouping: Grouping
+) -> dict[int, int]:
+    """소스 집합을 개념으로 합치고 센다.
+
+    **합집합이지 합이 아니다.** 같은 매체가 `가죽` 과 `leather` 를 함께 썼으면 소스 하나다.
+    각자의 수를 더하면 한 매체가 여러 표기를 쓴 것만으로 "서로 다른 소스 2곳" 조건
+    (`MIN_SOURCES`)을 통과하게 되는데, 그 조건이 막으려는 것이 정확히 그 형태다 ([07 §8]).
+    """
+    merged: dict[int, set[str]] = {}
+    for keyword_id, found in sources.items():
+        leader = grouping.representative.get(keyword_id, keyword_id)
+        merged.setdefault(leader, set()).update(found)
+    return {keyword_id: len(found) for keyword_id, found in merged.items()}
+
+
 def history_rows(
     series: dict[int, Series],
     *,
@@ -162,7 +260,9 @@ def history_rows(
     return rows, gaps
 
 
-def hourly_history_rows(hourly: tuple[tuple, ...]) -> list[tuple]:
+def hourly_history_rows(
+    hourly: tuple[tuple, ...], grouping: Grouping | None = None
+) -> list[tuple]:
     """`keyword_metric_history` 에 쓸 **시간** 버킷 행 ([07 §3], `history_bucket: 1H`).
 
     일 버킷과 달리 **0 행을 만들지 않는다.** 언급이 있는 시간만 쓴다.
@@ -175,15 +275,30 @@ def hourly_history_rows(hourly: tuple[tuple, ...]) -> list[tuple]:
     **한 회차에 두 폭을 섞지 않는다.** 같은 날에 일 행과 시간 행이 함께 있으면 백엔드의
     합산이 그 날을 두 번 센다. `MetricSink.write` 의 DELETE 가 재계산 구간에서 스테이징에
     없는 행을 걷어내므로, 폭을 바꾼 첫 회차에 옛 일 행이 사라진다.
+
+    **개념 접기를 여기서 한 번 더 한다.** 이 경로만 `Series` 를 거치지 않고 SQL 에서 바로
+    오므로, `fold_series` 가 접어 둔 것이 닿지 않는다. 접지 않으면 대표의 지표는 합산인데
+    그래프는 자기 것만 남아, 화면에서 "언급 426건" 아래 240건짜리 그래프가 그려진다.
     """
+    buckets: dict[tuple[int, object], int] = {}
+    for keyword_id, bucket_start, mentions in hourly:
+        leader = int(keyword_id)
+        if grouping is not None:
+            leader = grouping.representative.get(leader, leader)
+        key = (leader, bucket_start)
+        buckets[key] = buckets.get(key, 0) + int(mentions)
+        if leader != int(keyword_id):
+            # 흡수된 표기도 자기 그래프를 갖는다 (`fold_series` 의 주석과 같은 이유).
+            own = (int(keyword_id), bucket_start)
+            buckets[own] = buckets.get(own, 0) + int(mentions)
     return [
-        (keyword_id, bucket_start, bucket_start + ONE_HOUR, int(mentions))
-        for keyword_id, bucket_start, mentions in hourly
+        (keyword_id, bucket_start, bucket_start + ONE_HOUR, mentions)
+        for (keyword_id, bucket_start), mentions in buckets.items()
     ]
 
 
 def metric_rows(
-    series: dict[int, Series], *, period: str, reference: date
+    series: dict[int, Series], *, period: str, reference: date, ranked: bool = True
 ) -> list[MetricRow]:
     """`keyword_metrics` 에 쓸 행 ([07 §5]).
 
@@ -191,6 +306,11 @@ def metric_rows(
     넣는 이유는 하락을 표현하기 위해서다 — 100 → 0 은 `growth_amount = −100` 이라는
     정보인데, 행을 안 만들면 화면에서 그냥 사라진다. 둘 다 0 이면 넣지 않는다. 넣어도 전부
     같은 값(0, 0, 0, `NULL`)이고 순위를 매길 수 없다.
+
+    **`ranked = False` 는 "지표는 내되 순위표에는 올리지 않는다" 이다.** 개념으로 접혀 대표가
+    따로 있는 표기와, `countable = false` 로 세지 않기로 한 개념이 그 대상이다
+    (`metrics/concepts.py`). 행을 만드는 이유는 상세 화면과 관심 키워드가 그 숫자를 읽기
+    때문이고, 순위를 비우는 이유는 같은 것이 순위표에 두 번 뜨지 않게 하기 위해서다.
     """
     current = window_rules.current_window(period, reference)
     previous = window_rules.previous_window(period, reference)
@@ -211,6 +331,11 @@ def metric_rows(
                 previous_mention_count=before,
             )
         )
+    if not ranked:
+        # `build_row` 가 `mention_rank` 를 `None` 으로 두므로 비우는 손질이 따로 없다.
+        # 정렬만 `assign_ranks` 와 맞춘다 — 적재 순서가 실행마다 흔들리지 않게.
+        return sorted(rows, key=lambda row: (row.domain, row.period, -row.mention_count,
+                                             row.keyword_id))
     return assign_ranks(rows)
 
 
@@ -312,6 +437,31 @@ def run(
         )
         return AggregateResult(reference, 0, 0, 0, 0, (Stat(KEYWORDS, "", 0),))
 
+    # 개념으로 접는다 ([개념층], `metrics/concepts.py`). **여기서 한 번 접으면 뒤따르는
+    # 전부가 개념 단위가 된다** — 지표도 이력도 배경 z 도 `Series` 하나만 본다.
+    grouping = load_grouping(sink, series, thresholds)
+    counted, absorbed = fold_series(series, grouping)
+    # `countable = false` 인 개념은 접지 않고 순위에서만 뺀다. 접혀 들어간 표기와 같은
+    # 대접이라 한 자루에 담아 순위 없는 행으로 낸다.
+    silent = {
+        keyword_id: item
+        for keyword_id, item in counted.items()
+        if keyword_id in grouping.silenced
+    }
+    ranked_series = {
+        keyword_id: item
+        for keyword_id, item in counted.items()
+        if keyword_id not in grouping.silenced
+    }
+    unranked_series = {**absorbed, **silent}
+    if grouping.folded or silent:
+        log.info(
+            "개념 접기: 표기 %d개를 대표로 접고 %d개를 순위에서 뺐다 (세는 키워드 %d개)",
+            grouping.folded,
+            len(silent),
+            len(ranked_series),
+        )
+
     covered = {(str(domain), stat_date) for domain, stat_date in sink.covered_dates(
         start=horizon.start_ts, end=horizon.end_ts
     )}
@@ -326,12 +476,18 @@ def run(
         # 발행 시각은 `contents` 에만 남아 있다. 원자료(`pl_document_candidate`)의 보존
         # 지평 밖은 조인이 비어 돌아오므로, 그 구간의 버킷은 만들어지지 않는다 ([08 §3]).
         buckets = hourly_history_rows(
-            sink.hourly_mentions(start=recompute.start_ts, end=recompute.end_ts)
+            sink.hourly_mentions(start=recompute.start_ts, end=recompute.end_ts),
+            grouping,
         )
         gaps = 0
     else:
+        # **접힌 것과 흡수된 것을 함께 넘긴다.** 대표는 합산 그래프를, 흡수된 표기는 자기
+        # 그래프를 갖는다 — 대표만 쓰면 `청바지` 상세 화면의 그래프가 통째로 빈다.
         buckets, gaps = history_rows(
-            series, window=recompute, active_window=active, covered=covered
+            {**counted, **absorbed},
+            window=recompute,
+            active_window=active,
+            covered=covered,
         )
 
     staged_metrics: list[tuple] = []
@@ -344,11 +500,17 @@ def run(
     blocked = 0
 
     for period in thresholds.periods:
-        rows = metric_rows(series, period=period, reference=reference)
+        rows = metric_rows(ranked_series, period=period, reference=reference)
+        # 순위도 배지도 받지 않는 행. 지표만 그대로 낸다 (`metric_rows` 의 `ranked`).
+        tail = metric_rows(
+            unranked_series, period=period, reference=reference, ranked=False
+        )
         current = window_rules.current_window(period, reference)
-        sources = sink.period_sources(start=current.start_ts, end=current.end_ts)
+        sources = fold_sources(
+            sink.period_sources(start=current.start_ts, end=current.end_ts), grouping
+        )
         found = evidence_for(
-            series,
+            ranked_series,
             rows,
             period=period,
             reference=reference,
@@ -357,7 +519,7 @@ def run(
             thresholds=thresholds,
         )
         blocked += zscore_blocked(rows, found, thresholds)
-        judged = trend_rules.judge(rows, found, thresholds)
+        judged = trend_rules.judge(rows, found, thresholds, grouping.rising_blocked)
         verdict.update(judged)
         # **유형을 못 받은 행에는 빈 배열이 실린다.** 그 값이 배지를 떼는 일까지 겸한다 —
         # 지표 행과 배지가 한 줄이라 "배지를 든 키워드를 따로 읽어 비우는" 단계가 없다
@@ -377,10 +539,27 @@ def run(
             )
             for row in rows
         )
-        stats.append(Stat(METRIC_ROWS, period, len(rows)))
+        staged_metrics.extend(
+            (
+                row.keyword_id,
+                row.period,
+                window_rules.midnight(row.period_start),
+                window_rules.midnight(row.period_end),
+                row.mention_count,
+                row.previous_mention_count,
+                row.growth_amount,
+                row.growth_rate,
+                None,
+                [],
+            )
+            for row in tail
+        )
+        stats.append(Stat(METRIC_ROWS, period, len(rows) + len(tail)))
 
     badged = sum(1 for types in verdict.values() if types)
     stats.append(Stat(ZSCORE_BLOCKED, "", blocked))
+    stats.append(Stat(CONCEPT_FOLDED, "", grouping.folded))
+    stats.append(Stat(CONCEPT_SILENCED, "", len(silent)))
     for period in thresholds.periods:
         for name in trend_rules.TREND_TYPES:
             stats.append(

@@ -1,0 +1,121 @@
+{
+  "source": "seed",
+  "category": "brand",
+  "note": "미등록 상위에서 역으로 채운 브랜드 (2026-09-19). wikidata-brands.json 은 min_langs:3 조건으로 긁혀 변방 브랜드만 담았고 Chanel·Dior·Zara·Nike 가 통째로 빠져 있었다 — 그 목록을 고치지 않고 이 파일을 더한다(출처가 섞이지 않게). ko·ja 는 확신 있는 것만 적었고, fr·it 는 라틴 표기가 en 과 같아 `la` 색인으로 잡히므로 비웠다. 표기가 불확실한 브랜드(Khaite·Toteme 의 ja 등)는 비워 두고 미등록 경로가 다시 올리게 둔다. 뒤쪽 세 항목은 새 개념이 아니라 기존 개념에 빠진 한국어 표기를 더하는 것이다 — `ON CONFLICT (canonical_name, category)` 가 같은 이름을 찾아 표현만 붙인다.",
+  "items": [
+    {
+      "labels": { "en": "Chanel", "ko": "샤넬", "ja": "シャネル" }
+    },
+    {
+      "labels": { "en": "Dior", "ko": "디올", "ja": "ディオール" },
+      "aliases": { "en": ["Christian Dior"], "ko": ["크리스찬 디올"] }
+    },
+    {
+      "labels": { "en": "Saint Laurent", "ko": "생 로랑", "ja": "サンローラン" },
+      "aliases": { "en": ["Yves Saint Laurent", "YSL"], "ko": ["생로랑", "입생로랑", "이브 생 로랑"] }
+    },
+    {
+      "labels": { "en": "Zara", "ko": "자라", "ja": "ザラ" }
+    },
+    {
+      "labels": { "en": "H&M", "ko": "에이치앤엠" },
+      "aliases": { "en": ["Hennes & Mauritz"], "ko": ["H&M"] }
+    },
+    {
+      "labels": { "en": "Nike", "ko": "나이키", "ja": "ナイキ" }
+    },
+    {
+      "labels": { "en": "Adidas", "ko": "아디다스", "ja": "アディダス" }
+    },
+    {
+      "labels": { "en": "Uniqlo", "ko": "유니클로", "ja": "ユニクロ" },
+      "aliases": { "en": ["UNIQLO"] }
+    },
+    {
+      "labels": { "en": "New Balance", "ko": "뉴발란스", "ja": "ニューバランス" },
+      "aliases": { "ko": ["뉴 발란스"] }
+    },
+    {
+      "labels": { "en": "Levi's", "ko": "리바이스", "ja": "リーバイス" },
+      "aliases": { "en": ["Levi Strauss & Co.", "Levis"] }
+    },
+    {
+      "labels": { "en": "Cos", "ko": "코스" },
+      "aliases": { "en": ["COS"] }
+    },
+    {
+      "labels": { "en": "The Row", "ko": "더 로우" },
+      "aliases": { "ko": ["더로우"] }
+    },
+    {
+      "labels": { "en": "Cartier", "ko": "까르띠에", "ja": "カルティエ" },
+      "aliases": { "ko": ["카르티에"] }
+    },
+    {
+      "labels": { "en": "Alaïa", "ko": "알라이아" },
+      "aliases": { "en": ["Alaia", "Azzedine Alaïa"] }
+    },
+    {
+      "labels": { "en": "Gap", "ko": "갭", "ja": "ギャップ" },
+      "aliases": { "en": ["GAP"] }
+    },
+    {
+      "labels": { "en": "Lululemon", "ko": "룰루레몬" },
+      "aliases": { "en": ["lululemon", "Lululemon Athletica"] }
+    },
+    {
+      "labels": { "en": "Khaite" }
+    },
+    {
+      "labels": { "en": "Diesel", "ko": "디젤", "ja": "ディーゼル" }
+    },
+    {
+      "labels": { "en": "Proenza Schouler", "ko": "프로엔자 스쿨러" }
+    },
+    {
+      "labels": { "en": "Mango", "ko": "망고" }
+    },
+    {
+      "labels": { "en": "Acne Studios", "ko": "아크네 스튜디오" },
+      "aliases": { "ko": ["아크네 스튜디오스"] }
+    },
+    {
+      "labels": { "en": "Reformation", "ko": "리포메이션" }
+    },
+    {
+      "labels": { "en": "Toteme", "ko": "토템" },
+      "aliases": { "en": ["Totême"] }
+    },
+    {
+      "labels": { "en": "Tiffany & Co.", "ko": "티파니", "ja": "ティファニー" },
+      "aliases": { "en": ["Tiffany"] }
+    },
+    {
+      "labels": { "en": "Moncler", "ko": "몽클레르", "ja": "モンクレール" }
+    },
+    {
+      "labels": { "en": "J.Crew", "ko": "제이크루" },
+      "aliases": { "en": ["J Crew"] }
+    },
+    {
+      "labels": { "en": "Marks & Spencer", "ko": "막스 앤 스펜서" },
+      "aliases": { "en": ["M&S"], "ko": ["막스앤스펜서"] }
+    },
+    {
+      "labels": { "en": "Converse", "ko": "컨버스", "ja": "コンバース" },
+      "aliases": { "en": ["CONVERSE"] }
+    },
+    {
+      "labels": { "en": "Celine", "ko": "셀린" },
+      "aliases": { "ko": ["셀린느"] }
+    },
+    {
+      "labels": { "en": "Miu Miu", "ko": "미우 미우" },
+      "aliases": { "ko": ["미우미우"] }
+    },
+    {
+      "labels": { "en": "Louis Vuitton", "ko": "루이비통" },
+      "aliases": { "ko": ["루이 비통"] }
+    }
+  ]
+}

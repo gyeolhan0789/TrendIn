@@ -63,6 +63,14 @@ CANDIDATE = "pl_candidate"
 # 시간 버킷이 발행 시각을 되찾는 경로 ([07 §3]). `io/contents.py` 가 소유한다.
 CONTENT_ID_MAP = "pl_content_id_map"
 CONTENTS = "contents"
+# 개념 층이 소유하는 표 ([개념층]). 순위를 개념 단위로 접는 근거이고 `io/concepts.py` 가
+# 만든다 — **없을 수 있다.** 개념 Job 을 아직 돌리지 않은 환경에서는 조회가 빈 결과를
+# 돌려주고 집계가 표기 단위로 그대로 돈다 (`metrics/concepts.py` 의 머리말).
+CONCEPT = "pl_concept"
+EXPRESSION = "pl_concept_expression"
+# 개념을 키워드에 잇는 자리. 표기(`normalized_name`)가 유일한 접점이다 — 승격된 키워드에는
+# 개념 번호를 담는 칸이 없고, 그 칸을 더하는 것은 서비스 표를 고치는 일이라 우리 몫이 아니다.
+KEYWORDS = "keywords"
 
 # --- 쓰는 표 ---------------------------------------------------------------
 METRICS = "keyword_metrics"
@@ -248,14 +256,31 @@ SELECT c.keyword_id,
 # **⚠️ 이 표만 보존 기간이 짧다** ([08 §3] "가장 빠르게 자란다. 최근 N일만 유지"). 그래서
 # 소스 판별은 **현재 구간(최대 30일)** 에만 쓴다 — `NEW` 의 90일 조용함 창은 원자료가 답한다.
 PERIOD_SOURCES_SQL = f"""
-SELECT c.keyword_id, count(DISTINCT d.source_id)::int AS sources
+SELECT c.keyword_id, d.source_id
   FROM {DOCUMENT_CANDIDATE} d
   JOIN {CANDIDATE} c ON c.domain = d.domain AND c.normalized_key = d.normalized_key
  WHERE c.keyword_id IS NOT NULL
    AND NOT d.is_dup
    AND d.source_id IS NOT NULL
    AND d.stat_date >= %s AND d.stat_date < %s
- GROUP BY 1
+ GROUP BY 1, 2
+"""
+
+# 키워드 → 개념 ([개념층], `metrics/concepts.py`). 순위를 개념 단위로 접는 유일한 근거다.
+#
+# **`lang` 을 보지 않는다.** `keywords` 에 언어 칸이 없어 표기만으로 잇는 수밖에 없고, 애초에
+# 언어를 넘어 접는 것이 이 조회의 목적이다 — `가죽`(ko)·`pelle`(it)·`cuir`(fr) 가 한 개념으로
+# 모여야 한다. 그래서 모호 판정도 `normalized` 만으로 센다 (`EXPRESSIONS_SQL` 은 `(lang,
+# normalized)` 로 세는데, 그쪽은 기사의 언어를 알고 있어 더 좁게 볼 수 있다).
+#
+# 한 키워드가 여러 개념에 걸리면 **행을 여럿 돌려준다.** 여기서 하나를 고르지 않는 것이
+# 의도다 — 고르는 규칙은 층 1 이 갖고, 지금 그 규칙은 "걸린 것은 접지 않는다" 이다.
+CONCEPT_GROUPS_SQL = f"""
+SELECT k.id, e.concept_id, c.countable, c.category
+  FROM {KEYWORDS} k
+  JOIN {EXPRESSION} e ON e.normalized = k.normalized_name AND e.status = 'ACTIVE'
+  JOIN {CONCEPT} c ON c.id = e.concept_id AND c.status = 'ACTIVE'
+ GROUP BY 1, 2, 3, 4
 """
 
 # --- 적재 -----------------------------------------------------------------
@@ -333,6 +358,13 @@ RELATION_TABLES_SQL = (
 # 국가별 일 언급량 (`V4__keyword_country_daily_metrics.sql`).
 COUNTRY_METRICS = "keyword_country_daily_metrics"
 COUNTRY_TABLE_SQL = f"SELECT to_regclass('{COUNTRY_METRICS}') IS NOT NULL"
+
+# 개념 표가 있는가. **없어도 집계는 돈다** — 순위를 접는 것은 개선이지 선행 조건이 아니라,
+# 위 셋(`SERVICE_TABLES_SQL` 계열)과 달리 없다고 거부하지 않고 경고만 남긴다.
+CONCEPT_TABLES_SQL = (
+    f"SELECT to_regclass('{CONCEPT}') IS NOT NULL"
+    f" AND to_regclass('{EXPRESSION}') IS NOT NULL"
+)
 
 # 원자료의 국가 칸을 그대로 국가 축 지표로 옮긴다 (2026-09-18).
 #
@@ -617,9 +649,39 @@ class MetricSink:
         """
         return self._query(HOURLY_SQL, (start, end))
 
-    def period_sources(self, *, start: str, end: str) -> dict[int, int]:
-        rows = self._query(PERIOD_SOURCES_SQL, (start, end))
-        return {int(keyword_id): int(sources) for keyword_id, sources in rows}
+    def period_sources(self, *, start: str, end: str) -> dict[int, set[str]]:
+        """`keyword_id → 소스 집합`. **세어서 주지 않고 집합으로 준다.**
+
+        개념으로 접은 뒤의 소스 수는 합집합의 크기이지 각자의 합이 아니다 — 같은 매체가
+        `가죽` 과 `leather` 를 함께 썼으면 그건 소스 하나다. 수만 받으면 그 구분을 잃는다.
+        """
+        found: dict[int, set[str]] = {}
+        for keyword_id, source_id in self._query(PERIOD_SOURCES_SQL, (start, end)):
+            found.setdefault(int(keyword_id), set()).add(str(source_id))
+        return found
+
+    def concept_groups(self) -> tuple[tuple[int, int, bool, str], ...]:
+        """`(keyword_id, concept_id, countable, category)` — 개념 층이 붙여 둔 것 ([개념층]).
+
+        **개념 표가 없으면 빈 튜플이다.** 개념 Job 을 아직 돌리지 않은 환경에서 집계가 서지
+        않으면 안 된다 — 순위를 접는 것은 개선이지 선행 조건이 아니다. 그래서 여기서만
+        표의 유무를 묻고, 없으면 크게 남기고 표기 단위로 돈다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(CONCEPT_TABLES_SQL)
+            if not bool(cur.fetchone()[0]):
+                log.warning(
+                    "개념 표(%s · %s)가 없다 — 순위를 표기 단위로 낸다. 같은 것의 다른 언어 "
+                    "표기가 순위표 자리를 나눠 갖는다 (`metrics/concepts.py`)",
+                    CONCEPT,
+                    EXPRESSION,
+                )
+                return ()
+            cur.execute(CONCEPT_GROUPS_SQL)
+            return tuple(
+                (int(keyword_id), int(concept_id), bool(countable), str(category))
+                for keyword_id, concept_id, countable, category in cur.fetchall()
+            )
 
     # --- 적재 ------------------------------------------------------------
     def write(

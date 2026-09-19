@@ -22,7 +22,6 @@ from trendin.spark.normalize.filters import (
     SHORT_BODY,
     SHORT_TITLE,
     UNKNOWN_LANG,
-    UNSUPPORTED_LANG,
     URL_TOO_LONG,
     FilterThresholds,
     exclusion_reason,
@@ -153,17 +152,16 @@ def built(**article_overrides) -> Document:
     return build_document(article | article_overrides, event, ingest_run_id="20260903T000000")
 
 
-def test_일본어_제목만_있는_문서는_추출하지_않는_언어로_뺀다():
-    """본문 없는 문서는 `unknown` 을 보지 않는다. 그 관대함이 일본어 제목을 한국어 분석기로
-    보내던 길이다."""
+def test_일본어_제목만_있는_문서도_추출한다():
+    """판별은 여전히 `ja` 를 알아본다. 달라진 것은 그 뒤다 — 알아본 언어를 빼지 않는다."""
     doc = built(title="新作バッグが東京で発表された", summary=None, body_text=None)
 
     assert (doc.basis, doc.lang) == (BASIS_TITLE, JA)
-    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+    assert exclusion_reason(doc, LIMITS) == KEPT
 
 
-def test_프랑스어_본문_문서는_추출하지_않는_언어로_뺀다():
-    """예전에는 `en` 으로 판별돼 영어 토크나이저를 탔다."""
+def test_프랑스어_본문_문서도_추출한다():
+    """`en` 으로 뒤집히지 않는 것이 여기 요점이다. 판별이 `fr` 을 맞히면 그 언어로 처리된다."""
     body = (
         "<p>La maison a présenté sa nouvelle collection à Paris. Les créations sont inspirées "
         "par les années soixante et la directrice artistique explique que cette saison est "
@@ -172,15 +170,17 @@ def test_프랑스어_본문_문서는_추출하지_않는_언어로_뺀다():
     doc = built(title="La nouvelle collection de la maison", body_text=body)
 
     assert (doc.basis, doc.lang) == (BASIS_BODY, FR)
-    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+    assert exclusion_reason(doc, LIMITS) == KEPT
 
 
 @pytest.mark.parametrize("lang", [JA, ZH, FR, IT])
 @pytest.mark.parametrize("basis", [BASIS_BODY, BASIS_SUMMARY, BASIS_TITLE])
-def test_추출하지_않는_언어는_경로와_무관하게_뺀다(lang, basis):
+def test_다국어는_경로와_무관하게_추출한다(lang, basis):
+    """2026-09-19 이전에는 이 넷이 `UNSUPPORTED_LANG` 이었다. 일본 매체 7곳·이탈리아 3곳·
+    프랑스 3곳·중국 2곳이 통째로 버려지고 있었고, 그 자리가 `lang.LANGUAGES` 한 칸이다."""
     doc = document(lang=lang, basis=basis, had_raw_body=basis == BASIS_BODY)
 
-    assert exclusion_reason(doc, LIMITS) == UNSUPPORTED_LANG
+    assert exclusion_reason(doc, LIMITS) == KEPT
 
 
 def test_URL_검사가_언어보다_먼저다():

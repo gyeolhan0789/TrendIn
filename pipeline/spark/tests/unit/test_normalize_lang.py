@@ -132,14 +132,16 @@ def test_한글과_영문_브랜드명은_이전처럼_mixed():
     assert detect_lang("루이 비통 Louis Vuitton 2026 가을 겨울 컬렉션 공개") == MIXED
 
 
-@pytest.mark.parametrize(
-    "lang,expected",
-    [(KO, False), (EN, False), (MIXED, False), (UNKNOWN, False),
-     (JA, True), (ZH, True), (FR, True), (IT, True)],
-)
-def test_추출하지_않는_언어(lang, expected):
-    """`unknown` 은 언어가 아니라 근거 부족이라 여기 들지 않는다 — 필터가 따로 다룬다."""
-    assert unsupported(lang) is expected
+@pytest.mark.parametrize("lang", [KO, EN, MIXED, UNKNOWN, JA, ZH, FR, IT])
+def test_알아보는_언어는_모두_추출한다(lang):
+    """2026-09-19 부터 `LANGUAGES` 의 여섯이 전부 `extractable` 이다. 그전에는
+    `ja`·`zh`·`fr`·`it` 가 `True` 였고, 그 표가 일본·이탈리아·프랑스·중국 매체를 통째로
+    버리고 있었다.
+
+    `unknown` 이 여기 `False` 인 것은 뜻이 다르다 — 언어가 아니라 근거 부족이라 `LANGUAGES`
+    에 들지 않고, 필터가 `UNKNOWN_LANG` 으로 따로 다룬다.
+    """
+    assert unsupported(lang) is False
 
 
 def test_설정_구역에서_읽는다():
