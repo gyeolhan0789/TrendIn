@@ -28,13 +28,17 @@ public class Content {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    // 255 is the JPA default and it is not enough: news titles and newsletter
+    // URLs run past it, and the ingest job merges a whole batch in one
+    // statement, so one long row rolls back every article collected with it.
+    // See V9__widen_content_text_columns.sql.
+    @Column(nullable = false, length = 2048)
     private String title;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 2048)
     private String source;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 2048)
     private String url;
 
     @Column(name = "body_object_key", columnDefinition = "text")
