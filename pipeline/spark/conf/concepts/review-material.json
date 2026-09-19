@@ -1,19 +1,17 @@
 {
   "source": "seed",
   "category": "material",
-  "note": "검수로 들어온 것 — 2026-09-19 에 `scripts/concept-review.py` 로 승인한 제안을 시드로 옮겼다. DB 에만 있으면 환경마다 다시 검수해야 해서 저장소로 내린다. 원문은 `제안 그대로 (gpt-5.4-nano)` 이고, 판정이 의심스러운 것은 여기서 고친다.",
+  "note": "검수로 들어온 것 — 2026-09-19 에 `scripts/concept-review.py` 로 승인한 제안을 시드로 옮겼다. DB 에만 있으면 환경마다 다시 검수해야 해서 저장소로 내린다. **둘 다 `countable` 을 되돌렸다** — 판정(gpt-5.4-nano)이 `false` 로 봤지만 개버딘과 오간자는 실제 직물이라 세는 대상이 맞다. 세지 않으면 순위에서 빠지고, 그 잘못은 `material` 을 급상승에서 빼는 동안 보이지 않는다.",
   "items": [
     {
       "labels": {
         "en": "Gabardine"
-      },
-      "countable": false
+      }
     },
     {
       "labels": {
         "en": "Organza"
-      },
-      "countable": false
+      }
     }
   ]
 }
