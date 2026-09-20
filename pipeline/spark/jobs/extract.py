@@ -72,6 +72,9 @@ JOB = "extract"
 # 이 Job 의 처리 이력 단위 — ingest 실행 하나. `event_shape` 로 기사·요약 이벤트와 구분한다.
 STAGE = "extract"
 EVENT_SHAPE = "INGEST_RUN"
+# 상류 Job 의 이력 이름. `jobs/ingest.JOB` 과 같아야 하는데 그 모듈을 import 하면 ingest 의
+# 의존(boto3 등)이 딸려 오므로 값을 적는다.
+INGEST_JOB = "ingest"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -156,6 +159,7 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     )
 
     curated = source.read_curated(spark, config)
+    ingested = _ingested_run_ids(spark, config)
     domains = [args.domain] if args.domain else sorted(DOMAIN_VALUES)
     run_stats: list[stats_io.Stat] = []
     log.info("extract 시작: run_id=%s domains=%s force=%s", run_id, domains, args.force)
@@ -171,6 +175,7 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
                 ledger=ledger,
                 sink=sink,
                 run_id=run_id,
+                ingested=ingested,
                 explicit_run_ids=_split(args.ingest_run_ids),
                 date_from=date_from,
                 date_to=date_to,
@@ -251,6 +256,7 @@ def _run_domain(
     ledger: Ledger,
     sink: CandidateSink,
     run_id: str,
+    ingested: frozenset[str],
     explicit_run_ids: tuple[str, ...] | None,
     date_from: date | None,
     date_to: date | None,
@@ -275,11 +281,15 @@ def _run_domain(
     by_dates = date_from is not None or date_to is not None
     run_ids: tuple[str, ...] = ()
     if by_dates:
-        selection = source.Selection(domain=domain, date_from=date_from, date_to=date_to)
+        # 구간 재추출도 고아 파티션은 안 본다 — `latest_per_document` 가 실행 번호가 큰 쪽을
+        # 남기므로, 이력에 없는 실행이 정상 실행의 문서를 가릴 수 있다.
+        selection = source.Selection(
+            domain=domain, date_from=date_from, date_to=date_to, known_run_ids=ingested
+        )
         log.info("[%s] 발행일 구간 재추출 %s ~ %s", domain, date_from, date_to)
     else:
         run_ids = explicit_run_ids or _new_run_ids(
-            spark, curated, ledger, domain=domain, force=force
+            spark, curated, ledger, domain=domain, force=force, ingested=ingested
         )
         if not run_ids:
             log.info("[%s] 새 ingest 실행분이 없다 — 건너뛴다", domain)
@@ -346,9 +356,52 @@ def _run_domain(
         targets.unpersist()
 
 
-def _new_run_ids(spark, curated, ledger: Ledger, *, domain: str, force: bool) -> tuple[str, ...]:
-    """`curated` 에 있는데 처리 이력에 없는 `ingest_run_id`. `--force` 면 전부."""
+def _ingested_run_ids(spark, config: Config) -> frozenset[str]:
+    """`ingest` 가 끝까지 기록한 실행 번호 (S15P21A102-341).
+
+    `curated` 에 파티션은 있는데 여기 없는 실행은 **적재 도중 죽은 회차의 고아**다 — 본문은
+    썼지만 `contents`·처리 이력이 커밋되지 않았다. 2026-09-18 에 그런 회차 39개가 코퍼스
+    전체를 한 벌씩 들고 쌓여, 이 Job 이 그것을 전부 새 실행으로 보고 죽었다. 지금은
+    `ingest` 가 실패 회차의 파티션을 지우지만(`ingest/normalize.NormalizeStage.rollback`),
+    프로세스가 통째로 죽으면 그 보상도 못 하므로 여기서 한 번 더 거른다.
+
+    비어 있으면 **경고하고 아무 실행도 집지 않는다.** 2026-09-20 이전 이력은 `run_id` 가
+    NULL 이라, 이 코드를 배포한 DB 에는 `spark/sql/backfill-ledger-run-id.sql` 을 한 번
+    돌려야 한다. 조용히 옛 동작으로 돌아가면 그 고아를 다시 집는다.
+    """
+    ingested = frozenset(Ledger(config, job=INGEST_JOB).run_ids(spark))
+    if not ingested:
+        log.error(
+            "ingest 처리 이력에 run_id 가 하나도 없다 — curated 의 어떤 실행도 대상이 되지 않는다. "
+            "옛 이력이라면 spark/sql/backfill-ledger-run-id.sql 을 먼저 돌린다"
+        )
+    return ingested
+
+
+def _new_run_ids(
+    spark,
+    curated,
+    ledger: Ledger,
+    *,
+    domain: str,
+    force: bool,
+    ingested: frozenset[str],
+) -> tuple[str, ...]:
+    """`curated` 에 있는데 처리 이력에 없는 `ingest_run_id`. `--force` 면 전부.
+
+    **`ingest` 이력에 없는 실행은 어느 쪽에서도 뺀다** — `--force` 도 고아를 집을 이유는
+    없다. 뺀 실행은 경고로 남겨, 파티션은 있는데 안 도는 상황이 조용히 지나가지 않게 한다.
+    """
     present = source.ingest_run_ids(curated, domain=domain)
+    orphans = [run_id for run_id in present if run_id not in ingested]
+    if orphans:
+        log.warning(
+            "[%s] ingest 이력에 없는 curated 실행 %d개를 건너뛴다 (적재 도중 죽은 회차의 고아): %s",
+            domain,
+            len(orphans),
+            ", ".join(orphans[:10]) + (" …" if len(orphans) > 10 else ""),
+        )
+    present = [run_id for run_id in present if run_id in ingested]
     if force:
         return tuple(present)
     known = {

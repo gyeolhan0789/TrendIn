@@ -1252,19 +1252,9 @@ h1 { margin: 0; line-height: 1.25; }
 .saved-hero-title { display: grid; gap: 4px; }
 .saved-eyebrow { color: var(--lp-faint); font-size: 13px; }
 .saved-hero h1 { font-size: 28px; font-weight: 800; letter-spacing: -1.2px; }
+.saved-count { color: var(--lp-faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+.saved-count strong { color: var(--lp-muted); font-weight: 700; }
 
-.saved-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-bottom: 20px; }
-.saved-stat { padding: 20px; border: 1px solid #eef0f4; border-radius: 14px; }
-.saved-stat-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.saved-stat-icon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border-radius: 8px; }
-.saved-stat-icon--indigo { background: #eef2ff; }
-.saved-stat-icon--emerald { background: #ecfdf5; }
-.saved-stat-icon--amber { background: #fef3c7; }
-.saved-stat-icon--slate { background: #f3f4f6; }
-.saved-stat-label { color: var(--lp-faint); font-size: 12px; font-weight: 500; }
-.saved-stat-value { display: block; overflow: hidden; font-size: 28px; font-weight: 800; letter-spacing: -1.5px; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.saved-stat-value small { margin-left: 4px; color: var(--lp-faint); font-size: 14px; font-weight: 500; letter-spacing: 0; }
-.saved-stat-value.is-accent { color: #059669; }
 
 .saved-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 20px; }
 .saved-tab { padding: 7px 16px; border: 1px solid var(--lp-line); border-radius: 20px; background: #fff; color: var(--lp-muted); font-size: 13px; font-weight: 500; transition: border-color .15s, background .15s, color .15s; }
@@ -1307,7 +1297,6 @@ h1 { margin: 0; line-height: 1.25; }
 .saved-pagination { display: flex; align-items: center; justify-content: center; padding-bottom: 48px; }
 
 @media (max-width: 1180px) {
-  .saved-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .saved-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
@@ -1317,7 +1306,6 @@ h1 { margin: 0; line-height: 1.25; }
   .saved-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
-  .saved-stats { grid-template-columns: minmax(0, 1fr); }
   .saved-empty h2 { font-size: 18px; }
 }
 

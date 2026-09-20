@@ -88,3 +88,78 @@ def test_인자_둘은_서로_다른_뜻이라_따로_있다():
 
     assert args.skip_promotion
     assert not args.allow_missing_unique
+
+
+# --- ingest 이력에 없는 curated 실행은 집지 않는다 (S15P21A102-341) -----------------
+
+
+class _Rows:
+    """`ledger.known_event_ids(spark).where(...).collect()` 의 껍데기."""
+
+    def __init__(self, event_ids):
+        self._event_ids = event_ids
+
+    def where(self, _condition):
+        return self
+
+    def collect(self):
+        return [{"event_id": event_id} for event_id in self._event_ids]
+
+
+class FakeLedger:
+    def __init__(self, done=()):
+        self._done = tuple(done)
+
+    def known_event_ids(self, _spark):
+        return _Rows(self._done)
+
+
+def _present(monkeypatch, run_ids):
+    monkeypatch.setattr(extract.source, "ingest_run_ids", lambda _curated, *, domain: list(run_ids))
+
+
+def test_이력에_없는_실행은_새_것이어도_건너뛴다(monkeypatch, caplog):
+    """2026-09-18 의 고아 39개가 이 자리에서 걸린다. 파티션은 있지만 `ingest` 가 끝까지
+    기록하지 못한 실행이라, 본문은 있어도 `contents` 가 없다."""
+    _present(monkeypatch, ["20260918T171034", "20260919T115218", "20260920T092013"])
+    ingested = frozenset({"20260919T115218", "20260920T092013"})
+
+    with caplog.at_level("WARNING"):
+        picked = extract._new_run_ids(  # noqa: SLF001
+            None, None, FakeLedger(), domain="fashion", force=False, ingested=ingested
+        )
+
+    assert picked == ("20260919T115218", "20260920T092013")
+    assert "이력에 없는 curated 실행 1개" in caplog.text
+    assert "20260918T171034" in caplog.text
+
+
+def test_force_도_고아는_집지_않는다(monkeypatch):
+    _present(monkeypatch, ["20260918T171034", "20260919T115218"])
+
+    picked = extract._new_run_ids(  # noqa: SLF001
+        None,
+        None,
+        FakeLedger(),
+        domain="fashion",
+        force=True,
+        ingested=frozenset({"20260919T115218"}),
+    )
+
+    assert picked == ("20260919T115218",)
+
+
+def test_이미_추출한_실행은_평시에_빠진다(monkeypatch):
+    _present(monkeypatch, ["20260919T115218", "20260920T092013"])
+    ledger = FakeLedger(done=["fashion:20260919T115218"])
+
+    picked = extract._new_run_ids(  # noqa: SLF001
+        None,
+        None,
+        ledger,
+        domain="fashion",
+        force=False,
+        ingested=frozenset({"20260919T115218", "20260920T092013"}),
+    )
+
+    assert picked == ("20260920T092013",)

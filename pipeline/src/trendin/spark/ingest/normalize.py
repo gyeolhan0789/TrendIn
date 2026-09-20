@@ -11,7 +11,8 @@
 3. 통계                      io/stats.py — 버리기 **전에** 세어 실행 끝까지 누적한다
 4. curated Parquet 쓰기      normalize/curated.py
 5. body_object_key 회수      쓴 파일을 되읽어 얻는다 ([01 §3])
-6. contents upsert           io/contents.py — id 를 pl_content_id_map 으로 회수
+6. contents 행 준비          io/contents.py — 드라이버에 모아 두고 **아직 쓰지 않는다**
+7. flush                     `process_batch` 가 처리 이력과 **한 트랜잭션**으로 6 을 쓴다
 ```
 
 **3 이 4 보다 먼저인 이유** — 통계의 분모가 입력 건수다. 버린 뒤에 세면 생존율을 계산할 수
@@ -25,13 +26,24 @@
 뒤집으면 아직 없는 파일의 키를 넣게 된다.
 
 **5 를 위해 되읽는 것이 낭비가 아닌 이유는 `normalize/curated.body_object_keys` 에 있다.**
+
+## 6 과 7 이 갈린 이유 — 본문은 썼는데 이력이 없는 회차 (S15P21A102-341)
+
+2026-09-18 에 `contents` upsert 가 `varchar(255)` 초과로 죽었다. 4 에서 쓴 본문은 남고 처리
+이력은 안 적혀서, 다음 회차가 같은 기사를 다시 정제해 `curated` 에 한 벌 더 썼다 — 39회차
+동안 코퍼스 전체가 39벌 쌓였고 `extract` 는 그것을 전부 새 실행으로 봤다.
+
+그래서 이 단계는 `contents` 를 **직접 쓰지 않는다.** 행을 드라이버에 모아 두고(`_pending`),
+`process_batch` 가 처리 이력과 같은 연결에서 `flush()` 로 쓴다. 둘 중 하나만 남는 상태가
+없어진다. 그 트랜잭션이 죽으면 `rollback()` 이 4 에서 쓴 파티션을 지운다 — 파티션의 마지막
+단이 `ingest_run_id` 라 이 실행이 쓴 것만 정확히 갇힌다 (`normalize/curated.remove_partitions`).
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
@@ -213,6 +225,7 @@ class NormalizeStage:
         envelope_columns: tuple[str, ...],
         contents: contents_io.ContentsSink | None,
         stats: stats_io.RunStats | None,
+        root: str | None = None,
     ) -> None:
         self._config = config
         self._run_id = ingest_run_id
@@ -220,9 +233,55 @@ class NormalizeStage:
         self._contents = contents
         self._stats = stats
         self._thresholds = NormalizeThresholds.from_config(config)
+        # 층 2 테스트가 임시 디렉터리를 넣는 자리. 운영에서는 `curated_root(config)` 다.
+        self._root = root
         # 이 실행에서 `curated` 에 이미 썼는가. 첫 쓰기만 overwrite, 그 뒤는 append 다.
         self._wrote_curated = False
+        # `flush()` 를 기다리는 `contents` 행과, 그것이 가리키는 파티션. `rollback()` 이
+        # 되돌릴 범위가 곧 이것이다 — 트랜잭션이 커밋되면(`mark_committed`) 비운다.
+        self._pending: list[tuple] = []
+        self._pending_schema: Any = None
+        self._uncommitted: set[curated.Partition] = set()
         self.last_result = NormalizeResult()
+
+    @property
+    def uncommitted_partitions(self) -> frozenset[curated.Partition]:
+        """`curated` 에는 썼는데 아직 `contents`·처리 이력이 커밋되지 않은 파티션."""
+        return frozenset(self._uncommitted)
+
+    def flush(self, conn: Any = None) -> None:
+        """모아 둔 `contents` 행을 쓴다. `conn` 은 처리 이력과 같은 트랜잭션의 연결이다.
+
+        `process_batch` 가 이력을 적기 직전에 부른다. 여기서 커밋하지 않는다 — 커밋은
+        `Ledger.transaction()` 을 빠져나가는 그쪽이 한다. **파티션 추적도 여기서 비우지
+        않는다.** 이 뒤의 이력 쓰기가 죽으면 `contents` 도 롤백되므로, 되돌릴 파티션은
+        트랜잭션이 실제로 끝난 뒤(`mark_committed`)에야 없어진다.
+        """
+        if self._pending and self._contents is not None:
+            spark = _active_session()
+            rows = spark.createDataFrame(self._pending, schema=self._pending_schema)
+            self._contents.upsert(rows, conn=conn)
+        self._pending = []
+
+    def mark_committed(self) -> None:
+        """트랜잭션이 커밋됐다 — 이 배치의 파티션은 이제 되돌릴 대상이 아니다.
+
+        `contents` 싱크가 없는 실행(`--allow-missing-contents`)도 이력이 커밋되면 그 파티션은
+        정상이다. 그래서 `flush` 가 아니라 이쪽이 추적을 비운다.
+        """
+        self._uncommitted = set()
+
+    def rollback(self) -> int:
+        """커밋되지 않은 파티션을 `curated` 에서 지운다. 지운 객체 수를 돌려준다.
+
+        DB 트랜잭션이 죽은 뒤 `process_batch` 가 부른다. 이력이 없는 본문을 남기면 다음
+        회차가 같은 문서를 다시 써서 한 벌 더 쌓인다 — 이 함수가 그 뿌리를 끊는다.
+        """
+        self._pending = []
+        partitions, self._uncommitted = self._uncommitted, set()
+        if not partitions:
+            return 0
+        return curated.remove_partitions(self._config, partitions, root=self._root)
 
     def __call__(self, articles: "DataFrame") -> "DataFrame":
         """정제하고 적재한다. `(event_id, filter_reason)` 이 붙은 원본 프레임을 돌려준다.
@@ -277,17 +336,28 @@ class NormalizeStage:
                 return NormalizeResult(received=received, kept=0, near_duplicates=near)
 
             # 4 — curated Parquet. 이 실행의 첫 배치만 overwrite, 그 뒤는 append.
+            # 쓰기 **전에** 파티션을 적어 둔다 — 쓰다 죽어도 되돌릴 범위를 알아야 한다.
+            self._uncommitted |= curated.written_partitions(survivors)
             curated.write(
-                survivors, self._config, mode="append" if self._wrote_curated else "overwrite"
+                survivors,
+                self._config,
+                root=self._root,
+                mode="append" if self._wrote_curated else "overwrite",
             )
             self._wrote_curated = True
 
-            # 5·6 — 쓴 파일의 키를 회수해 `contents` 로.
+            # 5·6 — 쓴 파일의 키를 회수해 `contents` 행으로. **아직 쓰지 않는다.** 드라이버에
+            # 모아 두고 `commit()` 이 처리 이력과 한 트랜잭션으로 쓴다. 지금 모으는 이유는
+            # `survivors` 가 이 블록을 나가며 캐시에서 풀리기 때문이다 — 나중에 프레임을 다시
+            # 평가하면 정제 UDF 가 한 번 더 돈다.
             written = False
             if self._contents is not None:
-                keys = curated.body_object_keys(survivors.sparkSession, self._config, survivors)
+                keys = curated.body_object_keys(
+                    survivors.sparkSession, self._config, survivors, root=self._root
+                )
                 rows = contents_io.contents_rows(survivors.join(keys, on="url_hash", how="left"))
-                self._contents.upsert(rows)
+                self._pending.extend(tuple(row) for row in rows.collect())
+                self._pending_schema = rows.schema
                 written = True
 
             return NormalizeResult(
@@ -297,6 +367,15 @@ class NormalizeStage:
             survivors.unpersist()
 
 
+def _active_session():
+    from pyspark.sql import SparkSession
+
+    session = SparkSession.getActiveSession()
+    if session is None:
+        raise RuntimeError("활성 SparkSession 이 없다 — commit 은 배치 처리 안에서만 부른다")
+    return session
+
+
 def normalizer(
     config: Config,
     *,
@@ -304,11 +383,12 @@ def normalizer(
     envelope_columns: tuple[str, ...],
     contents: contents_io.ContentsSink | None,
     stats: stats_io.RunStats | None,
-) -> Callable[["DataFrame"], "DataFrame"]:
+) -> "NormalizeStage":
     """설정에서 정제 단계를 만든다. `process_batch` 에 주입한다.
 
     `ingest/objects.verifier` 와 같은 형태를 유지하는 이유는 층 2 테스트가 가짜를 끼워
-    넣어 MinIO·PostgreSQL 없이 배선을 검사하기 때문이다 ([09 §4]).
+    넣어 MinIO·PostgreSQL 없이 배선을 검사하기 때문이다 ([09 §4]). 다만 부르는 것만이 아니라
+    `flush`·`mark_committed`·`rollback` 도 `process_batch` 가 쓰므로 반환 타입은 클래스 그대로다.
     """
     return NormalizeStage(
         config,

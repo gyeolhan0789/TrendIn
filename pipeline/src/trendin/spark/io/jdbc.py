@@ -204,6 +204,7 @@ def stage_and_merge(
     columns: tuple[str, ...],
     frame: "DataFrame",
     merge_sql: str,
+    conn: Any | None = None,
 ) -> int:
     """스테이징에 넣고 병합한다 — **한 연결, 한 트랜잭션.** 넣은 행 수를 돌려준다.
 
@@ -212,19 +213,31 @@ def stage_and_merge(
     병합에 섞이지 않게 한다. `merge_sql` 은 끝에 자기 `TRUNCATE` 를 갖고 있어야 한다.
 
     빈 프레임이면 아무것도 하지 않는다 — 연결도 열지 않는다.
-    """
-    from psycopg2.extras import execute_values
 
+    **`conn` 을 주면 그 연결 안에서 돌고 커밋하지 않는다.** 표 여럿을 한 트랜잭션으로 묶을
+    때 쓴다 — `ingest` 가 `contents` 와 처리 이력을 그렇게 묶는다 (S15P21A102-341). 한쪽만
+    커밋된 상태가 곧 다음 실행의 중복 처리라서, 트랜잭션의 주인은 부른 쪽이어야 한다.
+    """
     rows = sql_rows(frame, columns)
     if not rows:
         return 0
     insert = f"INSERT INTO {stage_table} ({', '.join(columns)}) VALUES %s"
     page = int(config.get("jdbc.batch_size", DEFAULT_BATCH_SIZE))
-    with connection(config) as conn, conn.cursor() as cur:
+    if conn is not None:
+        _stage_and_merge(conn, stage_table, insert, rows, merge_sql, page=page)
+        return len(rows)
+    with connection(config) as owned:
+        _stage_and_merge(owned, stage_table, insert, rows, merge_sql, page=page)
+    return len(rows)
+
+
+def _stage_and_merge(conn: Any, stage_table: str, insert: str, rows, merge_sql: str, *, page: int):
+    from psycopg2.extras import execute_values
+
+    with conn.cursor() as cur:
         cur.execute(f"TRUNCATE {stage_table}")
         execute_values(cur, insert, rows, page_size=page)
         cur.execute(merge_sql)
-    return len(rows)
 
 
 def read_table(spark: Any, table_or_query: str, config: Config) -> "DataFrame":

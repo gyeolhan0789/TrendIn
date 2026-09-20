@@ -64,6 +64,63 @@ def curated_root(config: Config) -> str:
     return f"s3a://{bucket}"
 
 
+# 파티션 하나의 값. `PARTITION_COLUMNS` 순서다 — (domain, published_date, source, ingest_run_id).
+Partition = tuple[str, ...]
+
+
+def written_partitions(documents: "DataFrame") -> set[Partition]:
+    """이 프레임이 쓸 파티션 전부. `write` 직후 `remove_partitions` 가 되돌릴 단위다."""
+    rows = curated_frame(documents).select(*PARTITION_COLUMNS).distinct().collect()
+    return {tuple(str(row[name]) for name in PARTITION_COLUMNS) for row in rows}
+
+
+def partition_path(partition: Partition) -> str:
+    """`domain=…/published_date=…/source=…/ingest_run_id=…/` — Spark 가 쓰는 그 경로다."""
+    if len(partition) != len(PARTITION_COLUMNS) or not all(partition):
+        raise ValueError(f"파티션 값이 {PARTITION_COLUMNS} 와 맞지 않는다: {partition!r}")
+    return "".join(f"{name}={value}/" for name, value in zip(PARTITION_COLUMNS, partition))
+
+
+def remove_partitions(
+    config: Config, partitions: set[Partition], *, root: str | None = None
+) -> int:
+    """이 실행이 쓴 파티션을 되돌린다 — 적재 트랜잭션이 죽었을 때의 보상이다 (S15P21A102-341).
+
+    `ingest` 는 `curated` 를 먼저 쓰고 `contents`·처리 이력을 한 트랜잭션으로 뒤에 쓴다.
+    뒤가 죽으면 앞은 남는데, 이력이 없으니 다음 회차가 같은 문서를 다시 쓴다 — 2026-09-18
+    에 그렇게 코퍼스 전체가 39벌 쌓였다. 파티션의 마지막 단이 `ingest_run_id` 라 지우는
+    범위가 이 실행이 쓴 것으로 정확히 갇힌다.
+
+    **여기서 예외를 삼키지 않는다.** 보상이 실패하면 고아가 남고, 그때는 `extract` 가 이력에
+    없는 실행을 건너뛰는 것이 마지막 방어다 (`jobs/extract._new_run_ids`).
+
+    `root` 가 없거나 `s3a://` 면 MinIO, 그 밖은 로컬 경로다 (층 2 테스트).
+    """
+    root = root or curated_root(config)
+    if not partitions:
+        return 0
+    if root.startswith("s3a://"):
+        from trendin.spark.io import objects as store_io
+
+        store = store_io.store_config(config)
+        bucket = strip_scheme(root).rstrip("/")
+        removed = 0
+        for partition in sorted(partitions):
+            removed += store_io.delete_prefix(store, bucket, partition_path(partition))
+    else:
+        import shutil
+        from pathlib import Path
+
+        removed = 0
+        for partition in sorted(partitions):
+            directory = Path(strip_scheme(root)) / partition_path(partition)
+            if directory.exists():
+                removed += sum(1 for _ in directory.rglob("*") if _.is_file())
+                shutil.rmtree(directory)
+    log.warning("curated 보상 삭제: 파티션 %d개 · 객체 %d개", len(partitions), removed)
+    return removed
+
+
 def curated_frame(documents: "DataFrame") -> "DataFrame":
     """Parquet 에 쓸 형태. `schema.CURATED_COLUMNS` 의 스물세 칸 + 파티션용 `source`.
 

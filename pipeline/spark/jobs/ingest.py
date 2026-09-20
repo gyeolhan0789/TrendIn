@@ -250,6 +250,7 @@ def _run_ledger(
         verify_objects=verify_objects,
         normalize=normalize,
         force=args.force,
+        run_id=run_id,
     )
     _log_totals([result])
     return result
@@ -323,6 +324,7 @@ def _run_backfill(
         force=args.force,
         # 재구성한 봉투는 판별 칸이 이미 채워져 있다. 다시 `classify` 를 태우면 전부 DLQ 다.
         decided=True,
+        run_id=run_id,
     )
     _log_totals([result])
 
