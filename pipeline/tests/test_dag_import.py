@@ -137,7 +137,10 @@ def test_추출은_워커를_둘로_묶는다():
     경로도 있어(`local-spark-run-recipe`) 로그를 안 보면 성공으로 보인다.
     """
     bag = load_bag()
-    task = bag.get_dag("spark_extract").get_task("fashion")
+    # `get_dag()` 이 아니라 `dags[...]` 로 읽는다. 앞의 것은 만료 여부를 보려고 메타데이터
+    # DB 의 `dag` 표를 조회해서, 마이그레이션을 돌리지 않는 CI 에서는 `no such table: dag`
+    # 로 깨진다. 갓 만든 DagBag 은 이미 파일을 다 읽어 둔 상태라 갱신할 것도 없다.
+    task = bag.dags["spark_extract"].get_task("fashion")
 
     assert task.env["SPARK_MASTER"] == "local[2]"
     # 컨테이너 환경을 물려받아야 APP_DB_URL · MINIO_* 가 닿는다.
@@ -149,5 +152,5 @@ def test_다른_Spark_DAG_은_워커를_묶지_않는다():
     bag = load_bag()
 
     for dag_id in ("spark_ingest", "spark_aggregate"):
-        for task in bag.get_dag(dag_id).tasks:
+        for task in bag.dags[dag_id].tasks:
             assert "SPARK_MASTER" not in task.env
