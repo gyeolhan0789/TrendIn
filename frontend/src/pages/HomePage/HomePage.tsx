@@ -7,7 +7,7 @@ import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeyw
 import { useRegisterInterestKeyword } from '../../features/myPage/hooks/useInterestKeywordMutations';
 import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
 import type { RecommendedKeyword } from '../../features/myPage/types/myPage';
-import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { TOP_COUNT, TrendRankBoard } from '../../features/trend/components/TrendRankBoard';
 import { useTrends } from '../../features/trend/hooks/useTrends';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
@@ -68,17 +68,26 @@ function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: s
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const domainsQuery = useDomains();
+  /*
+   * 고를 수 있는 분야 전체가 아니라 내가 고른 분야만 받습니다. 이 화면은 내 관심사를 보는 자리라,
+   * 고르지 않은 분야의 트렌드까지 내밀면 거르개가 아니라 남의 목록이 됩니다.
+   *
+   * 주소에 고르지 않은 분야가 적혀 있어도 resolveDomainCode 가 내 첫 분야로 되돌립니다.
+   */
+  const domainsQuery = useMyDomains(true);
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
+  // 받아 왔는데 비어 있으면 아직 아무 분야도 고르지 않은 것입니다. 받는 중인 것과 갈라야 합니다.
+  const noChosenDomain = domainsQuery.isSuccess && domains.length === 0;
 
   /*
-   * 분야를 아직 못 받았으면 고를 것이 없습니다. 빈 칸으로 두면 무엇을 기다리는지 알 수 없어,
-   * 잠긴 칸에 사정을 적어 둡니다.
+   * 고를 것이 없을 때 칸을 비워 두면 무엇을 기다리는지 알 수 없습니다. 잠긴 칸에 사정을 적되,
+   * 아직 못 받은 것과 고른 적이 없는 것은 할 일이 달라서 문구를 가릅니다.
    */
   const categoryOptions = useMemo(() => {
     if (domains.length > 0) return domains.map((option) => ({ value: option.domain, label: option.name }));
-    return [{ value: '', label: domainsQuery.isError ? '불러오지 못함' : '불러오는 중…' }];
-  }, [domains, domainsQuery.isError]);
+    if (domainsQuery.isError) return [{ value: '', label: '불러오지 못함' }];
+    return [{ value: '', label: noChosenDomain ? '고른 분야 없음' : '불러오는 중…' }];
+  }, [domains, domainsQuery.isError, noChosenDomain]);
 
   const period = parsePeriod(searchParams.get('period'));
   const rawType = searchParams.get('status')?.toUpperCase() ?? '';
@@ -180,7 +189,17 @@ export function HomePage() {
             <button type="button" onClick={() => void domainsQuery.refetch()}>다시 시도</button>
           </div>
         )}
-        {!domainsQuery.isError && (
+        {/*
+          * 고른 분야가 없으면 보여 줄 판이 없습니다. '집계된 트렌드가 없다'고 하면 서버 탓처럼
+          * 읽히므로, 무엇이 비었고 어디서 채우는지를 짚어 줍니다.
+          */}
+        {noChosenDomain && (
+          <div className="trendin-state" role="status">
+            <p>아직 고른 관심 분야가 없습니다.</p>
+            <Link to="/mypage/profile">관심 분야 고르러 가기</Link>
+          </div>
+        )}
+        {!domainsQuery.isError && !noChosenDomain && (
           <CylinderCarousel
             slides={slides}
             index={Math.max(0, TREND_TYPES.indexOf(type))}
