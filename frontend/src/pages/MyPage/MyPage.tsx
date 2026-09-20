@@ -171,7 +171,7 @@ export function MyPage() {
             label="관심 키워드"
             value={keywordsQuery.data?.length ?? 0}
             unit="개"
-            to="/keywords"
+            to="/interest-keywords"
           />
           <StatCard
             tone="blue"
