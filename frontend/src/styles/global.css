@@ -671,6 +671,23 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-nav .is-upcoming { color: #c7cbd2; cursor: default; }
 
 .landing-header-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+/*
+ * 가로줄이 들어가지 않는 폭에서만 서는 메뉴 단추와, 그 아래로 펼쳐지는 칸입니다.
+ * 넓은 화면에서는 가로줄이 그대로라 둘 다 접어 둡니다.
+ */
+.landing-menu-toggle { display: none; flex-shrink: 0; width: 38px; height: 38px; margin-left: 10px; place-items: center; border-radius: 10px; transition: background .15s; }
+.landing-menu-toggle:hover { background: rgba(0, 0, 0, .06); }
+/*
+ * 펼침 메뉴는 헤더 오른쪽 아래에 뜨는 카드입니다. 헤더가 sticky 라 자리 잡는 기준이 되어 주고,
+ * 오른쪽 여백은 좁은 폭의 헤더 안쪽 여백과 같은 20px 로 맞춰 여는 단추 아래에 섭니다.
+ *
+ * 색은 이 카드가 직접 정합니다. 랜딩 헤더의 밝은 글자색을 물려받으면 흰 바탕에 묻힙니다.
+ */
+.landing-menu { display: none; position: absolute; z-index: 1; top: calc(100% + 8px); right: 20px; min-width: 190px; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .14); }
+.landing-menu a, .landing-menu span { padding: 10px 12px; border-radius: 8px; color: #374151; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.landing-menu a:hover { background: #f3f4f6; color: var(--lp-ink); }
+.landing-menu a.active { background: #eef2ff; color: var(--lp-indigo); font-weight: 600; }
+.landing-menu .is-upcoming { color: #c7cbd2; cursor: default; }
 .landing-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; white-space: nowrap; transition: background .15s, border-color .15s; }
 .landing-btn--ghost { border: 1px solid #d1d5db; color: #374151; }
 .landing-btn--ghost:hover { background: #f9fafb; }
@@ -802,6 +819,8 @@ h1 { margin: 0; line-height: 1.25; }
 @media (max-width: 860px) {
   .landing-header-inner, .landing-hero, .landing-section, .landing-beyond-inner, .landing-divider { padding-left: 20px; padding-right: 20px; }
   .landing-nav { display: none; }
+  .landing-menu-toggle { display: grid; }
+  .landing-menu { display: flex; flex-direction: column; }
   .landing-hero { grid-template-columns: 1fr; padding-top: 48px; }
   .landing-hero h1 { font-size: 34px; letter-spacing: -1.2px; }
   .landing-hero-visual { min-height: 260px; }
