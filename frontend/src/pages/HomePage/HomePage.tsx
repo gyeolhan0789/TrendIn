@@ -1,20 +1,19 @@
-import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
 import { CylinderCarousel } from '../../components/common/CylinderCarousel';
 import { FilterSelect } from '../../components/common/FilterSelect';
+import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
+import { useRegisterInterestKeyword } from '../../features/myPage/hooks/useInterestKeywordMutations';
+import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
+import type { RecommendedKeyword } from '../../features/myPage/types/myPage';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
-import { KeywordSuggestMenu } from '../../features/trend/components/KeywordSuggestMenu';
 import { TOP_COUNT, TrendRankBoard } from '../../features/trend/components/TrendRankBoard';
-import { useKeywordSuggest } from '../../features/trend/hooks/useKeywordSuggest';
 import { useTrends } from '../../features/trend/hooks/useTrends';
-import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
 import { ANALYSIS_PERIODS, parsePeriod, resolveDomainCode } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
 import { TREND_TYPES } from '../../features/trend/types/trend';
 import type { TrendAnalysisWindow, TrendType } from '../../features/trend/types/trend';
-import type { KeywordSearchItem } from '../../features/trend/types/keyword';
 
 const periodLabels: Record<PeriodCode, string> = {
   '24H': '최근 24시간',
@@ -23,14 +22,14 @@ const periodLabels: Record<PeriodCode, string> = {
 };
 
 /** 캐러셀의 점에 붙는 짧은 이름입니다. 판 안의 제목은 '인기 트렌드'처럼 길게 둡니다. */
+/** 빠른 탐색 칸이 좁아 추천은 여덟 개까지만 세웁니다. */
+const RECOMMEND_COUNT = 8;
+
 const typeLabels: Record<TrendType, string> = {
   CURRENT: '인기',
   NEW: '신규',
   RISING: '급상승',
 };
-
-/** 입력칸이 aria-controls 로 가리킬 이름입니다. 한 쪽에 검색 상자가 하나라 고정 값으로 둡니다. */
-const SUGGEST_ID = 'explore-keyword-suggest';
 
 function formatWindowDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
@@ -69,29 +68,58 @@ function SearchIcon({ size = 16, color = '#4F46E5' }: { size?: number; color?: s
 
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const openDetail = useTrendDetailLink();
   const domainsQuery = useDomains();
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
+
+  /*
+   * 분야를 아직 못 받았으면 고를 것이 없습니다. 빈 칸으로 두면 무엇을 기다리는지 알 수 없어,
+   * 잠긴 칸에 사정을 적어 둡니다.
+   */
+  const categoryOptions = useMemo(() => {
+    if (domains.length > 0) return domains.map((option) => ({ value: option.domain, label: option.name }));
+    return [{ value: '', label: domainsQuery.isError ? '불러오지 못함' : '불러오는 중…' }];
+  }, [domains, domainsQuery.isError]);
 
   const period = parsePeriod(searchParams.get('period'));
   const rawType = searchParams.get('status')?.toUpperCase() ?? '';
   const type: TrendType = (TREND_TYPES as readonly string[]).includes(rawType) ? (rawType as TrendType) : 'CURRENT';
-  const query = searchParams.get('q') ?? '';
-  const [draft, setDraft] = useState(query);
 
   // 분야 목록을 받기 전에는 고를 분야가 없어 조회를 멈춰 둡니다.
   const domain = resolveDomainCode(searchParams.get('category'), domains);
 
   /*
-   * 집계 구간과 빠른 탐색 꼬리표는 지금 보는 판의 것을 씁니다. 순위판이 처음 부르는 조회와
-   * 조건이 같아 캐시를 함께 쓰므로, 이 줄 때문에 서버를 한 번 더 부르지는 않습니다.
+   * 집계 구간은 지금 보는 판의 것을 씁니다. 순위판이 처음 부르는 조회와 조건이 같아 캐시를
+   * 함께 쓰므로, 이 줄 때문에 서버를 한 번 더 부르지는 않습니다.
    */
   const shownQuery = useTrends(domain ? { domain, type, period, page: 0, size: TOP_COUNT } : undefined);
   const windowLabel = describeWindow(shownQuery.data?.analysisWindow);
-  const quickTags = useMemo(
-    () => (shownQuery.data?.trends ?? []).map((trend) => trend.keyword),
-    [shownQuery.data],
+  const recommendedQuery = useRecommendedKeywords();
+
+  /*
+   * 서버는 이미 담은 키워드를 추천에서 빼 줍니다. 그대로 그리면 담는 순간 꼬리표가 사라져,
+   * 담았다는 표시를 볼 새가 없고 뒤 꼬리표들이 앞으로 밀려 눈이 따라가지 못합니다.
+   *
+   * 그래서 처음 받은 목록을 붙잡아 둡니다. 자리는 그대로 두고 아래 registeredIds 가 체크로
+   * 뒤집습니다. 새 추천은 화면을 다시 열 때 받습니다.
+   */
+  const [recommended, setRecommended] = useState<RecommendedKeyword[]>([]);
+
+  useEffect(() => {
+    const fresh = recommendedQuery.data;
+    if (!fresh || fresh.length === 0 || recommended.length > 0) return;
+    // 패널이 좁아 여덟 개에서 끊습니다. 연관도가 높은 순서로 오므로 앞에서 자릅니다.
+    setRecommended(fresh.slice(0, RECOMMEND_COUNT));
+  }, [recommended.length, recommendedQuery.data]);
+
+  /*
+   * 이미 담은 키워드인지는 꼬리표마다 목록을 훑지 않고 여기서 한 번만 추려 둡니다.
+   * 등록이 끝나면 관심 키워드 목록이 다시 받아져 이 집합도 따라 바뀌고, 꼬리표가 체크 표시로 넘어갑니다.
+   */
+  const interestKeywordsQuery = useInterestKeywords();
+  const registerMutation = useRegisterInterestKeyword();
+  const registeredIds = useMemo(
+    () => new Set((interestKeywordsQuery.data ?? []).map((item) => item.keywordId)),
+    [interestKeywordsQuery.data],
   );
 
   const updateParams = (updates: Record<string, string | undefined>, replace = false) => {
@@ -103,38 +131,11 @@ export function HomePage() {
     setSearchParams(next, { replace });
   };
 
-  /*
-   * 자동완성은 이 쪽 목록이 아니라 서버 전체에서 찾습니다. 고른 말이 트렌드에 올라 있으면
-   * 상세를 바로 열고, 아직 오르지 않았으면 이 쪽 목록을 그 말로 걸러 없다는 것을 보여 줍니다.
-   */
-  const selectSuggestion = (item: KeywordSearchItem) => {
-    setDraft(item.keyword);
-    if (item.trendId === null) {
-      updateParams({ q: item.keyword });
-      return;
-    }
-    const { to, state } = openDetail(item.trendId);
-    navigate(to, { state });
-  };
-
-  const suggest = useKeywordSuggest(draft, selectSuggestion);
-
-  const submitSearch = (event: FormEvent) => {
-    event.preventDefault();
-    suggest.hide();
-    updateParams({ q: draft.trim() || undefined });
-  };
-
-  const runQuickTag = (keyword: string) => {
-    setDraft(keyword);
-    updateParams({ q: keyword });
-  };
-
   /* 캐러셀 자리는 주소창의 status 와 한 몸입니다. 돌릴 때마다 뒤로가기가 쌓이지 않게 바꿔치기합니다. */
   const slides = TREND_TYPES.map((code) => ({
     key: code,
     label: typeLabels[code],
-    node: <TrendRankBoard type={code} domain={domain} period={period} query={query} />,
+    node: <TrendRankBoard type={code} domain={domain} period={period} />,
   }));
 
   return (
@@ -154,49 +155,6 @@ export function HomePage() {
       </section>
 
       <section className="explore-searchbar">
-        {/* 목록은 검색 상자에 폭을 맞춥니다. 칸(section)에는 좌우 여백이 있어 그 기준으로 두면 밖으로 삐져나옵니다. */}
-        <div className="explore-search-shell" ref={suggest.box}>
-          <form onSubmit={submitSearch} role="search">
-            <SearchIcon size={20} color="#9ca3af" />
-            <input
-              type="text"
-              value={draft}
-              placeholder="키워드를 검색해보세요."
-              aria-label="키워드 검색"
-              role="combobox"
-              aria-expanded={suggest.visible}
-              aria-controls={SUGGEST_ID}
-              aria-autocomplete="list"
-              aria-activedescendant={suggest.activeIndex >= 0 ? `${SUGGEST_ID}-${suggest.activeIndex}` : undefined}
-              autoComplete="off"
-              onChange={(event) => { setDraft(event.target.value); suggest.show(); }}
-              onFocus={suggest.show}
-              onKeyDown={suggest.handleKeyDown}
-            />
-            {query && (
-              <button type="button" className="explore-search-clear" onClick={() => { setDraft(''); suggest.hide(); updateParams({ q: undefined }); }}>
-                지우기
-              </button>
-            )}
-            <button type="submit" className="explore-search-go" aria-label="검색">
-              <ArrowIcon size={16} color="#fff" />
-            </button>
-          </form>
-
-          {suggest.visible && (
-            <KeywordSuggestMenu
-              id={SUGGEST_ID}
-              query={draft.trim()}
-              items={suggest.items}
-              status={suggest.status}
-              activeIndex={suggest.activeIndex}
-              onHover={suggest.setActiveIndex}
-              onSelect={suggest.select}
-            />
-          )}
-        </div>
-
-        {/* 조건 고르는 칸은 검색 상자와 한 줄에 서고, 오른쪽 끝으로 붙습니다. */}
         <div className="explore-filters">
           <FilterSelect
             label="기간"
@@ -205,23 +163,13 @@ export function HomePage() {
             onChange={(value) => updateParams({ period: value })}
           />
 
-          <div className="trendin-filter">
-            <span className="trendin-filter-label">카테고리</span>
-            <div className="explore-chips" role="group" aria-label="카테고리">
-              {domains.map((option) => (
-                <button
-                  type="button"
-                  key={option.domain}
-                  className={`explore-cat${option.domain === domain ? ' is-selected' : ''}`}
-                  aria-pressed={option.domain === domain}
-                  onClick={() => updateParams({ category: option.domain })}
-                >
-                  {option.name}
-                </button>
-              ))}
-              {domains.length === 0 && <span className="trendin-filter-label">분야를 불러오는 중…</span>}
-            </div>
-          </div>
+          <FilterSelect
+            label="카테고리"
+            value={domain ?? ''}
+            options={categoryOptions}
+            onChange={(value) => updateParams({ category: value })}
+            disabled={domains.length === 0}
+          />
         </div>
       </section>
 
@@ -244,13 +192,34 @@ export function HomePage() {
 
       <section className="explore-extra">
         <div className="explore-panel">
-          <div className="explore-panel-head"><SearchIcon /><span>빠른 탐색</span></div>
-          <p className="explore-panel-lead">지금 이 판에 오른 키워드로 바로 걸러 보세요.</p>
+          <div className="explore-panel-head"><SearchIcon /><span>함께 떠오르는 키워드</span></div>
+          <p className="explore-panel-lead">내 관심 키워드와 함께 언급되는 말입니다. 눌러서 관심 키워드로 담아 보세요.</p>
           <div className="explore-quick">
-            {quickTags.map((keyword) => (
-              <button type="button" key={keyword} onClick={() => runQuickTag(keyword)}>{keyword}</button>
-            ))}
-            {quickTags.length === 0 && <span className="explore-panel-lead">보여 줄 키워드가 아직 없습니다.</span>}
+            {recommended.map((item) => {
+              const registered = registeredIds.has(item.keywordId);
+              const pending = registerMutation.isPending && registerMutation.variables?.keywordId === item.keywordId;
+              return (
+                <button
+                  type="button"
+                  key={item.keywordId}
+                  className={registered ? 'is-registered' : undefined}
+                  /* 담았는지 아직 모르는 동안 누르면 이미 담은 것을 또 보내게 됩니다. */
+                  disabled={registered || pending || !interestKeywordsQuery.isSuccess}
+                  aria-label={registered ? `${item.keyword} 관심 키워드에 등록됨` : `${item.keyword} 관심 키워드로 등록`}
+                  title={registered ? '이미 등록한 관심 키워드' : '관심 키워드로 등록'}
+                  onClick={() => registerMutation.mutate({ keywordId: item.keywordId, keyword: item.keyword })}
+                >
+                  {item.keyword}
+                  <span aria-hidden="true">{registered ? '✓' : '＋'}</span>
+                </button>
+              );
+            })}
+            {/* 추천은 내 관심 키워드에 기대므로, 하나도 등록하지 않았으면 서버가 빈 목록을 줍니다. */}
+            {recommendedQuery.isSuccess && recommendedQuery.data.length === 0 && (
+              <span className="explore-panel-lead">관심 키워드를 등록하면 그와 가까운 말을 모아 드립니다.</span>
+            )}
+            {recommendedQuery.isLoading && <span className="explore-panel-lead">불러오는 중…</span>}
+            {recommendedQuery.isError && <span className="explore-panel-lead">추천 키워드를 불러오지 못했습니다.</span>}
           </div>
         </div>
 
