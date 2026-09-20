@@ -6,26 +6,41 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from trendin.ai.client import GmsOpenAIClient, GmsOpenAIError
 
-DEVELOPER_PROMPT = """당신은 한국어 트렌드 분석가다.
+# 분량을 **문장 수가 아니라 글자 수로** 묶는다. "1~5문장" · "2~3문장" 이던 때 모델은 규격을
+# 지켰는데도 `reason` 이 300자를 넘겼다 — 문장을 몇 개 쓸지만 정해 두면 한 문장이 얼마나
+# 길어질지는 아무것도 안 묶인다. 화면에 들어갈 분량을 정하는 것이 목적이니 그 단위로 센다.
+#
+# **`summary` 와 `reason` 은 계약에서 검증하지 않는다.** 두 칸 다 `text` 라 넘쳐도 저장이
+# 깨지지 않고, 여기서 막으면 조금 긴 응답 하나가 그 키워드의 분석을 통째로 날린다 — 분량은
+# 취향이고 `description` 의 255자는 `varchar` 가 강제하는 사실이라, 둘을 같이 다루지 않는다.
+SUMMARY_MAX_CHARS = 300
+REASON_MAX_CHARS = 250
+
+# `trend_analyses.description` 이 `varchar(255)` 다. **프롬프트에 적는 수와 계약이 받는 수가
+# 다르다** — 200 으로 부탁하고 255 까지 받는다. 모델이 조금 넘겨도 버리지 않되, 칸을 넘기면
+# 저장 전에 멈춘다.
+DESCRIPTION_PROMPT_CHARS = 200
+DESCRIPTION_MAX_CHARS = 255
+
+DEVELOPER_PROMPT = f"""당신은 한국어 트렌드 분석가다.
 입력으로 제공된 자료만 사용해 트렌드를 분석한다.
 반드시 JSON 객체 하나만 반환하고 마크다운 코드 블록이나 부가 설명을 쓰지 않는다.
 JSON에는 description, summary, reason 문자열 필드만 포함한다.
 입력의 기간별 트렌드 유형과 지표를 해석하되, 원인과 배경은 기사 근거로만 설명한다.
 - description: 트렌드가 무엇인지 핵심 특징을 간결한 1문장으로 정의한다. summary나 reason을
-  반복하지 않는다. 공백을 포함해 200자를 넘기지 않는다.
-- summary: 여러 자료에 공통으로 나타나는 현재 모습과 흐름을 1~5문장으로 종합한다. 자료에
-  나온 대표 스타일, 아이템, 브랜드, 현상이 있다면 함께 설명하되 description을 늘여 쓰지 않는다.
+  반복하지 않는다. 공백을 포함해 {DESCRIPTION_PROMPT_CHARS}자를 넘기지 않는다.
+- summary: 여러 자료에 공통으로 나타나는 현재 모습과 흐름을 종합한다. 자료에 나온 대표
+  스타일, 아이템, 브랜드, 현상이 있다면 함께 설명하되 description을 늘여 쓰지 않는다.
+  공백을 포함해 {SUMMARY_MAX_CHARS}자를 넘기지 않는다.
 - reason: NEW는 새롭게 등장한 배경, RISING은 관심이 갑자기 또는 다시 상승한 이유,
-  CURRENT는 현재 유행하는 배경을 2~3문장으로 설명한다. 유형이 여러 개면 모든 관점을
-  함께 반영한다. 자료의 제품 출시, 컬렉션, 셀럽 노출, 행사 등 구체적인 사건과 연결하고,
-  해당 유형의 원인이나 배경을 뒷받침할 근거가 부족하면 확인하기 어렵다고 명시한다.
-모든 필드는 입력 자료에서 확인되는 내용만 사용하며, 확인할 수 없는 내용은 추측하지 않는다."""
-
-
-# `trend_analyses.description` 이 `varchar(255)` 다. `summary` · `reason` 은 `text` 라
-# 한도가 없다. 프롬프트는 200자로 여유를 두고 계약은 칸 그대로 255자를 받는다 — 모델이
-# 조금 넘겨도 버리지 않되, 칸을 넘기면 저장 전에 멈춘다.
-DESCRIPTION_MAX_CHARS = 255
+  CURRENT는 현재 유행하는 배경을 설명한다. 유형이 여러 개면 모든 관점을 함께 반영한다.
+  자료의 제품 출시, 컬렉션, 셀럽 노출, 행사 등 구체적인 사건과 연결하고, 해당 유형의
+  원인이나 배경을 뒷받침할 근거가 부족하면 확인하기 어렵다고 명시한다. 공백을 포함해
+  {REASON_MAX_CHARS}자를 넘기지 않는다.
+모든 필드는 입력 자료에서 확인되는 내용만 사용하며, 확인할 수 없는 내용은 추측하지 않는다.
+읽는 사람은 입력 자료를 보지 못한다. NEW·RISING·CURRENT 같은 유형 이름과 "기사1",
+"기사2·3" 같은 자료 번호를 어느 필드에도 쓰지 않고, 근거는 매체 이름이나 사건 자체로
+가리킨다."""
 
 
 class TrendAnalysis(BaseModel):

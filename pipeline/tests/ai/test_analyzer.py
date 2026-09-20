@@ -4,7 +4,14 @@ import json
 
 import pytest
 
-from trendin.ai.analyzer import TrendAnalyzer
+from trendin.ai.analyzer import (
+    DESCRIPTION_MAX_CHARS,
+    DESCRIPTION_PROMPT_CHARS,
+    DEVELOPER_PROMPT,
+    REASON_MAX_CHARS,
+    SUMMARY_MAX_CHARS,
+    TrendAnalyzer,
+)
 from trendin.ai.client import GmsOpenAIError
 
 
@@ -52,6 +59,30 @@ def test_description_summary_reason_JSON을_파싱한다():
     assert "RISING은 관심이 갑자기 또는 다시 상승한 이유" in reason_instruction
     assert "CURRENT는 현재 유행하는 배경" in reason_instruction
     assert "모든 관점" in reason_instruction
+
+
+def test_분량을_문장_수가_아니라_글자_수로_묶는다():
+    """"1~5문장" 이던 때 모델은 규격을 지켰는데도 `reason` 이 300자를 넘겼다.
+
+    문장을 몇 개 쓸지만 정해 두면 한 문장이 얼마나 길어질지는 아무것도 안 묶인다.
+    """
+    for limit in (DESCRIPTION_PROMPT_CHARS, SUMMARY_MAX_CHARS, REASON_MAX_CHARS):
+        assert f"{limit}자를 넘기지 않는다" in DEVELOPER_PROMPT
+    assert "문장으로 종합한다" not in DEVELOPER_PROMPT
+    # `description` 은 프롬프트에 적는 수와 계약이 받는 수가 다르다 — 넘겨도 버리지 않는다.
+    assert DESCRIPTION_PROMPT_CHARS < DESCRIPTION_MAX_CHARS
+
+
+def test_유형_이름과_기사_번호를_쓰지_말라고_이른다():
+    """읽는 사람은 입력 자료를 못 본다.
+
+    실제 응답이 `"CURRENT는 이번 가을 청바지를…"`, `"기사1·4는…"` 으로 시작했다. 둘 다
+    모델이 지어낸 것이 아니라 프롬프트의 분기 라벨과 `build_analysis_input()` 의 기사
+    번호를 그대로 받아 적은 것이라, 프롬프트에서 막지 않으면 화면까지 그대로 나간다.
+    """
+    assert "유형 이름" in DEVELOPER_PROMPT
+    assert "자료 번호" in DEVELOPER_PROMPT
+    assert "어느 필드에도 쓰지 않고" in DEVELOPER_PROMPT
 
 
 @pytest.mark.parametrize(
