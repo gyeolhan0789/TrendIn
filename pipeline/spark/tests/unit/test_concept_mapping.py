@@ -54,6 +54,9 @@ def test_사전에_있으면_붙고_없으면_미등록이다():
     assert [(u.lang, u.normalized, u.context) for u in result.unmapped] == [
         ("ko", "발레코어", "발레코어 룩이 다시")
     ]
+    # 라틴 표기의 입력 언어는 la 여도 사전의 en 표현에 붙는다. 검수 대기 정리는
+    # 사전 표현의 언어가 아니라 이 입력 키로 해야 한다.
+    assert result.resolved_keys == (("ko", "부츠"), ("la", "bottega veneta"))
     assert result.deferred == ()
 
 
@@ -83,6 +86,7 @@ def test_가를_근거가_없으면_유보한다():
     # 기사에 다른 개념이 하나도 없다. 세지 않고 기록만 남긴다.
     result = map_article(10, "ko", [Keyword("코트")], DICTIONARY)
     assert result.rows == ()
+    assert result.resolved_keys == ()
     assert [(d.normalized, d.concept_ids) for d in result.deferred] == [("코트", (1305, 9001))]
 
 

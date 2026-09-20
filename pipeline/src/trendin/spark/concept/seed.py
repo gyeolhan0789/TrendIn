@@ -60,6 +60,7 @@ CATEGORIES = frozenset(
         "style",
         "brand",
         "designer",
+        "person",
         "generic",
     }
 )

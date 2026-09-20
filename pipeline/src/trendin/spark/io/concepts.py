@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS {CATEGORY} (
 INSERT INTO {CATEGORY} (code, name_ko) VALUES
     ('apparel', '의류'), ('footwear', '신발'), ('accessory', '액세서리'), ('material', '소재'),
     ('color', '색상'), ('style', '스타일'), ('brand', '브랜드'), ('designer', '디자이너'),
-    ('generic', '일반 단어')
+    ('person', '인물'), ('generic', '일반 단어')
 ON CONFLICT (code) DO NOTHING;
 
 -- 개념. 정체성은 id 이고 이름은 전부 바꿀 수 있다. countable=false 는 세지 않는 일반 단어.
@@ -256,10 +256,27 @@ SELECT a.id, a.concept_id, a.lang, a.normalized,
 
 # 승격된 키워드의 기사별 발생 — MVP 의 계약 A 를 DB 에서 만든다. 추출이 언어·문맥을 실어 주기
 # 전까지의 자리이고, 그때는 이 질의 대신 파일을 읽는다 (`docs/concept-layer.md` 계약 A).
+#
+# ## 별칭을 거쳐서 승격 여부를 본다
+#
+# `pl_document_candidate.normalized_key` 는 **별칭을 접지 않은 원표기**다
+# (`registry/batch.py` 1단계).
+# 승격은 대표 키로만 일어나 `pl_keyword_id_map` 에는 대표만 들어간다 (8단계). 그래서 별칭으로
+# 흡수된 표기의 문서 행은 대표 키로 바꿔 보지 않으면 조인에서 전부 떨어진다 — 개념도 안 붙고
+# 미등록에도 안 남아서, 무엇을 놓쳤는지 물어볼 자리조차 없어진다.
+#
+# `keyword_contents` 를 잇는 질의가 이미 같은 홉을 거친다 (`io/keywords.LINK_CONTENTS_SQL`).
+# `pl_alias` 는 `(domain, alias_key)` 기본키라 왼쪽 조인이 행을 늘리지 않는다.
+#
+# **조회에 쓰는 표기는 대표가 아니라 기사에 나온 원표기다.** 별칭 홉은 "이 표기가 승격된
+# 키워드인가" 만 본다. 개념 사전은 자기 표현 목록을 따로 들고 있어서(`스니커` 도 `sneakers` 의
+# 표현이다) 원표기가 더 많은 것을 알려 주고, 사전에 없으면 미등록으로 드러난다.
 OCCURRENCES_SQL = """
 SELECT m.content_id, d.surface
   FROM pl_document_candidate d
-  JOIN pl_keyword_id_map   k ON k.domain = d.domain AND k.normalized_key = d.normalized_key
+  LEFT JOIN pl_alias       a ON a.domain = d.domain AND a.alias_key = d.normalized_key
+  JOIN pl_keyword_id_map   k ON k.domain = d.domain
+                            AND k.normalized_key = coalesce(a.canonical_key, d.normalized_key)
   JOIN pl_content_id_map   m ON m.url_hash = d.url_hash
  WHERE d.selected
    AND d.domain = %s
@@ -287,6 +304,18 @@ DELETE FROM {ARTICLE_CONCEPT} a
          WHERE s.article_id = a.article_id AND s.concept_id = a.concept_id);
 
 TRUNCATE {STAGE_ARTICLE_CONCEPT}, {STAGE_PROCESSED};
+"""
+
+# 사전에 새로 등록되어 이번 실행에서 모호하지 않게 붙은 원표기는 검수 대기에서 내린다.
+# 기사 이력은 재처리 근거로 남겨 두고 상태만 바꾼다. 라틴 표기는 사전의 언어 칸과
+# 입력의 언어 칸이 다를 수 있어 표현 테이블 대신 매핑이 확인한 입력 키를 받는다.
+RESOLVE_MAPPED_SQL = f"""
+UPDATE {UNMAPPED} u
+   SET status = 'RESOLVED'
+  FROM (VALUES %s) AS mapped(lang, normalized)
+ WHERE u.status IN ('PENDING', 'QUEUED')
+   AND u.lang = mapped.lang
+   AND u.normalized = mapped.normalized;
 """
 
 # 미등록: 표현 upsert → 기사 집합 → 문맥 표본(N건 상한) → article_count 재계산.
@@ -327,8 +356,8 @@ UPDATE {UNMAPPED} u
 TRUNCATE {STAGE_UNMAPPED};
 """
 
-# 기사 쪽이 없어진 미등록(재처리로 붙은 것)은 여기서 지우지 않는다 — 검수 명령이 RESOLVED 로
-# 옮긴다. 붙었는데 PENDING 으로 남아 있어도 다음 배치가 사전 조회에서 걸러 다시 올리지 않는다.
+# 미등록의 기사 이력은 지우지 않는다. 새 사전으로 실제 매핑된 표현의 상태만 위에서
+# RESOLVED 로 바꾼다. 이번 창에 다시 등장하지 않은 표현은 그대로 검수 대상으로 남는다.
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,7 +411,7 @@ class ConceptSink:
 
     # --- 입력 --------------------------------------------------------------
     def occurrences(self, *, domain: str, window_days: int) -> dict[int, list[str]]:
-        """기사 → 선별된 표기 목록.
+        """기사 → 선별된 표기 목록. 별칭은 대표로 바꿔 승격 여부를 본다 (`OCCURRENCES_SQL`).
 
         `domain` 은 **슬러그**(`fashion`)다. `pl_document_candidate` 와 `pl_keyword_id_map` 은 둘 다
         슬러그로 저장한다 — `keywords.domain` 의 상수명(`FASHION`)이 아니다. 2026-09-17 실 DB 에서
@@ -402,6 +431,7 @@ class ConceptSink:
         rows: Sequence[ConceptRow],
         processed_article_ids: Iterable[int],
         unmapped: Sequence[Unmapped],
+        resolved_keys: Iterable[tuple[str, str]],
         dictionary_version: int,
         context_samples: int,
     ) -> WriteResult:
@@ -413,6 +443,7 @@ class ConceptSink:
         from psycopg2.extras import execute_values
 
         processed = sorted(set(processed_article_ids))
+        resolved = sorted(set(resolved_keys))
         page = int(self._config.get("jdbc.batch_size", jdbc.DEFAULT_BATCH_SIZE))
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(f"TRUNCATE {STAGE_ARTICLE_CONCEPT}, {STAGE_PROCESSED}, {STAGE_UNMAPPED}")
@@ -443,6 +474,8 @@ class ConceptSink:
                 )
             if processed:
                 cur.execute(ARTICLE_CONCEPT_MERGE_SQL)
+            if resolved:
+                execute_values(cur, RESOLVE_MAPPED_SQL, resolved, page_size=page)
             if unmapped:
                 execute_values(
                     cur,
