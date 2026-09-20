@@ -21,12 +21,11 @@ class TrendNotificationSchedulerTest {
     @InjectMocks TrendNotificationScheduler scheduler;
 
     @Test
-    @DisplayName("최초 실행은 기존 상태를 초기화하고 다음 실행부터 진입 알림을 생성한다")
+    @DisplayName("매 실행마다 누락 상태를 초기화한 뒤 유형별 알림을 생성한다")
     void initializesBeforeCreatingNotifications() {
         // given
 
         // when
-        scheduler.createTrendChangeNotifications();
         scheduler.createTrendChangeNotifications();
 
         // then

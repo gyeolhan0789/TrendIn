@@ -62,17 +62,23 @@ public class Notification {
     @Column(name = "dedup_key", nullable = false, unique = true, length = 255)
     private String dedupKey;
 
-    private Notification(Member member, Trend trend, String message, String dedupKey) {
+    private Notification(Member member, Trend trend, NotificationType notificationType,
+            String message, String dedupKey) {
         this.member = Objects.requireNonNull(member);
         this.trend = Objects.requireNonNull(trend);
-        this.notificationType = NotificationType.TREND_CHANGE;
+        this.notificationType = Objects.requireNonNull(notificationType);
         this.message = Objects.requireNonNull(message);
         this.dedupKey = Objects.requireNonNull(dedupKey);
     }
 
     public static Notification trendChange(
             Member member, Trend trend, String message, String dedupKey) {
-        return new Notification(member, trend, message, dedupKey);
+        return new Notification(member, trend, NotificationType.TREND_CHANGE, message, dedupKey);
+    }
+
+    public static Notification trendEvent(Member member, Trend trend,
+            NotificationType notificationType, String message, String dedupKey) {
+        return new Notification(member, trend, notificationType, message, dedupKey);
     }
 
     public void markAsRead() {

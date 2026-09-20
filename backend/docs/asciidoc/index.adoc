@@ -488,6 +488,29 @@ operation::members-notifications-list[snippets='http-request,request-headers,que
 
 operation::members-notifications-unread-count[snippets='http-request,request-headers,http-response,response-fields']
 
+[[members-notification-settings-get]]
+=== 알림 설정 조회
+
+`GET /members/me/notification-settings`
+
+키워드 급등, 키워드 급락, 신규 트렌드 발견, 트렌드 전환점 알림의 활성화 여부를 조회한다.
+설정이 아직 없으면 네 유형 모두 활성화된 기본 설정을 생성해 반환한다.
+
+==== 요청 및 응답
+
+operation::members-notification-settings-get[snippets='http-request,request-headers,http-response,response-fields']
+
+[[members-notification-settings-update]]
+=== 알림 설정 수정
+
+`PUT /members/me/notification-settings`
+
+네 알림 유형의 활성화 여부를 한 번에 수정한다. 모든 필드는 필수다.
+
+==== 요청 및 응답
+
+operation::members-notification-settings-update[snippets='http-request,request-headers,request-fields,http-response,response-fields']
+
 [[domains]]
 == Domains
 
