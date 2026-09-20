@@ -176,8 +176,17 @@ h1 { margin: 0; line-height: 1.25; }
 .trend-grid--skeleton { pointer-events: none; }
 .skeleton-card { height: auto; min-height: 216px; margin: 0; }
 .skeleton-card--1 { grid-row: span 2; min-height: 449px; }
-.toast { position: fixed; bottom: 28px; left: 50%; z-index: 10; padding: 14px 21px; border: 1px solid #495363; border-radius: 10px; color: #fff; background: #303744; box-shadow: 0 10px 35px #49494920; transform: translateX(-50%); font-size: 13px; }
+/*
+ * 알림 쪽지는 머리글 아래, 화면 위쪽 가운데에 세웁니다. 바닥 가운데는 온보딩의 '이전/다음'처럼
+ * 화면마다 바닥에 붙는 버튼 줄과 자리가 같아, 쪽지가 떠 있는 3초 동안 그 버튼을 덮었습니다.
+ *
+ * 층은 오른쪽 상세 패널(.modal-backdrop, z-index 60)보다 위에 둡니다. 패널 안에서 트렌드를 담으면
+ * 쪽지가 뜨는데, 아래에 있으면 덮개에 가려 아무것도 안 뜬 것처럼 보입니다. 어딘가와 겹치더라도
+ * 누르는 것까지 막지는 않도록 pointer-events 는 꺼 둡니다.
+ */
+.toast { position: fixed; top: 78px; left: 50%; z-index: 100; max-width: calc(100vw - 32px); padding: 14px 21px; border: 1px solid #495363; border-radius: 10px; color: #fff; background: #303744; box-shadow: 0 10px 35px #49494920; transform: translateX(-50%); font-size: 13px; pointer-events: none; animation: toast-in .22s cubic-bezier(.22, .8, .22, 1) both; }
 .toast--error { background: #8e3f4b; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes loading { to { background-position: -200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
