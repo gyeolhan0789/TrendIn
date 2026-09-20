@@ -31,6 +31,13 @@ const WORLD_ZOOM = 1;
  * 평면 지도가 창 높이에 딱 맞아 위아래로 움직일 틈이 없어지고, 그 대목에서 화면이 멎습니다.
  */
 const TRAVEL_ZOOM = 1.9;
+/*
+ * 손으로 움직일 때 오갈 수 있는 배율입니다. 아래쪽은 따라가기가 물러서는 만큼까지만 열어 두어,
+ * 손으로 끝까지 줄인 뒤 따라가기를 눌러도 배율이 튀지 않습니다. 위쪽은 나라 하나가 화면을 가득
+ * 채우고도 국경이 남아 보이는 정도입니다.
+ */
+export const MIN_ZOOM = WORLD_ZOOM * 0.9;
+export const MAX_ZOOM = 14;
 const MOVE_MS = 2200;
 const HOLD_MS = 2100;
 
@@ -66,11 +73,20 @@ export interface SpreadTour {
   stopIndex: number;
   /** 지금 가고 있는(또는 머무르는) 자리. 지나온 경로를 어디까지 그릴지 정합니다. */
   focusIndex: number;
+  /*
+   * 지금 보고 있는 구간을 비행기가 얼마나 지났는지(0~1). 태울 구간이 없으면 null 입니다.
+   *
+   * 닿아도 1 로 그대로 남습니다. 비행기는 닿은 나라에 서 있다가 다음 구간이 시작되면 그
+   * 자리에서 그대로 떠납니다. 앞 구간의 끝과 다음 구간의 처음이 같은 나라라 이어 붙습니다.
+   */
+  legProgress: number | null;
   playing: boolean;
   play: () => void;
   pause: () => void;
   goTo: (index: number) => void;
   showWorld: () => void;
+  /** 손으로 지도를 움직일 때. 따라가던 움직임을 멈추고 조작을 넘겨받습니다. */
+  steer: (update: (view: MapView) => MapView) => void;
 }
 
 export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTour {
@@ -78,6 +94,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
   const [stopIndex, setStopIndex] = useState(-1);
   const [focusIndex, setFocusIndex] = useState(-1);
   const [playing, setPlaying] = useState(false);
+  const [legProgress, setLegProgress] = useState<number | null>(null);
   /* 그리기 고리를 다시 돌려야 할 때 올리는 값입니다. 값 자체는 쓰지 않고 신호로만 씁니다. */
   const [awake, setAwake] = useState(0);
 
@@ -111,6 +128,11 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     const distance = angularDistance(current, stop);
     targetRef.current = index;
     setFocusIndex(index);
+    /*
+     * 첫 자리로 갈 때는 건널 구간이 없어 비행기를 태우지 않으므로 치웁니다. 이어지는 구간이면
+     * 그대로 둡니다. 서 있던 나라가 곧 새 구간의 출발지라, 손대지 않아도 제자리에서 떠납니다.
+     */
+    if (index < 1) setLegProgress(null);
     startMotion({ lon: stop.lon, lat: stop.lat, zoom: FOCUS_ZOOM }, distance);
   }, [startMotion]);
 
@@ -127,6 +149,8 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     setStopIndex(-1);
     targetRef.current = -1;
     setFocusIndex(-1);
+    // 전체 보기는 경로를 통째로 걷어내는 자리라, 그 위에 서 있던 비행기도 함께 내려놓습니다.
+    setLegProgress(null);
     startMotion({ lon: 20, lat: 18, zoom: WORLD_ZOOM }, 40);
   }, [startMotion]);
 
@@ -140,6 +164,29 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     moveToStop(next);
   }, [moveToStop]);
 
+  /*
+   * 휠과 끌기가 들어오는 자리입니다. 따라가는 중이었다면 그 자리에서 멈춥니다. 손으로 움직이는
+   * 동안 뒤에서 계속 끌어당기면 지도가 손을 벗어나기 때문입니다. 가던 자리는 그대로 두어,
+   * 멈춘 나라의 이름표와 지나온 경로는 남습니다.
+   */
+  const steer = useCallback((update: (view: MapView) => MapView) => {
+    motionRef.current = null;
+    playingRef.current = false;
+    setPlaying(false);
+    /* 비행기는 건드리지 않습니다. 가던 자리에 그대로 서서, 손으로 옮긴 지도를 따라다닙니다. */
+    if (targetRef.current >= 0) setStopIndex(targetRef.current);
+
+    const next = update(viewRef.current);
+    const settled = {
+      // 경도는 한 바퀴 돌면 제자리입니다. 한쪽으로 계속 끌어도 값이 끝없이 커지지 않게 접어 둡니다.
+      lon: ((((next.lon + 180) % 360) + 360) % 360) - 180,
+      lat: Math.max(-90, Math.min(90, next.lat)),
+      zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, next.zoom)),
+    };
+    viewRef.current = settled;
+    setView(settled);
+  }, []);
+
   const pause = useCallback(() => {
     setPlaying(false);
     playingRef.current = false;
@@ -150,6 +197,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     targetRef.current = -1;
     setFocusIndex(-1);
     setStopIndex(-1);
+    setLegProgress(null);
     if (stops.length === 0) return;
     setPlaying(true);
     playingRef.current = true;
@@ -190,10 +238,13 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
         };
         viewRef.current = next;
         setView(next);
+        /* 비행기는 카메라와 같은 진행도를 탑니다. 태울 구간이 있을 때만 자리를 옮깁니다. */
+        if (targetRef.current >= 1) setLegProgress(eased);
 
         if (ratio >= 1) {
           motionRef.current = null;
           holdUntilRef.current = now + HOLD_MS;
+          /* 닿은 비행기는 그대로 둡니다. 치우지 않아야 다음 구간을 그 자리에서 이어 갑니다. */
           if (targetRef.current >= 0) setStopIndex(targetRef.current);
         }
         return;
@@ -215,5 +266,5 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     return () => cancelAnimationFrame(frame);
   }, [moveToStop, awake]);
 
-  return { view, stopIndex, focusIndex, playing, play, pause, goTo, showWorld };
+  return { view, stopIndex, focusIndex, legProgress, playing, play, pause, goTo, showWorld, steer };
 }
