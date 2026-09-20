@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """계약 fixture 생성 (S15P21A102-159).
 
-`spark/tests/fixtures/contract/` 를 만든다. 소비 측(169)이 Kafka·MinIO 없이 파싱·검증
-코드를 짜는 근거다. 계약 설명은 `docs/spark-integration.md`.
+`spark/tests/fixtures/contract/` 를 만든다. 소비 측(169)이 저장소 없이 파싱·검증 코드를
+돌리는 근거다. 계약 설명은 `docs/spark-integration.md`.
 
 **손으로 쓰지 않고 이 스크립트로 만드는 이유** — `checksum` 은 `article.json` 바이트의
 sha256 이고, 봉투의 값은 `article.json` 의 값과 같아야 한다. 손으로 맞추면 틀리고, 틀린
@@ -14,12 +14,13 @@ cd pipeline
 .venv/bin/pytest tests/common/test_contract_fixtures.py
 ```
 
-샘플 값은 `tests/common/test_events.py` 의 `pending()` 과 같게 둔다. 두 곳이 갈리면 같은
+샘플 값은 `tests/common/test_events.py` 의 `ledger_row()` 와 같게 둔다. 두 곳이 갈리면 같은
 계약을 두 모양으로 설명하는 셈이 된다.
 
-같은 폴더의 `run-summary-*.json` 은 이 스크립트가 만들지 않는다. 토픽 분리 전에
-`raw-file-ready` 로 나간 이전 봉투 요약이고, 보존 기간 동안 소비 측이 계속 판별하므로
-그대로 둔다. 기사 토픽의 요약 분기를 걷을 때(S15P21A102-206) 함께 지운다.
+**요약 이벤트는 만들지 않는다.** 브로커와 함께 걷혔다 (Kafka 제거 3/3). 같은 폴더의
+`run-summary-*.json` 은 토픽 분리 전 봉투의 기록이고 소비 측 판별기 테스트가 그대로 쓴다 —
+생산자가 없으므로 이 스크립트도, `test_contract_fixtures.py` 도 그것을 만들거나 대조하지
+않는다.
 """
 
 from __future__ import annotations
@@ -30,10 +31,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from trendin.common.collect.article import Article
-from trendin.common.collect.events import article_event, run_summary_event
-from trendin.common.collect.flow import FailureBrief, SourceOutcome, article_bytes
+from trendin.common.collect.events import article_event
+from trendin.common.collect.flow import article_bytes
 from trendin.common.collect.keys import article_key, raw_key
-from trendin.common.collect.ledger import EmittedStats, PendingArticle
+from trendin.common.collect.ledger import LedgerRow
 
 KST = timezone(timedelta(hours=9), "KST")
 BUCKET = "raw-data"
@@ -52,11 +53,8 @@ TITLE = "2026 F/W 런웨이가 다시 꺼낸 실루엣"
 PUBLISHED_AT = datetime(2026, 9, 3, 10, 0, tzinfo=KST)
 COLLECTED_AT = datetime(2026, 9, 3, 2, 10, tzinfo=timezone.utc)
 
+# 발급이 있던 시절의 실행 식별자. 봉투가 그 칸을 들고 있어 견본도 값을 들고 있다.
 RUN_ID = "20260903T100000"
-LOGICAL_DATE = datetime(2026, 9, 3, 10, 0, tzinfo=KST)
-SUMMARY_EMITTED = 12
-FAILED_SOURCE = "wkorea"
-FAILURE_REASON = "목록 페이지가 3회 연속 타임아웃"
 
 SYNTHETIC_SUMMARY = "이 문단은 fixture 용 합성 요약이다. 실제 기사 문장이 아니다."
 SYNTHETIC_BODY = (
@@ -88,7 +86,7 @@ RAW_XML = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def build() -> tuple[dict[str, dict], dict[str, bytes]]:
-    """이벤트 셋과 객체 둘을 만든다. 파일로 쓰기 전에 값이 전부 여기서 결정된다."""
+    """기사 이벤트 하나와 객체 둘을 만든다. 파일로 쓰기 전에 값이 전부 여기서 결정된다."""
     raw = RAW_XML.encode("utf-8")
 
     article = Article(
@@ -100,7 +98,7 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
         title=TITLE,
         published_at=PUBLISHED_AT,
         collected_at=COLLECTED_AT,
-        raw_key=raw_key(DOMAIN, SOURCE, ROUTE, PUBLISHED_AT, ARTICLE_ID),
+        raw_key=raw_key(DOMAIN, SOURCE, ROUTE, PUBLISHED_AT, ARTICLE_ID, ext="xml"),
         content_sha256=hashlib.sha256(raw).hexdigest(),
         summary=SYNTHETIC_SUMMARY,
         body_text=SYNTHETIC_BODY,
@@ -111,7 +109,7 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
     )
     body = article_bytes(article)
 
-    pending = PendingArticle(
+    row = LedgerRow(
         source=SOURCE,
         article_id=ARTICLE_ID,
         domain=DOMAIN,
@@ -130,38 +128,11 @@ def build() -> tuple[dict[str, dict], dict[str, bytes]]:
 
     events = {
         "article-event.json": article_event(
-            pending, bucket=BUCKET, run_id=RUN_ID, source_country=SOURCE_COUNTRY
-        ),
-        "collect-run-summary-success.json": run_summary_event(
-            source=SOURCE,
-            domain=DOMAIN,
-            run_id=RUN_ID,
-            logical_date=LOGICAL_DATE,
-            status="success",
-            outcome=SourceOutcome(
-                source=SOURCE, domain=DOMAIN, discovered=10, stored=1, skipped=7, failed=2,
-                failed_by_stage={"discover": 0, "materialize": 2, "store": 0},
-                failures=(
-                    FailureBrief("materialize", "856053", "HTTPError 404"),
-                    FailureBrief("materialize", "856101", "본문을 못 찾았다"),
-                ),
-                duration_ms=21430,
-            ),
-            emitted=EmittedStats(SUMMARY_EMITTED, COLLECTED_AT - timedelta(days=2)),
-        ),
-        "collect-run-summary-failed.json": run_summary_event(
-            source=FAILED_SOURCE,
-            domain=DOMAIN,
-            run_id=RUN_ID,
-            logical_date=LOGICAL_DATE,
-            status="failed",
-            outcome=None,
-            emitted=EmittedStats(0, None),
-            failure_reason=FAILURE_REASON,
+            row, bucket=BUCKET, run_id=RUN_ID, source_country=SOURCE_COUNTRY
         ),
     }
     assert article.raw_key is not None  # 이 fixture는 공개 RSS 기사다.
-    objects = {pending.article_key: body, article.raw_key: raw}
+    objects = {row.article_key: body, article.raw_key: raw}
     return events, objects
 
 
@@ -171,7 +142,7 @@ def main() -> None:
     for name, event in events.items():
         path = OUT / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        # 이벤트는 사람이 읽는 물건이라 들여쓴다. 토픽에 흐르는 바이트가 아니므로
+        # 이벤트는 사람이 읽는 물건이라 들여쓴다. 어디로 흐르는 바이트가 아니므로
         # 포매팅이 계약에 영향을 주지 않는다.
         path.write_text(json.dumps(event, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"  {path.relative_to(PIPELINE)}")

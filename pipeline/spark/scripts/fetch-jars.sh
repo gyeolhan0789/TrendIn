@@ -20,10 +20,6 @@ REPO=https://repo1.maven.org/maven2
 
 # group/artifact/version — 이 목록이 곧 --jars 에 들어가는 전부다.
 JARS=(
-  "org.apache.spark/spark-sql-kafka-0-10_${SCALA_BINARY}/${SPARK_VERSION}"
-  "org.apache.spark/spark-token-provider-kafka-0-10_${SCALA_BINARY}/${SPARK_VERSION}"
-  "org.apache.kafka/kafka-clients/${KAFKA_CLIENTS}"
-  "org.apache.commons/commons-pool2/${COMMONS_POOL2}"
   "org.apache.hadoop/hadoop-aws/${HADOOP_VERSION}"
   # S3A 가 AWS SDK v2 를 쓰기 시작한 hadoop 3.4 부터는 이 통짜 번들이 표준 조합이다.
   # 모듈을 쪼개 받으면 이행 의존성을 손으로 맞춰야 한다.

@@ -49,7 +49,7 @@ def test_구간을_6시간씩_돌며_전부_저장한다(clock, fake_algolia):
     assert [(s - START) // HOUR for s, _u, _n in algolia.windows] == [0, 6, 12, 18]
     assert algolia.windows[-1][1] == START + 20 * HOUR  # 마지막 조각은 until 에서 끊긴다
     # 발급은 하지 않는다. 다음 주기 실행의 발급 태스크가 미발급 행을 이어 낸다.
-    assert len(ledger.pending("dev")) == 20
+    assert len(ledger.rows("dev")) == 20
 
 
 def test_이미_받은_구간과_겹쳐도_장부에_없는_것만_저장한다(clock, fake_algolia):

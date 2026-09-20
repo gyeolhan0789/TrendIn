@@ -3,7 +3,7 @@
 #
 #   spark/scripts/check-jars.sh
 #
-# 어긋난 조합은 보통 처음 Kafka 를 읽을 때 NoSuchMethodError 로 죽는데, 그때는 원인이
+# 어긋난 조합은 보통 처음 S3A 나 JDBC 를 쓸 때 NoSuchMethodError 로 죽는데, 그때는 원인이
 # jar 인지 코드인지 구분하기 어렵다. 여기서 먼저 갈라둔다.
 set -euo pipefail
 

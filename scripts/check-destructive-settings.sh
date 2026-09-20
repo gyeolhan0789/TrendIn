@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
-# datastore/compose.yaml 의 값 다섯 개는 배포되면 되돌릴 수 없다. target 브랜치와 비교해
-# 위험한 방향으로 바뀌었으면 실패한다.
+# datastore/compose.yaml 의 `MINIO_RAW_EXPIRE_DAYS` 는 배포되면 되돌릴 수 없다. target
+# 브랜치와 비교해 위험한 방향으로 바뀌었으면 실패한다.
+#
+# 브로커가 있던 시절에는 토픽 보존 넷도 여기서 봤다. Kafka 를 걷으면서(제거 3/3) 그
+# 값들이 없어졌고, 되돌릴 수 없는 설정은 원문 만료 하나만 남았다.
 # 일부러 바꾼 것이면 커밋 메시지에 `Allow-destructive: <키>` 한 줄을 넣어 통과시킨다.
 #
 # 값은 `docker compose config` 가 푼 결과에서 읽는다. 파일을 정규식으로 긁으면
@@ -52,7 +55,7 @@ report() {
   esac
 }
 
-# 없어진 것도 위험하다. 설정이 빠지면 브로커나 버킷 기본값으로 돌아간다.
+# 없어진 것도 위험하다. 설정이 빠지면 버킷 기본값으로 돌아간다.
 # 양쪽 다 없으면 비교할 것이 없다.
 present() {
   if [ -z "$1" ] && [ -z "$2" ]; then return 1; fi
@@ -81,20 +84,7 @@ check_num() {
 }
 
 echo "되돌릴 수 없는 설정 검사 — 기준 origin/$TARGET"
-check_num KAFKA_LOG_RETENTION_HOURS down "이미 지워진 메시지는 안 돌아온다"
-check_num KAFKA_TOPIC_RETENTION_MS  down "이미 지워진 메시지는 안 돌아온다"
-check_num MINIO_RAW_EXPIRE_DAYS     down "이미 만료된 원문은 안 돌아온다"
-check_num KAFKA_TOPIC_PARTITIONS    up   "파티션은 줄이지 못한다. 토픽을 지워야 한다"
-
-old=$(val KAFKA_TOPIC_CLEANUP_POLICY "$WORK/base.json")
-new=$(val KAFKA_TOPIC_CLEANUP_POLICY "$WORK/head.json")
-if present "$old" "$new" KAFKA_TOPIC_CLEANUP_POLICY && [ "$old" != "$new" ]; then
-  if [ "$new" = compact ]; then
-    report KAFKA_TOPIC_CLEANUP_POLICY "$old → compact. 같은 키의 옛 메시지가 정리된 뒤다"
-  else
-    echo "  ok    KAFKA_TOPIC_CLEANUP_POLICY  $old → $new"
-  fi
-fi
+check_num MINIO_RAW_EXPIRE_DAYS down "이미 만료된 원문은 안 돌아온다"
 
 if [ "$FAIL" = 1 ]; then
   echo

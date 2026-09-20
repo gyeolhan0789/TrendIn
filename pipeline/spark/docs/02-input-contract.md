@@ -1,6 +1,11 @@
 # 02 — 입력 계약
 
-`ingest` Job 이 Kafka 와 MinIO 를 다루는 방식. 이벤트가 이상할 때 무엇을 하는지가 내용의 절반이다.
+`ingest` Job 이 수집 창구와 MinIO 를 다루는 방식. 봉투가 이상할 때 무엇을 하는지가 내용의 절반이다.
+
+**브로커는 걷혔다** (2026-09-20, Kafka 제거 2/3 · 3/3). 소비는 S15P21A102-247 에서 이미 앱 DB 의
+`collected_article_event` 뷰로 옮겨 갔고, 이번에 발행 쪽과 브로커가 사라지면서 되돌아갈 자리도
+없어졌다. 아래 §1 과 §6 모드 A 는 그 시절의 기록이다 — 봉투의 칸과 값 규칙은 그대로이므로
+§2 부터는 지금도 그대로 읽힌다.
 
 ## 0. 이 문서의 근거
 
@@ -12,7 +17,8 @@
 | MinIO 키 규칙 | `web-collect.md` #5.1, `src/trendin/common/collect/keys.py` |
 | `article.json` 스키마 | `web-collect.md` #5.3, `src/trendin/common/collect/article.py` |
 | 발행 순서·멱등·전달 보장 | `web-collect.md` #7 불변식 5·7·12 |
-| 발행 시점 · 요약 이벤트 생성 | `src/trendin/common/collect/dag_factory.py` 의 `publish` 태스크, `flow.publish_pending()` · `flow.publish_summaries()` |
+| 창구에 행이 나타나는 시점 | `src/trendin/common/collect/flow.py` 의 `store_article()` — 저장을 `stat` 으로 확인한 뒤 `ledger.record()` 가 적는 그 순간이다 |
+| 다음 단계를 깨우는 신호 | `dag_factory.py` 의 `signal_collected` 태스크가 내는 자산 `trendin://collected` |
 
 `data-pipeline-design.md` §5 는 **배치 파일 하나에 이벤트 하나**를 전제로 쓰였고, 실제 수집은 **기사 하나에 이벤트 하나**로 갔다 (`web-collect.md` #12 열린 질문 7, 2026-09-07 확정). 필드 이름은 팀 계약 그대로 쓰고 뜻만 기사 단위로 옮겼다. 두 문서가 어긋나는 자리에서는 **`web-collect.md` 와 구현이 우선한다** — 그쪽이 실제로 발행하는 쪽이다.
 
@@ -33,13 +39,13 @@
 | 객체 키 필드 | `object_key` · `raw_object_key` | ~~`article_key` · `raw_key`~~ |
 | 이벤트 형태 | **둘** (기사 + 실행 요약) | ~~하나 (기사만)~~ |
 
-근거는 `datastore/compose.yaml` 의 `KAFKA_TOPIC_RAW_FILE_READY` 와 `kafka_publisher.py` 의 `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY` 가 같은 값을 가리키는 것이다. 소비 측 설정(`conf/base.yaml` 의 `kafka.*`)은 S15P21A102-247 에서 걷혔다 — 이제 소비는 장부 뷰를 읽고 이 절은 발행 쪽 계약의 기록으로 남는다.
+소비 측 설정(`conf/base.yaml` 의 `kafka.*`)은 S15P21A102-247 에서, 발행 쪽과 브로커는 2026-09-20 에 걷혔다. 이 절은 봉투의 칸 이름이 어떻게 정해졌는지의 기록으로 남는다 — 그 칸들은 지금 `collected_article_event` 뷰가 낸다.
 
 **소비 측 확인은 이 문서다.** `web-collect.md` #12-4·#12-7 은 *유정균 확인 완료 (2026-09-07)* 로 닫혔고, 분기 규칙을 소비 계약에 적는 일은 `S15P21A102-206`(강민수) 으로 넘어왔다 — [§2](#2-이벤트-두-형태) 가 그 규칙이다. 함께 열려 있던 *"기사 이벤트의 `run_id` 를 채울지"*(`S15P21A102-205`) 는 **채우는 쪽**으로 끝났다 (아래).
 
 ### 2026-09-09 대조 — 구현과 다시 맞췄다
 
-`dag_factory.py` · `flow.py` · `events.py` · `kafka_publisher.py` 와 소비 측 코드를 이 문서와 대조했다. 어긋났던 자리와 고친 방향:
+`dag_factory.py` · `flow.py` · `events.py` · `kafka_publisher.py` 와 소비 측 코드를 이 문서와 대조했다 (`kafka_publisher.py` 는 2026-09-20 에 지웠다). 어긋났던 자리와 고친 방향:
 
 | 항목 | 이 문서의 옛 내용 | 구현 (2026-09-09) |
 | --- | --- | --- |
@@ -74,7 +80,11 @@
 
 `web-collect.md` #10 교체 지점 표가 *"이벤트: #6 토픽·키·메시지 스키마 v1 — 발행기와 **모든 소비자**. 스키마 버전을 올린다"* 로 정의한다. 즉 통보 경로는 `schema_version` 이다. 필드 추가는 하위 호환이라 값이 그대로고, 제거·타입 변경은 값이 오른다. 값이 오르면 [§1](#schema_version) 대로 **처리하지 않고 DLQ 로 보낸다** — 모르는 버전을 추측으로 해석하지 않는다.
 
-## 1. Kafka 소비
+## 1. ~~Kafka 소비~~ (2026-09-20 걷어냄)
+
+**이 절은 기록이다.** 지금 `ingest` 는 `--source ledger`(기본)로 `collected_article_event` 뷰를 창으로 잘라 읽는다 — 폭은 `conf/base.yaml` 의 `ingest.ledger.lookback_hours`(기본 168시간)이고, 어디까지 처리했는지는 checkpoint 가 아니라 처리 이력(`pl_processing_ledger`)이 들고 있다. 창을 겹쳐 읽어도 되는 이유가 그것이다.
+
+아래는 브로커를 읽던 시절의 설정이다.
 
 | 항목 | 값 | 근거 |
 | --- | --- | --- |
@@ -85,11 +95,11 @@
 | `failOnDataLoss` | `true` | 아래 |
 | 트리거 | `Trigger.AvailableNow` | [01 §1](01-architecture.md) |
 | 직렬화 | JSON. `value` 를 문자열로 읽고 명시 스키마로 파싱 | |
-| 전달 보장 | at-least-once. **중복이 정상이다** | `flow.publish_pending()` 이 발행 → 수집 이력 기록 순서라, 그 사이에서 죽으면 다음 실행이 같은 이벤트를 다시 낸다 |
+| 전달 보장 | at-least-once. **중복이 정상이다** | `flow.publish_pending()` 이 발행 → 수집 이력 기록 순서라, 그 사이에서 죽으면 다음 실행이 같은 이벤트를 다시 냈다 |
 
 **`failOnDataLoss=true` 인 이유** — retention 이 지나 오프셋이 사라졌는데 조용히 건너뛰면 그 구간이 통째로 유실된다. 유실은 통계에 구멍으로 나타나는데, 구멍은 몇 주 뒤에야 눈에 띄고 그때는 원인을 찾을 수 없다. 차라리 Job 을 실패시키고 사람이 [§6](#6-재처리) 의 objects 모드로 복구하게 한다.
 
-**중복이 정상인 것의 결과** — 생산자가 at-least-once 이므로 `event_id` 처리 이력([01 §4](01-architecture.md) 중복 차단 2)이 선택이 아니라 필수다. checkpoint 만으로는 막을 수 없다. 생산자가 죽는 자리가 실제로 있고(발행 성공 → `mark_emitted` 전 사망), 그때 같은 `event_id` 가 다시 나온다.
+**중복이 정상인 것의 결과** — `event_id` 처리 이력([01 §4](01-architecture.md) 중복 차단 2)이 선택이 아니라 필수다. 브로커 시절에는 생산자가 죽는 자리(발행 성공 → `mark_emitted` 전 사망) 때문이었고, 창구를 읽는 지금은 **창을 겹쳐 읽기 때문**이다. 이유가 바뀌었을 뿐 결론은 같다.
 
 ### 스키마를 추론하지 않는다
 
@@ -372,12 +382,12 @@ spark.hadoop.fs.s3a.aws.credentials.provider org.apache.hadoop.fs.s3a.SimpleAWSC
 
 | 무엇을 | 어디로 |
 | --- | --- |
-| Kafka 메시지 원본 + 실패 사유 | DLQ 토픽 (담당 2 소유. **토픽명 미확정**) |
-| 같은 내용 | 내부 `pl_processing_error` 테이블 ([08 §3](08-storage-schema.md)) |
+| 봉투 원본 + 실패 사유 | 내부 `pl_processing_error` 테이블 ([08 §3](08-storage-schema.md)) |
+| ~~같은 내용~~ | ~~DLQ 토픽 (담당 2 소유. **토픽명 미확정**)~~ (2026-09-20 — 브로커가 걷히면서 계획째로 없어졌다) |
 
-**두 곳에 쓰는 이유** — DLQ 토픽은 재투입 경로이고, 테이블은 조회·집계 경로다. "지난주에 어떤 소스가 몇 번 실패했나" 를 Kafka 에서 세는 것은 불편하다.
+**토픽을 따로 두려던 이유** 는 재투입 경로였다. 테이블은 조회·집계 경로이고, "지난주에 어떤 소스가 몇 번 실패했나" 를 브로커에서 세는 것은 불편하기 때문이다. 브로커가 없어진 지금 재투입 경로는 [§6](#6-재처리) 의 objects 모드 하나다.
 
-**⚠️ DLQ 토픽이 아직 없다.** `datastore/README.md` 가 "DLQ 는 담당 2 의 후속 이슈" 로 미뤄 뒀다. 그래서 **싱크를 인터페이스로 두고 지금은 테이블만 쓴다.** 토픽이 생기면 구현 하나를 더한다. 이렇게 나눈 이유는 검증 로직과 `error_type` 분기가 싱크와 무관하고, 토픽을 기다리면 [§2](#2-이벤트-두-형태)·[§3](#3-객체-조회와-검증) 전체가 막히기 때문이다. 그 사이 재투입 경로는 없고, 복구는 [§6](#6-재처리) 으로 한다.
+**싱크는 인터페이스로 남긴다** (`io/dlq.py`). 토픽이 생길 일은 없어졌지만, 검증 로직과 `error_type` 분기가 싱크와 무관하다는 사실은 그대로다.
 
 DLQ 메시지 스키마 (토픽 쪽은 제안. 담당 2와 확정 필요):
 
@@ -421,7 +431,7 @@ DLQ 메시지 스키마 (토픽 쪽은 제안. 담당 2와 확정 필요):
 
 **배치 계약에서 없어진 값 둘** — `RECORD_COUNT_MISMATCH`(대조 대상이 없다), `DECOMPRESS_ERROR`(압축을 쓰지 않는다). 남겨두면 영영 발생하지 않는 분기가 코드에 남는다.
 
-**일곱 가지가 전부 실제로 발생한다.** 2026-09-08 에 실제 Kafka·MinIO 를 상대로 확인했다 — 객체 단계 셋(`OBJECT_NOT_FOUND` · `CHECKSUM_MISMATCH` · `ARTICLE_CONTRACT_VIOLATION`)도 [§3](#3-객체-조회와-검증) 이 붙으면서 살아났다.
+**일곱 가지가 전부 실제로 발생한다.** 2026-09-08 에 실제 브로커·MinIO 를 상대로 확인했다 — 객체 단계 셋(`OBJECT_NOT_FOUND` · `CHECKSUM_MISMATCH` · `ARTICLE_CONTRACT_VIOLATION`)도 [§3](#3-객체-조회와-검증) 이 붙으면서 살아났다.
 
 **DLQ 에서 자동 재시도하지 않는다.** 여기 오는 것들은 대부분 재시도해도 같은 결과다(체크섬은 다시 계산해도 틀리고, 스키마 버전은 저절로 안 내려간다). 사람이 원인을 보고 [§6](#6-재처리) 으로 다시 다시 처리한다.
 
@@ -429,13 +439,15 @@ DLQ 메시지 스키마 (토픽 쪽은 제안. 담당 2와 확정 필요):
 
 두 모드를 둔다. `spark-submit` 인자로 고른다.
 
-### 모드 A — `--source kafka` (평시)
+### 모드 A — `--source ledger` (평시, 기본값)
 
-checkpoint 기반. Airflow 가 매 스케줄에 이 모드로 부르는 것이 설계다 — **그 DAG 은 아직 없다** ([09 §5](09-dev-and-test.md)). 지금은 `spark/scripts/submit.sh ingest` 로 손으로 부른다. 설명은 [01 §1](01-architecture.md).
+`collected_article_event` 뷰를 `collected_at` 기준으로 잘라 읽는다. 폭은 `conf/base.yaml` 의 `ingest.ledger.lookback_hours`(기본 168시간). 수집 DAG 이 내는 자산 `trendin://collected` 로 깨어난다 (S15P21A102-247). 겹쳐 읽은 몫은 처리 이력이 거른다.
+
+~~`--source kafka` — checkpoint 기반~~ (2026-09-20 걷어냄). 오프셋을 진행시키는 트리거를 쓰던 시절에는 "이미 소비한 이벤트는 다시 오지 않는다" 가 모드 B 의 존재 이유였다.
 
 ### 모드 B — `--source objects` (백필·복구)
 
-**`Trigger.AvailableNow` 는 오프셋을 진행시키므로, 이미 소비한 이벤트는 Kafka 를 다시 읽어도 오지 않는다.** 그래서 재처리 경로가 따로 필요하다.
+**창을 놓친 구간은 모드 A 로 돌아오지 않는다.** `lookback_hours` 보다 오래 멈췄거나, 창 안인데 처리 이력이 `COMPLETED` 로 막는 경우가 그렇다. 그래서 재처리 경로가 따로 필요하다.
 
 ```
 spark-submit ingest.py \
@@ -447,13 +459,13 @@ spark-submit ingest.py \
 
 동작:
 
-1. Kafka 를 읽지 않는다. checkpoint 를 건드리지 않는다.
+1. 창구를 읽지 않는다. MinIO 객체만 본다.
 2. MinIO `raw-data` 에서 `{domain}/*/*/{yyyy}/{mm}/{dd}/*/article.json` 프리픽스를 훑는다. `--from`·`--to` 는 **발행일** 범위다 — 키의 날짜가 발행일이기 때문이다.
 3. 객체 키에서 이벤트를 재구성한다. `article_id` 는 키의 마지막 디렉터리, `event_id` 는 `{source}-{article_id}` 규칙으로 만든다. 나머지 필드는 `article.json` 안에 있다.
 4. 이후는 모드 A 와 같은 코드 경로. 단 **봉투 계약 판별(`classify`)은 타지 않는다** — 재구성한 봉투에 `url`·`published_at` 이 없어 전부 `CONTRACT_VIOLATION` 이 되기 때문이다. 검증은 객체 쪽(존재 · checksum · 필수 필드 · 도메인 허용 목록)에 그대로 남는다 (`ingest/backfill.py`).
 5. `--force` 가 있으면 처리 이력의 `COMPLETED` 를 무시하고 다시 처리한다.
 
-**이 모드가 성립하는 이유** — 불변식 5 가 *"이벤트는 MinIO 에 raw·article.json 이 있음을 `stat` 으로 확인한 뒤에만 낸다"* 를 보장하므로, 객체가 있는 것은 곧 이벤트가 나갔던 것이다. 그리고 `article.json` 은 자기 완결적이라(불변식 9 가 필수 필드를 보장) 메시지를 재구성하는 데 다른 파일이 필요하지 않다.
+**이 모드가 성립하는 이유** — 불변식 5 가 *"MinIO 에 raw·article.json 이 있음을 `stat` 으로 확인한 뒤에만 장부에 적는다"* 를 보장하므로, 객체가 있는 것은 곧 장부에 행이 있는 것이다. 그리고 `article.json` 은 자기 완결적이라(불변식 9 가 필수 필드를 보장) 메시지를 재구성하는 데 다른 파일이 필요하지 않다.
 
 **배치 계약의 `metadata.json` 스캔을 대체한다.** 그쪽은 "`metadata.json` 이 있는 디렉터리만 완성으로 본다" 는 규칙에 의존했는데, 기사 단위에서는 그 파일이 없다. 대신 프리픽스 자체가 발행일로 잘려 있어서 **범위 스캔이 오히려 더 정확하다** — 배치 시절엔 수집일 파티션을 훑고 발행일로 다시 걸러야 했다.
 

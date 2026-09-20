@@ -17,7 +17,6 @@ dev_collect = build_collect_dag(
     domain="dev",
     schedule="*/30 * * * *",  # hn 30분 (설계 문서 #9 잠정값)
     source_keys=runner.SOURCE_KEYS,
-    domain_of=lambda key: sources.get(key).domain,
     source_countries={key: source.country for key, source in sources.BY_KEY.items()},
     collect=runner.collect,
     doc_md=__doc__,

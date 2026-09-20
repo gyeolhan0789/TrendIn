@@ -71,7 +71,7 @@ datastore:compose:
       done
       docker compose -f compose.yaml config --quiet
 
-# 배포되면 되돌릴 수 없는 설정 다섯 개를 target 브랜치와 비교한다.
+# 배포되면 되돌릴 수 없는 설정(MINIO_RAW_EXPIRE_DAYS)을 target 브랜치와 비교한다.
 # dev에서는 비교 대상이 자기 자신이라 MR에서만 돈다.
 datastore:guard:
   stage: verify
@@ -99,9 +99,10 @@ pipeline:verify:
     entrypoint: [""]
   # 장부 뷰 테스트(tests/common/test_ledger_view.py)가 진짜 PostgreSQL 을 요구한다
   # (S15P21A102-247 코드리뷰). 뷰가 내는 `published_at` 은 to_char·date_part·lpad 로
-  # 조립한 문자열이라, 발급 봉투의 isoformat() 과 한 글자라도 다른지는 SQL 을 실제로
-  # 돌려야만 알 수 있다. 서비스가 없으면 그 테스트는 **조용히 건너뛰어진다** — 그러면
-  # CI 가 고정하는 것이 뷰의 칸 이름뿐이 된다.
+  # 조립한 문자열이라, 봉투 정본(events.article_event)의 isoformat() 과 한 글자라도
+  # 다른지는 SQL 을 실제로 돌려야만 알 수 있다. 브로커가 걷힌 지금(Kafka 제거 3/3)
+  # 그 함수를 붙들어 두는 이유가 이 대조 하나다. 서비스가 없으면 그 테스트는
+  # **조용히 건너뛰어진다** — 그러면 CI 가 고정하는 것이 뷰의 칸 이름뿐이 된다.
   services:
     - name: postgres:17-alpine
       alias: postgres
@@ -126,8 +127,7 @@ pipeline:verify:
     # 본문 추출이 trafilatura 를 쓴다. 추출 결과가 버전마다 달라 pyproject 의 핀을 그대로 쓴다.
     - TRAFILATURA_SPEC=$(sed -n 's/.*"\(trafilatura[^"]*\)".*/\1/p' pyproject.toml | head -1)
     - 'echo "trafilatura spec: ${TRAFILATURA_SPEC}"'
-    # 발급 테스트가 `confluent_kafka.Producer` 를 경로로 패치해 모듈이 있어야 한다. 이미지에는 없다.
-    - pip install --no-cache-dir pytest "${RUFF_SPEC}" confluent-kafka "${TRAFILATURA_SPEC}"
+    - pip install --no-cache-dir pytest "${RUFF_SPEC}" "${TRAFILATURA_SPEC}"
     - ruff check .
     # 뷰 테스트가 skip 으로 새지 않는지 먼저 본다. 서비스가 안 떴거나 변수 이름이 바뀌면
     # 여기서 멈춘다 — 건너뛴 테스트는 통과와 구분되지 않아 로그만으로는 못 잡는다.
@@ -164,7 +164,7 @@ pipeline:verify-spark:
   script:
     - pytest spark/tests
 
-# 데이터 EC2(J15A102A)에 Kafka·MinIO·Airflow·Spark를 배포한다.
+# 데이터 EC2(J15A102A)에 MinIO·Airflow·Spark를 배포한다.
 # 러너와 서버 설정: docs/deploy-data-ec2.md (S15P21A102-183)
 deploy:data-ec2:
   stage: deploy

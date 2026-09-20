@@ -1,11 +1,11 @@
 # 데이터 EC2 배포 (J15A102A)
 
-Kafka · MinIO · Airflow · Spark 를 데이터 EC2 한 대에 올린다. 서비스 DB `forever102` 와 Redis 는
+MinIO · Airflow · Spark 를 데이터 EC2 한 대에 올린다. 서비스 DB `forever102` 와 Redis 는
 기본 EC2 `J15A102` 의 `infra/` 가 맡는다 ([infra/README.md](../infra/README.md)).
 
 ```
 데이터 EC2 ── Docker 엔진 1개
-├─ [datastore]  kafka · minio                                     상시 2 + 초기화 3
+├─ [datastore]  minio                                             상시 1 + 초기화 1
 └─ [pipeline]   postgres · apiserver · scheduler · dag-processor  상시 4
                   ↳ 태스크가 뜰 때 이 안에서 spark-submit 이 돌고 끝난다
 ```
@@ -124,7 +124,7 @@ sudo chown gitlab-runner:gitlab-runner /srv/trendin
 sudo -u gitlab-runner mkdir -p /srv/trendin/datastore /srv/trendin/pipeline
 cd /srv/trendin
 
-# 저장소 계층 — MinIO 계정 세 벌과 Kafka 외부 주소
+# 저장소 계층 — MinIO 계정 세 벌
 sudo -u gitlab-runner sh -c '(umask 077; cp -n <저장소>/datastore/.env.example datastore/.env)'
 sudoedit datastore/.env
 
@@ -150,21 +150,20 @@ sudoedit pipeline/.env
 dev 에 `datastore/` 나 `pipeline/` 변경이 머지되면 `deploy:data-ec2` 가 자동으로 돈다. 따로 누를
 것이 없다. 문서나 백엔드만 고친 머지에서는 잡 자체가 만들어지지 않는다.
 
-**되돌릴 수 없는 변경 다섯은 `datastore:guard` 가 MR 에서 막는다.** 재배포는 `kafka-init` ·
-`minio-init` 을 다시 돌리고, 그것들이 토픽과 버킷 설정을 덮어쓴다. 아래 다섯은 적용된 뒤
-커밋을 되돌려도 지워진 데이터가 돌아오지 않는다.
+**되돌릴 수 없는 변경은 `datastore:guard` 가 MR 에서 막는다.** 재배포는 `minio-init` 을 다시
+돌리고, 그것이 버킷 설정을 덮어쓴다. 아래는 적용된 뒤 커밋을 되돌려도 지워진 데이터가
+돌아오지 않는다.
 
 | 무엇 | 어디 | 되돌리면 |
 | --- | --- | --- |
-| `KAFKA_LOG_RETENTION_HOURS` 축소 | `datastore/compose.yaml` | 이미 지워진 메시지는 안 돌아온다 |
-| `KAFKA_TOPIC_RETENTION_MS` 축소 | `datastore/compose.yaml` | 이미 지워진 메시지는 안 돌아온다 |
 | `MINIO_RAW_EXPIRE_DAYS` 축소 | `datastore/compose.yaml` | 이미 만료된 원문은 안 돌아온다 |
-| `KAFKA_TOPIC_PARTITIONS` 증가 | `datastore/compose.yaml` | 파티션은 줄이지 못한다. 토픽을 지워야 한다 |
-| `KAFKA_TOPIC_CLEANUP_POLICY=compact` | `datastore/compose.yaml` | 같은 키의 옛 메시지가 정리된 뒤다 |
+
+브로커가 있던 시절에는 토픽 보존 넷도 여기서 막았다. Kafka 를 걷으면서(제거 3/3) 그 값들이
+없어졌고, 남은 것은 원문 만료 하나다.
 
 일부러 바꾸는 경우에는 커밋 메시지에 `Allow-destructive: <키>` 한 줄을 넣으면 통과한다. 그 줄이
 MR 에 그대로 보여서 리뷰가 무엇을 승인하는지 안다. 값의 근거는 각 파일 주석과
-[datastore/README.md](../datastore/README.md) "토픽 설정" · "보관 정책" 에 있다.
+[datastore/README.md](../datastore/README.md) "보관 정책" 에 있다.
 
 서버의 `.env` 로 값을 덮으면 Git 에 안 남아 이 검사가 못 잡는다. 그때는 사람이 확인해야 한다.
 
@@ -179,7 +178,7 @@ scripts/deploy-data-ec2.sh
 
 스크립트가 하는 일은 다섯 단계다.
 
-1. Kafka · MinIO 를 띄우고 healthy 를 기다린다. 네트워크 `s15p21a102-data` 의 주인이라 항상 먼저다
+1. MinIO 를 띄우고 healthy 를 기다린다. 네트워크 `s15p21a102-data` 의 주인이라 항상 먼저다
 2. Spark 런타임 jar 를 받는다. 이미 있으면 건너뛴다
 3. 이미지를 두 단계로 만든다 — 런타임 이미지(JRE·pyspark·torch·GLiNER) 위에 우리 패키지
 4. Airflow 를 Spark 오버레이와 함께 띄우고 healthy 를 기다린다
@@ -209,8 +208,7 @@ docker compose -f datastore/compose.yaml ps
 docker compose -f pipeline/compose.yaml -f pipeline/spark/compose.spark.yaml ps
 ```
 
-`minio-init` · `kafka-init` · `kafka-storage-init` · `airflow-init` 은 한 번 돌고 `Exited (0)` 으로
-남는다. 정상이다.
+`minio-init` 과 `airflow-init` 은 한 번 돌고 `Exited (0)` 으로 남는다. 정상이다.
 
 Airflow UI 는 `127.0.0.1:8080` 에만 열려 있다. 공인망에 열지 않으므로 SSH 터널로 본다.
 
@@ -278,6 +276,35 @@ docker compose --env-file infra/.env -f infra/compose.yaml exec postgres \
 하루에 **발행된** 문서가 없으면 그 구간의 지표가 만들어지지 않는다. 백필로 옛 날짜를 채운
 직후에는 `7D` · `30D` 만 나오는 것이 정상이다.
 
+## 4.1 Kafka 를 걷은 첫 배포에서 한 번만
+
+**브로커 컨테이너는 배포가 저절로 지우지 않는다.** `docker compose up -d` 는 파일에서 사라진
+서비스를 고아(orphan)로 두고 경고만 낸다. 그래서 이 변경을 배포한 뒤에도 `kafka` ·
+`kafka-init` · `kafka-storage-init` 이 그대로 떠 있고, 29092 를 계속 물고 있다.
+
+서버에서 한 번 지운다.
+
+```sh
+cd /srv/trendin
+docker compose -f datastore/compose.yaml ps -a          # 고아가 보인다
+docker compose -f datastore/compose.yaml up -d --remove-orphans
+docker compose -f datastore/compose.yaml ps             # minio 와 minio-init 만 남는다
+```
+
+`--remove-orphans` 를 배포 스크립트에 상시로 넣지 않는 이유는, 그 플래그가 compose 파일에
+없는 컨테이너를 **묻지 않고** 지우기 때문이다. 이번처럼 지울 것이 무엇인지 아는 자리에서
+사람이 한 번 쓰는 편이 낫다.
+
+볼륨은 컨테이너를 지워도 남는다. 안에 든 것은 보존 기간이 지난 옛 메시지뿐이라 지워도 된다.
+
+```sh
+docker volume ls | grep kafka
+docker volume rm s15p21a102-kafka-data
+```
+
+보안 그룹에서 29092 를 열어 뒀다면 같이 닫는다. 인증 없는 PLAINTEXT 리스너였고 이제 아무도
+듣지 않는다.
+
 ## 5. 내릴 때와 되돌릴 때
 
 ```sh
@@ -287,7 +314,7 @@ docker compose -f pipeline/compose.yaml -f pipeline/spark/compose.spark.yaml sto
 docker compose -f datastore/compose.yaml stop
 ```
 
-**`down -v` 는 쓰지 않는다.** MinIO 원문 · Kafka 로그 · Airflow 메타 DB 볼륨이 함께 사라진다.
+**`down -v` 는 쓰지 않는다.** MinIO 원문 · Airflow 메타 DB 볼륨이 함께 사라진다.
 `stop` 은 컨테이너만 세우고 볼륨을 남긴다.
 
 이미지를 옛 커밋으로 되돌리려면 그 커밋을 체크아웃해 스크립트를 다시 돌린다. 레지스트리를 쓰지

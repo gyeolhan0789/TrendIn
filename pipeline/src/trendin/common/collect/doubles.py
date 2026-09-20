@@ -1,8 +1,8 @@
-"""저장·발급의 대체 구현 (S15P21A102-158 AC — MinIO · Kafka 없이 크롤러를 테스트한다).
+"""저장소의 대체 구현 (S15P21A102-158 AC — MinIO 없이 크롤러를 테스트한다).
 
-`tests/` 가 아니라 `src/` 에 두는 이유는 쓰는 쪽이 테스트만이 아니기 때문이다. 소비자
-연동(S15P21A102-159), 장애 시나리오 검증(160), 수집 중단 탐지(199)가 같은 대역을 쓴다.
-테스트 파일 안에 두면 세 곳이 각자 다른 대역을 만들고, 계약이 바뀔 때 한 곳만 고쳐진다.
+`tests/` 가 아니라 `src/` 에 두는 이유는 쓰는 쪽이 테스트만이 아니기 때문이다. 장애
+시나리오 검증(S15P21A102-160), 수집 중단 탐지(199)가 같은 대역을 쓴다. 테스트 파일 안에
+두면 두 곳이 각자 다른 대역을 만들고, 계약이 바뀔 때 한 곳만 고쳐진다.
 
 no-op 이 아니라 **기억하는** 구현이다. 무엇이 어느 키에 쓰였는지 볼 수 없으면 "통과"가
 아무것도 보장하지 않는다.
@@ -10,10 +10,7 @@ no-op 이 아니라 **기억하는** 구현이다. 무엇이 어느 키에 쓰�
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
-
-from trendin.common.collect.kafka_publisher import DeliveryFailed
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,24 +57,3 @@ class InMemoryObjectStore:
         if key in self._fail_exists:
             raise RuntimeError(f"일부러 실패시킨 조회: {key}")
         return key in self.objects and key not in self._swallow
-
-
-@dataclass(slots=True)
-class RecordingEventPublisher:
-    """낸 메시지를 순서대로 들고 있는다. `flush` 전에는 확정되지 않는다."""
-
-    buffered: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
-    sent: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
-    flushes: int = 0
-    # 브로커가 확인하지 않은 건이 남은 상황을 재현한다.
-    stuck: int = 0
-
-    def publish(self, key: str, value: dict[str, Any]) -> None:
-        self.buffered.append((key, value))
-
-    def flush(self) -> None:
-        self.flushes += 1
-        if self.stuck:
-            raise DeliveryFailed(f"{self.stuck}건이 안 나갔다")
-        self.sent.extend(self.buffered)
-        self.buffered.clear()

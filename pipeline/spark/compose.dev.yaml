@@ -1,6 +1,6 @@
 # 로컬 개발용 오버레이. pipeline/compose.yaml 위에 얹는다.
 #
-#   docker compose -f datastore/compose.yaml up -d          # 먼저 (Kafka · MinIO)
+#   docker compose -f datastore/compose.yaml up -d          # 먼저 (MinIO)
 #   cd pipeline
 #   docker compose -f compose.yaml -f spark/compose.dev.yaml up -d
 #
@@ -14,20 +14,23 @@
 #
 # --- 이 파일이 하는 일은 하나다 ---------------------------------------------
 # Spark 는 컨테이너에 넣지 않는다 (09 §2). 호스트의 .venv 에서 local[*] 로 돈다.
-# 그래서 붙어야 할 세 곳 중 두 곳은 이미 호스트에 열려 있는데 하나가 닫혀 있다:
+# 그래서 붙어야 할 두 곳 중 하나는 이미 호스트에 열려 있는데 하나가 닫혀 있다:
 #
-#   Kafka     datastore/compose.yaml 이 EXTERNAL 리스너를 127.0.0.1:29092 로 연다  ✓
-#   MinIO     datastore/compose.yaml 이 API 를 127.0.0.1:9000 으로 연다            ✓
-#   PostgreSQL pipeline/compose.yaml 은 "호스트 포트는 열지 않는다"                 ✗
+#   MinIO      datastore/compose.yaml 이 API 를 127.0.0.1:9000 으로 연다  ✓
+#   PostgreSQL pipeline/compose.yaml 은 "호스트 포트는 열지 않는다"        ✗
 #
 # 그 하나를 여는 것이 전부다. 열어두는 범위는 루프백으로 제한한다.
 #
-# --- Kafka · MinIO 를 여기서 다시 띄우지 않는 이유 ---------------------------
-# 09 §2 를 쓸 당시에는 둘 다 없었지만, 지금은 datastore/compose.yaml 이 띄운다
-# (S15P21A102-156 · 157). 같은 브로커를 두 프로젝트가 각자 띄우면 컨테이너가 둘이
-# 되고 포트와 볼륨이 부딪힌다. pipeline/compose.yaml 이 이미 네트워크
-# s15p21a102-data 를 external 로 참조하므로, 저장소를 먼저 띄우지 않으면 이 명령
-# 자체가 뜨지 않는다. 순서가 강제돼 있다.
+# **PostgreSQL 이 전보다 중요해졌다.** 브로커가 걷히면서(Kafka 제거 3/3) `ingest` 의
+# 입력이 토픽에서 앱 DB 의 `collected_article_event` 뷰로 옮겨졌다. 이 포트가 닫혀 있으면
+# 호스트에서 돌린 Job 은 읽을 것이 아예 없다.
+#
+# --- MinIO 를 여기서 다시 띄우지 않는 이유 -----------------------------------
+# 09 §2 를 쓸 당시에는 없었지만, 지금은 datastore/compose.yaml 이 띄운다
+# (S15P21A102-156). 같은 저장소를 두 프로젝트가 각자 띄우면 컨테이너가 둘이 되고
+# 포트와 볼륨이 부딪힌다. pipeline/compose.yaml 이 이미 네트워크 s15p21a102-data 를
+# external 로 참조하므로, 저장소를 먼저 띄우지 않으면 이 명령 자체가 뜨지 않는다.
+# 순서가 강제돼 있다.
 
 services:
   postgres:

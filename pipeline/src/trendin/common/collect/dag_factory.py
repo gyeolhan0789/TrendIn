@@ -1,8 +1,8 @@
 """수집 DAG 의 모양 하나 (S15P21A102-167).
 
-도메인이 둘이고 실행 순서는 같다 — 스키마 확인 → 소스별 수집 → 발급. 그 순서를 DAG 파일
-두 곳에 베껴 두면 한쪽만 고쳐지는 날이 온다. 그래서 모양은 여기 하나, DAG 파일은 설정만
-든다(README 규약 1).
+도메인이 둘이고 실행 순서는 같다 — 스키마 확인 → 소스별 수집 → 회차 종료 신호. 그 순서를
+DAG 파일 두 곳에 베껴 두면 한쪽만 고쳐지는 날이 온다. 그래서 모양은 여기 하나, DAG 파일은
+설정만 든다(README 규약 1).
 
 **이 모듈은 `common/collect/` 에서 유일하게 airflow 를 import 한다.** DAG 자체가 Airflow
 개념이라서다. 판정은 여기 없다 — 전부 `flow.py` 에 있고 Airflow 없이 테스트된다(규약 12).
@@ -21,7 +21,6 @@ from airflow.sdk.exceptions import AirflowFailException
 from trendin.common.collect import flow
 from trendin.common.collect.contracts import ValidatorStore
 from trendin.common.collect.db import Database
-from trendin.common.collect.kafka_publisher import SUMMARY_TOPIC_ENV, KafkaEventPublisher
 from trendin.common.collect.ledger import Ledger, PostgresLedger
 from trendin.common.collect.minio_store import MinioObjectStore
 from trendin.common.collect.stores import PostgresValidatorStore
@@ -29,7 +28,6 @@ from trendin.common.collect.stores import PostgresValidatorStore
 logger = logging.getLogger("trendin.collect.dag")
 
 KST = "Asia/Seoul"
-COLLECT_TASK_ID = "collect_one"
 
 # 수집 한 회차가 끝났다는 신호. `spark_ingest` 가 이것을 받아 깨어난다 (S15P21A102-247).
 # 도메인 DAG 둘이 같은 자산을 내고, 소비 측은 도메인을 가리지 않으므로 어느 쪽이 끝나든
@@ -48,12 +46,11 @@ def build_collect_dag(
     domain: str,
     schedule: str,
     source_keys: Sequence[str],
-    domain_of: Callable[[str], str],
-    # 소스 키 → 국가 (S15P21A102-276). `domain_of` 와 같은 자리다 — 소스 레지스트리를
-    # 아는 것은 DAG 파일이고, 이 모듈은 도메인 패키지를 import 하지 않는다.
+    # 소스 키 → 국가 (S15P21A102-276). 소스 레지스트리를 아는 것은 DAG 파일이고,
+    # 이 모듈은 도메인 패키지를 import 하지 않는다.
     #
-    # 쓰는 곳은 `ensure_schema` 태스크 하나다. 발급은 이 표를 안 받는다 — 코드 표를 읽으면
-    # 레지스트리에서 사라진 소스의 미발급 행에서 봉투와 뷰가 갈린다(`flow.publish_pending`).
+    # 쓰는 곳은 `ensure_schema` 태스크 하나다. 소비 측이 읽는 뷰는 이 표를 `LEFT JOIN` 으로
+    # 읽으므로, 레지스트리에서 사라진 소스의 기사도 국가를 잃지 않는다(`ledger.DDL`).
     source_countries: Mapping[str, str],
     collect: CollectFn | None,
     doc_md: str,
@@ -119,78 +116,20 @@ def build_collect_dag(
                 ) from exc
             return outcome.to_dict()
 
-        @task(trigger_rule=TriggerRule.ALL_DONE)
-        def publish(keys: list[str], **context) -> dict:
-            """장부의 미발급 행을 전부 내고, 소스별 요약 이벤트를 낸다.
-
-            기사 이벤트가 장부에서 나오므로 이번 실행에서 죽은 소스가 있어도, 지난 실행에서
-            저장만 되고 못 나간 행이 있어도 여기서 이어 낸다(설계 문서 #4).
-            """
-            logical_date = context.get("logical_date") or context["dag_run"].run_after
-            db = Database.from_env()
-            ledger = PostgresLedger(db)
-            store = MinioObjectStore.from_env()
-            publisher = KafkaEventPublisher.from_env()
-
-            run_id = flow.run_id_of(logical_date)
-            # 소스별 건수가 그대로 요약 이벤트의 `emitted` 가 된다. 장부를 구간으로
-            # 다시 세지 않는 이유는 실행이 겹치면 앞 실행 몫까지 세기 때문이다.
-            counts = flow.publish_pending(
-                ledger=ledger,
-                publisher=publisher,
-                bucket=store.bucket,
-                domain=domain,
-                run_id=run_id,
-                now=pendulum.now("UTC"),
-            )
-            statuses = flow.source_statuses(
-                keys,
-                flow.outcomes_from_xcom(context["ti"].xcom_pull(task_ids=COLLECT_TASK_ID)),
-                domain_of,
-            )
-            summary_publisher = KafkaEventPublisher.from_env_optional(topic_env=SUMMARY_TOPIC_ENV)
-            if summary_publisher is None:
-                logger.info("%s가 비어 있어 실행 요약 발급을 건너뛴다", SUMMARY_TOPIC_ENV)
-                summaries = 0
-            else:
-                summaries = flow.publish_summaries(
-                    publisher=summary_publisher,
-                    run_id=run_id,
-                    logical_date=logical_date,
-                    statuses=statuses,
-                    counts=counts,
-                )
-            return {
-                "articles": sum(stats.count for stats in counts.values()),
-                "summaries": summaries,
-                "summary_enabled": summary_publisher is not None,
-                "failed_sources": [s.source for s in statuses if s.status == "failed"],
-            }
-
-        # 자산은 **발급과 떼어 놓는다** (S15P21A102-247 코드리뷰).
+        # 자산은 **수집 태스크와 떼어 놓는다** (S15P21A102-247 코드리뷰).
         #
         # 소비 측이 읽는 것은 `collected_article` 행이고 그 행은 `collect_one` 이 적는다.
-        # 그런데 자산을 `publish` 에 걸면 Kafka 브로커가 죽었을 때 그 태스크가 실패하고,
-        # 실패한 태스크는 자산을 내지 않는다 — 읽을 행이 다 있는데 `spark_ingest` 만 안
-        # 깨어난다. 읽기는 Kafka 와 무관해졌는데 깨우기만 브로커에 묶여 있는 꼴이다.
+        # 신호를 그 매핑 태스크에 걸면 소스 하나가 죽을 때마다 자산이 안 나가고, 읽을 행이
+        # 다 있는데 `spark_ingest` 만 안 깨어난다.
         #
         # `ALL_DONE` 이라 앞이 실패해도 돈다. 그래도 되는 이유는 이 신호의 뜻이 "수집이
         # 전부 성공했다" 가 아니라 "이번 회차가 끝났고 장부에 적을 것은 적혔다" 라서다.
         # 한 소스가 죽어도 다른 소스가 받아 둔 기사는 처리되어야 한다.
-        #
-        # ⚠️ **`publish` 가 사라지면 이 태스크도 자리를 옮긴다.** Kafka 발행을 걷어낼 때
-        # (3단계) 여기가 `collect_one` 바로 뒤가 된다.
         @task(task_id=SIGNAL_TASK_ID, trigger_rule=TriggerRule.ALL_DONE, outlets=[COLLECTED])
         def signal_collected() -> None:
             """이번 회차가 끝났다고 알린다. 하는 일은 자산을 내는 것뿐이다."""
             logger.info("수집 회차 종료 — %s 자산을 낸다", COLLECTED.name)
 
-        keys = list(source_keys)
-        (
-            ensure_schema()
-            >> collect_one.expand(source_key=keys)
-            >> publish(keys)
-            >> signal_collected()
-        )
+        ensure_schema() >> collect_one.expand(source_key=list(source_keys)) >> signal_collected()
 
     return collect_dag()

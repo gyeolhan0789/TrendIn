@@ -1,8 +1,13 @@
 # Spark 연동 계약 — 크롤러가 내보내는 것
 
-크롤러(담당 1)가 Kafka·MinIO 에 무엇을 어떤 모양으로 놓는지. **이 문서만 보고 consumer 와
-MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 알 수 있는 것이 남아 있으면 이
-문서의 결함이므로 알려 주면 채운다.
+크롤러(담당 1)가 앱 DB 와 MinIO 에 무엇을 어떤 모양으로 놓는지. **이 문서만 보고 reader 를
+만들 수 있어야 한다.** 크롤러 코드를 열어야 알 수 있는 것이 남아 있으면 이 문서의 결함이므로
+알려 주면 채운다.
+
+**2026-09-20: 브로커가 걷혔다** (Kafka 제거 2/3 · 3/3). 봉투가 흐르던 자리를 앱 DB 의
+`collected_article_event` 뷰가 대신한다 — 칸 이름과 값 규칙은 그대로고, 만드는 자리가 파이썬에서
+SQL 로 옮겨졌을 뿐이다. 실행 요약 토픽은 대응하는 것 없이 없어졌다. 브로커 시절의
+접속 정보는 §2 끝에 기록으로 남긴다.
 
 - 결정과 근거: Jira `S15P21A102-159`. 생산 측 설계는 [`web-collect.md`](web-collect.md), 팀 전체 구조는 [`data-pipeline-design.md`](data-pipeline-design.md)
 - 소비 측 계약(무엇을 DLQ 로 보내는지 등)은 [`spark/docs/02-input-contract.md`](../spark/docs/02-input-contract.md). **그 문서는 이 문서보다 낡았다** — §11 참고
@@ -12,61 +17,71 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 
 | 보장한다 | 보장하지 않는다 |
 |---|---|
-| 토픽에 흐르는 봉투의 필드 이름·타입·값 규칙 | 소비 측의 처리 방식(DLQ 기준, checkpoint, 재처리) |
+| 창구(`collected_article_event`)가 내는 봉투의 필드 이름·타입·값 규칙 | 소비 측의 처리 방식(DLQ 기준, 처리 이력, 재처리) |
 | MinIO 객체의 키 규칙과 내용 | `curated` 버킷 (Spark 소유, 쓰기 권한이 아직 없다 — §6) |
-| 최소 한 번 전달 (at-least-once) | 정확히 한 번. 중복은 소비 측이 `event_id` 로 거른다 |
-| 이벤트가 나갔으면 그 객체는 이미 있다 | 객체가 있으면 이벤트가 나갔다 (역은 성립하지 않는다 — §5) |
+| 창구에 보이는 행은 그 객체가 이미 있다 | 창구가 같은 행을 두 번 주지 않는다는 것. 창을 겹쳐 읽으면 겹친다 — 중복은 소비 측이 `event_id` 로 거른다 |
+| 저장을 `stat` 으로 확인한 뒤에만 장부에 적는다 | 객체가 있으면 장부에 있다 (역은 성립하지 않는다 — §5) |
 
-## 2. Kafka
+## 2. 창구 — `collected_article_event` 뷰
 
 | 항목 | 값 | 어디서 오나 |
 |---|---|---|
-| 기사 topic | `raw-file-ready` | `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY` |
-| 요약 topic | `collect-run-summary` (생성 요청, 기본 비활성) | `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY` |
-| bootstrap (같은 EC2 의 다른 compose) | `kafka:9092` | 네트워크 `s15p21a102-data` |
-| bootstrap (호스트·다른 EC2) | `${KAFKA_EXTERNAL_HOST}:29092` | `datastore/.env` |
-| 직렬화 | JSON, UTF-8, 비ASCII 를 escape 하지 않는다 | `kafka_publisher.publish` |
-| message key | `source_id` (UTF-8 바이트) | `flow.publish_pending` · `flow.publish_summaries` |
-| 파티션 | 기사 6 · 요약 1 요청 | 요약은 datastore 담당자 생성 후 활성화 |
-| `cleanup.policy` | `delete` | `compact` 면 key 가 `source_id` 라 소스당 최신 1 건만 남는다 |
-| `retention.ms` | 기사 7일 · 요약 30일 요청 | MinIO 원문은 90일이다 — 부등식은 §5 |
+| 뷰 이름 | `collected_article_event` | `common/collect/ledger.py` 의 `DDL` |
+| 어느 DB | 앱 DB (`forever102` 또는 컴포즈 안 `trendin`) | Airflow `AIRFLOW_CONN_APP_DB` · Spark `SPARK_APP_DB_URL` — **같은 DB 를 가리켜야 한다** |
+| 창 자르는 칸 | `collected_at_ts` (`timestamptz`) | 전용 인덱스 `collected_article_collected_at_idx` |
+| 읽는 폭 | `ingest.ledger.lookback_hours`, 기본 168시간 | `spark/conf/base.yaml` |
+| 만드는 쪽 | 수집 DAG 의 첫 태스크 `ensure_schema` 가 매 회차 멱등하게 적용한다 | `PostgresLedger.ensure_schema` |
 
-접속 정보의 정본은 [`datastore/README.md`](../../datastore/README.md) "접속 정보" 절이다. 값이 이 표와 다르면 그쪽이 맞다.
+**창구는 읽기 전용이고 상태가 없다.** 무엇이 읽혔는지 기억하지 않으므로, 어디까지 처리했는지는
+소비 측 처리 이력이 들고 있다. 창을 겹쳐 읽어도 되는 이유가 그것이다.
 
-### message key 를 `source_id` 로 둔 결과
+**대기 행은 창구에 없다.** 기사 페이지를 끝내 못 받아 다시 시도 중인 행(`fetch_state = 'retrying'`)은
+MinIO 에 아직 아무것도 없어 뷰가 걸러 낸다 (`S15P21A102-312`). 그래서 창구의 행 수는 장부 행 수보다
+적을 수 있고, 그것이 정상이다.
 
-같은 **토픽 안에서** 같은 소스의 이벤트는 한 파티션에 모인다. 기사와 요약은 다른 토픽이므로
-두 토픽 사이의 도착 순서는 보장하지 않는다. 기사와 요약의 `run_id` 로 대사한다(기사 쪽은 발급 실행).
+### 언제 새 행이 생기나
 
-중복 판정은 key 가 아니라 `event_id` 로 한다. 같은 key 로 다른 기사가 계속 오기 때문이다.
+수집 DAG 이 한 회차를 마치면 마지막 태스크 `signal_collected` 가 Airflow 자산
+`trendin://collected` 를 낸다. `spark_ingest` 가 그 자산으로 깨어난다 (`S15P21A102-247`).
+크론 간격으로 잇지 않는 이유는 수집이 늦으면 소비가 빈손으로 돌기 때문이다.
 
-### consumer group — 소비 측이 정한다
+자산은 **수집 태스크가 아니라 그 뒤의 신호 태스크**에 달려 있고 `ALL_DONE` 이다. 소스 하나가 죽어도
+나머지가 받아 둔 기사는 처리되어야 한다.
 
-생산 측은 group 을 모르고 의존하지도 않는다. 다만 지금 소비 측에 이름 규칙이 **두 개** 있다:
+### ~~Kafka~~ (2026-09-20 걷어냄)
 
-| 어디 | 값 |
+브로커가 있던 시절의 접속 정보다. 기록으로 남긴다.
+
+| 항목 | 값 |
 |---|---|
-| [`02 §1`](../spark/docs/02-input-contract.md) | `spark-ingest` |
-| `spark/conf/base.yaml` | `group_id_prefix: "trendin-spark"` (환경변수 `KAFKA_GROUP_ID_PREFIX` 로 덮인다) |
+| 기사 topic | `raw-file-ready` |
+| 요약 topic | `collect-run-summary` (요청만 하고 끝내 만들어지지 않았다) |
+| bootstrap (같은 EC2) | `kafka:9092` |
+| bootstrap (호스트·다른 EC2) | `${KAFKA_EXTERNAL_HOST}:29092` |
+| message key | `source_id` (UTF-8 바이트) |
 
-둘 다 살리려면 `{group_id_prefix}-{job}` → `trendin-spark-ingest` 가 된다. 어느 쪽이든 하나로
-정하고 `02` 와 `base.yaml` 을 맞춰 주면 된다.
+message key 가 `source_id` 였으므로 같은 토픽 안에서 같은 소스의 이벤트는 한 파티션에 모였다.
+그 순서 보장은 창구에서는 뜻이 없다 — SQL 이 `ORDER BY` 로 정한다.
 
-### 전달 보장
+`acks=all` · `enable.idempotence=true` 로 내고 `flush()` 가 성공한 뒤에만 장부에 발급 시각을
+적었다. 그래서 발급 후 장부 기록 전에 죽으면 같은 이벤트가 다시 나갔다 (at-least-once).
 
-`acks=all` · `enable.idempotence=true` 로 내고, `flush()` 가 성공한 뒤에만 장부에 발급 시각을
-적는다. 그래서 **발급 후 장부 기록 전에 죽으면 같은 이벤트가 다시 나간다.** at-least-once 이고,
-중복 제거는 소비 측 책임이다 (`event_id` 가 그 키다).
+접속 정보의 정본은 [`datastore/README.md`](../../datastore/README.md) "접속 정보" 절이다. 값이 이 문서와 다르면 그쪽이 맞다.
 
-## 3. 봉투 — 토픽별 계약
+## 3. 봉투 — 창구가 내는 칸
 
-기사 이벤트는 `raw-file-ready`, 소스별 실행 요약은 `collect-run-summary` 에만 발급한다.
-`object_key` 로 이벤트 종류를 분기하지 않는다. 요약 토픽이 비활성이면 기사만 발급한다.
+창구에는 기사 한 건이 한 행이다. 종류가 하나뿐이라 분기할 것이 없다.
 
-### raw-file-ready — 기사 이벤트
+**칸 이름과 값은 브로커 시절 기사 봉투 그대로다.** 정본은 `common/collect/events.py` 의
+`article_event()` 이고 — 그 함수는 이제 아무것도 발행하지 않는다 — 뷰가 같은 값을 SQL 로 낸다.
+둘이 한 글자라도 다르면 `pipeline/tests/common/test_ledger_view.py` 가 진짜 PostgreSQL 에 걸어
+잡는다.
 
-기사 하나에 이벤트 하나다. 기사 객체·장부 스키마·봉투 필드 이름은 그대로다. `run_id` 의 뜻은
-소비 계약([`02 §2`](../spark/docs/02-input-contract.md))과 같이 발급 실행이다.
+**창구에 없는 칸이 둘 있다.** `run_id` 는 발급 실행이었으므로 발급과 함께 없어졌고, 소비 측이
+`None` 으로 채운다 (`spark/ingest/collected.py`). `bucket` 은 장부에 없는 값이라 소비 측 설정에서
+온다. 아래 표의 나머지는 뷰가 그대로 낸다.
+
+### 기사 봉투
 
 | 필드 | 타입 | 값 |
 |---|---|---|
@@ -99,7 +114,10 @@ MinIO reader 를 만들 수 있어야 한다.** 크롤러 코드를 열어야 �
 재발급하면 값이 달라져 같은 기사가 다른 파티션에 갈릴 수 있다. 값도 파싱하지 않는다.
 `event_id` 는 결정적인 **중복 판정 함수**다. 파싱해서 `source_id` 를 추출하지 않는다.
 
-### collect-run-summary — 소스별 실행 요약
+### ~~collect-run-summary — 소스별 실행 요약~~ (2026-09-20 걷어냄)
+
+**이 절은 기록이다.** 요약 토픽은 끝내 만들어지지 않았고, 브로커와 함께 계획째로 없어졌다.
+수집 숫자는 이제 수집 태스크의 XCom 에만 남고, 그것을 지표로 내는 일은 `S15P21A102-199` 의 몫이다.
 
 토픽을 활성화하면 소스 하나의 한 회차마다 논리적으로 하나를 낸다. 0건·수집 실패에도
 낸다. 전달은 at-least-once라 재시도 중복은 `event_id` 로 제거한다. 공통 식별 5칸과
@@ -167,8 +185,9 @@ raw 의 해시는 article.json 안의 `content_sha256` 이다 (§5). 이름이 �
 ## 4. 본문은 이벤트에 없다
 
 봉투에 `body_text` · `summary` 가 없다 (`web-collect.md` 불변식 6). 본문은 MinIO 의
-article.json 에만 있다. 이벤트 크기를 1KB 안팎으로 유지하려는 것이고, Kafka 보존 기간이
-7일이라 본문을 실으면 7일 뒤 사라지는 사본이 하나 더 생긴다.
+article.json 에만 있다. 원래 이유는 이벤트 크기를 1KB 안팎으로 유지하는 것이었다. 브로커가 걷힌
+지금은 이유가 하나 더 붙는다 — 장부는 지우지 않으므로(불변식 13), 본문을 장부에 실으면 90일에
+만료되는 원문의 사본이 영구히 남는다.
 
 ## 5. MinIO
 
@@ -180,8 +199,13 @@ article.json 에만 있다. 이벤트 크기를 1KB 안팎으로 유지하려는
 | 버전 관리 | **off** — 같은 키를 덮어쓴다 |
 | 수명 주기 | 버킷 전체 90일 만료. **기준은 업로드 시각**이고 경로의 날짜가 아니다 |
 
-`MinIO 90일 >= Kafka 7일` 이라 이벤트가 가리키는 원문이 먼저 사라지지 않는다.
-`datastore/scripts/verify.sh` 가 이 부등식을 산술로 확인한다.
+**창구에는 보존 기간이 없다.** 장부를 지우지 않으므로(불변식 13) 90일이 지나 원문이 만료된 뒤에도
+그 행은 창구에 남는다. 그래도 되는 이유는 소비 측이 창을 잘라 읽기 때문이다 — `lookback_hours` 는
+168시간이고, 만료된 구간은 이미 처리를 마쳐 처리 이력이 거른다. 90일보다 긴 백필은 원문이 있어야
+하므로 만료 전에 돌린다.
+
+~~`MinIO 90일 >= Kafka 7일` 이라 이벤트가 가리키는 원문이 먼저 사라지지 않는다~~ (2026-09-20 —
+이벤트가 없어지면서 이 부등식도 없어졌다).
 
 ### 키 규칙
 
@@ -315,8 +339,9 @@ docker run --rm --network s15p21a102-data \
 키를 바꾸려면 `datastore/.env` 를 고치고 `up -d minio-init` 을 다시 돌린다. `.env` 만 고치면
 이미 만들어진 계정은 그대로다.
 
-**Kafka 에는 인증이 없다** (PLAINTEXT). 네트워크로만 막는다 — 포트를 `0.0.0.0` 으로 열면
-보안 그룹에서 팀 대역만 허용한다.
+**창구는 앱 DB 계정으로 붙는다.** MinIO 키와 다른 자격이고, 값의 출처는 Spark 쪽 `SPARK_APP_DB_*` 다.
+그 계정이 가리키는 DB 가 Airflow 의 `AIRFLOW_CONN_APP_DB` 와 달라지면 창구가 늘 비어 보인다 —
+붙지 못하는 것이 아니라 **다른 DB 의 빈 뷰를 읽는다.**
 
 **`curated` 버킷은 아직 없다.** Spark 가 정제 결과를 쓸 곳인데 버킷도 쓰기 권한도 만들어지지
 않았다. `datastore/minio-init/init.sh` 가 늘어야 한다 — [`09 §7` 항목 4b](../spark/docs/09-dev-and-test.md).
@@ -326,21 +351,23 @@ docker run --rm --network s15p21a102-data \
 | 무엇 | 어떻게 |
 |---|---|
 | 같은 기사를 다시 저장 | 같은 키를 덮어쓴다. `(source, article_id)` 하나가 키 하나로 간다 |
-| 같은 이벤트가 다시 나감 | 있을 수 있다 (at-least-once). `event_id` 로 거른다 |
-| 같은 실행을 재시도 | 같은 `event_id` 로 같은 내용이 나간다. 요약의 `emitted` 와 가장 오래된 수집 시각은 장부의 발급 실행에서 온다 |
-| 이벤트가 유실 | `article.json` 이 있는 디렉터리를 훑어 재구성할 수 있다 (§5). Kafka 는 원본이 아니다 |
+| 같은 행을 다시 읽음 | 있을 수 있다. 창을 겹쳐 읽으면 겹친다 — `event_id` 로 거른다 |
+| 같은 실행을 재시도 | 창구는 상태가 없어 같은 창이면 같은 행이 나온다 |
+| 창구를 못 읽음 | `article.json` 이 있는 디렉터리를 훑어 재구성할 수 있다 (§5, `--source objects`). 창구도 원본이 아니다 — 원본은 MinIO 객체와 장부다 |
 
 ## 8. 샘플
 
-[`spark/tests/fixtures/contract/`](../spark/tests/fixtures/contract/) 에 이벤트 5건(기사 1, 요약 토픽 2, 이전 봉투 요약 2)과
-기사 이벤트가 가리키는 객체 2개가 있다. Kafka·MinIO 를 띄우지 않고 파싱·검증 코드를 테스트할 수 있다.
+[`spark/tests/fixtures/contract/`](../spark/tests/fixtures/contract/) 에 이벤트 3건(기사 1, 이전 봉투 요약 2)과
+기사 이벤트가 가리키는 객체 2개가 있다. 저장소를 띄우지 않고 파싱·검증 코드를 테스트할 수 있다.
+
+요약 토픽 견본 둘(`collect-run-summary-*.json`)은 2026-09-20 에 지웠다. 생산자가 없어져 대조할
+기준이 사라졌기 때문이다. `run-summary-*.json` 은 남는다 — 토픽 분리 전 봉투의 기록이고, 소비 측
+판별기 테스트가 그 모양을 계속 받아야 한다.
 
 | 파일 | 무엇 |
 |---|---|
-| `article-event.json` | 기사 이벤트(`raw-file-ready`). `object_key` 가 있다 |
-| `collect-run-summary-success.json` | 요약 토픽의 실행 요약(성공). `stored=1`, `emitted=12`, 취득 실패 2건과 발급 지연 표본 |
-| `collect-run-summary-failed.json` | 요약 토픽의 실행 요약(실패). 수집 결과 9칸은 `null`, `emitted=0`, `failure_reason` 이 있다 |
-| `run-summary-success.json` · `run-summary-failed.json` | 이전 봉투 요약. 분리 전 `raw-file-ready` 에 나간 요약(7일 보존)을 소비 측이 계속 판별하도록 남긴다. 생성 스크립트가 만들지 않고, S15P21A102-206 이 기사 토픽의 요약 분기를 걷을 때 함께 지운다 |
+| `article-event.json` | 기사 이벤트. `object_key` 가 있다. 창구가 내는 칸과 같은 값이고, `bucket` · `run_id` 만 창구에 없다 |
+| `run-summary-success.json` · `run-summary-failed.json` | 토픽 분리 전 `raw-file-ready` 에 나갔던 요약 봉투의 기록. 생성 스크립트가 만들지 않는다. 소비 측 판별기(`EventShape.SUMMARY`)가 이 모양을 계속 받으므로 남긴다 — 걷어낼지는 소비 측이 정한다 |
 | `objects/fashion/vogue/rss/2026/09/03/854414/article.json` | 위 기사 이벤트의 `object_key` 가 가리키는 실물 |
 | `objects/fashion/vogue/rss/2026/09/03/854414/raw.xml` | `raw_object_key` 가 가리키는 실물 |
 
@@ -366,38 +393,27 @@ cd pipeline
 `checksum` 이 실제 객체의 해시인지, 봉투의 값이 `article.json` 의 값과 같은지 검사한다.
 그래서 봉투를 고치고 fixture 를 안 고치면 크롤러 쪽 테스트가 깨진다.
 
+`events.py` 가 발행을 그만둔 뒤에도 남아 있는 이유가 이것과 `test_ledger_view.py` 둘이다 —
+견본과 뷰가 **같은 기준**을 흉내 내야 서로 어긋나지 않는다.
+
 ## 9. 계약이 실제로 지켜지는지 확인하기
 
-`scripts/verify-spark-integration.py` 가 이 문서에 적힌 것을 실제 저장소에 대고 확인한다.
-저장소 계층 자체(토픽 존재, 권한 분리 등)는 [`datastore/scripts/verify.sh`](../../datastore/scripts/verify.sh) 가 본다.
+브로커가 있던 시절에는 `scripts/verify-spark-integration.py` 가 fixture 를 토픽에 넣고 되읽어
+확인했다. 발행할 것이 없어지면서 그 스크립트를 지웠다 (2026-09-20). 확인은 세 곳으로 나뉘어 있다.
 
-```sh
-cd pipeline
-./scripts/dev-setup.sh                                        # 한 번
-.venv/bin/python scripts/verify-spark-integration.py          # fixture 모드
-.venv/bin/python scripts/verify-spark-integration.py --live    # 실제 수집 이벤트
-```
-
-| 모드 | 무엇을 하나 | 언제 |
+| 무엇을 보나 | 어디서 | 언제 |
 |---|---|---|
-| fixture (기본) | fixture 객체를 `_verify/` 아래 올리고 기사 토픽에 1건, 활성화된 요약 토픽에 2건을 발행한 뒤, **Spark read 전용 키로** 되읽어 검증한다. 끝에서 지운다 | 언제나. 크롤러를 돌리지 않는다 |
-| `--live` | 토픽에 쌓인 실제 수집 이벤트를 같은 검증에 통과시킨다 | 크롤러를 한 번 돌린 뒤 |
+| 뷰가 봉투 정본과 같은 값을 내는가 — 칸 이름·시각 표기·`source_country` 까지 | `tests/common/test_ledger_view.py` (진짜 PostgreSQL 필요) | CI 매 MR. `pipeline:verify` 잡이 postgres 서비스를 띄운다 |
+| 견본 봉투가 `events.py` · `keys.py` 와 어긋나지 않는가, `checksum` 이 실제 객체의 해시인가 | `tests/common/test_contract_fixtures.py` | CI 매 MR. 외부 서비스가 필요 없다 |
+| MinIO 권한 분리 — 크롤러 키 put/get, **Spark 키 `raw-data` 쓰기 거부**, `curated` put/get/delete | `datastore/scripts/verify.sh` | 배포 뒤 손으로 |
 
-검사 항목:
+**뷰 테스트가 건너뛰어지면 안 된다.** `TRENDIN_TEST_DB_URL` 이 없으면 파일 통째로 skip 이고,
+skip 은 통과와 구분되지 않는다. 그래서 `pipeline:verify` 잡이 pytest 앞에서 그 DB 에 실제로
+접속해 보고, 안 되면 거기서 멈춘다.
 
-| 층 | 무엇을 보나 |
-|---|---|
-| Kafka | message key == `source_id` · 토픽별로 같은 소스가 한 파티션에 모이는지 |
-| 봉투 | 공통 필드 · `schema_version` · 토픽별 봉투 · 기사 `run_id`(발급 실행) · `record_count=1` · 출처 명시 · 요약 수집 결과와 발급 통계 |
-| MinIO | `object_key` 와 `raw_object_key` 읽기 · `checksum` 대조 · 봉투와 `article.json` 의 값 일치 · raw 가 없으면 `members_only` 나 `paywalled` 인지 |
-| 권한 | **Spark 키 write 거부** |
-
-Kafka 층을 따로 두는 이유는 봉투만 봐서는 확인할 수 없기 때문이다. 순서 보장은 message key
-와 파티션 배치의 성질이라, 메시지 메타(`key` · `partition` · `offset`)를 함께 봐야 한다.
-
-주소와 키는 `datastore/.env`, 선택적인 요약 토픽은 `pipeline/.env`의
-`TRENDIN_KAFKA_TOPIC_RUN_SUMMARY`에서 읽는다. 비어 있으면 요약 검증을 건너뛴다. `--live` 는 fixture 모드가
-남긴 이벤트를 걸러낸다 — 토픽에는 7일 남지만 그 객체는 검증 끝에 지워지기 때문이다.
+실제 수집 한 회차가 소비 측까지 닿았는지는 Spark 의 처리 이력에서 본다. 창구는 무엇이 읽혔는지
+기억하지 않으므로 수집 쪽에서 볼 수 있는 것은 "창구에 몇 행이 있나" 까지다
+(`pipeline/README.md` "결과 확인").
 
 ## 10. 스키마 변경 통보 절차
 
@@ -440,11 +456,11 @@ fixture 를 다시 만들어야 하고, 그러면 fixture diff 가 MR 에 남는
 
 | # | 무엇 | 상태 |
 |---|---|---|
-| 1 | **요약 별도 토픽 이행** | 2026-09-09 재검토. §12의 토픽 생성·유정균 재확인·소비 측 인계가 남음 |
+| ~~1~~ | ~~**요약 별도 토픽 이행**~~ | **2026-09-20 에 없어졌다** — 브로커를 걷으면서 요약 이벤트째로 걷혔다. 수집 숫자를 소비 측에 내는 일을 다시 연다면 `S15P21A102-199` 에서 이벤트가 아니라 지표로 만든다 |
 | 2 | **`domain` 값이 `dev` 인가 `development` 인가** | 크롤러는 `dev` 를 내고, 팀 계약과 [`01 §6`](../spark/docs/01-architecture.md) 은 `development` 를 기대한다. `development` 로 통일하기로 했고 크롤러 쪽 수정이 남았다. `fashion` 은 양쪽이 같다 |
 | 3 | 날짜 파티션이 발행일 | `web-collect.md` §12 항목 6 의 잠정답이 발행일이고 `keys.py` 가 그대로 구현했다. 확정 도장이 남았다 |
-| 4 | consumer group 이름 | §2. 소비 측이 정한다 |
-| 5 | DLQ 토픽 이름 | 소비 측 소유. 아직 없다 ([`datastore/README.md`](../../datastore/README.md) "지금 없는 것") |
+| ~~4~~ | ~~consumer group 이름~~ | **2026-09-20 에 없어졌다** — 소비할 토픽이 없다 |
+| ~~5~~ | ~~DLQ 토픽 이름~~ | **2026-09-20 에 없어졌다** — DLQ 는 테이블 `pl_processing_error` 하나로 간다 (`spark/io/dlq.py`) |
 
 ### `02-input-contract.md` 가 이 문서보다 낡았다
 
@@ -453,46 +469,19 @@ fixture 를 다시 만들어야 하고, 그러면 fixture diff 가 MR 에 남는
 
 | `02` 의 내용 | 실제 |
 |---|---|
-| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 이제 기사 토픽에는 맞는 규칙이다. 요약은 별도 토픽으로 읽는다 |
+| §2 표: `success` + `record_count>0` + `object_key=null` → 계약 위반 DLQ | 창구에는 기사 한 종류만 있으므로 그대로 맞는 규칙이다 |
 | §3 `record_count` 를 파싱된 줄 수와 대조 | 객체가 jsonl 이 아니라 단일 JSON 객체다 |
 | §6 manifest 모드가 `metadata.json` 을 훑는다 | `metadata.json` 이 없다. `article.json` 이 완료 마커다 (§5) |
 | `format: jsonl` · `compression: gzip` | `json` · `none` |
 
 `02` 는 소비 측 소유 문서라 이 문서가 고치지 않는다. 위 목록을 근거로 갱신해 주면 된다.
 
-## 12. 토픽 생성과 소비 측 인계
+## 12. ~~토픽 생성과 소비 측 인계~~ (2026-09-20 걷어냄)
 
-**머지 전 유정균 재확인이 필요하다.** 2026-09-07(S15P21A102-158)에 함께 접은 토픽 분리
-결정을 다시 여는 작업이다. 근거 넷은 `web-collect.md` §12에 기록했다. 토픽 생성 완료까지
-구현을 기다릴 필요는 없지만 재확인을 받은 것으로 간주하지 않는다.
+요약 토픽 `collect-run-summary` 는 끝내 만들어지지 않았고, 브로커와 함께 계획째로 없어졌다.
+이 절에 있던 생성 요청(파티션 1 · 보존 30일 · `delete` · 세그먼트 1일)과 인계 목록은
+`web-collect.md` §6 · §12 의 기록으로 대신한다.
 
-| collect-run-summary 생성 요청 | 값 |
-|---|---|
-| partitions | 1 (7소스 × 24회, 하루 168건 기준) |
-| retention.ms | 2592000000 (30일) |
-| cleanup.policy | delete (compact면 소스별 최신 1건만 남음) |
-| segment.ms | 86400000 |
-
-`datastore/` 담당자가 `kafka-init/init.sh`에 토픽별 파티션·보존 설정을 적용하고,
-`.env.example`에 `KAFKA_TOPIC_RUN_SUMMARY` 및 전용 설정을 추가하고 README를 갱신한다.
-`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`이므로 먼저 토픽이 있어야 한다.
-
-생산 측은 기본 비활성(`TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=`)으로 배포할 수 있다.
-이때 기사 이벤트는 그대로 발급되고, 요약은 발급하지 않으며 로그와
-publish 결과의 `summaries=0`, `summary_enabled=false`로 표시한다. 토픽 생성 후
-`.env`를 `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=collect-run-summary`로 채우고
-`docker compose up -d`하면 다음 회차부터 요약을 낸다. 비활성 기간의 요약을 소급 발급하지 않는다.
-
-강민수의 S15P21A102-206에 넘길 변경은 다음과 같다.
-
-- 기사 토픽의 `object_key` 기반 기사/요약 분기를 제거한다. 기사 `run_id`는 이름과 뜻(발급 실행)이
-  그대로다. 기사 `record_count`는 항상 1이며, 수집 건수는 요약의 `stored` 합이다.
-- 재계산 창 W는 `처리일 − published_date`를 기준으로 잡는다.
-  `처리일 − collected_date`(발급·처리 지연)와 `collected_date − published_date`(수집 지연)를
-  함께 고려하며, `emitted_oldest_collected_at`이 오래된 수집분의 늦은 도착을 알려 준다.
-- 수집 상태 원장은 닫힌 날짜에도 늦게 도착한 이벤트로 다시 열릴 수 있어야 한다.
-- 문서와 fixture가 들어 있는 MR을 인계하고, 배포 후 첫 회차 이벤트를 함께 확인한다.
-
-기존 기사 토픽에 나간 요약 196개는 삭제하지 않는다. 기존 7일 보존으로 만료된다.
-그동안 과거 이벤트를 처음부터 읽는 `--live` 검증에는 이전 봉투가 섞여 실패할 수 있다.
-장부 출처 열(주기/백필), 불투명 UUID, status 확장, 소비 측 문서 직접 수정은 이번 범위 밖이다.
+기사 토픽에 나갔던 요약 196개도 브로커와 함께 사라졌다. 그 봉투를 판별하는 소비 측 코드
+(`spark/io/contract.py` 의 `EventShape.SUMMARY`)와 견본 `run-summary-*.json` 은 남아 있다 —
+걷어낼지는 소비 측이 정한다.

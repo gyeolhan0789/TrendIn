@@ -1,12 +1,17 @@
-# datastore — 수집 계층 저장소 (Kafka · MinIO)
+# datastore — 수집 계층 저장소 (MinIO)
 
-크롤러가 원문을 MinIO `raw-data` 에 올리고 그 위치를 Kafka 에 발행하면, Spark 가 이벤트를 받아 그것을 읽고
-정제 결과를 MinIO `curated` 에 쓴다. 이 디렉터리는 그 두 저장소만 띄운다. Airflow 는 `pipeline/`,
+크롤러가 원문을 MinIO `raw-data` 에 올리고 그 위치를 앱 DB 의 수집 이력에 적으면, Spark 가 그 이력의 뷰를 읽어 원문을
+가져다 정제하고 결과를 MinIO `curated` 에 쓴다. 이 디렉터리는 그 객체 저장소만 띄운다. Airflow 는 `pipeline/`,
 Spark 는 별도 프로젝트다.
 
-- 계약(버킷 이름, 객체 경로, 토픽 이름, 이벤트 형식): `pipeline/docs/data-pipeline-design.md` 4·5 장
+**Kafka 는 걷혔다** (Kafka 제거 3/3). 브로커가 있던 시절에는 크롤러가 객체 위치를 토픽에 발행하고 Spark 가 그것을
+소비했다. 지금은 그 자리를 앱 DB 의 `collected_article_event` 뷰가 대신한다 — 수집이 장부에 적으면 같은 순간 뷰에
+나타나고, 소비 측은 그 뷰를 창으로 잘라 읽는다. 브로커가 하던 "저장은 됐는데 아직 안 읽힌 것" 의 보관이 사라진 대신
+장부가 영구라 잃는 것이 없다. 그 시절의 결정은 Jira `S15P21A102-156` · `S15P21A102-157` 에 남아 있다.
+
+- 계약(버킷 이름, 객체 경로): `pipeline/docs/data-pipeline-design.md` 4 장
 - 실행 환경 결정과 근거: Jira `S15P21A102-156`
-- 토픽 설정 · 보관 정책 결정과 근거: Jira `S15P21A102-157` (아래 "토픽 설정" · "보관 정책" 절)
+- 보관 정책 결정과 근거: Jira `S15P21A102-158` (아래 "보관 정책" 절)
 - `curated` 버킷과 Spark 쓰기 권한: Jira `S15P21A102-243` (아래 "키 세 벌" · "보관 정책" 절)
 
 ## 어디에 뜨나
@@ -14,7 +19,7 @@ Spark 는 별도 프로젝트다.
 | EC2 | compose 프로젝트 | 담는 것 |
 |---|---|---|
 | 기본 `J15A102` | `infra/` · `s15p21a102-infra` | 서비스 DB `forever102` |
-| 데이터 `J15A102A` | **`datastore/` · `s15p21a102-datastore`** | **Kafka · MinIO** |
+| 데이터 `J15A102A` | **`datastore/` · `s15p21a102-datastore`** | **MinIO** |
 | 데이터 `J15A102A` | `pipeline/` · `s15p21a102-pipeline` | Airflow · 크롤러 · Airflow 메타 DB |
 | 데이터 `J15A102A` | Spark — 별도 프로젝트 없음 | `pipeline/spark/compose.spark.yaml` 이 Airflow 이미지에 얹는다 (S15P21A102-169) |
 
@@ -25,8 +30,7 @@ Spark 는 별도 프로젝트다.
 
 ```
 datastore/
-├─ compose.yaml        kafka · kafka-storage-init · kafka-init · minio · minio-init
-├─ kafka-init/init.sh  토픽 생성 · 보존 설정 적용 (매 up 마다 멱등)
+├─ compose.yaml        minio · minio-init
 ├─ minio-init/init.sh  버킷 둘 · 정책 · 계정 · 보관 정책 (매 up 마다 멱등)
 ├─ scripts/verify.sh   완료 조건 검증. 실패하면 exit 1
 ├─ .env.example        → .env 로 복사해 채운다
@@ -35,9 +39,6 @@ datastore/
 
 | 서비스 | 하는 일 |
 |---|---|
-| `kafka` | KRaft 단일 노드 브로커. ZooKeeper 없음 |
-| `kafka-storage-init` | 빈 볼륨을 브로커 uid(1000) 소유로 넘긴다. 한 번 돌고 끝 |
-| `kafka-init` | 계약 토픽 `raw-file-ready` 생성 + 보존 설정 적용. 다시 돌려도 같다 |
 | `minio` | 객체 저장소. S3 호환. 버킷 둘 — 원문 `raw-data`, 정제 결과 `curated` |
 | `minio-init` | 버킷 둘 · 정책 · 계정 · 수명 주기 규칙. 다시 돌려도 같다 |
 
@@ -46,21 +47,21 @@ datastore/
 ```sh
 (umask 077; cp -n datastore/.env.example datastore/.env)
 chmod 600 datastore/.env
-nano datastore/.env      # MinIO 계정 세 벌, KAFKA_EXTERNAL_HOST 를 채운다
+nano datastore/.env      # MinIO 계정 세 벌을 채운다
 
 docker compose -f datastore/compose.yaml config --quiet
 docker compose -f datastore/compose.yaml up -d
-docker compose -f datastore/compose.yaml ps      # 전부 healthy 인지
+docker compose -f datastore/compose.yaml ps      # minio 가 healthy 인지
 ```
 
-`minio-init` · `kafka-init` · `kafka-storage-init` 은 한 번 돌고 `Exited (0)` 으로 남는다. 정상이다.
+`minio-init` 은 한 번 돌고 `Exited (0)` 으로 남는다. 정상이다.
 
 ## 접속 정보
 
-| 어디서 | Kafka | MinIO |
-|---|---|---|
-| 같은 EC2 의 다른 compose (Airflow · Spark) | `kafka:9092` | `http://minio:9000` |
-| 호스트 · 다른 EC2 | `${KAFKA_EXTERNAL_HOST}:29092` | `http://<호스트>:9000`, 콘솔 `:9001` |
+| 어디서 | MinIO |
+|---|---|
+| 같은 EC2 의 다른 compose (Airflow · Spark) | `http://minio:9000` |
+| 호스트 · 다른 EC2 | `http://<호스트>:9000`, 콘솔 `:9001` |
 
 붙는 쪽 compose 는 이렇게 쓴다.
 
@@ -93,45 +94,9 @@ networks:
 **Spark 정책 이름이 바뀌었다.** `spark-read` 는 `curated` 쓰기가 붙으면서 실제 권한과 어긋나 `spark-raw-read-curated-write` 가 됐다 (`S15P21A102-243`). `minio-init` 이 새 이름을 붙인 뒤 옛 `spark-read` 를 계정에서 떼고 지운다 — 이미 돌던 서버에만 남아 있고, 없으면 그냥 넘어간다.
 `.env` 를 고쳐도 이미 만들어진 계정은 그대로다. 값을 바꿨으면 `docker compose -f datastore/compose.yaml up -d minio-init` 을 다시 돌려 반영한다.
 
-## 토픽 설정
-
-`raw-file-ready` 에 붙는 값과 근거다. 결정 근거: Jira `S15P21A102-157`.
-
-| 항목 | 값 | 근거 |
-|---|---|---|
-| 파티션 | 6 | 소비 병렬도 상한. 늘릴 수만 있고 줄이지 못하므로 미리 여유를 둔다. 이벤트가 배치당 1 건이라 6 개를 유지하는 비용은 디렉터리 몇 개뿐이다 |
-| 복제 계수 | 1 | 브로커가 한 대라 1 이 최대 |
-| `cleanup.policy` | `delete` | 기본값이지만 못 박는다. `compact` 로 바뀌면 message key 가 `source_id` 라 소스당 최신 1 건만 남고 배치 이력이 사라진다 |
-| `retention.ms` | `604800000` (7일) | Kafka 는 원본이 아니다. 토픽이 비어도 `metadata.json` 이 있는 디렉터리를 훑어 이벤트를 재구성할 수 있다(설계문서 5장 재발행). 7일은 소비 측이 멈춰 있어도 따라잡을 수 있는 창이다 |
-| `segment.ms` | `86400000` (1일) | 아래 참고 |
-
-`retention.bytes` 는 설정하지 않는다(무제한). 이벤트 하나가 1KB 안팎이고 하루 수백 건이라 시간 기준이 항상 먼저 걸린다.
-
-**`segment.ms` 를 낮추는 이유.** 보존 기간은 세그먼트 파일 단위로 적용되고, 쓰고 있는 세그먼트는 지우지 않는다. 세그먼트는 `segment.bytes`(1GiB) 나 `segment.ms` 중 먼저 오는 쪽으로 닫히는데, 우리 데이터량으로는 1GiB 를 채울 일이 없어 시간 조건만 남는다. `segment.ms` 가 기본값 7일이면 7일간 쌓아 닫은 뒤 다시 7일을 기다리므로 실제 삭제까지 최대 14일이 걸린다. 1일로 낮춰야 선언한 7일에 맞는다.
-
-**브로커 기본값과의 관계.** `KAFKA_LOG_RETENTION_HOURS` 는 브로커 전체 기본값이고, 위 토픽 설정이 그 값을 덮는다. `raw-file-ready` 의 실제 보존 기간은 토픽 설정이 정한다. 브로커 값은 앞으로 만들 다른 토픽(DLQ 등)의 출발값으로만 의미가 있다.
-
-**다중 브로커로 갈 때.** 복제 계수를 올리고 `min.insync.replicas` 와 producer `acks=all` 을 함께 잡는다. 지금은 브로커가 하나라 어느 쪽도 의미가 없다.
-
-**이미 쓰던 `.env` 가 있으면 고쳐야 한다.** 파티션 수는 이전에 `KAFKA_TOPIC_PARTITIONS=3` 으로 잡혀 있었다. `.env` 에 그 줄이 남아 있으면 compose 기본값 6 이 적용되지 않는다. `.env.example` 과 대조해 아래 줄을 옮겨 넣는다.
-
-```
-KAFKA_TOPIC_PARTITIONS=6
-KAFKA_TOPIC_CLEANUP_POLICY=delete
-KAFKA_TOPIC_RETENTION_MS=604800000
-KAFKA_TOPIC_SEGMENT_MS=86400000
-MINIO_RAW_EXPIRE_DAYS=90
-```
-
-`KAFKA_TOPIC_PARTITIONS` 외에는 `.env` 에 없어도 compose 기본값으로 같은 값이 들어간다. 파티션만 기존 줄이 이미 있어서 예외다.
-
-`MINIO_RAW_PREFIX` · `MINIO_VERIFY_EXPIRE_DAYS` 는 없어졌다 (`S15P21A102-158`, 아래 "보관 정책"). `.env` 에 남아 있어도 아무 데도 쓰이지 않으니 지운다.
-
-`up -d` 를 다시 돌리면 `kafka-init` 이 파티션 수를 6 으로 늘리고 설정을 다시 적용한다. 파티션을 늘리면 message key 의 해시 매핑이 바뀌어, 이미 쌓인 메시지와 새 메시지가 같은 key 인데 다른 파티션에 놓인다. 보존 기간 7일이 지나 옛 메시지가 사라지면 정상으로 돌아온다.
-
 ## 보관 정책
 
-MinIO 쪽이다. 결정 근거: Jira `S15P21A102-157` · `S15P21A102-158` · `S15P21A102-243`.
+결정 근거: Jira `S15P21A102-158` · `S15P21A102-243`.
 
 | 버킷 | 버전 관리 | 수명 주기 |
 |---|---|---|
@@ -152,15 +117,11 @@ MinIO 쪽이다. 결정 근거: Jira `S15P21A102-157` · `S15P21A102-158` · `S1
 
 **만료 기준은 업로드 시각이다.** 경로의 발행일이 아니다. 백필로 과거 날짜분을 지금 올려도 올린 날부터 90일을 센다.
 
-**Kafka 와의 정합성.**
+**수집 이력과의 관계.** 장부(`collected_article`)는 지우지 않으므로(불변식 13), 90일이 지나 원문이 만료되면 없는 객체를 가리키는 행이 장부에 남는다. 그래도 되는 이유는 소비 측이 창을 잘라 읽기 때문이다 — `ingest` 의 `lookback_hours` 는 168시간이고, 90일 전 행은 이미 처리를 마쳐 처리 이력이 거른다. 되짚어야 할 만큼 오래된 구간은 원문이 있어야 하므로, 90일보다 긴 백필은 만료 전에 돌린다.
 
-```
-MinIO 90일  >=  Kafka 7일
-```
+브로커가 있던 시절에는 여기에 `MinIO 90일 >= Kafka 7일` 이라는 부등식이 있었다. 이벤트가 가리키는 원문이 먼저 사라지면 안 된다는 뜻이었고, `verify.sh` 가 그것을 산술로 확인했다. 이벤트가 없어지면서 그 부등식도 없어졌다.
 
-원문이 이벤트보다 먼저 사라지면 이벤트의 `object_key` 가 없는 객체를 가리키게 된다. 그래서 원문 보관 기간을 토픽 보존 기간 이상으로 잡는다. `verify.sh` 가 이 부등식을 산술로 확인한다.
-
-90일은 압축 후 하루 수십 MB 를 가정한 값이다. 실제 수집량이 확인되면 EBS 여유에 맞춰 줄여도 되지만, Kafka 보존 기간 아래로는 내리지 않는다.
+90일은 압축 후 하루 수십 MB 를 가정한 값이다. 실제 수집량이 확인되면 EBS 여유에 맞춰 줄여도 된다. 줄일 때는 `scripts/check-destructive-settings.sh` 가 MR 에서 막는다 — 이미 만료된 원문은 안 돌아온다.
 
 ## 기동과 중지
 
@@ -168,17 +129,24 @@ MinIO 90일  >=  Kafka 7일
 docker compose -f datastore/compose.yaml up -d
 docker compose -f datastore/compose.yaml stop      # 중지 (재부팅해도 다시 뜨지 않는다)
 docker compose -f datastore/compose.yaml start
-docker compose -f datastore/compose.yaml restart kafka minio
+docker compose -f datastore/compose.yaml restart minio
 ```
 
 `restart: unless-stopped` 라 EC2 가 재부팅해도 Docker 데몬이 뜨면서 같이 올라온다. `stop` 으로 명시적으로 내린 컨테이너는 그대로 내려가 있다.
 
-**`down -v` 는 쓰지 않는다.** 볼륨 `s15p21a102-kafka-data` · `s15p21a102-minio-data` 와 그 안의 원문이 함께 사라진다.
+**`down -v` 는 쓰지 않는다.** 볼륨 `s15p21a102-minio-data` 와 그 안의 원문이 함께 사라진다.
 `down` 만 해도 네트워크가 사라져 `pipeline` 이 끊기므로, 저장소를 내릴 때는 붙어 있는 쪽을 먼저 내린다.
+
+**옛 Kafka 볼륨은 저절로 사라지지 않는다.** 브로커를 걷은 뒤에도 `s15p21a102-kafka-data` 는 돌던 서버에 남는다. 안에 든 것은 보존 기간이 지난 옛 메시지뿐이라 지워도 되지만, `down -v` 가 아니라 이름을 확인하고 지운다.
+
+```sh
+docker volume ls | grep kafka
+docker volume rm s15p21a102-kafka-data
+```
 
 ## 검증 스크립트
 
-완료 조건(Jira `S15P21A102-156` AC 1~4, `S15P21A102-157` AC 5, `S15P21A102-243` 의 `curated`) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
+완료 조건(Jira `S15P21A102-156` AC 1~3, `S15P21A102-158`, `S15P21A102-243` 의 `curated`) 을 한 번에 확인한다. 실패하면 `exit 1` 이다.
 
 ```sh
 ./datastore/scripts/verify.sh
@@ -189,22 +157,21 @@ Windows 는 Git Bash 에서 돌린다. PowerShell·CMD 는 `.sh` 를 실행하�
 
 | 확인하는 것 | AC |
 |---|---|
-| `kafka` · `minio` healthy, `restart=unless-stopped` | 1 |
-| 네트워크 `s15p21a102-data` 존재, 그 안에서 `kafka:9092` · `minio:9000` 도달 | 2 |
-| 토픽 존재, produce → consume 왕복 | 3 |
-| `raw-data` — 크롤러 키 put/get, Spark 키 get, **Spark 키 write 거부** | 4 |
-| `curated` — **Spark 키 put/get/delete 성공** | 4 |
-| 파티션 수, `cleanup.policy` · `retention.ms` · `segment.ms` 실제 값 | 5 |
-| `raw-data` 수명 주기 `expire-all` 1 개(중복 없음), 버전 관리 off, MinIO 보관 ≥ Kafka 보존 | 5 |
-| **`curated` 수명 주기 없음**, 버전 관리 off | 5 |
+| `minio` healthy, `restart=unless-stopped` | 1 |
+| 네트워크 `s15p21a102-data` 존재, 그 안에서 `minio:9000` 도달 | 2 |
+| `raw-data` — 크롤러 키 put/get, Spark 키 get, **Spark 키 write 거부** | 3 |
+| `curated` — **Spark 키 put/get/delete 성공** | 3 |
+| `raw-data` 수명 주기 `expire-all` 1 개(중복 없음), 버전 관리 off | 4 |
+| **`curated` 수명 주기 없음**, 버전 관리 off | 4 |
 
 검증용 객체는 `_verify/` 아래에만 만들고 끝나면 지운다. 수집 데이터는 건드리지 않는다.
-Kafka 에 넣은 `_verify` 메시지는 토픽에 남는다. 보존 기간이 지나면 사라진다.
 
 `raw-data` 의 `expire-all` 이 1 개인지 세는 이유는 멱등 확인이다. `up` 을 두 번 돌린 뒤에도 1 개여야 한다. 늘어나 있으면 규칙이 교체가 아니라 누적되고 있다는 뜻이다.
 
 `raw-data` 쓰기 거부와 `curated` 쓰기 성공은 짝으로 본다. 한쪽만 확인하면 정책이 두 버킷에 통으로 붙은 사고를 잡지 못한다.
 버킷 설정 조회에는 관리자 계정이 필요하다. 크롤러·Spark 정책에는 그 권한이 없다.
+
+**봉투가 맞는지는 여기서 보지 않는다.** 소비 측이 읽는 `collected_article_event` 뷰가 봉투 정본과 같은 값을 내는지는 진짜 PostgreSQL 이 있어야 판정되고, 그 대조는 `pipeline/tests/common/test_ledger_view.py` 가 CI 에서 한다.
 
 ## 손으로 확인할 때
 
@@ -212,26 +179,6 @@ Kafka 에 넣은 `_verify` 메시지는 토픽에 남는다. 보존 기간이 �
 
 ```sh
 cd datastore
-
-# 토픽 목록
-docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
-
-# 파티션 수 · 리더 배치
-docker compose exec kafka /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server localhost:9092 --describe --topic raw-file-ready
-
-# 토픽에 실제로 붙은 설정값
-docker compose exec kafka /opt/kafka/bin/kafka-configs.sh \
-  --bootstrap-server localhost:9092 --entity-type topics --entity-name raw-file-ready --describe
-
-# 테스트 메시지 발행
-echo 'reddit:{"event_id":"test"}' | docker compose exec -T kafka \
-  /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \
-  --topic raw-file-ready --property parse.key=true --property key.separator=:
-
-# 소비
-docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 --topic raw-file-ready --from-beginning --max-messages 1
 
 # MinIO — 크롤러 키로 put/get
 docker run --rm --network s15p21a102-data \
@@ -277,20 +224,22 @@ docker run --rm --network s15p21a102-data \
 
 `.env` 만 다르다.
 
-- `KAFKA_EXTERNAL_HOST` — 밖에서 붙는 클라이언트가 실제로 닿는 주소. 브로커가 이 값을 그대로 돌려주므로 틀리면 첫 연결만 되고 그 다음이 끊긴다.
-- `KAFKA_EXTERNAL_BIND` · `MINIO_BIND` — 기본은 `127.0.0.1`. 다른 호스트가 붙어야 할 때만 `0.0.0.0` 으로 바꾼다.
-- `KAFKA_CLUSTER_ID` — 첫 기동 때 로그 디렉터리에 새겨진다. 나중에 바꾸면 기존 볼륨을 못 읽는다.
+- `MINIO_BIND` — 기본은 `127.0.0.1`. 다른 호스트가 붙어야 할 때만 `0.0.0.0` 으로 바꾼다.
 - 자격증명은 서버에서 생성한다. `.env` 는 Git 에 올리지 않는다.
 
 같은 EC2 안에서만 쓸 거면 바인드를 `127.0.0.1` 로 두는 편이 안전하다. 컨테이너끼리는 `s15p21a102-data` 로 붙으므로 호스트 포트가 없어도 된다.
 
-포트를 `0.0.0.0` 으로 여는 경우, Kafka(29092) 는 인증 없는 PLAINTEXT 이고 MinIO(9000·9001) 는 키 하나로 열린다.
+포트를 `0.0.0.0` 으로 여는 경우, MinIO(9000·9001) 는 키 하나로 열린다.
 보안 그룹에서 팀 대역과 필요한 인스턴스만 허용하고 공인망 전체에 열지 않는다. Docker 가 공개한 포트는 UFW 규칙을 우회할 수 있으므로 보안 그룹 쪽에서 막는다.
+
+**브로커를 걷으면서 보안 그룹에서도 29092 를 닫는다.** 인증 없는 PLAINTEXT 리스너였고 이제 아무도 듣지 않는다.
 
 ## 지금 없는 것
 
-Kafka 인증(SASL)·TLS, 다중 브로커, DLQ 토픽, 백업.
-DLQ 는 담당 2 의 후속 이슈, 나머지는 필요해질 때 이슈를 판다.
+MinIO TLS, 백업.
+필요해질 때 이슈를 판다.
 
 수명 주기 규칙은 `raw-data` 에 만료만 건다. 저장 등급 전환(transition)이나 미완료 멀티파트 정리는 아직 없다.
 `curated` 에는 규칙이 아예 없어서, 재처리로 버려진 파티션이 있어도 저절로 지워지지 않는다. 용량이 문제가 되면 그때 이슈를 판다.
+
+실패한 이벤트를 모으는 DLQ 는 토픽이 아니라 `spark/io/dlq.py` 가 쓰는 테이블이다. 브로커와 함께 없어진 것은 "DLQ 토픽" 계획 쪽이다.

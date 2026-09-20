@@ -1,24 +1,24 @@
-"""수집 이벤트 봉투. 토픽마다 한 모양만 흐른다.
+"""기사 이벤트 봉투의 **정본**.
 
-| 토픽 | 이벤트 | event_id |
-|---|---|---|
-| raw-file-ready | 기사 | {source}-{article_id} |
-| collect-run-summary | 소스별 실행 요약 | {source}-{run_id} |
+**이 함수는 이제 아무것도 발행하지 않는다.** 브로커를 걷으면서(Kafka 제거 3/3) 봉투를
+만드는 자리가 파이썬에서 SQL 로 넘어갔다 — 소비 측이 읽는 것은 `ledger.DDL` 의
+`collected_article_event` 뷰다. 그런데도 이 파일이 남아 있는 이유는 **그 뷰가 맞다는 것을
+무엇엔가 대조해야** 하기 때문이다. 뷰의 `published_at` 은 `to_char` · `lpad` · `make_interval`
+로 조립한 문자열이고, 여기 `isoformat()` 과 한 글자라도 다르면 소비 측 계약이 조용히 갈린다.
 
-요약은 0건과 장애를 구별하고, 수집 결과와 밀린 기사 발급을 따로 센다.
-소비자가 아직 없는 이행 시점이라 schema_version은 1을 유지한다(S15P21A102-205·206).
+대조하는 자리는 둘이다 — `tests/common/test_ledger_view.py`(진짜 PostgreSQL 에 뷰를 걸고
+칸마다 값을 맞춘다)와 `tests/common/test_contract_fixtures.py`(소비 측이 쓰는
+`spark/tests/fixtures/contract/` 를 여기서 다시 만들어 맞춘다).
+
+`schema_version` 은 1 이다. 봉투의 칸이 바뀐 적이 없다 (S15P21A102-205·206).
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from trendin.common.collect.ledger import EmittedStats, PendingArticle
-
-if TYPE_CHECKING:
-    from trendin.common.collect.flow import SourceOutcome
+from trendin.common.collect.ledger import LedgerRow
 
 SCHEMA_VERSION = 1
 KST = timezone(timedelta(hours=9), "KST")
@@ -30,20 +30,21 @@ def _kst(value: datetime) -> str:
 
 
 def article_event(
-    row: PendingArticle, *, bucket: str, run_id: str, source_country: str
+    row: LedgerRow, *, bucket: str, run_id: str, source_country: str
 ) -> dict[str, Any]:
-    """기사 하나의 이벤트. `stat` 으로 저장을 확인한 뒤에만 만든다.
+    """장부 행 하나가 소비 측에 보이는 모양.
 
-    `collected_at` 은 **그 기사를 받은 시각**이지 이번 실행의 시각이 아니다. 팀 계약이
-    `collected_at` 에 요구하는 성질("재처리해도 값이 바뀌지 않는다")을 기사 단위로 옮기면
-    이게 된다 — 지난 실행에서 저장만 되고 못 나간 행을 이번에 내도 값이 그대로다.
+    `collected_at` 은 **그 기사를 받은 시각**이다. 팀 계약이 `collected_at` 에 요구하는
+    성질("재처리해도 값이 바뀌지 않는다")을 기사 단위로 옮기면 이게 된다 — 언제 읽히든
+    값이 그대로다.
 
-    `run_id` 는 발급 실행이다. 수집 실행과 다를 수 있고, 수집 시각은
-    `collected_at` 이 든다. 재발급하면 바뀌므로 파티션 키로 쓰지 않는다.
+    `run_id` 는 발급이 있던 시절의 칸이다. 발급이 없어졌으므로 뷰는 이 칸을 내지 않고
+    소비 측이 `None` 으로 채운다 (`spark/ingest/collected.py`). 여기 남아 있는 것은
+    fixture 가 그 시절 봉투의 모양을 그대로 보존하기 때문이다.
     `event_id` 는 결정적인 중복 판정 함수다. 파싱해서 source 를 추출하지 않는다.
 
     `source_country` 를 인자로 받는 이유는 그 값이 기사가 아니라 **소스**의 속성이라
-    `PendingArticle` 에 없기 때문이다(`bucket` 과 같은 사정이다).
+    `LedgerRow` 에 없기 때문이다(`bucket` 과 같은 사정이다).
 
     본문은 싣지 않는다(불변식 6). `url` · `source_id` · `published_at` 은 저작권법
     제37조 출처 명시라 반드시 있다(불변식 11).
@@ -81,49 +82,4 @@ def article_event(
         # 장부 뷰가 그것을 흉내 내므로, 여기 넣지 않으면 뷰만 칸을 낸 꼴이 된다 —
         # `tests/common/test_ledger_view.py` 가 둘을 대조한다.
         "source_country": source_country,
-    }
-
-
-def run_summary_event(
-    *,
-    source: str,
-    domain: str,
-    run_id: str,
-    logical_date: datetime,
-    status: str,
-    outcome: SourceOutcome | None,
-    emitted: EmittedStats,
-    failure_reason: str | None = None,
-) -> dict[str, Any]:
-    """수집 결과는 XCom, 발급 통계는 장부에서 온다. 없는 수집 결과는 0이 아닌 null이다.
-
-    run_started_at은 logical date를 KST로 표기하므로 재시도해도 같다.
-    """
-    if status not in ("success", "failed"):
-        raise ValueError(f"status 는 success 아니면 failed 다: {status!r}")
-    if status == "failed" and not failure_reason:
-        raise ValueError("failed 이면 failure_reason 을 채운다 (팀 발행 규약 5)")
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "event_id": f"{source}-{run_id}",
-        "domain": domain,
-        "source_id": source,
-        "run_id": run_id,
-        "run_started_at": _kst(logical_date),
-        "status": status,
-        "discovered": outcome.discovered if outcome is not None else None,
-        "stored": outcome.stored if outcome is not None else None,
-        "skipped": outcome.skipped if outcome is not None else None,
-        "not_modified": outcome.not_modified if outcome is not None else None,
-        "failed": outcome.failed if outcome is not None else None,
-        "failed_by_stage": dict(outcome.failed_by_stage) if outcome is not None else None,
-        "failures": [asdict(f) for f in outcome.failures] if outcome is not None else None,
-        "duration_ms": outcome.duration_ms if outcome is not None else None,
-        "members_only_stored": outcome.members_only_stored if outcome is not None else None,
-        "paywalled_stored": outcome.paywalled_stored if outcome is not None else None,
-        "emitted": emitted.count,
-        "emitted_oldest_collected_at": (
-            _kst(emitted.oldest_collected_at) if emitted.oldest_collected_at is not None else None
-        ),
-        "failure_reason": failure_reason if status == "failed" else None,
     }

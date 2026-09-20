@@ -1,8 +1,12 @@
 """수집 실행 흐름 (설계 문서 #4, S15P21A102-167).
 
 여기서 지키는 것: 장부가 발견과 취득 사이에서 거른다, 저장이 확인된 뒤에만 장부에 적는다,
-기사 하나가 깨져도 나머지는 간다, 재시도하면 안 되는 실패는 올라간다, 발급은 미발급 행을
-전부 보고 발행 뒤에 장부를 적는다.
+기사 하나가 깨져도 나머지는 간다, 재시도하면 안 되는 실패는 올라간다, 페이지를 못 받은
+기사는 상한까지만 다시 시도한다.
+
+**발급 테스트는 없다.** 브로커를 걷으면서(Kafka 제거 3/3) 저장 다음 단계가 없어졌다 —
+장부에 적힌 행은 `collected_article_event` 뷰에 바로 나타난다. 그 뷰가 맞는지는 진짜
+PostgreSQL 이 있어야 볼 수 있어서 `tests/common/test_ledger_view.py` 에 있다.
 """
 
 import hashlib
@@ -12,7 +16,6 @@ import pytest
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import (
-    UNKNOWN_COUNTRY,
     ArticleFetchError,
     Candidate,
     DiscoverResult,
@@ -20,23 +23,17 @@ from trendin.common.collect.contracts import (
     FetchMeta,
     SourceDef,
 )
-from trendin.common.collect.doubles import InMemoryObjectStore, RecordingEventPublisher
+from trendin.common.collect.doubles import InMemoryObjectStore
 from trendin.common.collect.flow import (
     RETRY_LIMIT,
     RETRY_WINDOW,
     SourceOutcome,
-    SourceStatus,
     abandoned_article,
     collect_source,
-    outcomes_from_xcom,
-    publish_pending,
-    publish_summaries,
-    run_id_of,
-    source_statuses,
     store_article,
 )
 from trendin.common.collect.keys import raw_key
-from trendin.common.collect.ledger import EmittedStats, InMemoryLedger
+from trendin.common.collect.ledger import InMemoryLedger
 from trendin.common.collect.session import HostBlocked
 
 KST = timezone(timedelta(hours=9))
@@ -162,7 +159,7 @@ def test_저장이_확인_안_되면_장부에_적지_않는다():
     outcome = collect_source(FakeAdapter(["1"]), ledger=ledger, store=store)
 
     assert outcome.stored == 0
-    assert ledger.pending("fashion") == []
+    assert ledger.rows("fashion") == []
     assert outcome.failed == 2  # 저장 확인 1건 + 이 대역이 늘 내는 발견 실패 1건
 
 
@@ -196,144 +193,11 @@ def test_같은_구간을_두_번_돌려도_키와_행이_안_는다():
     collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=store)
 
     assert store.objects == before
-    assert len(ledger.pending("fashion")) == 2
-
-
-# --- 발급 ------------------------------------------------------------------
-
-
-def test_발급은_미발급_행을_전부_보고_발행_뒤에_장부를_적는다():
-    ledger = InMemoryLedger()
-    store = InMemoryObjectStore()
-    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=store)
-
-    publisher = RecordingEventPublisher()
-    sent = publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-
-    assert sent == {"vogue": EmittedStats(2, NOW)}
-    assert publisher.flushes == 1  # 한 번에 모아 비운다
-    assert [k for k, _ in publisher.sent] == ["vogue", "vogue"]  # message key 는 source_id
-    assert ledger.pending("fashion") == []  # 다 나갔으니 남은 게 없다
-
-
-def test_두_번째_발급은_아무것도_내지_않는다():
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    for _ in range(2):
-        publish_pending(
-            ledger=ledger,
-            publisher=publisher,
-            bucket="raw-data",
-            domain="fashion",
-            run_id="20260903T110000",
-            now=NOW,
-        )
-    assert len(publisher.sent) == 1
-
-
-def test_발행이_실패하면_장부를_적지_않는다():
-    """적어 버리면 토픽엔 없는데 나갔다고 적힌 기사가 생긴다."""
-
-    class Broken(RecordingEventPublisher):
-        def flush(self) -> None:
-            raise RuntimeError("브로커가 안 받았다")
-
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    with pytest.raises(RuntimeError):
-        publish_pending(
-            ledger=ledger,
-            publisher=Broken(),
-            bucket="raw-data",
-            domain="fashion",
-            run_id="20260903T110000",
-            now=NOW,
-        )
-    assert len(ledger.pending("fashion")) == 1  # 다음 실행이 이어 낸다
-
-
-def test_다른_도메인_행은_건드리지_않는다():
-    """발급이 DAG 마다 하나씩이라 도메인으로 자르지 않으면 dev DAG 이 fashion 행을 낸다."""
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    sent = publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="dev",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-    assert sent == {}
-    assert len(ledger.pending("fashion")) == 1
-
-
-def test_요약_이벤트는_0건이어도_나가고_죽은_소스는_failed_로_나간다():
-    publisher = RecordingEventPublisher()
-    sent = publish_summaries(
-        publisher=publisher,
-        run_id="20260903T100000",
-        logical_date=datetime(2026, 9, 3, 10, 0, tzinfo=KST),
-        statuses=[
-            SourceStatus(
-                source="vogue",
-                domain="fashion",
-                status="success",
-                outcome=SourceOutcome(source="vogue", domain="fashion"),
-            ),
-            SourceStatus(
-                source="wkorea", domain="fashion", status="failed", failure_reason="죽었다"
-            ),
-        ],
-        counts={},
-    )
-    assert sent == 2
-    by_source = {v["source_id"]: v for _, v in publisher.sent}
-    assert by_source["vogue"]["status"] == "success"
-    assert by_source["vogue"]["emitted"] == 0  # 0건도 낸다 (팀 발행 규약 4)
-    assert by_source["wkorea"]["status"] == "failed"
-    assert by_source["wkorea"]["failure_reason"]
-    assert by_source["vogue"]["stored"] == 0
-    assert by_source["vogue"]["emitted_oldest_collected_at"] is None
-    assert by_source["wkorea"]["stored"] is None
+    assert len(ledger.rows("fashion")) == 2
 
 
 # --- DAG 이 들고 있던 판정 ---------------------------------------------------
 # 규약 1 대로 DAG 파일에서 내려온 것들. 내려왔으니 Airflow 없이 테스트된다(규약 12).
-
-
-def test_run_id_는_KST_로_찍는다():
-    """팀 계약: logical date 파생 `yyyyMMddTHHmmss` (KST)."""
-    assert run_id_of(datetime(2026, 9, 7, 4, 10, 10, tzinfo=timezone.utc)) == "20260907T131010"
-
-
-def test_XCom_에_안_돌아온_소스가_죽은_소스다():
-    """수집 태스크가 재시도까지 소진해 죽으면 그 인스턴스는 XCom 을 안 남긴다."""
-    statuses = source_statuses(
-        ["vogue", "wkorea"],
-        [SourceOutcome(source="vogue", domain="fashion", stored=3)],
-        lambda key: "fashion",
-    )
-    by_source = {s.source: s for s in statuses}
-    assert by_source["vogue"].status == "success"
-    assert by_source["wkorea"].status == "failed"
-    assert by_source["wkorea"].failure_reason  # 팀 발행 규약 5 — 이유를 채운다
-
-
-def test_매핑이_한_건이면_dict_하나로_온다():
-    one = SourceOutcome(source="vogue", domain="fashion", stored=1).to_dict()
-    assert [o.source for o in outcomes_from_xcom(one)] == ["vogue"]
-    assert [o.source for o in outcomes_from_xcom([one])] == ["vogue"]
-    assert outcomes_from_xcom(None) == []
 
 
 def test_수집_결과는_단계별_실패와_저장_숫자를_XCom_왕복에도_보존한다(monkeypatch):
@@ -452,226 +316,7 @@ def test_저장_확인_조회가_실패하면_없음으로_뭉개지_않는다()
     store = InMemoryObjectStore(fail_exists={"fashion/vogue/rss/2026/09/03/1/article.json"})
     with pytest.raises(RuntimeError, match="조회"):
         store_article(make_article("1"), b"<item/>", store=store, ledger=ledger)
-    assert ledger.pending("fashion") == []
-
-
-def test_발급은_소스별로_이번_실행이_낸_건수를_돌려준다():
-    """요약 이벤트의 `emitted` 가 이 값이다.
-
-    장부를 구간으로 다시 세면 실행이 겹칠 때 앞 실행이 낸 것까지 제 몫으로 센다.
-    이번에 실제로 보낸 것만 세면 그 일이 안 생긴다.
-    """
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
-    sent = publish_pending(
-        ledger=ledger,
-        publisher=RecordingEventPublisher(),
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-    assert sent == {"vogue": EmittedStats(2, NOW)}
-
-
-def test_연달아_두_번_발급하면_두_번째는_0건이다():
-    """실행 구간이 겹쳐도 앞 실행이 낸 건수를 제 것으로 세지 않는다."""
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
-    first = publish_pending(run_id="20260903T110000", **kw)
-    second = publish_pending(run_id="20260903T120000", **kw)
-    assert first == {"vogue": EmittedStats(2, NOW)}
-    assert second == {}
-    assert len(publisher.sent) == 2
-
-
-def test_기사_이벤트에_그_발급_실행의_run_id_가_박힌다():
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-    _key, event = publisher.sent[0]
-    assert event["run_id"] == "20260903T110000"
-
-
-def test_레지스트리에서_사라진_소스도_거울에_적힌_국가로_나간다():
-    """봉투와 뷰는 같은 기사에 같은 국가를 붙여야 한다. 뷰가 읽는 것은 DB 거울이다.
-
-    `SourceDef` 에서 소스를 빼도 거울의 행은 남긴다 — 지우면 그 소스로 이미 받아 둔 기사가
-    뷰에서 전부 `XX` 가 된다. 그러면 그 소스의 미발급 행이 장부에 남아 있을 때, 발급이 코드
-    레지스트리를 읽으면 봉투만 `XX` 를 내고 뷰는 옛 국가를 내 두 창구가 갈린다.
-    """
-    ledger = InMemoryLedger()
-    ledger.ensure_schema(COUNTRIES)  # 소스가 레지스트리에 있던 회차
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    # 소스를 `SourceDef` 에서 뺀 회차. 거울의 행은 지우지 않으므로 그대로 남는다.
-    ledger.ensure_schema({})
-
-    publisher = RecordingEventPublisher()
-    publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-
-    _key, event = publisher.sent[0]
-    assert event["source_country"] == "KR"
-
-
-def test_거울에_없는_소스는_XX_로_나간다():
-    """뷰의 `coalesce(country, 'XX')` 와 같은 값이다 — 두 창구가 갈리면 안 된다."""
-    ledger = InMemoryLedger()  # `ensure_schema` 를 안 불러 거울이 비어 있다
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-    )
-
-    _key, event = publisher.sent[0]
-    assert event["source_country"] == UNKNOWN_COUNTRY
-
-
-def test_거울은_회차마다_한_번만_읽는다():
-    """행마다 물으면 만 건에 만 번이다. 국가는 회차 도중에 바뀌지 않는다."""
-
-    class CountingCountries(InMemoryLedger):
-        def __init__(self) -> None:
-            super().__init__()
-            self.country_calls = 0
-
-        def source_countries(self) -> dict[str, str]:
-            self.country_calls += 1
-            return super().source_countries()
-
-    ledger = CountingCountries()
-    ledger.ensure_schema(COUNTRIES)
-    collect_source(
-        FakeAdapter([str(i) for i in range(250)]), ledger=ledger, store=InMemoryObjectStore()
-    )
-    publisher = RecordingEventPublisher()
-    publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-        batch=100,
-    )
-
-    assert len(publisher.sent) == 250
-    assert ledger.country_calls == 1, "묶음마다 다시 읽으면 안 된다"
-    assert {e["source_country"] for _k, e in publisher.sent} == {"KR"}
-
-
-def test_재시도해도_요약_건수가_그대로다():
-    """publish 태스크는 `retries=2` 다. 발급을 마치고 요약 중간에 죽으면 재시도가 온다.
-
-    그때 "이번 시도가 보낸 것"만 세면 0 이 나오고, 같은 `event_id` 로 내용이 다른 요약이
-    나간다(팀 발행 규약 3 위반). 그래서 건수는 장부에 적힌 발급 실행으로 센다.
-    """
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
-    kw = dict(
-        ledger=ledger,
-        publisher=RecordingEventPublisher(),
-        bucket="raw-data",
-        domain="fashion",
-    )
-
-    first = publish_pending(run_id="20260903T110000", now=NOW, **kw)
-    # 같은 실행의 재시도 — logical date 가 같으니 run_id 도 같다.
-    retry = publish_pending(run_id="20260903T110000", now=NOW, **kw)
-
-    assert first == {"vogue": EmittedStats(2, NOW)}
-    assert retry == {"vogue": EmittedStats(2, NOW)}, "재시도에도 발급 통계가 보존된다"
-
-
-def test_다음_실행은_앞_실행이_낸_것을_제_몫으로_세지_않는다():
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1", "2"]), ledger=ledger, store=InMemoryObjectStore())
-    kw = dict(
-        ledger=ledger,
-        publisher=RecordingEventPublisher(),
-        bucket="raw-data",
-        domain="fashion",
-    )
-
-    publish_pending(run_id="20260903T110000", now=NOW, **kw)
-    later = publish_pending(run_id="20260903T120000", now=NOW, **kw)
-
-    assert later == {}
-
-
-class CountingLedger(InMemoryLedger):
-    """`pending` 이 몇 번 불렸는지 센다. 한 회차가 몇 묶음을 도는지 보려고."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.pending_calls = 0
-
-    def pending(self, domain: str, limit: int = 500):
-        self.pending_calls += 1
-        return super().pending(domain, limit)
-
-
-def test_밀린_게_묶음보다_많아도_한_회차가_다_비운다():
-    """묶음 상한만큼만 내고 끝나면 요약 건수가 시도마다 커진다.
-
-    1차 시도가 250 중 100 만 내고 요약 도중 죽으면, 2차 시도가 나머지를 내고 `emitted_by_run`
-    이 250 을 준다 — 같은 `event_id` 로 `emitted` 가 100 이었다가 250 이 된다
-    (팀 발행 규약 3 위반).
-    """
-    ledger = CountingLedger()
-    adapter = FakeAdapter([str(i) for i in range(250)])
-    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-
-    counts = publish_pending(
-        ledger=ledger,
-        publisher=publisher,
-        bucket="raw-data",
-        domain="fashion",
-        run_id="20260903T110000",
-        now=NOW,
-        batch=100,
-    )
-
-    assert counts == {"vogue": EmittedStats(250, NOW)}
-    assert len(publisher.sent) == 250
-    # 100·100·50 을 내고, 비었음을 확인하는 한 번이 더 붙는다.
-    assert ledger.pending_calls == 4
-
-
-def test_다_비운_뒤_재시도해도_건수가_같다():
-    ledger = InMemoryLedger()
-    adapter = FakeAdapter([str(i) for i in range(250)])
-    collect_source(adapter, ledger=ledger, store=InMemoryObjectStore())
-    publisher = RecordingEventPublisher()
-    kw = dict(ledger=ledger, publisher=publisher, bucket="raw-data", domain="fashion", now=NOW)
-
-    first = publish_pending(run_id="20260903T110000", batch=100, **kw)
-    retry = publish_pending(run_id="20260903T110000", batch=100, **kw)
-
-    assert first == retry == {"vogue": EmittedStats(250, NOW)}
-    assert len(publisher.sent) == 250, "재시도가 이미 나간 것을 다시 내면 안 된다"
+    assert ledger.rows("fashion") == []
 
 
 def test_실패_표본은_10건_사유는_200자로_제한하되_전체_실패를_센다():
@@ -702,82 +347,6 @@ def test_304는_발견_0건과_구분하고_실패_없이_빈_결과를_남긴�
     assert outcome.discovered == outcome.stored == outcome.skipped == outcome.failed == 0
     assert outcome.failed_by_stage == {"discover": 0, "materialize": 0, "store": 0}
     assert outcome.failures == ()
-
-
-@pytest.mark.parametrize("summary_topic", ["", "collect-run-summary"])
-def test_DAG_발급은_요약_설정과_무관하게_기사를_내고_요약만_별도_토픽으로_낸다(
-    monkeypatch,
-    caplog,
-    summary_topic,
-):
-    import json
-    import logging
-    from types import SimpleNamespace
-
-    from trendin.common.collect import dag_factory
-    from trendin.common.collect.kafka_publisher import BOOTSTRAP_ENV, SUMMARY_TOPIC_ENV, TOPIC_ENV
-
-    ledger = InMemoryLedger()
-    collect_source(FakeAdapter(["1"]), ledger=ledger, store=InMemoryObjectStore())
-    sent = []
-
-    class Producer:
-        def __init__(self, config):
-            pass
-
-        def produce(self, topic, *, key, value, on_delivery):
-            sent.append((topic, json.loads(value)))
-            on_delivery(None, None)
-
-        def poll(self, timeout):
-            return 0
-
-        def flush(self, timeout):
-            return 0
-
-    # 인프라 어댑터 경계만 대체한다. DAG → flow → 실제 Kafka 봉투 직렬화는 모두 탄다.
-    monkeypatch.setattr(dag_factory.Database, "from_env", lambda: None)
-    monkeypatch.setattr(dag_factory, "PostgresLedger", lambda db: ledger)
-    monkeypatch.setattr(
-        dag_factory.MinioObjectStore, "from_env", lambda: SimpleNamespace(bucket="raw-data")
-    )
-    monkeypatch.setattr("confluent_kafka.Producer", Producer)
-    monkeypatch.setenv(BOOTSTRAP_ENV, "localhost:9092")
-    monkeypatch.setenv(TOPIC_ENV, "raw-file-ready")
-    monkeypatch.setenv(SUMMARY_TOPIC_ENV, summary_topic)
-    dag = dag_factory.build_collect_dag(
-        dag_id="fashion_summary_test",
-        domain="fashion",
-        schedule=None,
-        source_keys=["vogue"],
-        domain_of=lambda key: "fashion",
-        source_countries={"vogue": "KR"},
-        collect=lambda **kw: None,
-        doc_md="요약 토픽 검증",
-    )
-    publish = dag.get_task("publish").python_callable
-    # 수집 태스크는 죽었지만 이전 회차에 저장된 기사는 발급한다.
-    monkeypatch.setattr(dag_factory.logger, "handlers", [caplog.handler])
-    with caplog.at_level(logging.INFO):
-        result = publish(
-            ["vogue"], logical_date=NOW, ti=SimpleNamespace(xcom_pull=lambda **kw: None)
-        )
-    assert result["articles"] == 1
-    assert result["failed_sources"] == ["vogue"]
-    assert sent[0][0] == "raw-file-ready" and sent[0][1]["run_id"]
-    if summary_topic:
-        assert result["summaries"] == 1 and result["summary_enabled"] is True
-        assert sent[1][0] == "collect-run-summary"
-        assert sent[1][1]["stored"] is None and sent[1][1]["emitted"] == 1
-        retry = publish(
-            ["vogue"], logical_date=NOW, ti=SimpleNamespace(xcom_pull=lambda **kw: None)
-        )
-        assert retry == result
-        assert sent[2] == sent[1]  # 재시도는 기사 없이 같은 요약만 다시 낸다.
-    else:
-        assert result["summaries"] == 0 and result["summary_enabled"] is False
-        assert len(sent) == 1
-        assert SUMMARY_TOPIC_ENV in caplog.text
 
 
 # --- 대기·재시도 (S15P21A102-312) -------------------------------------------
@@ -841,7 +410,7 @@ def test_페이지를_못_받으면_저장하지_않고_대기로_남는다():
 
     assert outcome.stored == 0 and outcome.failed == 1
     assert store.objects == {}  # MinIO 에 아무것도 쓰지 않는다
-    assert ledger.pending("fashion") == []  # 발급도 되지 않는다
+    assert ledger.rows("fashion") == []  # 발급도 되지 않는다
     (row,) = ledger.retrying(SOURCE.key)
     assert row.attempts == 1 and row.meta.title == "제목 1"
 
@@ -857,7 +426,7 @@ def test_대기_행은_다음_주기에_다시_후보가_된다():
     assert again.materialized == ["1"]
     assert outcome.stored == 1
     assert ledger.retrying(SOURCE.key) == []  # 성공했으니 대기가 아니다
-    assert len(ledger.pending("fashion")) == 1  # 행이 늘지 않았다 (불변식 7)
+    assert len(ledger.rows("fashion")) == 1  # 행이 늘지 않았다 (불변식 7)
 
 
 def test_시도_상한에_닿으면_본문_없이_저장한다():
@@ -867,7 +436,7 @@ def test_시도_상한에_닿으면_본문_없이_저장한다():
 
     assert outcome.stored == 1
     assert list(store.objects) == ["fashion/vogue/rss/2026/09/03/1/article.json"]
-    (row,) = ledger.pending("fashion")
+    (row,) = ledger.rows("fashion")
     assert row.raw_key is None and row.title == "제목 1"
     assert ledger.retrying(SOURCE.key) == []
 
@@ -911,7 +480,7 @@ def test_피드에서_사라진_대기_행도_상한에_닿으면_포기한다()
 
     assert outcome.stored == 1
     assert ledger.retrying(SOURCE.key) == []
-    (row,) = ledger.pending("fashion")
+    (row,) = ledger.rows("fashion")
     assert row.raw_key is None
 
 

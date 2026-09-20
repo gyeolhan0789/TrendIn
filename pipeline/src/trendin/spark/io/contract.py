@@ -5,7 +5,8 @@
 있어야 하고([09 §4](../../../../spark/docs/09-dev-and-test.md) 층 1), 계약이 바뀔 때
 고칠 자리가 한 곳이어야 한다.
 
-토픽 하나에 형태가 둘 흐른다 (`pipeline/docs/web-collect.md` #6). 분기는 소비 측 책임이고
+형태가 둘인 것은 브로커 시절의 계약이다 (`pipeline/docs/web-collect.md` #6). 창구에는 기사만
+흐르지만 요약 분기를 남겨 둔다 — 견본 `run-summary-*.json` 이 그 모양을 계속 통과해야 한다.
 판별 기준은 `object_key` 의 유무다.
 """
 
@@ -29,7 +30,8 @@ DOMAIN_VALUES = {
     "fashion": "FASHION",
 }
 
-# 요약 이벤트의 `status` 허용값. 생산자 `run_summary_event()` 가 이 둘만 낸다.
+# 요약 이벤트의 `status` 허용값. 생산자 `run_summary_event()` 가 이 둘만 냈다
+# (2026-09-20 에 걷혔다 — 옛 봉투를 판별할 때만 쓴다).
 SUMMARY_STATUSES = frozenset({"success", "failed"})
 
 
@@ -232,11 +234,15 @@ def _check_summary(event: Mapping[str, Any]) -> Verdict | None:
     if count < 0:
         return Verdict.reject(ErrorType.CONTRACT_VIOLATION, f"record_count 가 음수다: {count}")
 
-    # `failed` 인데 `record_count > 0` 은 계약 위반이 **아니다** ([02 §2]). 생산자 `publish` 는
-    # 소스 성패와 무관하게 그 도메인의 밀린 기사를 전부 내고(`flow.publish_pending`), 그 수를
-    # `event_run_id` 로 세어 요약에 싣는다. 그래서 죽은 소스라도 지난 실행의 이월분이나 403·429
-    # 를 맞기 전에 저장한 기사가 이번 실행 몫으로 잡힌다. 여기서 0 을 강요하면 그 요약이 DLQ 로
-    # 가고 `SOURCE_FAILED` 기록이 사라진다 — 실패를 기록하려고 만든 이벤트가 실패했을 때 버려진다.
+    # `failed` 인데 `record_count > 0` 은 계약 위반이 **아니다** ([02 §2]). 생산자의 발급 태스크는
+    # 소스 성패와 무관하게 그 도메인의 밀린 기사를 전부 냈고, 그 수를 `event_run_id` 로 세어 요약에
+    # 실었다. 그래서 죽은 소스라도 지난 실행의 이월분이나 403·429 를 맞기 전에 저장한 기사가 이번
+    # 실행 몫으로 잡혔다. 여기서 0 을 강요하면 그 요약이 DLQ 로 가고 `SOURCE_FAILED` 기록이
+    # 사라진다 — 실패를 기록하려고 만든 이벤트가 실패했을 때 버려진다.
+    #
+    # 생산자는 2026-09-20 에 걷혔다 (Kafka 제거 2/3). 이 분기가 남아 있는 이유는 견본
+    # `run-summary-*.json` 이 그 시절 봉투를 계속 통과시켜야 하기 때문이다 — 걷어낼지는 [02 §5]
+    # 의 기록과 함께 소비 측이 정한다.
     if status == "failed" and _blank(event.get("failure_reason")):
         return Verdict.reject(ErrorType.CONTRACT_VIOLATION, "failed 인데 failure_reason 이 없다")
     return None

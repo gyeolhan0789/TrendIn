@@ -15,7 +15,7 @@ MR 을 열면 `.gitlab-ci.yml` 이 바뀐 디렉터리의 job 만 돌린다. dev
 
 ## CD
 
-`deploy:data-ec2` 가 데이터 EC2 `J15A102A` 에 Kafka · MinIO · Airflow · Spark 를 올린다.
+`deploy:data-ec2` 가 데이터 EC2 `J15A102A` 에 MinIO · Airflow · Spark 를 올린다.
 **dev 에 `datastore/` · `pipeline/` 변경이 머지되면 자동으로 돈다.** 문서나 백엔드만 고친 머지로는
 서버를 건드리지 않는다.
 

@@ -1,4 +1,4 @@
-# 로컬 개발. Spark 는 컨테이너 밖 .venv 에서 돌고, Kafka · MinIO · PostgreSQL 은
+# 로컬 개발. Spark 는 컨테이너 밖 .venv 에서 돌고, MinIO · PostgreSQL 은
 # 컴포즈 안에서 돈다. 그래서 주소가 전부 호스트에 열린 포트다 (09 §2).
 #
 # 포트의 출처:
