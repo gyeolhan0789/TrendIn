@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { WorldMap } from '../../features/globalTrend/components/WorldMap';
 import type { MapMode, MapStop } from '../../features/globalTrend/components/WorldMap';
 import { countryGeoOf } from '../../features/globalTrend/data/countryGeo';
 import { useSpreadTour } from '../../features/globalTrend/hooks/useSpreadTour';
 import { useTrendRegionJourney } from '../../features/globalTrend/hooks/useTrendRegionJourney';
 import { useTrendRegions } from '../../features/globalTrend/hooks/useTrendRegions';
-import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
@@ -217,9 +218,16 @@ export function GlobalTrendsPage() {
   /* 지도를 넓게 보고 싶을 때 양옆 칸을 접어 둘 수 있습니다. */
   const [folded, setFolded] = useState<Record<Panel, boolean>>({ left: false, right: false });
 
-  const domainsQuery = useDomains();
+  /*
+   * 고를 수 있는 분야 전체가 아니라 내가 고른 분야만 받습니다. 트렌드 탐색과 같은 이유로,
+   * 고르지 않은 분야까지 칸으로 내밀면 거르개가 아니라 남의 목록이 됩니다.
+   */
+  const domainsQuery = useMyDomains(true);
   const domains = useMemo(() => domainsQuery.data ?? [], [domainsQuery.data]);
-  const activeDomain = domain ?? domains[0]?.domain;
+  // 받아 왔는데 비어 있으면 아직 아무 분야도 고르지 않은 것입니다. 받는 중인 것과 갈라야 합니다.
+  const noChosenDomain = domainsQuery.isSuccess && domains.length === 0;
+  // 분야를 고쳐 골라 눌러 둔 분야가 목록에서 빠지면, 없는 분야로 조회하지 않게 첫 분야로 돌아갑니다.
+  const activeDomain = domains.some((option) => option.domain === domain) ? domain : domains[0]?.domain;
 
   const listQuery = useTrends(activeDomain
     ? { domain: activeDomain, type: 'CURRENT', period, page: 0, size: LIST_SIZE }
@@ -308,10 +316,20 @@ export function GlobalTrendsPage() {
         {!listLoading && listFailed && (
           <div className="trendin-state is-error" role="alert">
             <p>트렌드를 불러오지 못했습니다.</p>
-            <button type="button" onClick={() => void listQuery.refetch()}>다시 시도</button>
+            <button type="button" onClick={() => void (domainsQuery.isError ? domainsQuery.refetch() : listQuery.refetch())}>다시 시도</button>
           </div>
         )}
-        {!listLoading && !listFailed && trends.length === 0 && (
+        {/*
+          * 고른 분야가 없으면 지도에 올릴 키워드도 없습니다. '집계된 트렌드가 없다'고 하면
+          * 서버 탓처럼 읽히므로, 무엇이 비었고 어디서 채우는지를 짚어 줍니다.
+          */}
+        {noChosenDomain && (
+          <div className="trendin-state" role="status">
+            <p>아직 고른 관심 분야가 없습니다.</p>
+            <Link to="/mypage/profile">관심 분야 고르러 가기</Link>
+          </div>
+        )}
+        {!listLoading && !listFailed && !noChosenDomain && trends.length === 0 && (
           <div className="trendin-state" role="status"><p>이 구간에 집계된 트렌드가 없습니다.</p></div>
         )}
 
