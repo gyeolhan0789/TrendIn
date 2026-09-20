@@ -56,7 +56,7 @@ from typing import Sequence
 
 import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
-from airflow.sdk import Asset, dag
+from airflow.sdk import Asset, TriggerRule, chain, dag
 
 # 숫자 하나를 위해 import 하는 것이 아니라, Job 쪽과 **같은 값**을 읽으려고 한다. 이 모듈은
 # 아무것도 import 하지 않으므로 pyspark 없는 Airflow 이미지에서도 DagBag 이 읽는다.
@@ -131,12 +131,25 @@ def build_spark_dag(
     execution_timeout: timedelta | None = None,
     start_date=None,
     env: dict[str, str] | None = None,
+    one_at_a_time: bool = False,
 ):
     """Spark Job 하나짜리 DAG.
 
     `task_args` 가 `None` 이면 태스크 하나(`run`)가 인자 없이 Job 을 부른다. 사전을 주면
     **태스크 이름 → 인자** 로 여러 태스크를 만든다 — `extract` 가 도메인별로 그렇게 쓴다.
     태스크들은 서로 독립이라 한쪽이 죽어도 다른 쪽은 돈다.
+
+    `one_at_a_time` 은 그 태스크들을 **사전 순서대로 하나씩** 돌린다. 독립은 그대로다 —
+    앞이 죽거나 skipped 여도 뒤가 돈다(`ALL_DONE`). 겹치지만 않게 한다. 기본값이 `False`
+    인 이유는 태스크가 하나뿐인 DAG 에는 뜻이 없어서다.
+
+    ## ⚠️ 왜 pool 이 아니라 의존으로 묶는가
+
+    슬롯 1개짜리 pool 도 같은 일을 하지만 그 pool 은 **메타 DB 의 행**이다. `airflow-init`
+    이 `pools.json` 을 들여올 때 생기고, 없으면 태스크가 `scheduled` 에 영원히 머문다 —
+    죽지도 돌지도 않는다. 의존은 DAG 파일 안에 있어 파일이 배포된 만큼만 적용되고, 안
+    됐으면 안 된 것이 태스크 그래프에 보인다. 2026-09-20 장애가 바로 "고친 파일이 서버에
+    안 간" 경우였다.
 
     `schedule` 은 크론 문자열이거나 자산 목록이다. `outlets` 를 주면 태스크가 성공할 때 그
     자산이 갱신되고, 그것을 `schedule` 로 받는 DAG 이 이어서 돈다.
@@ -169,7 +182,7 @@ def build_spark_dag(
         doc_md=doc_md,
     )
     def spark_dag():
-        for task_id, args in (task_args or {"run": ()}).items():
+        tasks = [
             SubmitOperator(
                 task_id=task_id,
                 bash_command=submit_command(job, *args),
@@ -179,6 +192,14 @@ def build_spark_dag(
                 # 태스크가 **성공했을 때만** 자산이 갱신된다. 죽으면 다음 단계가 안 돈다 —
                 # 크론이었다면 빈손으로 돌았을 자리다.
                 outlets=list(outlets),
+                # 앞 태스크가 어떻게 끝났든 돈다. 기본값(`ALL_SUCCESS`)이면 한 도메인의
+                # 실패가 다른 도메인까지 건너뛰게 한다 — 묶기 전의 독립을 잃는다. 첫
+                # 태스크에는 상류가 없어 이 값이 아무 뜻도 없다.
+                trigger_rule=TriggerRule.ALL_DONE if one_at_a_time else TriggerRule.ALL_SUCCESS,
             )
+            for task_id, args in (task_args or {"run": ()}).items()
+        ]
+        if one_at_a_time:
+            chain(*tasks)
 
     return spark_dag()

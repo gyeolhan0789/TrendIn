@@ -154,3 +154,40 @@ def test_다른_Spark_DAG_은_워커를_묶지_않는다():
     for dag_id in ("spark_ingest", "spark_aggregate"):
         for task in bag.dags[dag_id].tasks:
             assert "SPARK_MASTER" not in task.env
+
+
+def test_추출_도메인은_하나씩_돌고_서로_독립이다():
+    """태스크 둘이 같이 뜨면 워커가 넷이다 — 2026-09-20 11:19 에 그렇게 호스트가 굳었다.
+
+    `local[2]` 는 **태스크당** 상한이라 이것만으로는 못 막는다. 두 태스크가 한 줄로 이어져
+    있어야 하고, 이어졌어도 앞이 죽으면 뒤가 건너뛰어지면 안 된다 — 도메인별로 나눈 까닭이
+    "한 도메인이 깨져도 다른 도메인은 돈다" 였다. 그래서 순서와 `ALL_DONE` 을 같이 본다.
+    """
+    from airflow.sdk import TriggerRule
+
+    dag = load_bag().dags["spark_extract"]
+    tasks = dag.tasks
+    assert len(tasks) >= 2
+
+    # 한 줄이다: 상류가 없는 태스크가 하나, 나머지는 상류가 정확히 하나.
+    heads = [t for t in tasks if not t.upstream_list]
+    assert len(heads) == 1, [t.task_id for t in heads]
+    for task in tasks:
+        assert len(task.upstream_list) <= 1, task.task_id
+        if task.upstream_list:
+            assert task.trigger_rule == TriggerRule.ALL_DONE, task.task_id
+
+
+def test_추출은_재시도하지_않는다():
+    """죽는 원인이 자원이라 5분 뒤에도 같은 자리에서 죽는다. 재부팅 직후에는 스케줄러가
+    죽었던 태스크를 1분 안에 다시 띄우는데, 그때 pause 는 이미 뜬 태스크를 못 멈춘다."""
+    dag = load_bag().dags["spark_extract"]
+    for task in dag.tasks:
+        assert task.retries == 0, f"{task.task_id} retries={task.retries}"
+
+
+def test_다른_Spark_DAG_은_태스크가_하나라_묶을_것이_없다():
+    """`one_at_a_time` 은 extract 의 사정이다. 다른 DAG 에 태스크가 늘어나면 그때 다시 정한다."""
+    bag = load_bag()
+    for dag_id in ("spark_ingest", "spark_aggregate", "spark_analyze"):
+        assert len(bag.dags[dag_id].tasks) == 1, dag_id
