@@ -188,13 +188,19 @@ class TrendControllerTest {
     }
 
     @Test
-    @DisplayName("인증 없이 목록을 요청하면 401을 반환한다")
-    void blocksAnonymousTrendList() throws Exception {
+    @DisplayName("인증 없이도 랜딩의 트렌드 목록을 조회할 수 있다")
+    void allowsAnonymousTrendList() throws Exception {
+        // given
+        given(trendService.getTrends(
+                Domain.FASHION, TrendType.CURRENT, AnalysisPeriod.DAYS_7, 0, 20))
+                .willReturn(new TrendListResponse(List.of(), 0, 20, false, null));
+
         // when & then
         mockMvc.perform(get("/trends").queryParam("domain", "FASHION")
                         .queryParam("type", "CURRENT").queryParam("period", "7D"))
-                .andExpect(status().isUnauthorized());
-        then(trendService).shouldHaveNoInteractions();
+                .andExpect(status().isOk());
+        then(trendService).should().getTrends(
+                Domain.FASHION, TrendType.CURRENT, AnalysisPeriod.DAYS_7, 0, 20);
     }
 
     @Test
@@ -562,11 +568,16 @@ class TrendControllerTest {
     }
 
     @Test
-    @DisplayName("인증 없이 관련 콘텐츠를 요청하면 401을 반환한다")
-    void blocksAnonymousTrendContents() throws Exception {
+    @DisplayName("인증 없이도 랜딩의 관련 콘텐츠를 조회할 수 있다")
+    void allowsAnonymousTrendContents() throws Exception {
+        // given
+        given(trendService.getTrendContents(101L, 0, 10))
+                .willReturn(new TrendContentResponse(List.of(), 0, 10, false));
+
         // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk());
+        then(trendService).should().getTrendContents(101L, 0, 10);
     }
 
     @Test

@@ -29,6 +29,8 @@ class SecurityConfigTest {
 
     private static final String SECURED_URL = "/secured";
     private static final String PUBLIC_URL = "/auth/login";
+    private static final String PUBLIC_TRENDS_URL = "/trends";
+    private static final String PUBLIC_TREND_CONTENTS_URL = "/trends/101/contents";
     private static final String ALLOWED_ORIGIN = "http://localhost:5173";
     private static final String DISALLOWED_ORIGIN = "https://evil.example.com";
     private static final Long MEMBER_ID = 42L;
@@ -113,6 +115,20 @@ class SecurityConfigTest {
     }
 
     @Test
+    @DisplayName("랜딩의 트렌드 목록과 대표 콘텐츠는 토큰 없이 조회할 수 있다")
+    void allowsLandingTrendEndpointsWithoutToken() throws Exception {
+        mockMvc.perform(get(PUBLIC_TRENDS_URL)).andExpect(status().isOk());
+        mockMvc.perform(get(PUBLIC_TREND_CONTENTS_URL)).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("키워드 검색은 공개하지 않는다")
+    void keepsKeywordSearchSecured() throws Exception {
+        mockMvc.perform(get("/keywords/search"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("공용 체인은 프레임 차단 기본값을 유지한다")
     void keepsFrameOptionsDeny() throws Exception {
         // given
@@ -172,6 +188,16 @@ class SecurityConfigTest {
 
         @PostMapping(PUBLIC_URL)
         String publicEndpoint() {
+            return "ok";
+        }
+
+        @GetMapping({PUBLIC_TRENDS_URL, PUBLIC_TREND_CONTENTS_URL})
+        String publicTrendEndpoint() {
+            return "ok";
+        }
+
+        @GetMapping("/keywords/search")
+        String securedKeywordSearch() {
             return "ok";
         }
     }

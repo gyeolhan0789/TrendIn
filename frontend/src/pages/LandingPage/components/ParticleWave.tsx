@@ -335,7 +335,15 @@ const fragmentShader = `
   }
 `;
 
-export function ParticleWave({ variant = 'light', onEntryComplete }: { variant?: 'light' | 'dark' | 'transition'; onEntryComplete?: () => void }) {
+export function ParticleWave({
+  variant = 'light',
+  playEntryAnimation = true,
+  onEntryComplete,
+}: {
+  variant?: 'light' | 'dark' | 'transition';
+  playEntryAnimation?: boolean;
+  onEntryComplete?: () => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitRef = useRef<HTMLDivElement>(null);
 
@@ -476,7 +484,7 @@ export function ParticleWave({ variant = 'light', onEntryComplete }: { variant?:
       dragging: false, pointerId: -1, lastX: 0, lastY: 0, hasPointer: false,
       wakeDX: 0, wakeDY: 0, lastWakeTime: 0, nextWake: 0,
       rotationVelocityX: 0, rotationVelocityY: 0,
-      lastTime: 0, startTime: 0, entryComplete: false,
+      lastTime: 0, startTime: 0, entryComplete: !playEntryAnimation || reducedMotion.matches,
     };
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -544,7 +552,7 @@ export function ParticleWave({ variant = 'light', onEntryComplete }: { variant?:
       const elapsed = (time - state.startTime) / 1000;
       const heroRect = hero.getBoundingClientRect();
       const scrollProgress = clamp((-heroRect.top + 64) / Math.max(heroRect.height, window.innerHeight * .65));
-      const entryProgress = reducedMotion.matches ? 0 : 1 - ease(elapsed / 3.2);
+      const entryProgress = !playEntryAnimation || reducedMotion.matches ? 0 : 1 - ease(elapsed / 3.2);
       uniforms.uScrollProgress.value = scrollProgress;
       uniforms.uLightScatter.value = variant === 'transition' ? ease(clamp((scrollProgress - .2) / .6)) : 0;
       // Additive light is visible on black; normal blending preserves dark pigment on white.
@@ -579,6 +587,7 @@ export function ParticleWave({ variant = 'light', onEntryComplete }: { variant?:
     };
 
     resize();
+    if (!playEntryAnimation || reducedMotion.matches) onEntryComplete?.();
     renderer.setAnimationLoop(draw);
     window.addEventListener('resize', resize);
     window.addEventListener('pointermove', onPointerMove);
@@ -600,7 +609,7 @@ export function ParticleWave({ variant = 'light', onEntryComplete }: { variant?:
       ambientMaterial.dispose();
       renderer.dispose();
     };
-  }, [variant, onEntryComplete]);
+  }, [variant, playEntryAnimation, onEntryComplete]);
 
   return <>
     <canvas ref={canvasRef} className="particle-canvas" aria-hidden="true" />
