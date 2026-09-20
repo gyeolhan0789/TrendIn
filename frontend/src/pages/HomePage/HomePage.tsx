@@ -242,7 +242,7 @@ export function HomePage() {
           </div>
         </div>
 
-        <Link className="explore-cta" to="/keywords">
+        <Link className="explore-cta" to="/interest-keywords">
           <span className="explore-cta-glow" />
           <p><BoltIcon /> 지금, 당신만의<br />관심 키워드를 등록해보세요.</p>
           <p className="explore-cta-sub">맞춤 트렌드 알림을 받을 수 있습니다.</p>

@@ -26,7 +26,13 @@ export const landingRoutes = <Route path="/" element={<LandingPage />} />;
 export const siteRoutes = (
   <>
     <Route path="/dashboard" element={<HomePage />} />
-    <Route path="/keywords" element={<KeywordsPage />} />
+    {/*
+      * 배포의 nginx 는 /auth·/domains·/keywords·/members 로 시작하는 요청을 백엔드로 넘깁니다.
+      * 그래서 이 화면을 /keywords 에 두면, 새로고침하거나 주소로 바로 들어왔을 때 화면 대신
+      * 백엔드의 401 이 그대로 보입니다. 화면 경로는 백엔드가 쓰는 이름을 피해서 짓습니다.
+      * OAuth 콜백을 /auth 밖에 둔 것과 같은 이유입니다.
+      */}
+    <Route path="/interest-keywords" element={<KeywordsPage />} />
     <Route path="/mypage" element={<MyPage />} />
     <Route path="/mypage/profile" element={<ProfileEditPage />} />
     <Route path="/mypage/settings" element={<AccountSettingsPage />} />
