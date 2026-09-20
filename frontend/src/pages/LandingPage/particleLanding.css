@@ -85,7 +85,8 @@
 .particle-landing .search-results-heading { display: flex; justify-content: space-between; gap: 15px; font-size: 14px; }
 .particle-landing .search-results-heading button { border: 0; background: transparent; color: #7180a4; cursor: pointer; }
 .particle-landing .search-keywords { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.particle-landing .search-keywords span { padding: 7px 12px; border-radius: 20px; background: #f0f2ff; color: #0f62fe; font-size: 13px; }
+.particle-landing .search-keywords span, .particle-landing .search-keywords a { padding: 7px 12px; border-radius: 20px; background: #f0f2ff; color: #0f62fe; font-size: 13px; text-decoration: none; }
+.particle-landing .search-keywords a:hover, .particle-landing .search-keywords a:focus-visible { background: #dfe5ff; outline: 2px solid #8399df; outline-offset: 2px; }
 .particle-landing .search-results ul { list-style: none; padding: 0; margin: 20px 0; }
 .particle-landing .search-results li { padding: 14px 0; border-top: 1px solid #edf0f6; font-size: 14px; }
 .particle-landing .search-results li p, .particle-landing .search-empty { margin-top: 8px; color: #8992a5; font-size: 13px; line-height: 1.6; }
