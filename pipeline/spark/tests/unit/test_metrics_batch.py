@@ -76,13 +76,8 @@ class FakeSink:
         }
 
     def concept_groups(self):
-        """`(keyword_id, concept_id, countable, category)`. 기본은 비어 있다 — 개념 표 없음.
-
-        분류를 안 쓰는 시험이 대부분이라 세 자리만 줘도 받는다.
-        """
-        return tuple(
-            row if len(row) == 4 else (*row, "") for row in self._concepts
-        )
+        """`(keyword_id, concept_id, countable)`. 기본은 비어 있다 — 개념 표 없음."""
+        return tuple(self._concepts)
 
     def write(self, **kwargs):
         self.written = kwargs
@@ -497,54 +492,3 @@ def test_둘_다_끄면_개념_표를_읽지도_않는다():
 
     assert staged(sink, 1)[MENTION_RANK] == 1
     assert staged(sink, 2)[MENTION_RANK] == 2
-
-
-# --- 급상승에서만 빼는 분류 ------------------------------------------------
-
-
-def rising_thresholds(*categories: str):
-    from dataclasses import replace
-    base = thresholds()
-    return replace(base, rising=replace(base.rising, exclude_categories=frozenset(categories)))
-
-
-def test_소재는_급상승에_오르지_않는다():
-    """`flannel`·`cashmere`·`wool` 이 24H 다섯 자리의 셋을 먹던 문제 (2026-09-19)."""
-    sink = FakeSink(
-        rising_series(), sources={1: 2}, concepts=[(1, 300, True, "material")]
-    )
-    batch.run(sink, rising_thresholds("material"), today=TODAY, run_id="r1")
-
-    assert "RISING" not in staged(sink, 1)[TREND_TYPES]
-
-
-def test_막힌_소재도_CURRENT_는_받는다():
-    """거기는 "지금 인기순" 이라 소재가 나와도 사실에 맞다."""
-    sink = FakeSink(
-        rising_series(), sources={1: 2}, concepts=[(1, 300, True, "material")]
-    )
-    batch.run(sink, rising_thresholds("material"), today=TODAY, run_id="r1")
-
-    assert staged(sink, 1)[TREND_TYPES] == ["CURRENT"]
-    assert staged(sink, 1)[MENTION_RANK] == 1
-
-
-def test_분류가_목록에_없으면_그대로_오른다():
-    sink = FakeSink(
-        rising_series(), sources={1: 2}, concepts=[(1, 300, True, "brand")]
-    )
-    batch.run(sink, rising_thresholds("material"), today=TODAY, run_id="r1")
-
-    assert "RISING" in staged(sink, 1)[TREND_TYPES]
-
-
-def test_흡수된_표기가_막히면_대표도_막힌다():
-    """같은 개념인데 대표 표기로만 급상승에 오르면 뺀 뜻이 없다."""
-    sink = FakeSink(
-        two_surfaces() + [daily(1, D, 20)],
-        sources={1: 2, 2: 2},
-        concepts=[(1, 300, True, "material"), (2, 300, True, "material")],
-    )
-    batch.run(sink, rising_thresholds("material"), today=TODAY, run_id="r1")
-
-    assert "RISING" not in staged(sink, 1)[TREND_TYPES]

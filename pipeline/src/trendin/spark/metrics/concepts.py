@@ -28,24 +28,11 @@
 튀었나" 를 재므로, 꾸준한 진짜 브랜드가 먼저 떨어지고 시즌 따라 늘어나는 배경어가 남는다.
 `RISING` 에서 z 가 제 몫을 하는 것과 `CURRENT` 에서 쓸 수 있는 것은 별개였다.
 
-**`RISING` 만 분류를 하나 더 본다** (`rising.exclude_categories`). 급상승 목록은 "지금 뜨는
-것" 이라 소재가 섞이면 값이 떨어진다 — 2026-09-19 의 24H 에서 `flannel` · `cashmere` · `wool`
-이 다섯 자리의 셋을 먹었다. 가을이라 실제로 늘어난 것이 맞지만 화면이 원하는 답은 아니다.
-
-**이 자리를 고른 이유는 다른 축이 다 안 됐기 때문이다.** 같은 날 셋을 나란히 쟀다 —
-
-| 축 | 결과 |
-| --- | --- |
-| 계층(`parent_id`) | 3,584 개념 중 40개만 쓴다. `cigarette jeans` 와 `shirt` 가 둘 다 부모 없음 |
-| z 로 정렬 | **더 나빠진다.** `flannel` 2.95 · `cashmere` 3.04 로 소재가 셋으로 는다 |
-| 언급량 하한 | 올려도 `trench`(20건) · `wool`(12건)이 남는다 |
-
-**`CURRENT` 에는 걸지 않는다.** 거기는 "지금 인기순" 이라 무엇이 나와도 사실에 맞다.
-
-**`셔츠` · `바지` 는 여기 걸려서 안 나오는 것이 아니다.** RISING 조건(증가율 · 증가량 ·
-언급량 · 소스 · z)이 이미 막는다 — 늘 흔한 말은 증가율 50% 를 못 넘는다. 후보 59개를 전부
-확인했고 하나도 없었다. 걸리는 `apparel` 은 `trench` 와 `cigarette jeans` 처럼 구체적인
-것뿐이라, 기본값은 `material` 하나다.
+**분류(`pl_concept.category`)로는 아무 유형도 거르지 않는다.** 2026-09-19 에 `RISING` 에서만
+소재를 빼는 스위치(`rising.exclude_categories`)를 두었다가 2026-09-21 에 배선째 걷어냈다.
+세 유형이 같은 키워드를 두고 다르게 답하면 화면에서 이상하게 보이고, 어차피 서버 코퍼스에서는
+목록이 굶어 값을 비워 두고 있었다. `셔츠` · `바지` 같은 늘 흔한 말은 분류가 아니라 RISING
+조건(증가율 · 증가량 · 언급량 · 소스 · z)이 막는다 — 후보 59개를 전부 확인했고 하나도 없었다.
 
 **모호한 표기는 접지 않는다.** 한 표기가 두 개념에 걸리면(`크리스찬 디올` 이 designer 이자
 brand) 어느 쪽으로 합쳐도 틀린다. `io/concepts.EXPRESSIONS_SQL` 이 쓰는 규약과 같다 — 칸을
@@ -67,8 +54,6 @@ class ConceptRef:
     concept_id: int
     # `false` 면 세지 않는 일반 단어다. 지표 행은 그대로 쓰되 순위와 배지를 주지 않는다.
     countable: bool
-    # `pl_concept.category`. `RISING` 에서만 쓴다 (`rising_blocked`).
-    category: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,9 +69,6 @@ class Grouping:
     representative: dict[int, int]
     # 순위와 배지를 주지 않을 keyword_id. `countable = false` 인 개념에 붙은 것 전부다.
     silenced: frozenset[int]
-    # `RISING` 에서만 빼는 keyword_id (`rising.exclude_categories`). **`silenced` 와 다르다** —
-    # 이쪽은 순위도 `CURRENT` 도 그대로 받고 급상승 목록에만 오르지 않는다.
-    rising_blocked: frozenset[int] = frozenset()
 
     @property
     def folded(self) -> int:
@@ -107,7 +89,6 @@ def build_grouping(
     weights: dict[int, int],
     *,
     keywords: set[int],
-    rising_excluded: frozenset[str] = frozenset(),
 ) -> Grouping:
     """개념 행 → 접기 규칙.
 
@@ -127,12 +108,9 @@ def build_grouping(
 
     members: dict[int, list[int]] = {}
     silenced: set[int] = set()
-    blocked: set[int] = set()
     for ref in refs:
         if ref.keyword_id in ambiguous or ref.keyword_id not in keywords:
             continue
-        if ref.category in rising_excluded:
-            blocked.add(ref.keyword_id)
         if not ref.countable:
             # 세지 않는 개념은 접지도 않는다. 접어 봐야 순위에 들지 않을 행 하나를 더
             # 만들 뿐이고, 흡수된 표기의 지표만 대표 쪽으로 옮겨 상세 화면이 빈다.
@@ -148,13 +126,5 @@ def build_grouping(
         for keyword_id in group:
             if keyword_id != leader:
                 representative[keyword_id] = leader
-    # 접힌 뒤에는 대표가 그 개념을 대신하므로, 흡수된 쪽이 막혔으면 대표도 막는다 —
-    # 같은 개념인데 대표 표기로만 `RISING` 에 오르는 일이 없게.
-    blocked |= {representative[keyword_id] for keyword_id in blocked
-                if keyword_id in representative}
-    return Grouping(
-        representative=representative,
-        silenced=frozenset(silenced),
-        rising_blocked=frozenset(blocked),
-    )
+    return Grouping(representative=representative, silenced=frozenset(silenced))
 

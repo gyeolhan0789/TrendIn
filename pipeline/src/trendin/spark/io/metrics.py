@@ -276,11 +276,11 @@ SELECT c.keyword_id, d.source_id
 # 한 키워드가 여러 개념에 걸리면 **행을 여럿 돌려준다.** 여기서 하나를 고르지 않는 것이
 # 의도다 — 고르는 규칙은 층 1 이 갖고, 지금 그 규칙은 "걸린 것은 접지 않는다" 이다.
 CONCEPT_GROUPS_SQL = f"""
-SELECT k.id, e.concept_id, c.countable, c.category
+SELECT k.id, e.concept_id, c.countable
   FROM {KEYWORDS} k
   JOIN {EXPRESSION} e ON e.normalized = k.normalized_name AND e.status = 'ACTIVE'
   JOIN {CONCEPT} c ON c.id = e.concept_id AND c.status = 'ACTIVE'
- GROUP BY 1, 2, 3, 4
+ GROUP BY 1, 2, 3
 """
 
 # --- 적재 -----------------------------------------------------------------
@@ -660,8 +660,8 @@ class MetricSink:
             found.setdefault(int(keyword_id), set()).add(str(source_id))
         return found
 
-    def concept_groups(self) -> tuple[tuple[int, int, bool, str], ...]:
-        """`(keyword_id, concept_id, countable, category)` — 개념 층이 붙여 둔 것 ([개념층]).
+    def concept_groups(self) -> tuple[tuple[int, int, bool], ...]:
+        """`(keyword_id, concept_id, countable)` — 개념 층이 붙여 둔 것 ([개념층]).
 
         **개념 표가 없으면 빈 튜플이다.** 개념 Job 을 아직 돌리지 않은 환경에서 집계가 서지
         않으면 안 된다 — 순위를 접는 것은 개선이지 선행 조건이 아니다. 그래서 여기서만
@@ -679,8 +679,8 @@ class MetricSink:
                 return ()
             cur.execute(CONCEPT_GROUPS_SQL)
             return tuple(
-                (int(keyword_id), int(concept_id), bool(countable), str(category))
-                for keyword_id, concept_id, countable, category in cur.fetchall()
+                (int(keyword_id), int(concept_id), bool(countable))
+                for keyword_id, concept_id, countable in cur.fetchall()
             )
 
     # --- 적재 ------------------------------------------------------------

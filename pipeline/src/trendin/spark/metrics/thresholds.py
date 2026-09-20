@@ -79,14 +79,6 @@ class RisingThresholds:
     # C. **없으면 급상승 목록이 전부 극소 표본이 된다** — 1건 → 3건이 200% 다.
     min_mention_count: int
     top_n: int
-    # 급상승 목록에서 뺄 개념 분류 (`pl_concept.category`). **`CURRENT` 에는 걸지 않는다** —
-    # 거기는 "지금 인기순" 이라 무엇이 나와도 사실에 맞다 (`metrics/concepts.py`).
-    #
-    # 기본이 `material` 하나인 근거는 2026-09-19 실측이다. 24H 다섯 자리 중 셋을
-    # `flannel`·`cashmere`·`wool` 이 먹었고, 같은 날 RISING 후보 59개에 `셔츠`·`바지` 는
-    # 하나도 없었다 — 그건 조건이 이미 막는다. 걸리는 `apparel` 은 `trench` 와
-    # `cigarette jeans` 처럼 구체적인 것뿐이라 넣지 않았다.
-    exclude_categories: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,7 +180,6 @@ class AggregateThresholds:
                 min_growth_rate=float(rising["min_growth_rate"]),
                 min_mention_count=int(rising["min_mention_count"]),
                 top_n=int(rising.get("top_n", 5)),
-                exclude_categories=frozenset(rising.get("exclude_categories") or ()),
             ),
             new_windows=new_windows,
             new_top_n=int((thresholds.get("new") or {}).get("top_n", 5)),

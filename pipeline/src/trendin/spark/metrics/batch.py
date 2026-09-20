@@ -141,29 +141,20 @@ def load_grouping(
     """
     fold = thresholds is None or thresholds.fold_concepts
     drop = thresholds is None or thresholds.drop_uncountable
-    blocks = thresholds is not None and bool(thresholds.rising.exclude_categories)
-    if not fold and not drop and not blocks:
+    if not fold and not drop:
         return Grouping(representative={}, silenced=frozenset())
     refs = [
-        ConceptRef(keyword_id, concept_id, countable if drop else True, category)
-        for keyword_id, concept_id, countable, category in sink.concept_groups()
+        ConceptRef(keyword_id, concept_id, countable if drop else True)
+        for keyword_id, concept_id, countable in sink.concept_groups()
     ]
     if not fold:
-        # 세지 않을 개념과 급상승에서 뺄 개념만 가려내고 접지는 않는다. 같은 개념의 두
-        # 표기를 서로 다른 개념 번호로 흩어 놓으면 `build_grouping` 이 묶을 짝을 못 찾는다.
-        excluded = thresholds.rising.exclude_categories if thresholds else frozenset()
-        refs = [
-            ref for ref in refs if not ref.countable or ref.category in excluded
-        ]
+        # 세지 않을 개념만 가려내고 접지는 않는다. 같은 개념의 두 표기를 서로 다른 개념
+        # 번호로 흩어 놓으면 `build_grouping` 이 묶을 짝을 못 찾는다.
+        refs = [ref for ref in refs if not ref.countable]
     weights = {
         keyword_id: sum(item.daily.values()) for keyword_id, item in series.items()
     }
-    excluded = (
-        frozenset() if thresholds is None else thresholds.rising.exclude_categories
-    )
-    return build_grouping(
-        refs, weights, keywords=set(series), rising_excluded=excluded
-    )
+    return build_grouping(refs, weights, keywords=set(series))
 
 
 def fold_series(
@@ -519,7 +510,7 @@ def run(
             thresholds=thresholds,
         )
         blocked += zscore_blocked(rows, found, thresholds)
-        judged = trend_rules.judge(rows, found, thresholds, grouping.rising_blocked)
+        judged = trend_rules.judge(rows, found, thresholds)
         verdict.update(judged)
         # **유형을 못 받은 행에는 빈 배열이 실린다.** 그 값이 배지를 떼는 일까지 겸한다 —
         # 지표 행과 배지가 한 줄이라 "배지를 든 키워드를 따로 읽어 비우는" 단계가 없다
