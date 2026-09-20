@@ -68,8 +68,16 @@
 .particle-landing.demo-page--v3 .trends-section { padding-top: calc(clamp(90px, 11vw, 150px) + 180px); }
 .particle-landing .featured-section { margin-top: calc(clamp(80px, 9vw, 120px) + 150px); color: #202538; }
 .particle-landing .featured-section .section-heading h2 { font-size: clamp(24px, 2.7vw, 34px); font-weight: 740; letter-spacing: -.055em; }
-.particle-landing .featured-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
-.particle-landing .featured-card { aspect-ratio: 1.15; display: flex; flex-direction: column; gap: 18px; padding: 24px; border: 1px solid #e8ebf4; border-radius: 17px; background: #fff; box-shadow: 0 14px 45px rgba(40,63,133,.045); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.particle-landing .featured-carousel .cylinder { --cc-slide: 100%; }
+.particle-landing .featured-carousel .cylinder-viewport { padding-top: 18px; }
+.particle-landing .featured-carousel .cylinder-dots { padding-bottom: 0; }
+/* 콘텐츠 카드 밖으로 보이던 이웃 슬라이드는 감추고, 현재 네 장에만 시선을 모읍니다. */
+.particle-landing .featured-carousel .cylinder-slide:not(.is-active) { opacity: 0 !important; pointer-events: none; }
+/* 가운데 콘텐츠 폭과 무관하게 화면 양끝에서 40px 안쪽에 화살표를 둡니다. */
+.particle-landing .featured-carousel .cylinder-step--prev { left: calc((100vw - 100%) / -2 + 40px); }
+.particle-landing .featured-carousel .cylinder-step--next { right: calc((100vw - 100%) / -2 + 40px); }
+.particle-landing .featured-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 22px; }
+.particle-landing .featured-card { display: flex; min-height: 320px; flex-direction: column; gap: 18px; padding: 24px; border: 1px solid #e8ebf4; border-radius: 17px; background: #fff; box-shadow: 0 14px 45px rgba(40,63,133,.045); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .particle-landing .featured-card:hover, .particle-landing .featured-card:focus-visible { transform: translateY(-4px); border-color: #cbd5f3; box-shadow: 0 18px 50px rgba(40,63,133,.11); outline: none; }
 .particle-landing .featured-tag { align-self: flex-start; padding: 5px 9px; border-radius: 20px; background: #f0f2ff; color: #7180a4; font-size: 11px; }
 .particle-landing .featured-card h3 { margin: 0 0 10px; font-size: 21px; line-height: 1.4; letter-spacing: -.04em; word-break: keep-all; overflow-wrap: anywhere; text-wrap: pretty; }
@@ -81,8 +89,9 @@
 .particle-landing .interaction-guide > span { color: #f0cf72; text-shadow: 0 0 12px rgba(240,207,114,.75); }
 @keyframes interaction-guide-life { 0% { opacity: 0; transform: translateY(-8px); } 12%, 76% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .particle-landing .interaction-guide { animation: none; } }
-@media (max-width: 1100px) { .particle-landing .featured-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .particle-landing .featured-grid { gap: 12px; } .particle-landing .featured-card { padding: 16px; gap: 12px; } .particle-landing .featured-card h3 { font-size: 18px; } .particle-landing .featured-card p { font-size: 12px; } }
+@media (max-width: 1100px) { .particle-landing .featured-carousel .cylinder { --cc-slide: 92%; } .particle-landing .featured-carousel .cylinder-step--prev { left: 0; } .particle-landing .featured-carousel .cylinder-step--next { right: 0; } .particle-landing .featured-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .particle-landing .featured-grid { gap: 12px; } .particle-landing .featured-card { min-height: 320px; padding: 16px; gap: 12px; } .particle-landing .featured-card h3 { font-size: 18px; } .particle-landing .featured-card p { font-size: 12px; } }
+@media (max-width: 600px) { .particle-landing .featured-carousel .cylinder { --cc-slide: 86%; } }
 @media (max-width: 420px) { .particle-landing .featured-grid { grid-template-columns: 1fr; } }
 @media (max-width: 800px) { }
 @media (prefers-reduced-motion: reduce) { }
