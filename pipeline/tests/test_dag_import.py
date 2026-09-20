@@ -124,3 +124,30 @@ def test_자산을_내는_태스크는_Kafka_발행과_떨어져_있다():
         # 사라질 예정이라, 없어졌을 때 이 시험이 조용히 통과하면 안 되기 때문이다.
         publish = dag.get_task("publish")
         assert not publish.outlets, f"{dag_id}.publish 가 자산을 낸다"
+
+
+def test_추출은_워커를_둘로_묶는다():
+    """`SPARK_MASTER` 가 빠지면 **조용히 죽는다** — 그 침묵을 여기서 막는다.
+
+    기본값 `local[*]` 은 4 CPU 서버에서 워커 넷을 띄우고 워커마다 GLiNER 를 한 벌씩 올려
+    메모리를 넘긴다. 2026-09-20 에 문서 925건이 `Python worker exited unexpectedly` 로
+    죽었고, 그 전까지 자동 실행은 문서가 적을 때만 우연히 살아 있었다.
+
+    **증상이 조용하다.** 손 실행에서는 종료 코드가 1 이지만, 적재가 0건인 채 0 으로 끝나는
+    경로도 있어(`local-spark-run-recipe`) 로그를 안 보면 성공으로 보인다.
+    """
+    bag = load_bag()
+    task = bag.get_dag("spark_extract").get_task("fashion")
+
+    assert task.env["SPARK_MASTER"] == "local[2]"
+    # 컨테이너 환경을 물려받아야 APP_DB_URL · MINIO_* 가 닿는다.
+    assert task.append_env is True
+
+
+def test_다른_Spark_DAG_은_워커를_묶지_않는다():
+    """GLiNER 를 올리는 것은 `extract` 뿐이다. 나머지까지 묶으면 까닭 없이 느려진다."""
+    bag = load_bag()
+
+    for dag_id in ("spark_ingest", "spark_aggregate"):
+        for task in bag.get_dag(dag_id).tasks:
+            assert "SPARK_MASTER" not in task.env

@@ -28,6 +28,15 @@ spark_extract = build_spark_dag(
         "fashion": ("--domain", "fashion"),
         "dev": ("--domain", "dev"),
     },
+    # **워커 둘로 묶는다.** 기본값 `local[*]` 은 4 CPU 서버에서 워커 넷을 띄우고, 워커마다
+    # GLiNER 를 한 벌씩 올려 메모리를 넘긴다 — 2026-09-20 에 문서 925건이 `Python worker
+    # exited unexpectedly (crashed)` 로 죽었다. 2026-09-17 실측에서 워커 하나가 RSS 2.3GB
+    # 이고 가용이 7.3GB 라, 셋도 긴 문서에서 순간적으로 튄다.
+    #
+    # **손 실행에만 있던 조건을 DAG 에도 준다.** 그 전에는 사람이 기억해서 붙여야 했고,
+    # 자동 실행은 문서가 적을 때만 우연히 살아 있었다. GLiNER 를 올리는 Job 은 이것뿐이라
+    # 다른 DAG 은 그대로 둔다.
+    env={"SPARK_MASTER": "local[2]"},
     execution_timeout=timedelta(hours=2),
     outlets=[KEYWORDS],
     doc_md=__doc__,

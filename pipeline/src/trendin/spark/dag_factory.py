@@ -130,6 +130,7 @@ def build_spark_dag(
     retries: int = 2,
     execution_timeout: timedelta | None = None,
     start_date=None,
+    env: dict[str, str] | None = None,
 ):
     """Spark Job 하나짜리 DAG.
 
@@ -139,6 +140,10 @@ def build_spark_dag(
 
     `schedule` 은 크론 문자열이거나 자산 목록이다. `outlets` 를 주면 태스크가 성공할 때 그
     자산이 갱신되고, 그것을 `schedule` 로 받는 DAG 이 이어서 돈다.
+
+    `env` 는 그 Job 에만 주는 환경변수다. 컨테이너 환경을 그대로 물려받고(`append_env`)
+    여기 준 것만 덮는다 — Job 마다 자원 요구가 달라 한 곳에 박을 수 없다
+    (`spark_extract` 의 `SPARK_MASTER` 가 그 자리다).
 
     `max_active_runs=1` 은 선택이 아니다. 처리 이력과 DLQ 가 스테이징 테이블을 공유하므로
     ([08 §3]) 두 실행이 겹치면 한쪽 행이 다른 쪽 트랜잭션에 딸려 들어간다.
@@ -169,7 +174,7 @@ def build_spark_dag(
                 task_id=task_id,
                 bash_command=submit_command(job, *args),
                 cwd=SPARK_HOME_IN_CONTAINER + "/..",
-                env={"SUBMIT": SUBMIT},
+                env={"SUBMIT": SUBMIT, **(env or {})},
                 append_env=True,
                 # 태스크가 **성공했을 때만** 자산이 갱신된다. 죽으면 다음 단계가 안 돈다 —
                 # 크론이었다면 빈손으로 돌았을 자리다.
