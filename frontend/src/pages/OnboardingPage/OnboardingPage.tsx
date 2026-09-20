@@ -4,7 +4,6 @@ import waveMark from '../../assets/trendin-wave-mark.png';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Spinner } from '../../components/common/Spinner';
 import { showToast } from '../../components/common/toast';
-import { getAuthSession } from '../../features/auth/api/authSessionStorage';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { describeAuthError } from '../../features/auth/authErrors';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
@@ -369,8 +368,11 @@ export function OnboardingPage() {
   // 분야를 막 고른 사람이 볼 것은 소개 화면이 아니라 그 분야가 반영된 대시보드입니다.
   const finish = () => navigate('/dashboard', { replace: true });
 
-  // 로그인해야 고른 분야를 저장할 수 있습니다.
-  if (!getAuthSession()) return <Navigate to="/login" state={{ from: '/onboarding' }} replace />;
+  /*
+   * 로그인해야 고른 분야를 저장할 수 있습니다. 여기는 RequireAuth 밖이라 이 확인이 전부입니다.
+   * 보는 중에 세션이 끊기는 경우까지 잡으려면, 한 번 읽고 마는 값이 아니라 구독한 값을 봐야 합니다.
+   */
+  if (!session) return <Navigate to="/login" state={{ from: '/onboarding' }} replace />;
 
   const options = ONBOARDING_DOMAINS;
   const loading = domainsQuery.isLoading || (myDomainsQuery.isLoading && !myDomainsQuery.isError);
