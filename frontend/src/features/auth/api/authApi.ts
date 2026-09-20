@@ -7,8 +7,6 @@ import type {
   LoginResult,
   OAuthLoginRequest,
   OAuthLoginResult,
-  PasswordResetCodeRequest,
-  PasswordResetRequest,
   SignUpRequest,
   SignUpResult,
 } from '../types/auth';
@@ -39,21 +37,6 @@ export async function checkEmailAvailable(email: string): Promise<boolean> {
     apiClient.post<ApiResponse<{ available: boolean }>>(API_ENDPOINTS.auth.emailCheck, { email }),
   );
   return available;
-}
-
-/**
- * 비밀번호 재설정용 인증번호를 메일로 보냅니다.
- *
- * 가입되지 않은 주소라고 따로 알려 주지 않습니다. 그렇게 하면 이 화면이 곧 누가 가입했는지
- * 확인해 주는 창구가 됩니다. 서버가 성공을 내려주면 화면은 '보냈다'고만 말합니다.
- */
-export async function requestPasswordResetCode(request: PasswordResetCodeRequest): Promise<void> {
-  await apiClient.post<ApiResponse<null>>(API_ENDPOINTS.auth.passwordResetCode, request);
-}
-
-/** 인증번호가 맞는지 확인하고 비밀번호를 바꿉니다. 틀린 인증번호는 이 응답의 오류로 돌아옵니다. */
-export async function resetPassword(request: PasswordResetRequest): Promise<void> {
-  await apiClient.post<ApiResponse<null>>(API_ENDPOINTS.auth.passwordReset, request);
 }
 
 export async function oauthLogin(provider: string, request: OAuthLoginRequest): Promise<OAuthLoginResult> {

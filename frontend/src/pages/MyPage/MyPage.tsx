@@ -12,7 +12,6 @@ import {
   DownloadIcon,
   GearIcon,
   GridIcon,
-  LockIcon,
   SurgeIcon,
 } from '../../features/myPage/components/myPageIcons';
 import { activityLabels, buildActivities, formatActivityDate } from '../../features/myPage/activity';
@@ -90,7 +89,6 @@ const notificationRows: NotificationRow[] = [
 ];
 
 const accountLinks: { to: string; icon: ReactNode; title: string; desc: string }[] = [
-  { to: '/mypage/settings', icon: <LockIcon />, title: '비밀번호 변경', desc: '메일로 인증번호를 받아 다시 세우기' },
   { to: '/mypage/settings', icon: <DownloadIcon />, title: '데이터 내보내기', desc: '관심 키워드, 저장된 트렌드 내려받기' },
 ];
 
