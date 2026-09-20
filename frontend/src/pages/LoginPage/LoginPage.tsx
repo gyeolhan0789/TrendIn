@@ -83,7 +83,7 @@ export function LoginPage() {
   if (enteredLoggedIn) return <Navigate to={from} replace />;
 
   return (
-    <AuthScene>
+    <AuthScene useHomeLogo>
       <div className="auth-scene-card">
         <h2>로그인</h2>
         <p className="auth-scene-card-lead">TrendIn과 함께 더 빠르게,<br />세상의 트렌드를 발견하세요.</p>

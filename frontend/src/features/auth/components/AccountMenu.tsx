@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import defaultProfileStar from '../../../assets/default-profile-star.png';
 import { useLogout } from '../hooks/useLogout';
 import type { AuthSession } from '../types/auth';
 
 interface AccountMenuProps {
   session: AuthSession;
-}
-
-/** 이메일을 모르는 소셜 계정도 있어서, 머리글자를 못 뽑으면 기본 글자를 씁니다. */
-function initialOf(email: string) {
-  return (email.trim()[0] ?? 'T').toUpperCase();
 }
 
 export function AccountMenu({ session }: AccountMenuProps) {
@@ -44,7 +40,7 @@ export function AccountMenu({ session }: AccountMenuProps) {
         aria-label="내 계정"
         onClick={() => setOpen((current) => !current)}
       >
-        {initialOf(session.email)}
+        <img src={defaultProfileStar} alt="" />
       </button>
       {open && (
         <div className="header-account-menu" role="menu">
