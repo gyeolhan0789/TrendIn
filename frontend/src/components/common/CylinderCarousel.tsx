@@ -144,6 +144,44 @@ export function CylinderCarousel({ slides, index, onIndexChange, ariaLabel }: Cy
 
   const radius = slideWidth * RADIUS_RATIO;
 
+  /**
+   * 옆장을 누르면 그 장으로 옵니다.
+   *
+   * 낱장에 처리를 걸 수 없습니다. 세 장이 모두 같은 격자 칸에 겹쳐 있고 자리는 transform 으로만
+   * 내는데, 적중 판정은 그 이동을 따라오지 않습니다. 눈에는 옆으로 밀려 보여도 눌리는 자리는
+   * 가운데 그대로라, 옆 카드를 누르면 아무 낱장에도 닿지 않고 이 틀까지 내려옵니다.
+   *
+   * 그래서 여기서 받아, 누른 가로 자리가 어느 장의 자리에 가장 가까운지로 가립니다. 자리는
+   * 그릴 때 쓰는 식을 그대로 다시 풀어 구하므로 화면에 보이는 위치와 어긋나지 않습니다.
+   */
+  const handleSlideClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (slideWidth === 0) return;
+    const rect = viewport.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const dx = event.clientX - (rect.left + rect.width / 2);
+    /*
+     * 가운데 카드 위라면 그 카드가 이 클릭의 주인입니다. 옆장 자리가 카드 폭보다 가까이
+     * 붙어 있어, 가장 가까운 장만 따지면 카드 바깥쪽 가장자리를 옆장으로 잘못 셉니다.
+     */
+    if (Math.abs(dx) <= slideWidth / 2) return;
+
+    let nearest = 0;
+    let smallest = Infinity;
+    for (let candidate = 0; candidate < size; candidate += 1) {
+      const angle = (shortestOffset(candidate, pos, size) * ARC * Math.PI) / 180;
+      const gap = Math.abs(dx - radius * Math.sin(angle));
+      if (gap < smallest) {
+        smallest = gap;
+        nearest = candidate;
+      }
+    }
+
+    /* 가운데 장은 건드리지 않습니다. 카드 안의 링크가 이 클릭의 주인입니다. */
+    if (nearest === norm(Math.round(pos), size)) return;
+    onIndexChange(nearest);
+  };
+
   return (
     <div className="cylinder" role="group" aria-roledescription="캐러셀" aria-label={ariaLabel}>
       {/* 화살표가 카드 높이 한가운데에 서야 해서, 낱장 무대만 감싸는 틀을 하나 둡니다. */}
@@ -157,6 +195,7 @@ export function CylinderCarousel({ slides, index, onIndexChange, ariaLabel }: Cy
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           onClickCapture={handleClickCapture}
+          onClick={handleSlideClick}
           /* 카드 안이 링크라 그냥 끌면 브라우저의 링크 끌어 놓기가 먼저 시작됩니다. */
           onDragStart={(event) => event.preventDefault()}
         >
@@ -183,7 +222,6 @@ export function CylinderCarousel({ slides, index, onIndexChange, ariaLabel }: Cy
                   key={slide.key}
                   style={style}
                   aria-hidden={!active}
-                  onClick={() => { if (!active) onIndexChange(slideIndex); }}
                 >
                   {/* 옆으로 밀려난 장은 화면에 남아 있지만 눌리거나 초점이 가면 안 됩니다. */}
                   <div className="cylinder-slide-body" inert={!active}>{slide.node}</div>
