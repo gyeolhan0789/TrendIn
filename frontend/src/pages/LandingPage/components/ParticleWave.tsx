@@ -283,14 +283,15 @@ const vertexShader = `
     // Stable per-particle selection: scrolling removes density, scrolling back restores it.
     float scatterSeed = aPhase / 6.28318530718;
     float centerBand = 1.0 - smoothstep(.70, .78, abs(aScatter.x));
-    float retainedParticle = step(.9 + centerBand * uLightScatter * .045, scatterSeed);
+    float retainThreshold = mix(.9, .915 + centerBand * .055, uLightScatter);
+    float retainedParticle = step(retainThreshold, scatterSeed);
     float fadeStart = .12 + scatterSeed * .22;
     float scrollFade = smoothstep(fadeStart, .85, uScrollProgress);
     float visibility = mix(1.0, retainedParticle, scrollFade);
     vAlpha *= visibility;
     vGlint *= visibility;
     float waveSize = aSize * 1.22 * (1.0 + variation * .38 + aFlash * twinkle * .18 + vGlint * .48 + wakeShift.z * .5);
-    float scatteredSize = 5.2 + aSparkle * 3.0;
+    float scatteredSize = mix(5.2 + aSparkle * 3.0, 3.9 + aSparkle * 2.1, uLightScatter);
     gl_PointSize = max(1.0, mix(waveSize, scatteredSize, smoothstep(0.0, 1.0, uScrollProgress)) * uDpr);
   }
 `;
@@ -403,6 +404,30 @@ export function ParticleWave({
       ambientBelow.push(0);
     }
     if (dark) {
+      // 아래쪽 반짝임 수만큼 작은 배경 입자를 화면 전체에 고르게 보탭니다.
+      for (let index = 0; index < 28; index++) {
+        const column = index % 7;
+        const row = Math.floor(index / 7);
+        const x = (column + .18 + ambientRandom() * .64) / 7 * 1.92 - .96;
+        const y = (row + .18 + ambientRandom() * .64) / 4 * 1.84 - .94;
+        ambientPositions.push(x, y, ambientRandom());
+        ambientPhases.push(ambientRandom() * Math.PI * 2);
+        ambientSizes.push(1.4 + ambientRandom() * .8);
+        ambientBelow.push(0);
+      }
+      // 파도와 별개인 배경층에 배치합니다. 밝은 파도 뒤에서도 보이도록 성긴 8×6 격자를 씁니다.
+      for (let index = 0; index < 48; index++) {
+        const column = index % 8;
+        const row = Math.floor(index / 8);
+        ambientPositions.push(
+          (column + .16 + ambientRandom() * .68) / 8 * 1.92 - .96,
+          (row + .16 + ambientRandom() * .68) / 6 * 1.84 - .94,
+          ambientRandom(),
+        );
+        ambientPhases.push(ambientRandom() * Math.PI * 2);
+        ambientSizes.push(7 + ambientRandom() * 2.5);
+        ambientBelow.push(2);
+      }
       // Loose, spaced glimmers underneath the shoreline, away from the central caption.
       for (let index = 0; index < 28; index++) {
         const x = ((index % 14) + .25 + ambientRandom() * .5) / 14 * 1.92 - .96;
@@ -441,14 +466,20 @@ export function ParticleWave({
           vec2 scatterPosition = vec2(destinationX, position.y);
           vec2 ambientPosition = mix(position.xy, scatterPosition, smoothstep(0.0, 1.0, uScrollProgress));
           gl_Position = vec4(ambientPosition + drift, .5, 1.0);
-          gl_PointSize = mix(aSize, aSize * 1.25, smoothstep(0.0, 1.0, uScrollProgress)) * uDpr;
+          gl_PointSize = mix(aSize, aSize * mix(1.25, 1.08, uLightScatter), smoothstep(0.0, 1.0, uScrollProgress)) * uDpr;
           vAlpha = (.34 + .08 * sin(uTime * .38 + aPhase)) * (1.0 - uProgress * .35);
           float centerBand = 1.0 - smoothstep(.70, .78, abs(destinationX));
-          float centerKeep = step(.45, aPhase / 6.28318530718);
-          vAlpha *= mix(1.0, centerKeep, centerBand * uLightScatter);
+          float keepThreshold = mix(.62, .55, centerBand);
+          float lightKeep = step(keepThreshold, aPhase / 6.28318530718);
+          vAlpha *= mix(1.0, lightKeep, uLightScatter);
           vTint = mix(vec3(.45, .65, .91), vec3(.65, .52, .85), position.z);
           vAmbientWarm = step(.78, position.z);
-          if (aBelow > .5) {
+          if (aBelow > 1.5) {
+            float pulse = smoothstep(.12, .9, .5 + .5 * sin(uTime * (.45 + position.z * .5) + aPhase));
+            vAlpha = pulse * .9 * (1.0 - smoothstep(.05, .8, uScrollProgress));
+            vTint = mix(vec3(.72, .87, 1.0), vec3(1.0, .9, .68), position.z * .6);
+            gl_PointSize = aSize * (.9 + pulse * .25) * uDpr;
+          } else if (aBelow > .5) {
             float pulse = smoothstep(.35, .95, .5 + .5 * sin(uTime * (.7 + position.z * .25) + aPhase));
             vAlpha = pulse * .9 * (1.0 - smoothstep(.05, .8, uScrollProgress));
             vTint = mix(vec3(.72, .87, 1.0), vec3(1.0, .9, .68), position.z * .6);

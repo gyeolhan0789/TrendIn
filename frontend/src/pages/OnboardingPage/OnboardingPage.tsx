@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import waveMark from '../../assets/trendin-wave-mark.png';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Spinner } from '../../components/common/Spinner';
 import { showToast } from '../../components/common/toast';
@@ -378,12 +379,10 @@ export function OnboardingPage() {
   return (
     <div className="trendin-ui onboarding-page">
       <header className="onboarding-header">
-        <span className="onboarding-brand">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#4F46E5" stroke="#4F46E5" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-          TrendIn
-        </span>
+        <Link className="landing-brand onboarding-brand" to="/" aria-label="TrendIn 홈">
+          <img className="landing-brand-mark" src={waveMark} width="40" height="26" alt="" aria-hidden="true" />
+          <span>TrendIn</span>
+        </Link>
         <span className="onboarding-who">
           {profileQuery.data && <span>{profileQuery.data.nickname}님</span>}
           <span className="onboarding-avatar" aria-hidden="true">

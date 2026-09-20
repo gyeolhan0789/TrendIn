@@ -149,11 +149,11 @@ export function HomePage() {
 
   return (
     <div className="explore-page">
-      <section className="explore-hero">
+      <section className="explore-hero trendin-page-heading">
         <div>
-          <p className="explore-hero-eyebrow">트렌드를 더 빠르게, 더 깊이</p>
+          <p className="explore-hero-eyebrow trendin-page-eyebrow">트렌드를 더 빠르게, 더 깊이</p>
           <h1>트렌드 탐색</h1>
-          <p className="explore-hero-lead">{windowLabel ?? '인기·신규·급상승 트렌드를 한눈에 확인하세요.'}</p>
+          <p className="explore-hero-lead trendin-page-lead">{windowLabel ?? '인기·신규·급상승 트렌드를 한눈에 확인하세요.'}</p>
         </div>
         <div className="explore-hero-visual">
           <img src={heroWave} alt="" />

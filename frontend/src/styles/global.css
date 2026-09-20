@@ -641,6 +641,11 @@ h1 { margin: 0; line-height: 1.25; }
 .trendin-ui h1, .trendin-ui h2, .trendin-ui h3, .trendin-ui h4, .trendin-ui p { margin: 0; }
 /* 한국어는 어절 단위로 끊어야 '계/속'처럼 낱말이 갈라지지 않습니다. */
 .trendin-ui h1, .trendin-ui h2, .trendin-ui h3, .trendin-ui h4, .trendin-ui p { word-break: keep-all; }
+
+/* 서비스 화면의 첫 제목은 같은 활자 비율을 사용합니다. 화면별 배치는 유지하고 글의 위계만 공유합니다. */
+.trendin-ui .trendin-page-heading h1 { color: var(--lp-ink); font-size: 36px; font-weight: 800; line-height: 1.25; letter-spacing: -1.6px; }
+.trendin-ui .trendin-page-eyebrow { margin-bottom: 8px; color: var(--lp-faint); font-size: 14px; line-height: 1.5; }
+.trendin-ui .trendin-page-lead { margin-top: 12px; color: var(--lp-muted); font-size: 15px; line-height: 1.6; }
 @keyframes landing-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
 .landing-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid rgba(0, 0, 0, .06); background: rgba(255, 255, 255, .92); backdrop-filter: blur(12px); }
@@ -772,10 +777,11 @@ h1 { margin: 0; line-height: 1.25; }
 .landing-content h4, .landing-content-desc { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .landing-content-meta { margin-top: 10px; color: #c4b5fd; font-size: 12px; }
 
-.landing-footer { border-top: 1px solid #f3f4f6; background: #fafafa; }
-.landing-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 1280px; margin: 0 auto; padding: 32px 40px; }
-.landing-footer-brand { display: flex; align-items: center; gap: 8px; color: var(--lp-faint); font-size: 16px; font-weight: 700; }
-.landing-footer-inner p { color: var(--lp-faint); font-size: 13px; }
+.trendin-ui--with-footer { display: flex; min-height: 100dvh; flex-direction: column; }
+.trendin-ui--with-footer > .site-footer { margin-top: auto; }
+.site-footer { display: flex; position: relative; z-index: 3; align-items: center; justify-content: space-between; min-height: 60px; padding: 12px clamp(24px, 4vw, 64px); border-top: 1px solid #f1f2f7; background: #fff; color: #a0a8b8; font-size: 12px; }
+.site-footer > span:first-child { color: #202538; font-size: 19px; font-weight: 750; letter-spacing: -.08em; }
+.site-footer > span:first-child span { color: #0f62fe; }
 
 /* 시안은 데스크톱 기준입니다. 좁아지면 두 단 구성부터 풀고, 히어로 장식은 접습니다. */
 @media (max-width: 1080px) {
@@ -785,7 +791,7 @@ h1 { margin: 0; line-height: 1.25; }
   .landing-beyond-inner { gap: 40px; }
 }
 @media (max-width: 860px) {
-  .landing-header-inner, .landing-hero, .landing-section, .landing-beyond-inner, .landing-footer-inner, .landing-divider { padding-left: 20px; padding-right: 20px; }
+  .landing-header-inner, .landing-hero, .landing-section, .landing-beyond-inner, .landing-divider { padding-left: 20px; padding-right: 20px; }
   .landing-nav { display: none; }
   .landing-hero { grid-template-columns: 1fr; padding-top: 48px; }
   .landing-hero h1 { font-size: 34px; letter-spacing: -1.2px; }
@@ -795,7 +801,7 @@ h1 { margin: 0; line-height: 1.25; }
   .landing-beyond-inner { grid-template-columns: 1fr; padding-top: 56px; padding-bottom: 56px; }
   .landing-beyond-inner h2 { font-size: 28px; }
   .landing-contents { grid-template-columns: 1fr; }
-  .landing-footer-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .site-footer { padding-right: 20px; padding-left: 20px; }
 }
 
 /* 새 시안 화면들이 함께 쓰는 조각: 드롭다운 한 칸, 불러오는 중·실패 표시, 분야 태그. */
@@ -1232,7 +1238,7 @@ h1 { margin: 0; line-height: 1.25; }
 .saved-page { padding-bottom: 8px; }
 .saved-page > section { width: 100%; max-width: 1280px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
 
-.saved-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-top: 40px; padding-bottom: 28px; }
+.saved-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-top: 48px; padding-bottom: 32px; }
 /* .trendin-ui p 가 여백을 0으로 눌러서, 두 줄 사이는 margin 이 아니라 gap 으로 띄웁니다. */
 .saved-hero-title { display: grid; gap: 4px; }
 .saved-eyebrow { color: var(--lp-faint); font-size: 13px; }
@@ -2163,6 +2169,7 @@ h1 { margin: 0; line-height: 1.25; }
   .worldtrend-side, .worldtrend-fold--right { display: none; }
 }
 @media (max-width: 860px) {
+  .trendin-ui .trendin-page-heading h1 { font-size: 30px; letter-spacing: -1.2px; }
   .worldtrend-page { --panel-left: 0px; }
   .worldtrend-list, .worldtrend-fold--left { display: none; }
 }

@@ -1,4 +1,5 @@
 import type { AuthSession, AuthTokenBundle } from '../types/auth';
+import { resetLandingGuide } from '../../../utils/landingExperience';
 
 const sessionKey = 'trendin-auth-session-v1';
 
@@ -105,6 +106,12 @@ export function clearAuthSession() {
     window.localStorage.removeItem(sessionKey);
   } catch {
     // Device-local storage may be unavailable in private browsing.
+  }
+  try {
+    // 다음 로그인 세션의 첫 홈 진입에서 조작 안내를 다시 보여 줍니다.
+    resetLandingGuide(window.sessionStorage);
+  } catch {
+    // Session storage may be unavailable in private browsing.
   }
   listeners.forEach((listener) => listener());
 }

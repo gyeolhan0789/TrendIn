@@ -131,7 +131,7 @@ export function MyPage() {
 
   return (
     <MyPageScreen width="wide">
-      <div className="mypage-head mypage-head--top">
+      <div className="mypage-head mypage-head--top trendin-page-heading">
         <p className="mypage-eyebrow">내 계정과 활동을 한눈에</p>
         <h1>마이페이지</h1>
       </div>

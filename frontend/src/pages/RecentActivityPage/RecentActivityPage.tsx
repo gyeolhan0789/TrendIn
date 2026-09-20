@@ -66,7 +66,7 @@ export function RecentActivityPage() {
     <MyPageScreen width="lg">
       <MyPageCrumb current="최근 활동" />
 
-      <div className="mypage-head mypage-head--split">
+      <div className="mypage-head mypage-head--split trendin-page-heading">
         <h1>최근 활동</h1>
         <div className="mypage-head-tools">
           <span className="mypage-total">총 {shown.length}건</span>

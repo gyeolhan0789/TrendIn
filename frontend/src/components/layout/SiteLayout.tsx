@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { SiteFooter } from './SiteFooter';
 import { SiteHeader } from './SiteHeader';
 
@@ -15,11 +15,14 @@ interface SiteLayoutProps {
  * AppLayout에 그대로 두고, 여기로 옮겨 온 화면만 .trendin-ui 아래로 들어옵니다.
  */
 export function SiteLayout({ stage = false }: SiteLayoutProps) {
+  const location = useLocation();
+
   return (
-    <div className={`trendin-ui${stage ? ' trendin-ui--stage' : ''}`}>
+    <div className={`trendin-ui${stage ? ' trendin-ui--stage' : ' trendin-ui--with-footer'}`}>
       <SiteHeader />
       <Outlet />
-      {!stage && <SiteFooter />}
+      {/* 홈은 파티클 배경 안에 같은 푸터를 직접 배치합니다. */}
+      {!stage && location.pathname !== '/' && <SiteFooter />}
     </div>
   );
 }
