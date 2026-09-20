@@ -1108,7 +1108,21 @@ h1 { margin: 0; line-height: 1.25; }
 .keywords-add-field input:focus { outline: none; }
 .keywords-add-field input::placeholder { color: var(--lp-faint); }
 
-.keywords-add-menu { position: absolute; top: 100%; right: 0; left: 0; z-index: 30; overflow: hidden; margin-top: 8px; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+/*
+ * 검색은 한 번에 10건까지 내려옵니다. 그대로 펼치면 한 줄 59px 로 600px 가까이 자라, 드롭다운이
+ * 화면 아래로 흘러나갑니다. 다섯 줄에서 끊고 여섯째 줄이 조금 보이게 남겨, 더 있다는 것이
+ * 스크롤 막대를 보기 전에도 읽히게 합니다. 낮은 창에서는 60vh 가 먼저 걸립니다.
+ * 끝까지 내렸을 때 뒤 페이지가 따라 움직이지 않도록 스크롤을 이 안에 가둡니다.
+ */
+.keywords-add-menu { position: absolute; top: 100%; right: 0; left: 0; z-index: 30; overflow: hidden auto; overscroll-behavior: contain; max-height: min(320px, 60vh); margin-top: 8px; padding: 6px; border: 1px solid var(--lp-line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(16, 24, 40, .12); }
+/*
+ * 스크롤 막대는 감춥니다. 이 좁은 상자에서는 막대가 목록 오른쪽을 잘라 먹고, 결과가 몇 건이냐에
+ * 따라 줄 너비가 달라져 목록이 들썩입니다. 더 있다는 신호는 위에서 남겨 둔 여섯째 줄이 맡습니다.
+ * 휠·트랙패드·터치는 그대로 움직이고, 감추는 것은 막대의 모양뿐입니다.
+ */
+.keywords-add-menu { scrollbar-width: none; }
+.keywords-add-menu::-webkit-scrollbar { display: none; }
+
 .keywords-add-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 8px; }
 .keywords-add-row:hover { background: #f9fafb; }
 .keywords-add-name { display: flex; min-width: 0; flex-direction: column; gap: 2px; overflow: hidden; }

@@ -63,6 +63,22 @@ export function KeywordsPage() {
   // 고른 분야의 마지막 키워드를 빼면 그 칸도 사라지므로, 갇히지 않게 전체로 되돌립니다.
   const activeDomain = usedDomains.includes(selectedDomain) ? selectedDomain : ALL_DOMAINS;
 
+  /*
+   * 몇 곳인지보다 어느 분야인지가 먼저 읽혀서, 수 대신 이름을 그대로 적습니다.
+   * 지금 분야는 개발·패션 둘뿐이라 다 적어도 한 줄에 들어갑니다.
+   *
+   * 등록한 순서대로 두면 사람마다 개발·패션과 패션·개발로 갈립니다. 분야 목록의 순서에 맞춥니다.
+   * 목록에 없는 코드는 뒤에 코드 그대로 붙입니다 — 빼면 등록한 분야가 없는 것처럼 보입니다.
+   */
+  const usedDomainLabel = useMemo(() => {
+    if (usedDomains.length === 0) return '없음';
+    // 분야 목록이 아직 오지 않았으면 이름을 못 붙입니다. 잠깐이라도 내부 코드를 내보이지 않습니다.
+    if (domainNames.size === 0) return '…';
+    const known = [...domainNames.keys()].filter((domain) => usedDomains.includes(domain));
+    const unknown = usedDomains.filter((domain) => !domainNames.has(domain));
+    return [...known, ...unknown].map((domain) => domainNames.get(domain) ?? domain).join('·');
+  }, [domainNames, usedDomains]);
+
   const visibleKeywords = useMemo(() => {
     const filtered = activeDomain === ALL_DOMAINS
       ? keywords
@@ -96,7 +112,7 @@ export function KeywordsPage() {
           label="관심 분야"
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17l5-5 4 4 5-7" /><path d="M17 7h4v4" /></svg>}
         >
-          {usedDomains.length}<small>곳</small>
+          {usedDomainLabel}
         </StatCard>
 
         <StatCard

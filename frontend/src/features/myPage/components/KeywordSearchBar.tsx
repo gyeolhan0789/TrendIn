@@ -73,9 +73,6 @@ export function KeywordSearchBar() {
               <AddInterestKeywordButton keywordId={item.keywordId} keyword={item.keyword} />
             </div>
           ))}
-          {!searching && searchQuery.data?.hasNext && (
-            <p className="keywords-add-none">결과가 더 있습니다. 검색어를 조금 더 적어 보세요.</p>
-          )}
         </div>
       )}
     </div>
