@@ -440,15 +440,43 @@ def test_contents_행에_본문과_요약이_없다(writable_spark, article, eve
 # --- 배치 배선 -----------------------------------------------------------
 
 
-class FakeLedger:
+class FakeConnection:
+    """`Ledger.transaction()` 이 내주는 연결 대신. 누가 같은 연결을 받았는지만 본다."""
+
     def __init__(self):
+        self.committed = False
+        self.rolled_back = False
+
+
+class FakeLedger:
+    def __init__(self, *, fail_record: bool = False):
         self.recorded = []
+        self.connections: list[FakeConnection] = []
+        self.fail_record = fail_record
 
     def filter_new(self, events):
         return events
 
-    def record(self, rows):
+    def record(self, rows, *, conn=None):
+        if self.fail_record:
+            raise RuntimeError("처리 이력 쓰기가 죽었다 (테스트)")
         self.recorded.extend(row.asDict() for row in rows.collect())
+        self.connections.append(conn)
+
+    def transaction(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _tx():
+            conn = FakeConnection()
+            try:
+                yield conn
+                conn.committed = True
+            except BaseException:
+                conn.rolled_back = True
+                raise
+
+        return _tx()
 
 
 class FakeDlq:
@@ -463,11 +491,17 @@ class FakeDlq:
 
 
 class FakeContents:
-    def __init__(self):
+    def __init__(self, *, fail: bool = False):
         self.upserted = []
+        self.connections = []
+        self.fail = fail
 
-    def upsert(self, rows):
+    def upsert(self, rows, *, conn=None):
+        if self.fail:
+            # 2026-09-18 의 `StringDataRightTruncation` 자리다.
+            raise RuntimeError("contents upsert 가 죽었다 (테스트)")
         self.upserted.extend(row.asDict() for row in rows.collect())
+        self.connections.append(conn)
 
 
 def kafka_rows(spark, events):
@@ -745,3 +779,150 @@ def test_객체_검증_UDF_는_문서당_한_번만_돈다(spark, article, event
     assert result.articles == 1
     assert len(ledger.recorded) == 1
     assert calls.value == 1
+
+
+# --- 적재는 한 트랜잭션이고, 죽으면 본문을 되돌린다 (S15P21A102-341) ----------------
+
+
+def _stage_with_fs_root(tmp_path, *, contents, stats=None):
+    """임시 디렉터리를 `curated` 로 쓰는 정제 단계. MinIO 없이 쓰기·되돌리기를 본다."""
+    return NormalizeStage(
+        config(),
+        ingest_run_id=RUN_ID,
+        envelope_columns=ENVELOPE_COLUMNS,
+        contents=contents,
+        stats=stats,
+        root=str(tmp_path / "curated"),
+    )
+
+
+def _run_partitions(tmp_path) -> list[pathlib.Path]:
+    return sorted((tmp_path / "curated").rglob(f"ingest_run_id={RUN_ID}"))
+
+
+def test_contents_upsert_가_죽으면_curated_파티션과_이력이_남지_않는다(
+    writable_spark, article, event, tmp_path
+):
+    """2026-09-18 의 재현이다. `contents` upsert 에서 죽은 회차가 본문만 남기고 이력을 못 적어,
+    다음 회차가 같은 문서를 다시 써서 코퍼스 전체가 39벌 쌓였다.
+
+    이제는 그 회차가 쓴 파티션을 지우고 이력도 없다 — 다음 회차가 같은 문서를 다시 쓰지만
+    **한 벌**만 남는다.
+    """
+    ledger, dlq = FakeLedger(), FakeDlq()
+    stage = _stage_with_fs_root(tmp_path, contents=FakeContents(fail=True))
+
+    with pytest.raises(RuntimeError, match="contents upsert"):
+        process_batch(
+            kafka_rows(writable_spark, [event]),
+            job="ingest",
+            ledger=ledger,
+            dlq=dlq,
+            verify_objects=fake_verifier(json.dumps(article | {"body_text": BODY})),
+            normalize=stage,
+            run_id=RUN_ID,
+        )
+
+    assert _run_partitions(tmp_path) == []
+    assert ledger.recorded == []
+    assert stage.uncommitted_partitions == frozenset()
+
+
+def test_처리_이력_쓰기가_죽어도_curated_파티션이_남지_않는다(
+    writable_spark, article, event, tmp_path
+):
+    """`contents` 는 됐는데 이력에서 죽는 경우. 같은 트랜잭션이라 `contents` 도 롤백되고,
+    본문은 보상 삭제로 사라진다. 어느 쪽에서 죽든 결과는 같아야 한다."""
+    ledger, dlq, contents = FakeLedger(fail_record=True), FakeDlq(), FakeContents()
+    stage = _stage_with_fs_root(tmp_path, contents=contents)
+
+    with pytest.raises(RuntimeError, match="처리 이력"):
+        process_batch(
+            kafka_rows(writable_spark, [event]),
+            job="ingest",
+            ledger=ledger,
+            dlq=dlq,
+            verify_objects=fake_verifier(json.dumps(article | {"body_text": BODY})),
+            normalize=stage,
+            run_id=RUN_ID,
+        )
+
+    assert _run_partitions(tmp_path) == []
+    # 가짜 연결이 롤백을 받았다 — 진짜에서는 `jdbc.connection` 이 같은 일을 한다.
+    assert contents.connections and contents.connections[0].rolled_back
+
+
+def test_정상_회차는_contents_와_이력을_같은_연결로_쓰고_파티션을_남긴다(
+    writable_spark, article, event, tmp_path
+):
+    ledger, dlq, contents = FakeLedger(), FakeDlq(), FakeContents()
+    stage = _stage_with_fs_root(tmp_path, contents=contents)
+
+    result = process_batch(
+        kafka_rows(writable_spark, [event]),
+        job="ingest",
+        ledger=ledger,
+        dlq=dlq,
+        verify_objects=fake_verifier(json.dumps(article | {"body_text": BODY})),
+        normalize=stage,
+        run_id=RUN_ID,
+    )
+
+    assert result.articles == 1
+    assert len(_run_partitions(tmp_path)) == 1
+    assert len(contents.upserted) == 1
+    assert contents.upserted[0]["body_object_key"].endswith(".parquet")
+    # 한 연결이다. 그 연결이 커밋됐고, 되돌릴 파티션은 남아 있지 않다.
+    assert contents.connections == ledger.connections
+    assert ledger.connections[0].committed
+    assert stage.uncommitted_partitions == frozenset()
+    # 이력의 run_id 는 봉투의 값(NULL)이 아니라 이 실행의 번호다.
+    assert ledger.recorded[0]["run_id"] == RUN_ID
+
+
+def test_contents_행은_커밋_전까지_쓰이지_않는다(writable_spark, article, event, tmp_path):
+    """정제 단계는 행을 들고만 있다. 이력 없이 `contents` 만 들어가는 경로가 없어야 한다."""
+    contents = FakeContents()
+    stage = _stage_with_fs_root(tmp_path, contents=contents)
+    verified = fake_verifier(json.dumps(article | {"body_text": BODY}))(
+        kafka_rows(writable_spark, [event])
+    )
+
+    stage(verified)
+
+    assert contents.upserted == []
+    assert len(stage.uncommitted_partitions) == 1
+    stage.flush(None)
+    assert len(contents.upserted) == 1
+    # 쓴 것만으로는 안 끝난다 — 커밋이 확인돼야 되돌릴 대상에서 빠진다.
+    assert len(stage.uncommitted_partitions) == 1
+    stage.mark_committed()
+    assert stage.uncommitted_partitions == frozenset()
+
+
+def test_되돌리기는_이_실행의_파티션만_지운다(writable_spark, article, event, tmp_path):
+    """파티션의 마지막 단이 `ingest_run_id` 라 다른 실행이 같은 날짜·소스에 쓴 것은 남는다."""
+    from pyspark.sql import functions as F
+
+    other = "20260901T000000"
+    root = str(tmp_path / "curated")
+    stage = _stage_with_fs_root(tmp_path, contents=None)
+    verified = fake_verifier(json.dumps(article | {"body_text": BODY}))(
+        kafka_rows(writable_spark, [event])
+    )
+    stage(verified)
+    assert len(_run_partitions(tmp_path)) == 1
+    # 다른 실행이 같은 날짜·소스 파티션 아래에 쓴 것. 테스트 세션에는 `partitionOverwriteMode=
+    # dynamic` 이 없어 `overwrite` 가 루트를 통째로 비우므로 정제 단계 **뒤에** append 로 쓴다.
+    documents = resolve_filter_reason(
+        apply_dedup(documents_of(writable_spark, event, [article | {"body_text": BODY}]))
+    )
+    curated.write(
+        documents.withColumn("ingest_run_id", F.lit(other)), config(), root=root, mode="append"
+    )
+
+    removed = stage.rollback()
+
+    assert removed >= 1
+    assert _run_partitions(tmp_path) == []
+    assert sorted((tmp_path / "curated").rglob(f"ingest_run_id={other}")) != []

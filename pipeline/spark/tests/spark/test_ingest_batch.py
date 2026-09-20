@@ -365,3 +365,14 @@ def test_정제_단계까지_적힌_기사는_걸러진다(spark):
 
     assert (result.received, result.duplicates, result.articles) == (1, 1, 0)
     assert ledger.recorded == []
+
+
+def test_run_id_를_주면_처리_이력에_이_실행의_번호가_적힌다(spark):
+    """봉투의 `run_id` 는 장부 뷰에 없어 늘 NULL 이었다. `extract` 가 이 값으로 고아 파티션을
+    가르므로(S15P21A102-341) ingest 는 자기 실행 번호를 적어야 한다."""
+    ledger, dlq = FakeLedger(), FakeDlq()
+    batch = from_events(spark, [fixture("article-event.json")])
+
+    process_batch(batch, job="ingest", ledger=ledger, dlq=dlq, run_id="20260920T120000")
+
+    assert {row["run_id"] for row in ledger.recorded} == {"20260920T120000"}
