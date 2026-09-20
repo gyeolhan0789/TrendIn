@@ -54,7 +54,7 @@ export function LandingPage() {
         <section className="hero" id="top" aria-label="파티클 물결 인터랙션">
           <ParticleWave variant={version === '3' ? 'transition' : isDark ? 'dark' : 'light'} onEntryComplete={onWaveReady} />
           {version === '3' && <div className={`hero-search caption-after-wave${waveReady ? ' is-visible' : ''}`} inert={!waveReady} aria-hidden={!waveReady}>
-            <TrendSearch contents={featuredContents} />
+            <TrendSearch />
           </div>}
           {isDark && <div className={`v2-caption${version === '3' ? ` caption-after-wave${waveReady ? ' is-visible' : ''}` : ''}`} aria-hidden={version === '3' && !waveReady}>{version !== '3' && <span>FLOW OF SIGNALS</span>}<h2>흐름 속에서,<br />새로운 신호를 발견하다.</h2>{version !== '3' && <p>마우스로 흐름을 만들고, 드래그로 물결을 돌려보세요.</p>}</div>}
         </section>
