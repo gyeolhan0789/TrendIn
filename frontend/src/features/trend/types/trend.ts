@@ -1,3 +1,4 @@
+import type { Page } from '../../../api/apiResponse';
 import type { PeriodCode } from '../../../constants/filterCodes';
 
 /** 서버가 트렌드를 가르는 세 갈래입니다. 목록은 이 중 하나를 골라서 부릅니다. */
@@ -100,6 +101,14 @@ export interface TrendHistory {
   startAt: string;
   endAt: string;
   history: TrendHistoryPoint[];
+}
+
+/**
+ * 원본 소스 한 쪽. 공통 페이지 응답과 달리 전체 개수가 함께 옵니다.
+ * 쪽 넘김이 마지막 쪽을 알아야 해서 이 조회만 예외로 내려 줍니다.
+ */
+export interface TrendContentPage extends Page<TrendContent> {
+  totalElements: number;
 }
 
 export interface TrendContent {

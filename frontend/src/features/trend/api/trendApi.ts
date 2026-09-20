@@ -6,7 +6,7 @@ import type { PeriodCode } from '../../../constants/filterCodes';
 import type {
   Trend,
   TrendAnalysisWindow,
-  TrendContent,
+  TrendContentPage,
   TrendDetail,
   TrendHistory,
   TrendList,
@@ -69,8 +69,8 @@ export async function getTrendHistory(trendId: number, period: PeriodCode): Prom
 }
 
 /** 키워드가 언급된 원본 글입니다. 최신 순이며 페이지로 나눠 옵니다. */
-export async function getTrendContents(trendId: number, page = 0, size = 10): Promise<Page<TrendContent>> {
-  return unwrap(apiClient.get<ApiResponse<Page<TrendContent>>>(API_ENDPOINTS.trends.contents(trendId), {
+export async function getTrendContents(trendId: number, page = 0, size = 10): Promise<TrendContentPage> {
+  return unwrap(apiClient.get<ApiResponse<TrendContentPage>>(API_ENDPOINTS.trends.contents(trendId), {
     params: { page, size },
   }));
 }

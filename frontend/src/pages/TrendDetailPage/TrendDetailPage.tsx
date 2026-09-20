@@ -71,23 +71,21 @@ interface PagerProps {
   /** 0 부터 셉니다. 화면에는 1 부터 적습니다. */
   current: number;
   total: number;
-  /** 아직 모르는 쪽이 더 있는지. 참이면 쪽 수 뒤에 + 를 붙이고 마지막 쪽에서도 다음을 엽니다. */
-  more?: boolean;
   busy?: boolean;
   onPrev: () => void;
   onNext: () => void;
 }
 
 /** 양 끝에서 잠깁니다. 처음으로 돌아가지 않습니다 — 끝에 닿았다는 것이 화살표로 보여야 합니다. */
-function Pager({ label, current, total, more = false, busy = false, onPrev, onNext }: PagerProps) {
+function Pager({ label, current, total, busy = false, onPrev, onNext }: PagerProps) {
   return (
     <div className="detail-pager" role="group" aria-label={label}>
       <button type="button" onClick={onPrev} disabled={current === 0} aria-label={`${label} 이전 쪽`}>←</button>
-      <span>{current + 1} / {total}{more ? '+' : ''}</span>
+      <span>{current + 1} / {total}</span>
       <button
         type="button"
         onClick={onNext}
-        disabled={busy || (current + 1 >= total && !more)}
+        disabled={busy || current + 1 >= total}
         aria-label={`${label} 다음 쪽`}
       >
         →
@@ -199,6 +197,15 @@ export function TrendDetailPage() {
 
   const contentPages = useMemo(() => contentsQuery.data?.pages ?? [], [contentsQuery.data]);
   const contents = contentPages[sourcePage]?.content ?? [];
+  /*
+   * 쪽 수는 서버가 준 전체 개수로 셉니다. 받아 둔 쪽 수로 세면 앞으로 넘길 때마다 그 값이
+   * 현재 쪽과 같아져 6 / 6+ 처럼 아무것도 말하지 못하는 숫자가 됩니다.
+   * 쪽 크기는 응답이 알려 주므로 화면이 따로 알 필요가 없습니다.
+   */
+  const firstContentPage = contentPages[0];
+  const sourcePageCount = firstContentPage && firstContentPage.size > 0
+    ? Math.max(1, Math.ceil(firstContentPage.totalElements / firstContentPage.size))
+    : 1;
   /* 타임라인은 처음 네 건을 짚는 자리입니다. 기사 쪽을 넘긴다고 따라 움직이면 안 됩니다. */
   const timeline = (contentPages[0]?.content ?? []).slice(0, 4);
 
@@ -313,9 +320,7 @@ export function TrendDetailPage() {
                 <Pager
                   label="원본 소스"
                   current={sourcePage}
-                  total={contentPages.length}
-                  /* 서버가 전체 개수를 주지 않아 아직 모르는 쪽이 있다는 것만 + 로 밝힙니다. */
-                  more={contentsQuery.hasNextPage}
+                  total={sourcePageCount}
                   busy={contentsQuery.isFetchingNextPage}
                   onPrev={() => setSourcePage(sourcePage - 1)}
                   onNext={goNextSource}

@@ -10,7 +10,10 @@ export interface ApiResponse<T> {
 
 /**
  * 목록 API가 공통으로 쓰는 페이지 응답입니다.
- * 전체 개수나 마지막 페이지 번호는 서버가 주지 않으므로, 더 있는지는 hasNext 로만 판단합니다.
+ * 마지막 페이지 번호는 서버가 주지 않으므로, 더 있는지는 hasNext 로만 판단합니다.
+ *
+ * 전체 개수도 대개 오지 않습니다. 원본 소스 조회만 쪽 넘김 때문에 따로 내려 주며,
+ * 그 조회는 TrendContentPage 를 씁니다.
  */
 export interface Page<T> {
   content: T[];
