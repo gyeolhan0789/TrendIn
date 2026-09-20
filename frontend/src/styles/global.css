@@ -1999,6 +1999,11 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-list-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -.5px; }
 .worldtrend-list-head p { margin-top: 4px; color: var(--lp-faint); font-size: 12px; line-height: 1.5; }
 
+.worldtrend-filter { padding: 0 20px 12px; }
+/* 좁은 칸이라 이름과 칸을 한 줄에 세우고, 칸이 남는 폭을 다 쓰게 둡니다. */
+.worldtrend-filter .trendin-filter { gap: 10px; }
+.worldtrend-filter .trendin-select { flex: 1; min-width: 0; }
+.worldtrend-filter .trendin-select-value { width: 100%; }
 .worldtrend-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 12px; }
 .worldtrend-chip { padding: 5px 12px; border: 1px solid rgba(17, 24, 39, .12); border-radius: 7px; background: #fff; color: var(--lp-muted); font-size: 12px; font-weight: 500; transition: border-color .15s, background .15s, color .15s; }
 .worldtrend-chip:hover { border-color: #c7d2fe; }

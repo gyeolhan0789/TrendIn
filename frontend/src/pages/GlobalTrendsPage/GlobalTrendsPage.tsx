@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FilterSelect } from '../../components/common/FilterSelect';
 import { WorldMap } from '../../features/globalTrend/components/WorldMap';
 import type { MapMode, MapStop } from '../../features/globalTrend/components/WorldMap';
 import { countryGeoOf } from '../../features/globalTrend/data/countryGeo';
@@ -8,7 +9,6 @@ import { useTrendRegionJourney } from '../../features/globalTrend/hooks/useTrend
 import { useTrendRegions } from '../../features/globalTrend/hooks/useTrendRegions';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { TrendSparkline } from '../../features/trend/components/TrendSparkline';
-import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrends } from '../../features/trend/hooks/useTrends';
 import { formatCount, formatGrowth } from '../../features/trend/trendFormat';
@@ -104,12 +104,10 @@ interface SummaryPanelProps {
 }
 
 function SummaryPanel({ trend, period, regions, regionsLoading, journey, journeyRange }: SummaryPanelProps) {
-  const detailQuery = useTrendDetail(trend.trendId, period);
   const historyQuery = useTrendHistory(trend.trendId, period);
 
   const history = historyQuery.data?.history ?? [];
   const top = Math.max(...regions.map((region) => region.mentionCount), 1);
-  const detail = detailQuery.data;
   const firstStop = journey[0];
 
   return (
@@ -120,10 +118,11 @@ function SummaryPanel({ trend, period, regions, regionsLoading, journey, journey
           <span className="worldtrend-card-note">{PERIOD_LABELS[period]}</span>
         </div>
         <h3 className="worldtrend-summary-title">{trend.keyword}</h3>
-        {/* 서버가 지어 둔 설명이 있으면 그대로 씁니다. 없는 트렌드가 더 많습니다. */}
-        <p className="worldtrend-summary-lead">
-          {detail?.summary ?? trend.description ?? '아직 정리된 설명이 없습니다.'}
-        </p>
+        {/*
+          * 줄글 설명은 두지 않습니다. 이 칸이 답할 것은 '어디서 얼마나'이고, 그것은 아래 세
+          * 숫자가 이미 말합니다. 설명이 있는 트렌드보다 없는 트렌드가 많아, 있을 때는 숫자와
+          * 겹쳐 읽히고 없을 때는 빈 문구 한 줄이 자리만 차지했습니다.
+          */}
         <dl className="worldtrend-facts">
           <div>
             <dt>언급된 나라</dt>
@@ -284,17 +283,18 @@ export function GlobalTrendsPage() {
           <p>키워드를 고르면 그 말이 퍼져 나간 길을 지도가 따라갑니다.</p>
         </div>
 
-        <div className="worldtrend-chips">
-          {domains.map((option) => (
-            <button
-              type="button"
-              key={option.domain}
-              className={`worldtrend-chip ${option.domain === activeDomain ? 'is-selected' : ''}`}
-              onClick={() => setDomain(option.domain)}
-            >
-              {option.name}
-            </button>
-          ))}
+        {/*
+          * 분야는 대시보드·키워드 화면이 쓰는 드롭다운 한 칸을 그대로 씁니다. 칸이 좁아 조각으로
+          * 늘어놓으면 분야가 늘어날수록 여러 줄로 접히고, 그만큼 키워드 목록이 아래로 밀립니다.
+          */}
+        <div className="worldtrend-filter">
+          <FilterSelect
+            label="카테고리"
+            value={activeDomain ?? ''}
+            options={domains.map((option) => ({ value: option.domain, label: option.name }))}
+            onChange={setDomain}
+            disabled={domains.length === 0}
+          />
         </div>
 
         {/* 국가별 조회는 24H·7D 만 받습니다. 30D 는 고를 수 없게 아예 내놓지 않습니다. */}
