@@ -18,9 +18,12 @@ import com.forever102.member.service.MemberInterestKeywordService;
 import com.forever102.member.service.MemberService;
 import com.forever102.member.service.SavedTrendService;
 import com.forever102.notification.dto.NotificationListResponse;
+import com.forever102.notification.dto.NotificationSettingResponse;
+import com.forever102.notification.dto.NotificationSettingUpdateRequest;
 import com.forever102.notification.dto.UnreadNotificationCountResponse;
 import com.forever102.notification.service.NotificationQueryService;
 import com.forever102.notification.service.NotificationReadService;
+import com.forever102.notification.service.NotificationSettingService;
 import com.forever102.trend.domain.AnalysisPeriod;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.Valid;
@@ -52,6 +55,7 @@ public class MemberController {
     private final SavedTrendService savedTrendService;
     private final NotificationQueryService notificationQueryService;
     private final NotificationReadService notificationReadService;
+    private final NotificationSettingService notificationSettingService;
 
     @GetMapping
     public BaseResponse<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal Long memberId) {
@@ -155,6 +159,21 @@ public class MemberController {
             @AuthenticationPrincipal Long memberId
     ) {
         return BaseResponse.success(notificationQueryService.getUnreadCount(memberId));
+    }
+
+    @GetMapping("/notification-settings")
+    public BaseResponse<NotificationSettingResponse> getNotificationSettings(
+            @AuthenticationPrincipal Long memberId
+    ) {
+        return BaseResponse.success(notificationSettingService.getSettings(memberId));
+    }
+
+    @PutMapping("/notification-settings")
+    public BaseResponse<NotificationSettingResponse> updateNotificationSettings(
+            @AuthenticationPrincipal Long memberId,
+            @Valid @RequestBody NotificationSettingUpdateRequest request
+    ) {
+        return BaseResponse.success(notificationSettingService.updateSettings(memberId, request));
     }
 
     @PatchMapping("/notifications/read-all")

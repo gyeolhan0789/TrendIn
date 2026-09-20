@@ -51,8 +51,11 @@ import com.forever102.notification.domain.NotificationType;
 import com.forever102.notification.dto.NotificationListResponse;
 import com.forever102.notification.dto.NotificationListResponse.NotificationResponse;
 import com.forever102.notification.dto.UnreadNotificationCountResponse;
+import com.forever102.notification.dto.NotificationSettingResponse;
+import com.forever102.notification.dto.NotificationSettingUpdateRequest;
 import com.forever102.notification.service.NotificationQueryService;
 import com.forever102.notification.service.NotificationReadService;
+import com.forever102.notification.service.NotificationSettingService;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.TrendType;
 import java.math.BigDecimal;
@@ -66,6 +69,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.payload.FieldDescriptor;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -92,6 +96,72 @@ class MemberControllerTest {
     @MockitoBean SavedTrendService savedTrendService;
     @MockitoBean NotificationQueryService notificationQueryService;
     @MockitoBean NotificationReadService notificationReadService;
+    @MockitoBean NotificationSettingService notificationSettingService;
+
+    @Test
+    @DisplayName("로그인한 회원의 알림 설정을 조회한다")
+    void getsNotificationSettings() throws Exception {
+        NotificationSettingResponse response = new NotificationSettingResponse(true, false, true, false);
+        given(notificationSettingService.getSettings(MEMBER_ID)).willReturn(response);
+
+        mockMvc.perform(get("/members/me/notification-settings")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.keywordSurgeEnabled").value(true))
+                .andExpect(jsonPath("$.data.keywordDropEnabled").value(false))
+                .andExpect(jsonPath("$.data.newTrendEnabled").value(true))
+                .andExpect(jsonPath("$.data.trendTurningPointEnabled").value(false))
+                .andDo(document("members-notification-settings-get",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        responseFields(notificationSettingResponseFields())));
+    }
+
+    @Test
+    @DisplayName("로그인한 회원의 알림 설정을 수정한다")
+    void updatesNotificationSettings() throws Exception {
+        NotificationSettingResponse response = new NotificationSettingResponse(false, true, false, true);
+        given(notificationSettingService.updateSettings(eq(MEMBER_ID),
+                any(NotificationSettingUpdateRequest.class))).willReturn(response);
+
+        mockMvc.perform(put("/members/me/notification-settings")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"keywordSurgeEnabled":false,"keywordDropEnabled":true,
+                                 "newTrendEnabled":false,"trendTurningPointEnabled":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.keywordSurgeEnabled").value(false))
+                .andExpect(jsonPath("$.data.keywordDropEnabled").value(true))
+                .andDo(document("members-notification-settings-update",
+                        preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰. 필수.")),
+                        requestFields(
+                                fieldWithPath("keywordSurgeEnabled").type(JsonFieldType.BOOLEAN)
+                                        .description("키워드 급등 알림 활성화 여부"),
+                                fieldWithPath("keywordDropEnabled").type(JsonFieldType.BOOLEAN)
+                                        .description("키워드 급락 알림 활성화 여부"),
+                                fieldWithPath("newTrendEnabled").type(JsonFieldType.BOOLEAN)
+                                        .description("신규 트렌드 발견 알림 활성화 여부"),
+                                fieldWithPath("trendTurningPointEnabled").type(JsonFieldType.BOOLEAN)
+                                        .description("트렌드 전환점 알림 활성화 여부")
+                        ),
+                        responseFields(notificationSettingResponseFields())));
+    }
+
+    @Test
+    @DisplayName("알림 설정 필드가 누락되면 400으로 응답한다")
+    void rejectsIncompleteNotificationSettings() throws Exception {
+        mockMvc.perform(put("/members/me/notification-settings")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+        then(notificationSettingService).should(never()).updateSettings(any(), any());
+    }
 
     @Test
     @DisplayName("로그인한 회원의 알림을 읽음 처리하고 문서화한다")
@@ -1185,6 +1255,23 @@ class MemberControllerTest {
         then(memberDomainService).should(never())
                 .updateMyDomains(any(), any(MemberDomainUpdateRequest.class));
     }
+
+    private static List<FieldDescriptor> notificationSettingResponseFields() {
+        return List.of(
+                fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                fieldWithPath("data").type(JsonFieldType.OBJECT).description("알림 설정"),
+                fieldWithPath("data.keywordSurgeEnabled").type(JsonFieldType.BOOLEAN)
+                        .description("키워드 급등 알림 활성화 여부"),
+                fieldWithPath("data.keywordDropEnabled").type(JsonFieldType.BOOLEAN)
+                        .description("키워드 급락 알림 활성화 여부"),
+                fieldWithPath("data.newTrendEnabled").type(JsonFieldType.BOOLEAN)
+                        .description("신규 트렌드 발견 알림 활성화 여부"),
+                fieldWithPath("data.trendTurningPointEnabled").type(JsonFieldType.BOOLEAN)
+                        .description("트렌드 전환점 알림 활성화 여부"),
+                fieldWithPath("message").type(JsonFieldType.NULL).description("응답 메시지")
+        );
+    }
+
     private String bearerToken() {
         return "Bearer " + jwtTokenProvider.issue(MEMBER_ID).accessToken();
     }
