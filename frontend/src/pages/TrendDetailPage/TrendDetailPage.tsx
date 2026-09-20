@@ -12,7 +12,7 @@ import { useTrendContents } from '../../features/trend/hooks/useTrendContents';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
 import { useTrendHistory } from '../../features/trend/hooks/useTrendHistory';
 import { useTrendRelatedKeywords } from '../../features/trend/hooks/useTrendRelatedKeywords';
-import { parsePeriod, SAVED_TREND_PERIOD } from '../../constants/filterCodes';
+import { ANALYSIS_PERIODS, parsePeriod, SAVED_TREND_PERIOD } from '../../constants/filterCodes';
 import type { PeriodCode } from '../../constants/filterCodes';
 import type { TrendDetailLocationState } from '../../features/trend/trendDetailLink';
 import type { TrendDetail, TrendHistoryPoint } from '../../features/trend/types/trend';
@@ -66,7 +66,7 @@ export function TrendDetailPage() {
   const { trendId: trendIdParam } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const period = parsePeriod(searchParams.get('period')
     ?? (searchParams.get('from') === 'saved' ? SAVED_TREND_PERIOD : null));
   // 주소에 트렌드가 아닌 값이 들어올 수 있어, 숫자로 읽히지 않으면 조회하지 않습니다.
@@ -93,6 +93,20 @@ export function TrendDetailPage() {
   const contentsQuery = useTrendContents(trendId);
   const trend = detailQuery.data;
   const periodLabel = periodLabels[period];
+
+  /*
+   * 기간은 주소에 적습니다. 새로고침이나 링크 공유에도 보던 기간이 그대로 열립니다.
+   *
+   * 두 가지를 지켜야 합니다. state 를 그대로 넘기지 않으면 backgroundLocation 이 사라져 뒤 화면이
+   * 비고 닫기가 왔던 자리 대신 대시보드로 갑니다. 그리고 바꿔치기로 넣지 않으면 기간을 고를 때마다
+   * 이력이 쌓여, 닫으려고 뒤로 가면 상세가 닫히는 대신 앞서 보던 기간으로 되돌아갑니다.
+   */
+  const selectPeriod = (next: PeriodCode) => {
+    if (next === period) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('period', next);
+    setSearchParams(params, { replace: true, state: location.state });
+  };
 
   const closeDrawer = useCallback(() => {
     if (isClosingRef.current) return;
@@ -169,6 +183,21 @@ export function TrendDetailPage() {
             <h1>{trend.keyword}</h1>
             <p>{trend.description ?? '아직 정리된 설명이 없습니다.'}</p>
           </header>
+
+          {/* 아래 지표와 차트가 모두 이 기간을 따릅니다. 원본 소스와 연관 키워드는 기간을 타지 않습니다. */}
+          <div className="detail-periods" role="group" aria-label="집계 기간">
+            {ANALYSIS_PERIODS.map((code) => (
+              <button
+                type="button"
+                key={code}
+                className={`detail-period${code === period ? ' is-selected' : ''}`}
+                aria-pressed={code === period}
+                onClick={() => selectPeriod(code)}
+              >
+                {periodLabels[code]}
+              </button>
+            ))}
+          </div>
 
           <section className="detail-kpis" aria-label="트렌드 핵심 지표">
             <div><span>{periodLabel} 언급량</span><strong>{formatNumber(trend.mentionCount)}</strong></div>

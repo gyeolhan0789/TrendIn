@@ -164,8 +164,6 @@ interface TrendRankBoardProps {
   /** 분야 목록을 아직 못 받았으면 고를 분야가 없어 비어 있습니다. 그동안은 부르지 않습니다. */
   domain: string | undefined;
   period: PeriodCode;
-  /** 검색어. 받아 온 판 안에서만 걸러 줍니다. */
-  query: string;
 }
 
 /**
@@ -174,17 +172,14 @@ interface TrendRankBoardProps {
  * 갈래마다 서버를 따로 불러야 해서 판이 제 조회를 들고 있습니다. '더보기'는 받는 개수를
  * 늘리는 것이라, 눌러도 1위 자리는 그대로 두고 오른쪽 줄만 길어집니다.
  */
-export function TrendRankBoard({ type, domain, period, query }: TrendRankBoardProps) {
+export function TrendRankBoard({ type, domain, period }: TrendRankBoardProps) {
   const look = looks[type];
   const [size, setSize] = useState(TOP_COUNT);
   const listQuery = useTrends(domain ? { domain, type, period, page: 0, size } : undefined);
 
-  const needle = query.trim().toLowerCase();
-  const received = listQuery.data?.trends ?? [];
-  const trends = needle ? received.filter((trend) => trend.keyword.toLowerCase().includes(needle)) : received;
+  const trends = listQuery.data?.trends ?? [];
   const [hero, ...rest] = trends;
-  /* 검색어로 거른 판에서는 더 받아도 그 말이 든 트렌드가 나온다는 보장이 없어 내밀지 않습니다. */
-  const canLoadMore = Boolean(hero) && !needle && (listQuery.data?.hasNext ?? false);
+  const canLoadMore = Boolean(hero) && (listQuery.data?.hasNext ?? false);
 
   return (
     <section className={`rank-board rank-board--${look.tone}`} aria-label={look.title}>
@@ -217,7 +212,7 @@ export function TrendRankBoard({ type, domain, period, query }: TrendRankBoardPr
       )}
       {!listQuery.isLoading && !listQuery.isError && !hero && (
         <div className="trendin-state" role="status">
-          <p>{needle ? `‘${query}’와 맞는 트렌드가 없습니다.` : '아직 집계된 트렌드가 없습니다.'}</p>
+          <p>아직 집계된 트렌드가 없습니다.</p>
         </div>
       )}
 

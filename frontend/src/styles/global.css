@@ -417,7 +417,16 @@ h1 { margin: 0; line-height: 1.25; }
 .detail-page--drawer .detail-category { display: inline-block; padding: 4px 10px; border-radius: 6px; color: #1a5ecf; background: #eef3ff; font-size: 13px; font-weight: 500; letter-spacing: .3px; }
 .detail-page--drawer .detail-hero h1 { margin: 18px 0 0; color: #0a0a0a; font-size: 38px; font-weight: 700; letter-spacing: -1.5px; line-height: 1.15; overflow-wrap: anywhere; }
 .detail-page--drawer .detail-hero p { max-width: 560px; margin: 18px 0 0; color: #555; font-size: 15px; font-weight: 400; line-height: 1.85; }
-.detail-page--drawer .detail-kpis { display: flex; align-items: baseline; gap: 48px; padding: 40px 0 0; margin-top: 8px; }
+/*
+ * 집계 기간 고르개. 고른 칸만 바탕에서 떠올라, 셋 중 어디에 서 있는지가 글자색보다 먼저 읽힙니다.
+ * 지표 바로 위에 두어 '24시간 언급량'의 그 24시간이 여기서 온다는 것을 잇습니다.
+ */
+.detail-page--drawer .detail-periods { display: inline-flex; gap: 4px; margin-top: 28px; padding: 4px; border-radius: 12px; background: #f3f4f6; }
+.detail-page--drawer .detail-period { padding: 7px 18px; border-radius: 9px; color: #6b7280; font-size: 13px; font-weight: 600; transition: background .15s, color .15s; }
+.detail-page--drawer .detail-period:hover:not(.is-selected) { color: #1a1a1a; }
+.detail-page--drawer .detail-period.is-selected { background: #fff; color: #0a0a0a; box-shadow: 0 1px 3px rgba(16, 24, 40, .14); }
+
+.detail-page--drawer .detail-kpis { display: flex; align-items: baseline; gap: 48px; padding: 24px 0 0; margin-top: 8px; }
 .detail-page--drawer .detail-kpis > div { min-width: 0; }
 .detail-page--drawer .detail-kpis > div:not(.detail-kpi-meta) > span { display: block; margin-bottom: 8px; color: #888; font-size: 12px; white-space: nowrap; }
 .detail-page--drawer .detail-kpis strong { color: #0a0a0a; font: 700 48px/1 "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; letter-spacing: -2.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1032,8 +1041,18 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-panel-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 15px; font-weight: 700; }
 .explore-panel-lead { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; }
 .explore-quick { display: flex; flex-wrap: wrap; gap: 8px; }
-.explore-quick button { padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s; }
-.explore-quick button:hover { border-color: #d1d5db; background: #f3f4f6; }
+/*
+ * 꼬리표 하나가 통째로 단추입니다. 글자 오른쪽에 담기 부호가 서고, 담고 나면 체크로 바뀝니다.
+ * 담은 꼬리표는 잠기지만 흐리게 두지 않습니다. 못 누르는 것이 아니라 이미 담았다는 뜻이라,
+ * 물러나 보이면 오히려 실패한 것처럼 읽힙니다.
+ */
+.explore-quick button { display: inline-flex; align-items: center; gap: 14px; padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s, color .15s; }
+.explore-quick button:hover:not(:disabled) { border-color: #d1d5db; background: #f3f4f6; }
+.explore-quick button > span { color: var(--lp-faint); font-size: 13px; }
+.explore-quick button.is-registered { border-color: #c7d2fe; background: #ede9fe; color: var(--lp-indigo); font-weight: 600; }
+.explore-quick button.is-registered > span { color: var(--lp-indigo); }
+/* 담는 중에만 물러납니다. 잠긴 꼬리표 가운데 이때만 아직 끝나지 않은 상태입니다. */
+.explore-quick button:disabled:not(.is-registered) { color: #b6bac1; }
 
 .explore-cta { display: flex; position: relative; overflow: hidden; flex-direction: column; justify-content: center; padding: 28px 44px 28px 24px; border-radius: 14px; background: linear-gradient(135deg, #ede9fe, #e0e7ff); }
 .explore-cta-glow { position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; background: rgba(167, 139, 250, .2); filter: blur(12px); }
