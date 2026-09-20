@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import waveMark from '../../assets/trendin-wave-mark.png';
+import defaultProfileStar from '../../assets/default-profile-star.png';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Spinner } from '../../components/common/Spinner';
 import { showToast } from '../../components/common/toast';
@@ -388,10 +389,7 @@ export function OnboardingPage() {
         <span className="onboarding-who">
           {profileQuery.data && <span>{profileQuery.data.nickname}님</span>}
           <span className="onboarding-avatar" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round">
-              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <img src={defaultProfileStar} alt="" />
           </span>
         </span>
       </header>

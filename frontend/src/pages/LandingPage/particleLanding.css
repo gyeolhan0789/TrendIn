@@ -139,6 +139,12 @@
   --mark-glow: color-mix(in srgb, rgba(182, 195, 255, .9), rgba(131, 143, 239, .32) var(--home-header-light, 0%));
   filter: drop-shadow(0 0 4px var(--mark-glow)) drop-shadow(0 0 10px var(--mark-glow));
 }
+.trendin-ui:has(> .particle-landing) .landing-header .avatar {
+  --avatar-glow-blue: color-mix(in srgb, rgba(151, 177, 255, .78), rgba(151, 177, 255, .18) var(--home-header-light, 0%));
+  --avatar-glow-violet: color-mix(in srgb, rgba(205, 174, 255, .5), rgba(205, 174, 255, .1) var(--home-header-light, 0%));
+  box-shadow: 0 0 10px var(--avatar-glow-blue), 0 0 24px var(--avatar-glow-violet);
+  filter: drop-shadow(0 0 5px var(--avatar-glow-blue));
+}
 .trendin-ui:has(> .particle-landing) .landing-header .landing-nav a,
 .trendin-ui:has(> .particle-landing) .landing-header .header-login { color: var(--header-muted); }
 .trendin-ui:has(> .particle-landing) .landing-header .is-upcoming { color: color-mix(in srgb, #536073, #c7cbd2 var(--home-header-light, 0%)); }

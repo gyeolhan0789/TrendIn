@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import defaultProfileStar from '../../assets/default-profile-star.png';
 import { ToggleSwitch } from '../../components/common/ToggleSwitch';
 import { MyPageCard, MyPageRow, MyPageScreen } from '../../features/myPage/components/MyPageShell';
 import {
@@ -30,11 +31,6 @@ import type { NotificationSettings } from '../../features/notification/types/not
 
 /** 요약 자리에는 최근 다섯 줄만 세웁니다. 나머지는 최근 활동 화면이 맡습니다. */
 const ACTIVITY_PREVIEW = 5;
-
-/** 이메일을 모르는 소셜 계정도 있어서, 머리글자를 못 뽑으면 기본 글자를 씁니다. */
-function initialOf(nickname: string, email: string) {
-  return (nickname.trim()[0] ?? email.trim()[0] ?? 'T').toUpperCase();
-}
 
 /*
  * 숫자 한 칸. 그 숫자를 보거나 손볼 화면이 있으면 칸 전체가 그리로 가는 링크가 되고,
@@ -146,7 +142,7 @@ export function MyPage() {
       <section className="mypage-overview">
         <div className="mypage-card mypage-profile">
           <span className="mypage-avatar" aria-hidden="true">
-            {profile ? initialOf(profile.nickname, profile.email) : 'T'}
+            <img src={defaultProfileStar} alt="" />
           </span>
           <p className="mypage-profile-name">{profile?.nickname ?? '…'}</p>
           {/* 소셜로 들어온 계정은 이메일을 모를 수 있습니다. 빈 줄 대신 그 사정을 적습니다. */}

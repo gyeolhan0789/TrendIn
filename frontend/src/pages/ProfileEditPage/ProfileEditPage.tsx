@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import defaultProfileStar from '../../assets/default-profile-star.png';
 import { showToast } from '../../components/common/toast';
 import { getApiErrorMessage } from '../../api/apiResponse';
 import { validateNickname } from '../../features/auth/validation';
@@ -9,11 +10,6 @@ import { useUpdateMyProfile } from '../../features/myPage/hooks/useUpdateMyProfi
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { useUpdateMyDomains } from '../../features/onboarding/hooks/useUpdateMyDomains';
-
-/** 이메일을 모르는 소셜 계정도 있어서, 머리글자를 못 뽑으면 기본 글자를 씁니다. */
-function initialOf(nickname: string, email: string) {
-  return (nickname.trim()[0] ?? email.trim()[0] ?? 'T').toUpperCase();
-}
 
 const DISPLAY_DOMAINS = [
   { domain: 'GAME', name: '게임', icon: '🎮' },
@@ -101,12 +97,12 @@ export function ProfileEditPage() {
 
       <section className="mypage-card mypage-avatar-card">
         <span className="mypage-avatar" aria-hidden="true">
-          {profile ? initialOf(profile.nickname, profile.email) : 'T'}
+          <img src={defaultProfileStar} alt="" />
         </span>
         <div>
           <p className="mypage-row-title">프로필 사진</p>
           {/* 사진을 올려 둘 곳이 서버에 없습니다. 고를 수 있는 것처럼 두지 않고 잠가 둡니다. */}
-          <p className="mypage-row-desc">닉네임 첫 글자로 그립니다. 사진 올리기는 아직 준비 중입니다.</p>
+          <p className="mypage-row-desc">기본 프로필 이미지가 적용됩니다. 사진 올리기는 아직 준비 중입니다.</p>
         </div>
       </section>
 

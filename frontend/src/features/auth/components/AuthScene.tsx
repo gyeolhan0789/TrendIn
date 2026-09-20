@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import waveMark from '../../../assets/trendin-wave-mark.png';
 
 /**
- * 로그인·회원가입 시안이 공유하는 바깥 틀입니다. 물결 배경, 머리줄, 왼쪽 소개 단까지가
- * 두 화면에서 글자 하나 다르지 않아 여기 한 벌만 둡니다. 오른쪽 단에 설 카드만 화면마다
- * 달라서 children 으로 받습니다.
+ * 로그인·회원가입 시안이 공유하는 바깥 틀입니다. 물결 배경, 머리줄, 왼쪽 소개 단을
+ * 한 벌로 두고, 로그인에서만 홈과 같은 로고를 사용합니다. 오른쪽 카드 내용은 children 으로 받습니다.
  *
  * 높이는 .auth-scene 이 100dvh 안에 가두고, 창이 낮아지면 소개 쪽 여백부터 걷습니다.
  * 그래서 어느 화면을 붙이든 스크롤 없이 한 화면에 들어옵니다.
@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
  * className 은 그 여백을 화면마다 한 번 더 조일 자리입니다. 카드가 가장 큰 비밀번호 재설정만
  * 낮은 창에서 공통값으로는 모자라, 자기 이름을 걸고 제 몫을 더 걷어 갑니다.
  */
-export function AuthScene({ children, className }: { children: ReactNode; className?: string }) {
+export function AuthScene({ children, className, useHomeLogo = false }: { children: ReactNode; className?: string; useHomeLogo?: boolean }) {
   return (
     <div className={`trendin-ui auth-scene${className ? ` ${className}` : ''}`}>
 
@@ -40,9 +40,13 @@ export function AuthScene({ children, className }: { children: ReactNode; classN
 
       <header className="auth-scene-header">
         <Link className="auth-scene-brand" to="/" aria-label="TrendIn 홈">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#4F46E5" stroke="#4F46E5" strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
+          {useHomeLogo ? (
+            <img className="landing-brand-mark" src={waveMark} width="40" height="26" alt="" aria-hidden="true" />
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#4F46E5" stroke="#4F46E5" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+          )}
           TrendIn
         </Link>
       </header>
