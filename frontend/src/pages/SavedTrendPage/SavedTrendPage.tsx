@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { FilterSelect } from '../../components/common/FilterSelect';
 import { SavedTrendCard } from '../../features/savedTrend/components/SavedTrendCard';
@@ -10,8 +9,6 @@ import type { SavedTrend } from '../../features/savedTrend/types/savedTrend';
 const ALL_DOMAINS = '전체';
 /* 시안이 석 줄 격자라 한 쪽을 네 줄로 끊습니다. */
 const PAGE_SIZE = 12;
-const SURGE_THRESHOLD = 100;
-const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 /** 지표가 없는 트렌드는 순서를 매길 수 없어 뒤로 보냅니다. */
 function byMetric(pick: (trend: SavedTrend) => number | null) {
@@ -38,35 +35,6 @@ const sorts = [
   { value: 'name', label: '가나다순' },
 ];
 
-function summarise(trends: SavedTrend[]) {
-  const weekAgo = Date.now() - WEEK;
-  return {
-    total: trends.length,
-    surging: trends.filter((trend) => trend.growthRate !== null && trend.growthRate >= SURGE_THRESHOLD).length,
-    // 저장 시각이 비었거나 읽히지 않으면 NaN 이 되고, 비교가 거짓이라 세지 않습니다.
-    thisWeek: trends.filter((trend) => Date.parse(trend.savedAt) >= weekAgo).length,
-    fresh: trends.filter((trend) => trend.trendTypes.includes('NEW')).length,
-  };
-}
-
-function StatCard({ tone, icon, label, value, accent = false }: {
-  tone: string;
-  icon: ReactNode;
-  label: string;
-  value: number;
-  accent?: boolean;
-}) {
-  return (
-    <div className="saved-stat">
-      <div className="saved-stat-head">
-        <span className={`saved-stat-icon saved-stat-icon--${tone}`}>{icon}</span>
-        <span className="saved-stat-label">{label}</span>
-      </div>
-      <strong className={`saved-stat-value${accent ? ' is-accent' : ''}`}>{value}<small>개</small></strong>
-    </div>
-  );
-}
-
 function SavedEmpty() {
   return (
     <div className="saved-empty">
@@ -87,7 +55,6 @@ export function SavedTrendPage() {
   const [page, setPage] = useState(1);
 
   const trends = useMemo(() => savedTrendsQuery.data?.trends ?? [], [savedTrendsQuery.data]);
-  const stats = useMemo(() => summarise(trends), [trends]);
 
   // 담아 둔 트렌드가 있는 분야만 거르개로 내놓습니다.
   const domains = useMemo(() => {
@@ -123,6 +90,8 @@ export function SavedTrendPage() {
         <div className="saved-hero-title">
           <p className="saved-eyebrow trendin-page-eyebrow">내가 저장한 트렌드를 한눈에</p>
           <h1>저장된 트렌드</h1>
+          {/* 아직 못 불러왔을 때 0 개라고 단정하지 않도록, 담긴 게 있을 때만 셉니다. */}
+          {trends.length > 0 && <p className="saved-count">총 <strong>{trends.length}</strong>개</p>}
         </div>
         <FilterSelect
           value={sort}
@@ -130,35 +99,6 @@ export function SavedTrendPage() {
           ariaLabel="정렬"
           onChange={(value) => { setSort(value); setPage(1); }}
           disabled={trends.length === 0}
-        />
-      </section>
-
-      <section className="saved-stats" aria-label="저장한 트렌드 요약">
-        <StatCard
-          tone="indigo"
-          label="총 저장"
-          value={stats.total}
-          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" /></svg>}
-        />
-        <StatCard
-          tone="emerald"
-          label="급상승 중"
-          value={stats.surging}
-          accent
-          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18" /><path d="M17 6h6v6" /></svg>}
-        />
-        <StatCard
-          tone="amber"
-          label="이번 주 추가"
-          value={stats.thisWeek}
-          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 21V3M17 8l-5-5-5 5" /></svg>}
-        />
-        {/* 시안의 '컬렉션' 자리입니다. 묶음 기능이 아직 없어, 같은 자료로 셀 수 있는 신규 트렌드를 세웁니다. */}
-        <StatCard
-          tone="slate"
-          label="새로 등장"
-          value={stats.fresh}
-          icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /></svg>}
         />
       </section>
 
