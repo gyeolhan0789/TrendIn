@@ -65,6 +65,7 @@ class Dictionary:
         self._by_lang: dict[tuple[str, str], list[Expression]] = defaultdict(list)
         self._by_key: dict[str, list[Expression]] = defaultdict(list)
         self._latin_folded: dict[str, list[Expression]] = defaultdict(list)
+        self._expressions: list[Expression] = []
         self._size = 0
         for expression in expressions:
             if expression.concept_id not in self._concepts:
@@ -74,6 +75,7 @@ class Dictionary:
                     f"표현 {expression.expression_id} 의 개념 {expression.concept_id} 이 "
                     "사전에 없다"
                 )
+            self._expressions.append(expression)
             self._by_lang[(expression.lang, expression.normalized)].append(expression)
             self._by_key[expression.normalized].append(expression)
             if script_of(expression.normalized) == LATIN:
@@ -88,6 +90,10 @@ class Dictionary:
 
     def concepts(self) -> tuple[Concept, ...]:
         return tuple(self._concepts.values())
+
+    def expressions(self) -> tuple[Expression, ...]:
+        """사전의 표현 전부. 후보 생성기가 자기 색인을 세울 때 한 번 훑는다."""
+        return tuple(self._expressions)
 
     def lookup(self, lang: str, key: str) -> tuple[Hit, ...]:
         """이 표기가 가리킬 수 있는 개념 전부. 없으면 빈 튜플, 둘 이상이면 모호하다.

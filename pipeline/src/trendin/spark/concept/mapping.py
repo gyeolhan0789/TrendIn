@@ -35,8 +35,9 @@ from trendin.spark.concept.normalize import concept_key, lang_of_surface
 METHOD_DICT = "DICT"
 METHOD_CONTEXT = "CONTEXT"
 
-# 패션으로 세는 분류. `pl_concept_category` 의 초기값과 같은 목록이어야 한다 (`io/concepts.py` DDL).
-# `generic` 은 일반 단어라 여기 없다.
+# 패션으로 세는 분류. `pl_concept_category` 의 초기값 중 여기 없는 것이 둘이다 — `generic` 은
+# 일반 단어라서, `person` 은 **다른 축**이라서다. 연예인이 나왔다는 것은 그 기사가 패션
+# 기사라는 근거이지 `코트` 가 외투인지 경기장인지를 가르는 근거가 아니다.
 FASHION_CATEGORIES = frozenset(
     {"apparel", "footwear", "accessory", "material", "color", "style", "brand", "designer"}
 )
@@ -80,6 +81,7 @@ class MappingResult:
     rows: tuple[ConceptRow, ...]
     unmapped: tuple[Unmapped, ...]
     deferred: tuple[Deferred, ...]
+    resolved_keys: tuple[tuple[str, str], ...]
 
 
 def map_article(
@@ -93,6 +95,7 @@ def map_article(
     methods: dict[int, str] = {}
     pending: list[tuple[str, str, tuple[Hit, ...]]] = []
     unmapped: list[Unmapped] = []
+    resolved_keys: set[tuple[str, str]] = set()
     seen_keys: set[tuple[str, str]] = set()
 
     for keyword in keywords:
@@ -109,6 +112,7 @@ def map_article(
             unmapped.append(Unmapped(article_id, lang, key, keyword.surface, keyword.context))
         elif len(hits) == 1:
             _attach(resolved, methods, hits[0], METHOD_DICT)
+            resolved_keys.add((lang, key))
         else:
             pending.append((lang, key, hits))
 
@@ -126,7 +130,12 @@ def map_article(
         ConceptRow(article_id, cid, tuple(sorted(resolved[cid])), methods[cid])
         for cid in sorted(resolved)
     )
-    return MappingResult(rows=rows, unmapped=tuple(unmapped), deferred=tuple(deferred))
+    return MappingResult(
+        rows=rows,
+        unmapped=tuple(unmapped),
+        deferred=tuple(deferred),
+        resolved_keys=tuple(sorted(resolved_keys)),
+    )
 
 
 def disambiguate(hits: tuple[Hit, ...], resolved: Mapping[int, Concept]) -> Hit | None:

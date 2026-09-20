@@ -3,13 +3,18 @@
 
 ```sh
 spark/scripts/submit.sh concept --profile local --domain fashion            # 최근 창 전부
-spark/scripts/submit.sh concept --profile local --domain fashion --seed     # 초기 사전 넣고 붙인다
-spark/scripts/submit.sh concept --profile local --domain fashion --dry-run  # 쓰지 않는다
+spark/scripts/submit.sh concept --profile local --domain fashion --dry-run  # 개념을 쓰지 않는다
 ```
 
-**하는 것** — `src/trendin/spark/concept/` 전부. 서비스 표에서 사전을 읽고, 최근
-`concept.window_days` 일의 선별 후보를 기사별로 모아 붙이고, `article_concept` 에 쓰고, 못 붙인
-표기를 `pl_unmapped_expression` 에 쌓는다. **LLM 은 없다.**
+**하는 것** — `src/trendin/spark/concept/` 전부. 저장소의 초기 사전을 표에 반영하고, 표에서
+사전을 읽고, 최근 `concept.window_days` 일의 선별 후보를 기사별로 모아 붙이고, `article_concept`
+에 쓰고, 못 붙인 표기를 `pl_unmapped_expression` 에 쌓는다. **LLM 은 없다.**
+
+**초기 사전은 매 실행이 넣는다.** 플래그로 두면 순서를 사람이 기억해야 한다 — 사전이 빈 채로
+켜면 승격 키워드 전부가 미등록으로 쌓인다. 나중에 사전을 넣으면 창 안에서 실제로 붙은
+표현은 검수 대기에서 내려가지만 기사 이력은 남는다. 다시 넣는 것은 싸고 안전하다:
+개념은 비어 있는 칸만 채우고 표현은
+이미 있으면 건드리지 않아 검수가 내린 쌍이 되살아나지 않는다 (`concept/seed.py`).
 
 **매 실행이 창 전체를 다시 붙인다.** `aggregate` 의 소급 재계산과 같은 뜻이다 — 사전이 바뀌면
 창 안의 기사는 다음 실행이 저절로 고친다. 결과는 기사·개념 기본키로 upsert 하고, 이번에 처리한
@@ -58,11 +63,6 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help="붙일 도메인 슬러그. 개념 표는 지금 fashion 만 있다",
     )
     parser.add_argument(
-        "--seed",
-        action="store_true",
-        help="붙이기 전에 concept.seed_dir 의 초기 사전을 표에 넣는다. 있는 것은 덮지 않는다",
-    )
-    parser.add_argument(
         "--window-days",
         type=int,
         default=None,
@@ -93,27 +93,28 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
 
     dry_run = bool(args.dry_run)
 
-    # `--seed` 는 명시적 요청이라 dry-run 이어도 넣는다. dry-run 이 막는 것은 기사별 개념 쓰기다 —
-    # 초기 사전 없이 dry-run 을 돌리면 전부 미등록이 되어 아무것도 확인할 수 없다.
-    if args.seed:
-        seed_dir = Path(thresholds.seed_dir)
-        if not seed_dir.is_absolute():
-            seed_dir = _repo_root() / seed_dir
-        concepts = load_seed_dir(seed_dir)
-        result = apply_seed(config, concepts)
-        if result.concepts_new or result.expressions_new or result.parents_set:
-            version = sink.bump_version(
-                note=(
-                    f"초기 사전 적재: 개념 {result.concepts_new} · 표현 {result.expressions_new} · "
-                    f"상위 {result.parents_set}"
-                ),
-                changed_by="seed",
-            )
-            log.info("사전 버전 %d", version)
+    # 초기 사전을 먼저 반영한다. dry-run 도 반영한다 — dry-run 이 막는 것은 기사별 개념 쓰기이고,
+    # 사전 없이 돌리면 전부 미등록이 되어 확인할 것이 없다.
+    seed_dir = Path(thresholds.seed_dir)
+    if not seed_dir.is_absolute():
+        seed_dir = _repo_root() / seed_dir
+    concepts = load_seed_dir(seed_dir)
+    if not concepts:
+        # `Path.glob` 은 없는 디렉터리에서도 조용히 빈 결과를 준다. 그대로 두면 사전이 빈 채로
+        # 돌아 승격 키워드 전부가 미등록으로 쌓이므로 여기서 세운다.
+        raise ConfigError(f"초기 사전을 읽지 못했다 — concept.seed_dir 를 확인한다: {seed_dir}")
+    result = apply_seed(config, concepts)
+    if result.concepts_new or result.expressions_new or result.parents_set:
+        version = sink.bump_version(
+            note=(
+                f"초기 사전 적재: 개념 {result.concepts_new} · 표현 {result.expressions_new} · "
+                f"상위 {result.parents_set}"
+            ),
+            changed_by="seed",
+        )
+        log.info("사전 버전 %d", version)
 
     dictionary = sink.load_dictionary()
-    if len(dictionary) == 0:
-        log.warning("사전이 비어 있다 — 전부 미등록이 된다. --seed 로 초기 사전을 먼저 넣는다")
     version = sink.current_version()
 
     grouped = sink.occurrences(domain=args.domain, window_days=window_days)
@@ -122,11 +123,13 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
         return NOTHING_NEW
 
     rows, unmapped, deferred = [], [], []
+    resolved_keys: set[tuple[str, str]] = set()
     for article_id, surfaces in grouped.items():
         result = map_article(article_id, None, [Keyword(s) for s in surfaces], dictionary)
         rows.extend(result.rows)
         unmapped.extend(result.unmapped)
         deferred.extend(result.deferred)
+        resolved_keys.update(result.resolved_keys)
 
     distinct_unmapped = {(u.lang, u.normalized) for u in unmapped}
     log.info(
@@ -150,6 +153,7 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
         rows=rows,
         processed_article_ids=grouped.keys(),
         unmapped=unmapped,
+        resolved_keys=resolved_keys,
         dictionary_version=version,
         context_samples=thresholds.context_samples,
     )

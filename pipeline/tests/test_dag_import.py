@@ -12,11 +12,12 @@ EXPECTED_DAG_IDS = {
     "dev_example",
     "fashion_collect",
     "dev_collect",
-    # Spark 네 단계. **목록에 있는 것이 시험의 요점이다** — Airflow 의 안전 모드
+    # Spark 다섯 단계. **목록에 있는 것이 시험의 요점이다** — Airflow 의 안전 모드
     # 탐색은 파일에 `dag` 과 `airflow` 가 둘 다 없으면 import 오류도 없이 건너뛴다. 그때
     # `import_errors` 는 비어 있고 DAG 만 사라지므로, 이름을 적어 두지 않으면 아무도 모른다.
     "spark_ingest",
     "spark_extract",
+    "spark_concept",
     "spark_aggregate",
     "spark_analyze",
 }
@@ -63,7 +64,13 @@ def test_spark_태스크는_새_것_없음을_skip_으로_읽는다():
     from trendin.spark.common.exit_codes import NOTHING_NEW
 
     bag = load_bag()
-    for dag_id in ("spark_ingest", "spark_extract", "spark_aggregate", "spark_analyze"):
+    for dag_id in (
+        "spark_ingest",
+        "spark_extract",
+        "spark_concept",
+        "spark_aggregate",
+        "spark_analyze",
+    ):
         for task in bag.dags[dag_id].tasks:
             # `BashOperator` 가 값을 목록으로 정규화한다 (`99` → `[99]`). 어느 쪽으로 와도
             # 같게 보도록 펴서 비교한다 — 정규화 방식은 Airflow 사정이라 바뀔 수 있다.
