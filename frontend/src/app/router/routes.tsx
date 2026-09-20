@@ -9,7 +9,6 @@ import { MyPage } from '../../pages/MyPage/MyPage';
 import { NotificationSettingsPage } from '../../pages/NotificationSettingsPage/NotificationSettingsPage';
 import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
 import { OnboardingPage } from '../../pages/OnboardingPage/OnboardingPage';
-import { PasswordResetPage } from '../../pages/PasswordResetPage/PasswordResetPage';
 import { ProfileEditPage } from '../../pages/ProfileEditPage/ProfileEditPage';
 import { RecentActivityPage } from '../../pages/RecentActivityPage/RecentActivityPage';
 import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
@@ -65,7 +64,6 @@ export const authRoutes = (
   <>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/signup" element={<SignUpPage />} />
-    <Route path="/password-reset" element={<PasswordResetPage />} />
 
     <Route path="/onboarding" element={<OnboardingPage />} />
     <Route path="/oauth/:provider/callback" element={<OAuthCallbackPage />} />

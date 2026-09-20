@@ -122,9 +122,6 @@ export function LoginPage() {
 
           {formError && <p className="auth-scene-alert" role="alert">{formError}</p>}
 
-          {/* 시안은 여기서 '로그인 상태 유지'와 한 줄을 나눠 씁니다. 상태 유지는 아직 붙일 동작이 없어 찾기만 답니다. */}
-          <p className="login-forgot"><Link to="/password-reset">비밀번호 찾기</Link></p>
-
           <button className="auth-scene-submit" type="submit" disabled={loginMutation.isPending}>
 
             {loginMutation.isPending && <Spinner size="small" />}

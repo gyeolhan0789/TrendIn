@@ -31,16 +31,6 @@ export function UserIcon() {
   );
 }
 
-/** 인증번호 칸에 서는 아이콘. 확인을 거치는 칸이라는 뜻만 담습니다. */
-export function CheckCircleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
 export function CheckIcon() {
   return (
 

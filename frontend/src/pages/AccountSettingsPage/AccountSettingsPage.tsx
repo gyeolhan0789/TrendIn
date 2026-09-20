@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { showToast } from '../../components/common/toast';
 import { MyPageCard, MyPageCrumb, MyPageScreen } from '../../features/myPage/components/MyPageShell';
-import { DownloadIcon, LockIcon, UserIcon, WarnIcon } from '../../features/myPage/components/myPageIcons';
+import { DownloadIcon, UserIcon, WarnIcon } from '../../features/myPage/components/myPageIcons';
 import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
 import { useMyProfile } from '../../features/myPage/hooks/useMyProfile';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
@@ -83,17 +83,6 @@ export function AccountSettingsPage() {
             <dd>{domainsQuery.data?.map((option) => option.name).join(', ') || '—'}</dd>
           </div>
         </dl>
-      </MyPageCard>
-
-      <MyPageCard title="비밀번호 변경" tone="amber" icon={<LockIcon />}>
-        {/*
-          * 로그인한 채로 비밀번호를 바꾸는 API가 아직 없습니다. 지금 쓸 수 있는 길은 메일로
-          * 인증번호를 받아 다시 세우는 재설정 화면 하나라, 입력칸 대신 그쪽으로 보냅니다.
-          */}
-        <p className="mypage-card-lead">
-          지금은 메일로 인증번호를 받아 다시 세우는 길만 열려 있습니다. 로그인한 채로 바꾸는 자리는 준비 중입니다.
-        </p>
-        <Link className="mypage-btn mypage-btn--dark" to="/password-reset">비밀번호 재설정으로 가기</Link>
       </MyPageCard>
 
       <MyPageCard title="데이터 내보내기" tone="blue" icon={<DownloadIcon />}>
