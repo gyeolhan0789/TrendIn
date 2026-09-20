@@ -480,8 +480,15 @@ h1 { margin: 0; line-height: 1.25; }
 .detail-page--drawer .detail-source-copy b { color: #1a5ecf; font-weight: 500; }
 .detail-page--drawer .detail-source-copy i { color: #ccc; font-style: normal; }
 .detail-page--drawer .detail-source-arrow { padding-top: 4px; color: #ccc; font-size: 11px; }
-.detail-page--drawer .detail-more { padding: 0; margin: 8px 0 0 8px; color: #1a5ecf; font-size: 13px; font-weight: 500; }
-.detail-page--drawer .detail-more:hover { text-decoration: underline; }
+/*
+ * 쪽 넘김. 칸 이름과 한 줄을 나눠 씁니다. 줄이 baseline 으로 맞춰져 있어 단추만 가운데로 세웁니다.
+ * 양 끝에서는 잠깁니다 — 돌아가지 않으므로 끝에 닿았다는 것이 잠긴 화살표로 읽혀야 합니다.
+ */
+.detail-page--drawer .detail-pager { display: flex; align-self: center; align-items: center; gap: 2px; }
+.detail-page--drawer .detail-pager > span { min-width: 44px; color: #888; font-size: 13px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
+.detail-page--drawer .detail-pager button { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 8px; color: #555; font-size: 14px; transition: background .15s, color .15s; }
+.detail-page--drawer .detail-pager button:hover:not(:disabled) { background: #f1f3f8; color: #1a1a1a; }
+.detail-page--drawer .detail-pager button:disabled { color: #ccd0d8; }
 .detail-page--drawer .detail-related .detail-section-title { margin-bottom: 14px; }
 .detail-page--drawer .detail-keyword-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .detail-page--drawer .detail-keyword { display: inline-flex; align-items: center; gap: 10px; padding: 10px 8px 10px 16px; border-radius: 10px; color: #333; background: #f6f8fc; font-size: 14px; letter-spacing: -.2px; transition: background .15s; }

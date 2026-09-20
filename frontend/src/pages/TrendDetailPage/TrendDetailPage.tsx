@@ -22,6 +22,9 @@ const periodLabels: Record<PeriodCode, string> = { '24H': '24시간', '7D': '7�
 /** 연관도는 0~100입니다. 높은 쪽만 색을 달리해 눈에 먼저 들어오게 합니다. */
 const STRONG_RELATION_SCORE = 75;
 
+/** 연관 키워드 한 쪽에 여덟 개. 칩이라 줄바꿈으로 흘러 이 정도가 서너 줄에 담깁니다. */
+const KEYWORD_PAGE_SIZE = 8;
+
 /** 시안은 최근 칸일수록 진하게 칠합니다. 마지막 칸이 지금 구간입니다. */
 const RECENT_BAR_COUNT = 4;
 
@@ -60,6 +63,37 @@ function describeWindow(trend: TrendDetail) {
   const window = trend.analysisWindow;
   if (!window) return undefined;
   return `${formatMonthDay(window.recentStart)} ~ ${formatMonthDay(window.recentEnd)}`;
+}
+
+interface PagerProps {
+  /** 읽어 줄 이름. 한 화면에 고르개가 둘이라 무엇을 넘기는지 밝혀야 합니다. */
+  label: string;
+  /** 0 부터 셉니다. 화면에는 1 부터 적습니다. */
+  current: number;
+  total: number;
+  /** 아직 모르는 쪽이 더 있는지. 참이면 쪽 수 뒤에 + 를 붙이고 마지막 쪽에서도 다음을 엽니다. */
+  more?: boolean;
+  busy?: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+/** 양 끝에서 잠깁니다. 처음으로 돌아가지 않습니다 — 끝에 닿았다는 것이 화살표로 보여야 합니다. */
+function Pager({ label, current, total, more = false, busy = false, onPrev, onNext }: PagerProps) {
+  return (
+    <div className="detail-pager" role="group" aria-label={label}>
+      <button type="button" onClick={onPrev} disabled={current === 0} aria-label={`${label} 이전 쪽`}>←</button>
+      <span>{current + 1} / {total}{more ? '+' : ''}</span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={busy || (current + 1 >= total && !more)}
+        aria-label={`${label} 다음 쪽`}
+      >
+        →
+      </button>
+    </div>
+  );
 }
 
 export function TrendDetailPage() {
@@ -139,6 +173,15 @@ export function TrendDetailPage() {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
   }, []);
 
+  const [sourcePage, setSourcePage] = useState(0);
+  const [keywordPage, setKeywordPage] = useState(0);
+
+  // 다른 트렌드를 열면 쪽을 처음으로 되돌립니다. 남겨 두면 세 번째 쪽부터 열립니다.
+  useEffect(() => {
+    setSourcePage(0);
+    setKeywordPage(0);
+  }, [trendId]);
+
   const history = useMemo(() => historyQuery.data?.history ?? [], [historyQuery.data]);
   const chartBars = useMemo(() => {
     const peak = Math.max(...history.map((point) => point.mentionCount), 0);
@@ -154,12 +197,34 @@ export function TrendDetailPage() {
   }, [history, period]);
   const hasMentions = chartBars.some((bar) => bar.value > 0);
 
-  const contents = useMemo(
-    () => contentsQuery.data?.pages.flatMap((page) => page.content) ?? [],
-    [contentsQuery.data],
-  );
+  const contentPages = useMemo(() => contentsQuery.data?.pages ?? [], [contentsQuery.data]);
+  const contents = contentPages[sourcePage]?.content ?? [];
+  /* 타임라인은 처음 네 건을 짚는 자리입니다. 기사 쪽을 넘긴다고 따라 움직이면 안 됩니다. */
+  const timeline = (contentPages[0]?.content ?? []).slice(0, 4);
+
+  /*
+   * 앞으로는 아직 안 받은 쪽이면 받아 오고, 뒤로는 이미 받아 둔 쪽이라 그냥 옮깁니다.
+   * 받아 왔는데 쪽이 늘지 않았으면 옮기지 않습니다 — 빈 쪽을 펼치게 됩니다.
+   */
+  const goNextSource = () => {
+    if (sourcePage + 1 < contentPages.length) {
+      setSourcePage(sourcePage + 1);
+      return;
+    }
+    if (!contentsQuery.hasNextPage || contentsQuery.isFetchingNextPage) return;
+    void contentsQuery.fetchNextPage().then((result) => {
+      if ((result.data?.pages.length ?? 0) > sourcePage + 1) setSourcePage(sourcePage + 1);
+    });
+  };
+
   const relatedKeywords = keywordsQuery.data ?? [];
-  const timeline = contents.slice(0, 4);
+  const keywordPageCount = Math.max(1, Math.ceil(relatedKeywords.length / KEYWORD_PAGE_SIZE));
+  // 다시 받아 개수가 줄면 보던 쪽이 목록 밖으로 나갈 수 있어 마지막 쪽으로 당겨 둡니다.
+  const currentKeywordPage = Math.min(keywordPage, keywordPageCount - 1);
+  const visibleKeywords = relatedKeywords.slice(
+    currentKeywordPage * KEYWORD_PAGE_SIZE,
+    (currentKeywordPage + 1) * KEYWORD_PAGE_SIZE,
+  );
   const windowLabel = trend ? describeWindow(trend) : undefined;
 
   let drawerContent: ReactNode;
@@ -242,7 +307,21 @@ export function TrendDetailPage() {
           </section>
 
           <section className="detail-sources">
-            <div className="detail-section-title"><h2>키워드가 언급된 원본 소스</h2><span>{contents.length}건{contentsQuery.hasNextPage ? '+' : ''}</span></div>
+            <div className="detail-section-title">
+              <h2>키워드가 언급된 원본 소스</h2>
+              {contents.length > 0 && (
+                <Pager
+                  label="원본 소스"
+                  current={sourcePage}
+                  total={contentPages.length}
+                  /* 서버가 전체 개수를 주지 않아 아직 모르는 쪽이 있다는 것만 + 로 밝힙니다. */
+                  more={contentsQuery.hasNextPage}
+                  busy={contentsQuery.isFetchingNextPage}
+                  onPrev={() => setSourcePage(sourcePage - 1)}
+                  onNext={goNextSource}
+                />
+              )}
+            </div>
             {contentsQuery.isLoading && <Skeleton count={4} />}
             {contentsQuery.isError && <ErrorState onRetry={() => contentsQuery.refetch()} />}
             {contentsQuery.isSuccess && contents.length === 0 && <EmptyState />}
@@ -256,21 +335,27 @@ export function TrendDetailPage() {
                 <span className="detail-source-arrow">↗</span>
               </a>
             ))}
-            {contentsQuery.hasNextPage && (
-              <button type="button" className="detail-more" disabled={contentsQuery.isFetchingNextPage} onClick={() => void contentsQuery.fetchNextPage()}>
-                {contentsQuery.isFetchingNextPage ? '불러오는 중…' : '+ 더보기'}
-              </button>
-            )}
           </section>
 
           <section className="detail-related">
-            <div className="detail-section-title"><h2>연관 키워드</h2></div>
+            <div className="detail-section-title">
+              <h2>연관 키워드</h2>
+              {relatedKeywords.length > KEYWORD_PAGE_SIZE && (
+                <Pager
+                  label="연관 키워드"
+                  current={currentKeywordPage}
+                  total={keywordPageCount}
+                  onPrev={() => setKeywordPage(currentKeywordPage - 1)}
+                  onNext={() => setKeywordPage(currentKeywordPage + 1)}
+                />
+              )}
+            </div>
             {keywordsQuery.isLoading && <Skeleton count={1} />}
             {keywordsQuery.isError && <ErrorState onRetry={() => keywordsQuery.refetch()} />}
             {keywordsQuery.isSuccess && relatedKeywords.length === 0 && <EmptyState />}
             {relatedKeywords.length > 0 && (
               <div className="detail-keyword-list">
-                {relatedKeywords.map((keyword) => (
+                {visibleKeywords.map((keyword) => (
                   <span className={`detail-keyword${getKeywordStrength(keyword.relationScore)}`} key={keyword.keywordId}>
                     <b>{keyword.keyword}</b>
                     <i title={`연관도 ${keyword.relationScore}점`}>{Math.round(keyword.relationScore)}</i>
