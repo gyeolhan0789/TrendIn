@@ -327,7 +327,7 @@ class TrendControllerTest {
                 .willReturn(new TrendContentResponse(List.of(
                         new ContentItemResponse(301L, "발레코어 스니커즈가 뜬다", "Vogue Korea",
                                 "https://example.com/articles/301", publishedAt)),
-                        0, 5, false));
+                        0, 5, false, 1L));
 
         // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L)
@@ -342,6 +342,7 @@ class TrendControllerTest {
                 .andExpect(jsonPath("$.data.content[0].publishedAt")
                         .value("2026-08-30T10:00:00+09:00"))
                 .andExpect(jsonPath("$.data.hasNext").value(false))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andDo(document("trends-contents",
                         preprocessRequest(prettyPrint()), preprocessResponse(prettyPrint()),
                         requestHeaders(headerWithName("Authorization").description("인증 토큰")),
@@ -360,7 +361,8 @@ class TrendControllerTest {
                                 fieldWithPath("data.content[].publishedAt").type(JsonFieldType.STRING).description("게시 시각"),
                                 fieldWithPath("data.page").type(JsonFieldType.NUMBER).description("현재 페이지"),
                                 fieldWithPath("data.size").type(JsonFieldType.NUMBER).description("페이지 크기"),
-                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 여부"))));
+                                fieldWithPath("data.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 여부"),
+                                fieldWithPath("data.totalElements").type(JsonFieldType.NUMBER).description("전체 콘텐츠 수"))));
     }
 
     @Test
@@ -369,7 +371,7 @@ class TrendControllerTest {
     void returnsEmptyTrendContents() throws Exception {
         // given
         given(trendService.getTrendContents(101L, 0, 10))
-                .willReturn(new TrendContentResponse(List.of(), 0, 10, false));
+                .willReturn(new TrendContentResponse(List.of(), 0, 10, false, 0L));
 
         // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L))
@@ -377,7 +379,8 @@ class TrendControllerTest {
                 .andExpect(jsonPath("$.data.content").isEmpty())
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(10))
-                .andExpect(jsonPath("$.data.totalElements").doesNotExist())
+                .andExpect(jsonPath("$.data.totalElements").value(0))
+                // 마지막 쪽 번호는 여전히 내리지 않는다. 쪽 크기를 아는 화면이 셀 수 있다.
                 .andExpect(jsonPath("$.data.totalPages").doesNotExist());
     }
 
@@ -572,7 +575,7 @@ class TrendControllerTest {
     void allowsAnonymousTrendContents() throws Exception {
         // given
         given(trendService.getTrendContents(101L, 0, 10))
-                .willReturn(new TrendContentResponse(List.of(), 0, 10, false));
+                .willReturn(new TrendContentResponse(List.of(), 0, 10, false, 0L));
 
         // when & then
         mockMvc.perform(get("/trends/{trendId}/contents", 101L))
