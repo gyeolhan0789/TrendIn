@@ -161,6 +161,32 @@ def list_keys(store: StoreConfig, bucket: str, prefix: str) -> list[str]:
     return found
 
 
+# S3 `DeleteObjects` 가 한 번에 받는 상한.
+_DELETE_PAGE = 1000
+
+
+def delete_prefix(store: StoreConfig, bucket: str, prefix: str) -> int:
+    """`prefix` 아래의 객체를 전부 지운다. 지운 수를 돌려준다 (S15P21A102-341).
+
+    **`curated` 의 보상 삭제에만 쓴다** — `ingest` 가 본문을 쓴 뒤 DB 트랜잭션에서 죽으면
+    그 실행의 파티션을 되돌리는 자리다 (`normalize/curated.remove_partitions`). `raw-data` 는
+    담당 1 소유라 이 함수가 그 버킷을 받는 경로는 없다.
+
+    빈 프리픽스를 거부하는 이유는 그것이 곧 버킷 전체이기 때문이다. 부른 쪽이 파티션 경로를
+    잘못 조립해 `""` 이 오면 조용히 전부 지우는 대신 여기서 죽는다.
+    """
+    if not prefix:
+        raise ValueError("빈 프리픽스는 버킷 전체다 — 지우지 않는다")
+    keys = list_keys(store, bucket, prefix)
+    s3 = client(store)
+    for start in range(0, len(keys), _DELETE_PAGE):
+        page = keys[start : start + _DELETE_PAGE]
+        s3.delete_objects(
+            Bucket=bucket, Delete={"Objects": [{"Key": key} for key in page], "Quiet": True}
+        )
+    return len(keys)
+
+
 def head_metadata(store: StoreConfig, bucket: str, key: str) -> dict[str, str] | None:
     """객체의 사용자 메타데이터. 객체가 없으면 `None`, 있고 메타데이터가 없으면 빈 사전.
 

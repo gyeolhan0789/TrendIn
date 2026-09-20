@@ -37,6 +37,8 @@ from trendin.spark.io.schema import EVENT_SCHEMA
 if TYPE_CHECKING:
     from pyspark.sql import Column, DataFrame
 
+    from trendin.spark.ingest.normalize import NormalizeStage
+
 log = get_logger(__name__)
 
 # 메시지 칸 전부. `_corrupt_record` 도 판별 입력이라 포함한다.
@@ -164,7 +166,13 @@ def _timestamp(name: str) -> "Column":
     return F.try_to_timestamp(F.col(name))
 
 
-def ledger_rows(judged: "DataFrame", *, job: str) -> "DataFrame":
+def ledger_rows(judged: "DataFrame", *, job: str, run_id: str | None = None) -> "DataFrame":
+    """처리 이력 행. `run_id` 를 주면 봉투의 값 대신 **이 실행의 번호**를 적는다.
+
+    봉투의 `run_id` 는 Kafka 시절 생산자의 실행 번호였고 장부 뷰에는 없어 늘 NULL 이었다.
+    `ingest` 는 자기 `ingest_run_id` 를 적는다 — `extract` 가 그 값으로 "curated 에 파티션은
+    있는데 이력에 없는 실행" 을 가려낸다 (S15P21A102-341, `io/ledger.Ledger.run_ids`).
+    """
     from pyspark.sql import functions as F
 
     return judged.select(
@@ -177,7 +185,7 @@ def ledger_rows(judged: "DataFrame", *, job: str) -> "DataFrame":
         F.col("detail"),
         F.col("domain"),
         F.col("source_id"),
-        F.col("run_id"),
+        (F.lit(run_id) if run_id is not None else F.col("run_id")).alias("run_id"),
         F.col("article_id"),
         F.col("record_count").cast("bigint").alias("record_count"),
         _timestamp("collected_at").alias("collected_at"),
@@ -311,15 +319,29 @@ def process_batch(
     ledger: "ledger_io.Ledger",
     dlq: "dlq_io.DlqSink",
     verify_objects: Callable[["DataFrame"], "DataFrame"] | None = None,
-    normalize: Callable[["DataFrame"], "DataFrame"] | None = None,
+    normalize: "NormalizeStage | None" = None,
     force: bool = False,
     decided: bool = False,
+    run_id: str | None = None,
 ) -> BatchResult:
     """배치 하나. 처리 이력에 없는 이벤트만 처리하고, 거절된 메시지는 DLQ 에도 남긴다.
 
     `verify_objects` · `normalize` 가 `None` 이면 그 단계를 건너뛴다. 주입으로 받는 이유는
     층 2 가 MinIO·PostgreSQL 없이 라우팅을 검사해야 하기 때문이다 ([09 §4]) — 진짜 구현은
     `ingest/objects.verifier()` 와 `ingest/normalize.normalizer()` 가 만든다.
+
+    `run_id` 는 처리 이력의 `run_id` 칸에 적을 이 실행의 번호다 (`ledger_rows`).
+
+    ## 적재는 한 트랜잭션이고, 죽으면 본문을 되돌린다 (S15P21A102-341)
+
+    정제 단계는 `curated` 에 본문을 쓰고 `contents` 행은 들고만 있다. 여기서 **처리 이력과
+    같은 연결**에서 `normalize.flush(conn)` 과 `ledger.record(conn=conn)` 을 차례로 돌리고
+    `ledger.transaction()` 을 빠져나가며 한 번에 커밋한다. 어디서든 죽으면 그 연결은 롤백되고
+    `normalize.rollback()` 이 이번 배치가 쓴 파티션을 지운다. 커밋된 뒤에야
+    `mark_committed()` 로 그 파티션이 되돌릴 대상에서 빠진다.
+
+    2026-09-18 에 이 묶음이 없어서 `contents` upsert 가 죽은 39회차마다 본문 한 벌씩이
+    이력 없이 남았고, 다음 회차가 그것을 새 문서로 다시 썼다.
 
     `force` 는 `--force` 재처리다 ([02 §6]) — 처리 이력의 기록을 무시하고 다시 처리한다.
 
@@ -356,9 +378,25 @@ def process_batch(
             if rejected:
                 dlq.write(dlq_rows(fresh.where(F.col("error_type").isNotNull()), job=job))
             if articles or summaries or rejected:
-                ledger.record(ledger_rows(fresh, job=job))
+                rows = ledger_rows(fresh, job=job, run_id=run_id)
+                if normalize is None:
+                    ledger.record(rows)
+                else:
+                    with ledger.transaction() as conn:
+                        normalize.flush(conn)
+                        ledger.record(rows, conn=conn)
+                    normalize.mark_committed()
         finally:
             fresh.unpersist()
+    except BaseException:
+        # 어느 단계에서 죽었든 커밋되지 않은 본문은 남기지 않는다. 보상이 또 죽으면 원래
+        # 예외를 가리지 않도록 그쪽을 로그로만 남긴다 — 고아는 `extract` 가 이력으로 거른다.
+        if normalize is not None:
+            try:
+                normalize.rollback()
+            except Exception:  # noqa: BLE001 — 원래 예외가 원인이다
+                log.exception("curated 보상 삭제가 실패했다 — 이력에 없는 실행으로 남는다")
+        raise
     finally:
         if verified is not None:
             verified.unpersist()

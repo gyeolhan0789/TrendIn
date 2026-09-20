@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
     detail          text,
     domain          text,
     source_id       text,
+    -- 그 이벤트를 처리한 Job 실행 (ingest 면 ingest_run_id). `extract` 가 이 값으로
+    -- "curated 에 파티션은 있는데 이력에 없는 실행" 을 가려낸다 (S15P21A102-341).
+    -- 2026-09-20 이전 행은 NULL 이다 — spark/sql/backfill-ledger-run-id.sql 로 채운다.
     run_id          text,
     article_id      text,
     record_count    bigint,
@@ -162,12 +165,39 @@ class Ledger:
         known = self.known_event_ids(events.sparkSession)
         return events.join(known, on=["event_id", "stage"], how="left_anti")
 
-    def record(self, rows: "DataFrame") -> None:
-        """스테이징에 넣고 서버에서 병합한다 — 한 트랜잭션. 빈 배치면 아무것도 하지 않는다."""
+    def record(self, rows: "DataFrame", *, conn: Any | None = None) -> None:
+        """스테이징에 넣고 서버에서 병합한다 — 한 트랜잭션. 빈 배치면 아무것도 하지 않는다.
+
+        `conn` 은 `transaction()` 이 연 연결이다. 주면 그 안에서 돌고 커밋은 그쪽이 한다.
+        """
         jdbc.stage_and_merge(
             self._config,
             stage_table=STAGE_TABLE,
             columns=COLUMNS,
             frame=rows,
             merge_sql=MERGE_SQL,
+            conn=conn,
         )
+
+    def transaction(self):
+        """처리 이력과 다른 표를 **한 트랜잭션**으로 묶을 연결 (S15P21A102-341).
+
+        `ingest` 가 `contents` 와 이력을 이 안에서 같이 쓴다. 따로 커밋하면 `contents` 는
+        들어갔는데 이력이 없는 회차가 생기고, 다음 회차가 그 문서를 다시 정제해 `curated` 에
+        한 벌 더 쓴다 — 2026-09-18 에 그렇게 코퍼스 전체가 39벌 쌓였다. 빠져나갈 때 커밋하고,
+        예외면 롤백한다 (`jdbc.connection`).
+        """
+        return jdbc.connection(self._config)
+
+    def run_ids(self, spark: Any) -> set[str]:
+        """이 Job 이 **끝까지 기록한** `run_id` 전부 (S15P21A102-341).
+
+        `extract` 가 `ingest` 의 이력을 이걸로 읽어, `curated` 에 파티션은 있는데 이력에 없는
+        실행(적재 도중 죽은 회차의 고아)을 대상에서 뺀다. `status` 를 보지 않는 이유는 한
+        실행 안에 COMPLETED 와 FAILED 가 섞이는 것이 정상이고(이벤트 단위 판정), 실행이
+        기록됐다는 사실 자체가 "그 회차의 `contents` 가 커밋됐다" 를 뜻하기 때문이다.
+        """
+        query = (
+            f"SELECT DISTINCT run_id FROM {TABLE} WHERE job = '{self._job}' AND run_id IS NOT NULL"
+        )
+        return {row[0] for row in jdbc.read_table(spark, query, self._config).collect()}
