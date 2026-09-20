@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFeaturedTrendContents } from '../../features/trend/hooks/useFeaturedTrendContents';
 import { ParticleWave } from './components/ParticleWave';
 import { TrendSearch } from './components/TrendSearch';
+import { claimFirstLandingExperienceSafely } from './landingExperience';
 import './particleLanding.css';
 
 const boards = [
@@ -9,19 +11,27 @@ const boards = [
   { title: '재급상승 트렌드', tone: 'returning', rows: [['01', '시어 소재', '+76%'], ['02', '메리제인 슈즈', '+51%'], ['03', '와이드 데님', '+39%']] },
 ];
 
-const featuredContents = [
-  { title: '발레코어, 일상에 스며든 로맨틱한 실루엣', description: '리본과 플랫 슈즈로 완성하는 가벼운 스타일링', source: 'Style Edit', time: '2시간 전', tag: '스타일링' },
-  { title: '스웨이드 백으로 시작하는 가을', description: '부드러운 질감과 브라운 톤의 새로운 조합', source: 'Fashion Notes', time: '3시간 전', tag: '액세서리' },
-  { title: '레트로 스니커즈가 돌아왔다', description: '세계의 스트리트에서 찾은 빈티지한 매력', source: 'Street Journal', time: '5시간 전', tag: '스트리트' },
-  { title: '버터 옐로, 옷장에 더하는 한 끗', description: '니트부터 스카프까지, 은은한 컬러 포인트', source: 'Palette', time: '6시간 전', tag: '컬러' },
-];
+function formatPublishedAt(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(date);
+}
 
 export function LandingPage() {
   const version: string = '3';
   const isDark = version === '2' || version === '3';
-  const [waveReady, setWaveReady] = useState(false);
+  const [isFirstLanding] = useState(claimFirstLandingExperienceSafely);
+  const [waveReady, setWaveReady] = useState(!isFirstLanding);
+  const [showGuide, setShowGuide] = useState(isFirstLanding);
+  const featuredQuery = useFeaturedTrendContents();
   const onWaveReady = useCallback(() => setWaveReady(true), []);
   const pageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showGuide) return;
+    const timeout = window.setTimeout(() => setShowGuide(false), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [showGuide]);
   useEffect(() => {
     if (version !== '3') return;
     const layout = pageRef.current?.parentElement;
@@ -52,7 +62,11 @@ export function LandingPage() {
     <div ref={pageRef} className={`particle-landing${isDark ? ' demo-page--v2' : ''}${version === '3' ? ' demo-page--v3' : ''}`}>
 <main>
         <section className="hero" id="top" aria-label="파티클 물결 인터랙션">
-          <ParticleWave variant={version === '3' ? 'transition' : isDark ? 'dark' : 'light'} onEntryComplete={onWaveReady} />
+          <ParticleWave variant={version === '3' ? 'transition' : isDark ? 'dark' : 'light'} playEntryAnimation={isFirstLanding} onEntryComplete={onWaveReady} />
+          {showGuide && <div className="interaction-guide" role="status">
+            <span aria-hidden="true">✦</span>
+            <p>마우스로 흐름을 만들고,<br />드래그로 물결을 둘러보세요.</p>
+          </div>}
           {version === '3' && <div className={`hero-search caption-after-wave${waveReady ? ' is-visible' : ''}`} inert={!waveReady} aria-hidden={!waveReady}>
             <TrendSearch />
           </div>}
@@ -90,12 +104,15 @@ export function LandingPage() {
                 <div><h2 id="featured-title">지금 주목할 만한 콘텐츠</h2><p>패션 트렌드와 관련된 주요 콘텐츠를 모았습니다.</p></div>
               </div>
               <div className="featured-grid">
-                {featuredContents.map((content) => <article className="featured-card" key={content.title}>
-                  <span className="featured-tag">{content.tag}</span>
-                  <div><h3>{content.title}</h3><p>{content.description}</p></div>
-                  <span className="featured-meta">{content.source} · {content.time}</span>
-                </article>)}
+                {featuredQuery.data?.map(({ trend, content }) => <a className="featured-card" href={content.url} key={trend.trendId} target="_blank" rel="noreferrer">
+                  <span className="featured-tag">인기 {trend.rank ?? '-' }위 · {trend.keyword}</span>
+                  <div><h3>{content.title}</h3><p>{trend.description ?? `${trend.keyword} 트렌드의 대표 콘텐츠입니다.`}</p></div>
+                  <span className="featured-meta">{content.source} · {formatPublishedAt(content.publishedAt)}</span>
+                </a>)}
               </div>
+              {featuredQuery.isPending && <p className="featured-state">콘텐츠를 불러오는 중입니다.</p>}
+              {featuredQuery.isError && <div className="featured-state" role="alert">콘텐츠를 불러오지 못했습니다. <button type="button" onClick={() => void featuredQuery.refetch()}>다시 시도</button></div>}
+              {!featuredQuery.isPending && !featuredQuery.isError && featuredQuery.data?.length === 0 && <p className="featured-state">아직 소개할 콘텐츠가 없습니다.</p>}
             </section>}
           </div>
         </section>

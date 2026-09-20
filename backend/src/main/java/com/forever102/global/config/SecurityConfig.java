@@ -27,8 +27,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    // 개인 정보가 없는 고정 목록이라 로그인 전 화면에서도 조회할 수 있게 열어둔다.
-    private static final String[] PUBLIC_GET_ENDPOINTS = {"/domains"};
+    // 랜딩에 필요한 개인 정보 없는 조회만 로그인 전에도 열어둔다. 키워드 검색과 상세는 인증을 유지한다.
+    private static final String[] PUBLIC_GET_ENDPOINTS = {
+            "/domains",
+            "/trends",
+            "/trends/*/contents"
+    };
     private static final String[] PUBLIC_POST_ENDPOINTS =
             {"/auth/signup", "/auth/login", "/auth/reissue", "/auth/email-check"};
     // 제공자 이름이 경로에 들어가므로 패턴으로 연다. 지원하지 않는 제공자는 서비스가 400으로 거른다.
