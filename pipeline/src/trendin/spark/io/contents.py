@@ -147,7 +147,7 @@ class ContentsSink:
             row = cur.fetchone()
         return bool(row and row[0])
 
-    def upsert(self, rows: "DataFrame") -> None:
+    def upsert(self, rows: "DataFrame", *, conn=None) -> None:
         """스테이징에 넣고 서버에서 병합한다. `pl_content_id_map` 이 같은 트랜잭션에서 채워진다.
 
         **한 트랜잭션인 이유** ([08 §4]) — 절반만 반영된 상태가 가장 나쁘다. 스테이징 INSERT 까지
@@ -156,6 +156,10 @@ class ContentsSink:
         행은 들어갔는데 매핑이 없으면, 재실행이 `ON CONFLICT` 로 같은 `id` 를 다시 받아
         복구되지만 그 사이 `extract` 는 그 문서를 못 본다. 반대로 매핑만 있으면 없는 `id` 를
         가리킨다.
+
+        `conn` 은 처리 이력과 한 트랜잭션으로 묶을 때 부른 쪽이 준다
+        (`ingest/batch.process_batch`). 그러면 여기서 커밋하지 않는다 — `contents` 는 들어갔는데
+        이력이 없는 상태가 다음 실행의 중복 적재이기 때문이다 (S15P21A102-341).
         """
         jdbc.stage_and_merge(
             self._config,
@@ -163,6 +167,7 @@ class ContentsSink:
             columns=STAGE_COLUMNS,
             frame=rows,
             merge_sql=MERGE_SQL,
+            conn=conn,
         )
 
     def id_map(self, spark) -> "DataFrame":

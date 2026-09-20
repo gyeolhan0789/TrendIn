@@ -69,6 +69,9 @@ class Selection:
     ingest_run_ids: tuple[str, ...] | None = None
     date_from: date | None = None
     date_to: date | None = None
+    # 발행일 구간에서 볼 실행의 전체 집합 — `ingest` 이력이 아는 실행이다 (S15P21A102-341).
+    # `None` 이면 제한하지 않는다. 실행 목록 경로는 목록 자체가 이미 거른 값이라 안 본다.
+    known_run_ids: frozenset[str] | None = None
 
     @property
     def by_dates(self) -> bool:
@@ -142,6 +145,10 @@ def target_documents(curated: "DataFrame", selection: Selection) -> "DataFrame":
             frame = frame.where(F.col("published_date") >= F.lit(selection.date_from))
         if selection.date_to is not None:
             frame = frame.where(F.col("published_date") <= F.lit(selection.date_to))
+        if selection.known_run_ids is not None:
+            # 이력에 없는 실행(적재 도중 죽은 회차의 고아)은 아래 `latest_per_document` 에서
+            # 정상 실행의 문서를 가릴 수 있다 — 실행 번호가 더 크면 그쪽이 남는다.
+            frame = frame.where(F.col("ingest_run_id").isin(list(selection.known_run_ids)))
     else:
         run_ids = list(selection.ingest_run_ids or ())
         if not run_ids:
