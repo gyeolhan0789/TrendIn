@@ -35,10 +35,8 @@ x-airflow-common:
     AIRFLOW__METRICS__STATSD_DATADOG_ENABLED: 'true'
     # 앱 DB 접속. 배포 시 .env 의 AIRFLOW_CONN_APP_DB 만 팀 postgres(forever102) 로 바꾼다.
     AIRFLOW_CONN_APP_DB: ${AIRFLOW_CONN_APP_DB:-postgres://trendin:${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in pipeline/.env}@postgres:5432/trendin}
-    # 수집 계층 접속 정보. 크롤러 태스크가 이 값으로 MinIO 에 올리고 Kafka 에 발행한다.
+    # 수집 계층 접속 정보. 크롤러 태스크가 이 값으로 MinIO 에 원문을 올린다.
     # 저장소는 datastore/compose.yaml 이 띄운다. 값의 출처는 pipeline/.env 다.
-    TRENDIN_KAFKA_BOOTSTRAP: ${TRENDIN_KAFKA_BOOTSTRAP:-kafka:9092}
-    TRENDIN_KAFKA_TOPIC_RAW_FILE_READY: ${TRENDIN_KAFKA_TOPIC_RAW_FILE_READY:-raw-file-ready}
     TRENDIN_MINIO_ENDPOINT: ${TRENDIN_MINIO_ENDPOINT:-http://minio:9000}
     TRENDIN_MINIO_BUCKET: ${TRENDIN_MINIO_BUCKET:-raw-data}
     TRENDIN_MINIO_ACCESS_KEY: ${TRENDIN_MINIO_ACCESS_KEY:?Set TRENDIN_MINIO_ACCESS_KEY in pipeline/.env}
@@ -164,7 +162,7 @@ volumes:
 
 networks:
   # datastore/compose.yaml 이 만드는 네트워크. 저장소를 먼저 띄워야 이 프로젝트가 뜬다.
-  # Airflow 태스크가 여기로 kafka · minio 에 서비스 이름으로 붙는다.
+  # Airflow 태스크가 여기로 minio 에 서비스 이름으로 붙는다.
   data:
     name: s15p21a102-data
     external: true

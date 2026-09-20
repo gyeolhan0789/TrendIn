@@ -24,8 +24,11 @@ from trendin.spark.io.contract import (
 )
 
 # --- 픽스처 --------------------------------------------------------------
-# 생산자 `collect/events.py` 의 `article_event()` · `run_summary_event()` 출력 형태를
-# 그대로 옮겼다. 필드를 빼거나 더하면 그쪽 구현과 어긋난 것이다.
+# 기사 쪽은 생산자 `collect/events.py` 의 `article_event()` 출력 형태를 그대로 옮겼다.
+# 필드를 빼거나 더하면 그쪽 구현과 어긋난 것이다.
+#
+# 요약 쪽은 **생산자가 없다.** `run_summary_event()` 는 브로커와 함께 걷혔다 (Kafka 제거 2/3).
+# 여기 모양은 그 시절 봉투의 기록이고, 판별기가 그것을 계속 받는지만 본다.
 
 
 def article_event(**overrides):

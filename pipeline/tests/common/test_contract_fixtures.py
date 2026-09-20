@@ -1,9 +1,13 @@
 """계약 fixture 가 `events.py` 와 어긋나지 않는지 (S15P21A102-159).
 
-fixture 는 소비 측(Spark, 169)이 Kafka·MinIO 없이 파싱·검증 코드를 짜는 유일한 근거다
+fixture 는 소비 측(Spark, 169)이 저장소 없이 파싱·검증 코드를 돌리는 근거다
 (`pipeline/docs/spark-integration.md`). 봉투에 필드를 하나 더하거나 키 규칙을 고치면
 fixture 가 조용히 낡는데, 낡은 fixture 는 없는 fixture 보다 나쁘다 — 소비 측이 그 모양대로
-짜고 실제 토픽에서 터진다. 그래서 여기서 막는다.
+짜고 실제 데이터에서 터진다. 그래서 여기서 막는다.
+
+**요약 fixture 는 여기 없다.** 요약 이벤트는 브로커와 함께 걷혔다 (Kafka 제거 3/3).
+`spark/tests/fixtures/contract/run-summary-*.json` 은 토픽 분리 전 봉투의 기록이고 소비 측
+판별기 테스트가 그대로 쓴다 — 생산자가 없으므로 여기서 대조하지 않는다.
 
 fixture 를 다시 만드는 방법은 `pipeline/docs/spark-integration.md` 의 "fixture 갱신" 절.
 """
@@ -16,9 +20,9 @@ import pathlib
 
 import pytest
 
-from trendin.common.collect.events import article_event, run_summary_event
+from trendin.common.collect.events import article_event
 from trendin.common.collect.keys import article_key, raw_key
-from trendin.common.collect.ledger import PendingArticle
+from trendin.common.collect.ledger import LedgerRow
 
 CONTRACT = (
     pathlib.Path(__file__).resolve().parents[2] / "spark" / "tests" / "fixtures" / "contract"
@@ -35,7 +39,7 @@ def article_evt() -> dict:
     return load("article-event.json")
 
 
-def _pending_from(evt: dict) -> PendingArticle:
+def _row_from(evt: dict) -> LedgerRow:
     """fixture 가 적어 둔 값으로 장부 행을 되만든다.
 
     fixture 를 입력으로 봉투를 다시 만들어 fixture 자신과 비교한다. 이러면 `events.py` 의
@@ -43,7 +47,7 @@ def _pending_from(evt: dict) -> PendingArticle:
     """
     from datetime import datetime
 
-    return PendingArticle(
+    return LedgerRow(
         source=evt["source_id"],
         article_id=evt["article_id"],
         domain=evt["domain"],
@@ -68,7 +72,7 @@ def test_기사_이벤트_fixture_가_봉투_출력과_같다(article_evt):
     접두어, `collected_at` 의 KST 변환, `record_count`·`format` 같은 상수다.
     """
     rebuilt = article_event(
-        _pending_from(article_evt),
+        _row_from(article_evt),
         bucket=article_evt["bucket"], run_id=article_evt["run_id"],
         source_country=article_evt["source_country"],
     )
@@ -161,51 +165,10 @@ def test_article_json_이_그_자체로_유효한_JSON_이다(article_evt):
         assert doc[field]
 
 
-@pytest.mark.parametrize(
-    "name", ["collect-run-summary-success.json", "collect-run-summary-failed.json"]
-)
-def test_요약_이벤트_fixture_가_봉투_출력과_같다(name):
-    from datetime import datetime
-
-    from trendin.common.collect.flow import SourceOutcome
-    from trendin.common.collect.ledger import EmittedStats
-
-    evt = load(name)
-    fields = ("discovered", "stored", "skipped", "not_modified", "failed", "failed_by_stage",
-              "failures", "duration_ms", "members_only_stored", "paywalled_stored")
-    outcome = None
-    if evt["status"] == "success":
-        outcome = SourceOutcome.from_dict({
-            "source": evt["source_id"], "domain": evt["domain"],
-            **{key: evt[key] for key in fields},
-        })
-    else:
-        assert all(evt[key] is None for key in fields)
-    oldest = evt["emitted_oldest_collected_at"]
-    rebuilt = run_summary_event(
-        source=evt["source_id"], domain=evt["domain"], run_id=evt["run_id"],
-        logical_date=datetime.fromisoformat(evt["run_started_at"]), status=evt["status"],
-        outcome=outcome,
-        emitted=EmittedStats(evt["emitted"], datetime.fromisoformat(oldest) if oldest else None),
-        failure_reason=evt["failure_reason"],
-    )
-    assert rebuilt == evt
-
-
-def test_요약_fixture는_수집보다_많은_이월_발급을_담는다():
-    evt = load("collect-run-summary-success.json")
-    assert "object_key" not in evt and "record_count" not in evt
-    assert evt["stored"] == 1
-    assert evt["emitted"] == 12
-    assert evt["failed"] == 2
-    assert len(evt["failures"]) == 2
-    assert evt["emitted_oldest_collected_at"] == "2026-09-01T11:10:00+09:00"
-
-
 def test_견본의_소스_국가가_소스_정의와_같다(article_evt):
     """견본을 손으로 고쳐 코드 표와 갈리면 소비 측이 틀린 국가로 짠다.
 
-    `_pending_from` 이 견본의 값을 되먹여 봉투를 다시 만들기 때문에, 위 대조만으로는
+    `_row_from` 이 견본의 값을 되먹여 봉투를 다시 만들기 때문에, 위 대조만으로는
     `source_country` 가 어떤 값이어도 통과한다. 그 값이 **맞는지**는 여기서 본다.
     """
     from trendin.fashion.collect import sources
@@ -214,89 +177,11 @@ def test_견본의_소스_국가가_소스_정의와_같다(article_evt):
     assert article_evt["source_country"] == "KR"
 
 
-def test_기사_이벤트의_run_id_는_발급한_실행이다(article_evt):
-    """이름은 소비 측 `EVENT_SCHEMA` 그대로, 뜻은 발급 실행이다 (`02 §2`)."""
+def test_견본은_발급이_있던_시절의_run_id_를_그대로_보존한다(article_evt):
+    """소비 측은 이제 이 칸을 `None` 으로 채운다 (`spark/ingest/collected.py`).
+
+    견본을 그때 모양 그대로 두는 이유는 판별기가 값이 있는 봉투도 계속 받아야 하기
+    때문이다 — 브로커 시절 봉투로 짜인 소비 측 테스트가 이 견본을 쓴다 (`02 §2`).
+    """
     assert article_evt["run_id"] == "20260903T100000"
     assert article_evt["article_id"]
-
-
-@pytest.fixture
-def verifier():
-    import importlib.util
-
-    path = CONTRACT.parents[3] / "scripts" / "verify-spark-integration.py"
-    spec = importlib.util.spec_from_file_location("verify_spark_integration", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_연동_검증도_새_요약_봉투를_받고_토픽_사이_파티션을_비교하지_않는다(verifier):
-    event = load("collect-run-summary-success.json")
-    verifier.verify_event(event, spark_s3=None, bucket="raw-data", label="요약", summary=True)
-    assert verifier.fail == 0
-    verifier.verify_kafka_placement([
-        (load("article-event.json"), {"topic": "raw-file-ready", "key": "vogue", "partition": 4}),
-        (event, {"topic": "collect-run-summary", "key": "vogue", "partition": 0}),
-    ])
-    assert verifier.fail == 0
-    # 기사 토픽에 요약이 잘못 들어오면 object_key=null로 요약이라고 받아들이면 안 된다.
-    verifier.verify_event(event, spark_s3=None, bucket="raw-data", label="오발급", summary=False)
-    assert verifier.fail > 0
-
-
-@pytest.mark.parametrize("summary_topic", ["", "collect-run-summary"])
-def test_연동_fixture_발행은_요약을_기사_토픽에_섞지_않는다(verifier, monkeypatch, summary_topic):
-    from types import SimpleNamespace
-
-    published = {}
-    monkeypatch.setattr(verifier, "s3_client",
-                        lambda *args: SimpleNamespace(put_object=lambda **kw: None))
-    monkeypatch.setattr(verifier, "publish",
-                        lambda bootstrap, topic, events: published.setdefault(topic, events))
-
-    def consume(bootstrap, topic, **kw):
-        return [(event, {"topic": topic, "key": event["source_id"], "partition": 0})
-                for event in published[topic]]
-
-    monkeypatch.setattr(verifier, "consume", consume)
-    monkeypatch.setattr(verifier, "verify_event", lambda *args, **kw: None)
-    monkeypatch.setattr(verifier, "verify_read_only", lambda *args: None)
-    monkeypatch.setattr(verifier, "cleanup", lambda *args: None)
-    verifier.run_fixture_mode(dict(
-        crawler_key="fake", crawler_secret="fake", spark_key="fake", spark_secret="fake",
-        minio_endpoint="fake", bucket="raw-data", bootstrap="fake",
-        topic="raw-file-ready", summary_topic=summary_topic,
-    ))
-    assert len(published["raw-file-ready"]) == 1
-    assert published["raw-file-ready"][0]["run_id"]
-    if summary_topic:
-        assert len(published[summary_topic]) == 2
-        assert all("object_key" not in e for e in published[summary_topic])
-    else:
-        assert set(published) == {"raw-file-ready"}
-    assert verifier.fail == 0
-
-
-@pytest.mark.parametrize("field", ["bucket", "collected_at"])
-@pytest.mark.parametrize("value", ["missing", None, ""])
-def test_기사_필수_필드는_객체가_정상이어도_비어_있으면_검증에_실패한다(verifier, field, value):
-    import io
-
-    class FixtureS3:
-        def get_object(self, *, Bucket, Key):
-            assert Bucket == "raw-data"
-            return {"Body": io.BytesIO((OBJECTS / Key).read_bytes())}
-
-    event = load("article-event.json")
-    verifier.verify_event(event, spark_s3=FixtureS3(), bucket="raw-data",
-                          label="정상 기사", summary=False)
-    assert verifier.fail == 0
-
-    if value == "missing":
-        del event[field]
-    else:
-        event[field] = value
-    verifier.verify_event(event, spark_s3=FixtureS3(), bucket="raw-data",
-                          label="필수 필드 누락", summary=False)
-    assert verifier.fail == 1

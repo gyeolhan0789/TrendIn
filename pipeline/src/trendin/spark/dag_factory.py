@@ -44,7 +44,7 @@ Airflow 의 안전 모드 탐색이 파일 내용에 `dag` 과 `airflow` 가 **�
 
 | Job | 도메인 |
 | --- | --- |
-| `ingest` | 토픽 하나(`raw-file-ready`)를 소비한다. 도메인은 이벤트 안에 있다 ([02 §1]) |
+| `ingest` | 창구 하나(`collected_article_event`)를 읽는다. 도메인은 행 안에 있다 ([02 §1]) |
 | `extract` | **유일하게 도메인을 안다** (`--domain`). 그래서 이쪽만 도메인별 태스크로 나눈다 |
 | `aggregate` | `--domain` 인자가 아예 없다. 원자료 전체를 한 번에 본다 ([07 §5]) |
 """

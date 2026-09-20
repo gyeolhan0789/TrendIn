@@ -1,76 +1,14 @@
-# TrendIn 수집 계층 저장소 — Kafka · MinIO.
+# TrendIn 수집 계층 저장소 — MinIO.
 # 데이터 EC2(J15A102A) 에 뜬다. Airflow(pipeline/) 와 Spark(spark/) 가 여기에 붙는다.
-# 계약(버킷·객체 경로·토픽·이벤트 형식)은 pipeline/docs/data-pipeline-design.md 4·5 장.
-# 결정 근거: Jira S15P21A102-156 (실행 환경) · S15P21A102-157 (토픽 설정 · 보관 정책)
+# 계약(버킷·객체 경로)은 pipeline/docs/data-pipeline-design.md 4 장.
+#
+# **Kafka 는 걷혔다** (Kafka 제거 3/3). 수집은 MinIO 에 원문을 올리고 앱 DB 의 수집 이력에
+# 적으며, Spark 는 그 이력의 뷰(`collected_article_event`)를 읽는다 — 브로커를 거치지
+# 않는다. 이 파일에 브로커가 있던 시절의 근거는 Jira S15P21A102-156·157 에 남아 있다.
+# 결정 근거: Jira S15P21A102-156 (실행 환경) · S15P21A102-158 (보관 정책)
 name: s15p21a102-datastore
 
 services:
-  # KRaft 단일 노드. 브로커와 컨트롤러를 한 프로세스가 겸한다. ZooKeeper 는 없다.
-  # listener 두 벌 — INTERNAL 은 같은 도커 네트워크(호스트 이름 kafka), EXTERNAL 은 그 밖에서 붙는 경로.
-  # 밖에서 붙는 쪽은 advertised 주소가 실제로 닿는 주소여야 한다. EC2 는 .env 의 KAFKA_EXTERNAL_HOST 로 바꾼다.
-  kafka:
-    image: apache/kafka:4.0.0
-    environment:
-      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-5L6g3nShT-eMCtK--X86sw}
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:29092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${KAFKA_EXTERNAL_HOST:-127.0.0.1}:${KAFKA_EXTERNAL_PORT:-29092}
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
-      # 단일 노드라 복제본은 1 이 최대다.
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      # 오타 난 토픽 이름이 조용히 생기지 않게 막는다. 계약 토픽은 kafka-init 이 만든다.
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
-      KAFKA_LOG_RETENTION_HOURS: ${KAFKA_LOG_RETENTION_HOURS:-168}
-      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx1G -Xms1G}
-    ports:
-      - "${KAFKA_EXTERNAL_BIND:-127.0.0.1}:${KAFKA_EXTERNAL_PORT:-29092}:29092"
-    volumes:
-      - kafka-data:/var/lib/kafka
-    healthcheck:
-      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 30s
-      timeout: 20s
-      retries: 10
-      start_period: 40s
-    restart: unless-stopped
-    depends_on:
-      kafka-storage-init:
-        condition: service_completed_successfully
-
-  # 빈 named volume 은 root 소유로 생긴다. 브로커는 uid 1000(appuser) 로 도니 먼저 넘겨준다.
-  kafka-storage-init:
-    image: busybox:1.37
-    command: ["sh", "-c", "mkdir -p /var/lib/kafka/data && chown -R 1000:1000 /var/lib/kafka"]
-    volumes:
-      - kafka-data:/var/lib/kafka
-
-  # 계약 토픽 생성 + 보존 설정 적용. 한 번 돌고 끝나며 다시 돌려도 결과가 같다.
-  # 기본 entrypoint 를 쓰지 않으므로 아래 KAFKA_* 는 server.properties 로 번역되지 않는다.
-  # 브로커 설정이 아니라 init.sh 의 입력값이다.
-  kafka-init:
-    image: apache/kafka:4.0.0
-    entrypoint: ["/bin/sh", "/init.sh"]
-    environment:
-      KAFKA_BOOTSTRAP: kafka:9092
-      KAFKA_TOPIC_RAW_FILE_READY: ${KAFKA_TOPIC_RAW_FILE_READY:-raw-file-ready}
-      KAFKA_TOPIC_PARTITIONS: ${KAFKA_TOPIC_PARTITIONS:-6}
-      KAFKA_TOPIC_CLEANUP_POLICY: ${KAFKA_TOPIC_CLEANUP_POLICY:-delete}
-      KAFKA_TOPIC_RETENTION_MS: ${KAFKA_TOPIC_RETENTION_MS:-604800000}
-      KAFKA_TOPIC_SEGMENT_MS: ${KAFKA_TOPIC_SEGMENT_MS:-86400000}
-    volumes:
-      - ./kafka-init/init.sh:/init.sh:ro
-    depends_on:
-      kafka:
-        condition: service_healthy
-
   # 원문 객체 저장소. S3 호환 API 는 9000, 객체 브라우저 콘솔은 9001.
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -116,13 +54,11 @@ services:
         condition: service_healthy
 
 volumes:
-  kafka-data:
-    name: s15p21a102-kafka-data
   minio-data:
     name: s15p21a102-minio-data
 
 networks:
   # 이 프로젝트가 만든다. pipeline · spark 는 external 로 이 이름을 참조해
-  # 서비스 이름 kafka · minio 로 붙는다.
+  # 서비스 이름 minio 로 붙는다.
   default:
     name: s15p21a102-data

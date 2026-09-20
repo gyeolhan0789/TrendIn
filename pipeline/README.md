@@ -73,7 +73,7 @@ GMS_KEY=<발급받은 키> .venv/bin/pytest tests/ai/test_gms_integration.py
 
 ## 수집 운영
 
-기사를 실제로 받아 MinIO·Kafka·장부에 넣는 일이다. 위 검증 명령과 달리 **외부 사이트를 친다** — 돌리기 전에 `datastore` 가 떠 있어야 한다.
+기사를 실제로 받아 MinIO 와 장부에 넣는 일이다. 위 검증 명령과 달리 **외부 사이트를 친다** — 돌리기 전에 `datastore` 가 떠 있어야 한다.
 
 기사가 MinIO 에 어떤 모양으로 놓이는지, 그 규칙을 고칠 때 어느 파일을 여는지는 [`docs/collect-storage.md`](docs/collect-storage.md).
 
@@ -96,7 +96,7 @@ GMS_KEY=<발급받은 키> .venv/bin/pytest tests/ai/test_gms_integration.py
 
 ### 과거분 백필
 
-주기 실행이 보는 범위보다 오래된 것은 도메인별 백필 명령이 받는다. 둘 다 주기 실행과 같은 저장 루프를 쓰고, 발급은 하지 않는다 — 다음 주기 실행의 발급 태스크가 장부의 미발급 행을 이어 낸다.
+주기 실행이 보는 범위보다 오래된 것은 도메인별 백필 명령이 받는다. 둘 다 주기 실행과 같은 저장 루프를 쓴다 — 장부에 적히는 순간 소비 측이 읽는 뷰에 나타나므로, 백필이 따로 할 일은 없다.
 
 #### 매거진 피드
 
@@ -159,22 +159,23 @@ CLI python -m trendin.dev.collect.backfill hn --since 2026-08-03T00:00+09:00 --s
 
 첫 채움은 6주다(약 3만 3천 건, 6시간 조각이라 요청 170번 남짓·3초 간격). 멈춘 구간을 메울 때는 앞뒤로 넉넉히 줘도 된다 — 장부에 있는 글은 거른다. 이미 받은 조각에서 멈추지 않는다. 빈 구간이 어느 조각에 있을지 모르기 때문이다(매거진 피드 백필도 같다).
 
-**발급이 한꺼번에 나간다.** 6주 백필 뒤 첫 주기 실행이 미발급 행 전부를 낸다. 돌리기 전에 Spark 쪽에 시점을 알린다.
+**소비 측이 한꺼번에 읽는다.** 6주 백필이 끝나면 그만큼의 행이 뷰에 들어와 있고, 다음 `ingest` 회차가 창(`lookback_hours`, 기본 168시간) 안에 든 몫을 한 번에 가져간다. 창보다 오래된 구간은 `--source objects` 재처리로 넣는다. 돌리기 전에 Spark 쪽에 시점을 알린다.
 
 **백필 중에는 `dev_collect` 를 멈춘다** (`CLI airflow dags pause dev_collect`, 끝나면 `unpause`). `--until` 을 생략하면 마지막 조각이 주기 실행의 6시간 창과 겹치고, 둘이 같은 글을 거의 동시에 장부 거름에 통과시키면 둘 다 MinIO 에 쓴다. 두 쪽의 `collected_at`·점수가 달라 바이트가 다르고, 장부는 먼저 적은 해시를, MinIO 는 나중에 쓴 객체를 남겨 서로 어긋난다(불변식 7).
 
 ### 결과 확인
 
-세 곳의 숫자가 맞물려야 한다 — 장부 행 수 = MinIO `article.json` 수 = 토픽의 기사 이벤트 수.
+두 곳의 숫자가 맞물려야 한다 — 장부 행 수 = MinIO `article.json` 수.
 
 ```sh
 CLI python -c "
 from trendin.common.collect.db import Database
 with Database.from_env().transaction() as c:
     cur = c.cursor()
-    cur.execute('SELECT count(*), count(event_emitted_at), max(collected_at) FROM collected_article')
-    total, emitted, last = cur.fetchone()
-    print('장부', total, '행 / 미발급', total - emitted, '/ 마지막 수집', last)
+    cur.execute('SELECT count(*), count(*) FILTER (WHERE fetch_state = %s), max(collected_at)'
+                ' FROM collected_article', ('retrying',))
+    total, waiting, last = cur.fetchone()
+    print('장부', total, '행 / 본문 대기', waiting, '/ 마지막 수집', last)
 "
 ```
 
@@ -196,25 +197,23 @@ print(dict(kinds))
 "
 ```
 
-```sh
-docker exec s15p21a102-datastore-kafka-1 \
-  /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic raw-file-ready
-```
-
 `raw.*` 가 `article.json` 보다 적은 것은 정상이다. 회원 전용 기사는 원문을 저장하지 않는다.
 
-`raw-file-ready`에는 기사 이벤트만 발급한다. 요약 토픽을 활성화하면 `collect-run-summary`에
-소스 수 × 실행 횟수만큼의 논리적 요약이 남는다. at-least-once 중복·보존 만료·이행 전 요약 때문에
-offset 합이 장부 행 수와 항상 같지는 않으며, 기사 대사는 고유 `event_id`로 한다.
+소비 측이 무엇을 보는지는 창구를 직접 센다.
 
 ```sh
-# 요약 토픽 생성 후 TRENDIN_KAFKA_TOPIC_RUN_SUMMARY를 채웠을 때
-docker exec s15p21a102-datastore-kafka-1 \
-  /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 --topic collect-run-summary
+CLI python -c "
+from trendin.common.collect.db import Database
+with Database.from_env().transaction() as c:
+    cur = c.cursor()
+    cur.execute('SELECT count(*) FROM collected_article_event')
+    print('창구에 보이는 행', cur.fetchone()[0])
+"
 ```
 
-기본값은 `TRENDIN_KAFKA_TOPIC_RUN_SUMMARY=`다. 비어 있으면 기사 발급은 계속하고 요약만
-건너뛴다. 토픽 생성과 재확인·활성화 절차는 [`docs/spark-integration.md` §12](docs/spark-integration.md#12-토픽-생성과-소비-측-인계).
+창구(`collected_article_event` 뷰)의 행 수는 장부 행 수에서 **본문 대기 행을 뺀 값**이다. 대기 행은
+MinIO 에 아직 아무것도 없어 뷰가 걸러 낸다 (`S15P21A102-312`). 소비 측이 실제로 몇 건을 가져갔는지는
+Spark 의 처리 이력에서 본다 — 뷰는 창을 자를 뿐 무엇이 읽혔는지 기억하지 않는다.
 
 ### 조용히 멈췄나
 
@@ -233,28 +232,19 @@ with Database.from_env().transaction() as c:
 
 **소스 하나만 오래됐으면** 그 사이트가 구조를 바꿨거나 우리를 막은 것이다. 태스크는 성공으로 뜬다 — 후보를 0건 발견해도 실패가 아니라서다.
 
-**전부 오래됐으면** DAG 이 꺼졌거나 앱 DB·MinIO·Kafka 중 하나가 죽은 것이다. `CLI airflow dags list` 로 `is_paused` 부터 본다.
+**전부 오래됐으면** DAG 이 꺼졌거나 앱 DB·MinIO 중 하나가 죽은 것이다. `CLI airflow dags list` 로 `is_paused` 부터 본다.
 
-요약 토픽을 활성화하면 `discovered`, `skipped`, `not_modified`, 단계별 실패 수로 원인을 구분할 수 있다. 자동 이상 판정은 `S15P21A102-199`의 몫이다.
+`discovered`·`skipped`·`not_modified`·단계별 실패 수는 수집 태스크의 XCom 에 남는다. 자동 이상 판정은 `S15P21A102-199`의 몫이다.
 
-### 다시 내기
+### 다시 읽히기
 
-토픽을 비웠거나 소비 측이 처음부터 다시 받아야 할 때, 장부가 원본이라 그대로 재구성한다.
+소비 측이 처음부터 다시 받아야 할 때, 장부가 원본이라 되돌릴 것이 없다. 창구는 장부를 그대로 비추므로
+**수집 쪽에서 할 일이 없고**, 무엇을 다시 읽을지는 소비 측이 정한다 — Spark 의 처리 이력을 지우거나
+`--source objects` 로 MinIO 프리픽스를 훑는다 (`spark/docs/02-input-contract.md` §6).
 
-```sh
-CLI python -c "
-from trendin.common.collect.db import Database
-with Database.from_env().transaction() as c:
-    cur = c.cursor()
-    cur.execute('UPDATE collected_article SET event_emitted_at = NULL, event_run_id = NULL')
-    print('되돌린 행:', cur.rowcount)
-"
-CLI airflow dags trigger fashion_collect
-```
-
-발급 태스크가 미발급 행을 내므로 다음 실행부터 다시 나간다. MinIO 는 건드리지 않는다.
-
-한 회차가 밀린 것을 **다 비운다.** 500건씩 묶어 내되 남은 게 없을 때까지 돈다 — 1200건에 0.2초다. `trigger` 한 번이면 끝이고 회차를 나눠 돌릴 필요가 없다.
+브로커가 있던 시절에는 여기에 `event_emitted_at` 을 `NULL` 로 되돌려 재발행시키는 절차가 있었다.
+발급이 없어지면서 그 절차도 없어졌다 (Kafka 제거 3/3). 그 칸은 장부에 남아 있지만 새 행에는 채워지지
+않고, 지금 그것을 지워도 아무 일도 일어나지 않는다.
 
 ## DAG 추가 규약
 
@@ -282,13 +272,13 @@ CLI airflow dags trigger fashion_collect
 
 `./src` 와 `./dags` 는 컨테이너에 바인드 마운트되어 있다. 파일을 고치면 재빌드 없이 다음 파싱·실행에 반영된다. 이미지를 다시 만드는 때는 의존성이 바뀔 때뿐이다.
 
-## 수집 계층 저장소 (Kafka · MinIO)
+## 수집 계층 저장소 (MinIO)
 
 이 프로젝트에는 없다. `datastore/compose.yaml` 이 띄우고, 여기는 붙기만 한다.
 접속 정보 · 기동 절차 · 검증 명령은 `datastore/README.md`.
 
 - 네트워크 `s15p21a102-data` 를 external 로 참조한다. **저장소를 먼저 띄워야 이 프로젝트가 뜬다.**
-- Airflow 태스크는 주소를 환경변수로 받는다: `TRENDIN_KAFKA_BOOTSTRAP`, `TRENDIN_KAFKA_TOPIC_RAW_FILE_READY`, `TRENDIN_MINIO_ENDPOINT`, `TRENDIN_MINIO_BUCKET`, `TRENDIN_MINIO_ACCESS_KEY`, `TRENDIN_MINIO_SECRET_KEY`. 코드에 주소를 적지 않는다.
+- Airflow 태스크는 주소를 환경변수로 받는다: `TRENDIN_MINIO_ENDPOINT`, `TRENDIN_MINIO_BUCKET`, `TRENDIN_MINIO_ACCESS_KEY`, `TRENDIN_MINIO_SECRET_KEY`. 코드에 주소를 적지 않는다.
 - `TRENDIN_MINIO_*` 키는 `datastore/.env` 의 `MINIO_CRAWLER_*` 와 같은 값이어야 한다. 쓰기만 되고 삭제는 안 되는 키다.
 
 ```sh
@@ -312,7 +302,7 @@ docker compose -f pipeline/compose.yaml up -d
 **컨테이너는 늘지 않는다.** Spark 는 상시 서비스가 아니라 Airflow 가 `spark-submit` 으로 깨우면 돌고 끝나는 프로그램이다. 그래서 Spark 컨테이너를 따로 띄우는 대신, Airflow 이미지에 JRE 와 `pyspark` 를 얹은 파생 이미지를 쓴다.
 
 ```sh
-docker compose -f ../datastore/compose.yaml up -d          # Kafka · MinIO. 먼저다
+docker compose -f ../datastore/compose.yaml up -d          # MinIO. 먼저다
 spark/scripts/fetch-jars.sh                                # jar 를 호스트에 받아둔다
 spark/scripts/build-image.sh                               # 런타임 → 배포, 두 단계
 docker compose -f compose.yaml -f spark/compose.spark.yaml up -d
@@ -328,4 +318,4 @@ docker compose -f compose.yaml -f spark/compose.spark.yaml up -d
 
 ## 지금 없는 것
 
-triggerer(deferrable), Celery·Redis, CI, slim 이미지, `uv.lock`. Kafka·MinIO 는 `datastore/` 로 나갔다. 각각 넣을 조건은 Jira `S15P21A102-146` 에 걸린 설계 문서에 있다.
+triggerer(deferrable), Celery·Redis, CI, slim 이미지, `uv.lock`. MinIO 는 `datastore/` 로 나갔다. 각각 넣을 조건은 Jira `S15P21A102-146` 에 걸린 설계 문서에 있다.

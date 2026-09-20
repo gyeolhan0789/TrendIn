@@ -1,6 +1,6 @@
 # 수집 저장 구조 — MinIO 에 무엇이 어떻게 놓이나
 
-기사 하나가 객체 둘(`raw` · `article.json`)로 놓이고, 저장을 `stat` 으로 확인한 뒤 장부에 적히고, 장부에 적힌 행에서 Kafka 이벤트가 나간다.
+기사 하나가 객체 둘(`raw` · `article.json`)로 놓이고, 저장을 `stat` 으로 확인한 뒤 장부에 적히고, 장부에 적힌 행이 그 순간 소비 측 창구(`collected_article_event` 뷰)에 나타난다.
 
 이 문서는 **경로와 정본**이다 — 어느 단계가 무엇을 쓰는지, 그 규칙을 고칠 때 어느 파일을 여는지. 왜 그렇게 정했는지는 [`web-collect.md`](web-collect.md), 소비 측이 어떻게 읽는지는 [`spark-integration.md`](spark-integration.md) 다.
 
@@ -28,13 +28,12 @@
 | 저장 | raw 와 article.json 을 put 한다 | `flow.store_article` → `minio_store.py` |
 | 확인 | 그 키들이 `stat` 에 잡히는지 본다 | 같은 함수 |
 | 장부 | 행을 적는다. `collect_one` 은 여기서 끝난다 | `ledger.record` |
-| 발급 | 아직 안 나간 행을 전부 Kafka 에 낸다 | `flow.publish_pending` → `events.py` |
 
-**저장과 발급이 다른 태스크인 이유는 재시도 복구다.** 저장까지 하고 발급 전에 죽은 행은 `event_emitted_at` 이 비어 있어 다음 실행의 발급이 이어 낸다. 그래서 발급은 "이번에 저장한 것"이 아니라 "아직 안 나간 것 전부"를 본다.
+**장부에 적는 것이 마지막 단계다** (Kafka 제거 3/3). 브로커가 있던 시절에는 여기 뒤에 발급이 한 단계 더 있었고, 저장까지 하고 발급 전에 죽은 행을 다음 실행이 이어 내야 했다. 창구가 장부를 그대로 비추는 지금은 그 중간 상태가 없다 — 행이 적히면 곧 보인다.
 
-기사 이벤트는 `raw-file-ready`, 실행 요약은 `collect-run-summary`로 나간다. 요약 토픽 환경변수가 비면 기사만 발급한다. 수집 숫자와 장부의 발급 통계는 별개이며, 계약은 `spark-integration.md` §3·§12를 따른다.
+수집 회차가 끝나면 `signal_collected` 태스크가 자산 `trendin://collected` 를 내고, 그것이 `spark_ingest` 를 깨운다. 계약은 `spark-integration.md` §3 을 따른다.
 
-과거분 백필도 저장까지는 같은 루프를 탄다(`flow.store_candidates`). 발급은 하지 않고 다음 주기 실행에 맡긴다.
+과거분 백필도 같은 루프를 탄다(`flow.store_candidates`). 창구에 나타나는 것도 같다.
 
 ## 3. MinIO 에 놓이는 것
 
@@ -67,10 +66,10 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 | article.json 필드와 필수 여부 | `common/collect/article.py` | `spark-integration.md` #5, 소비 측 `EVENT_SCHEMA`(S15P21A102-206) |
 | 저장 순서와 `stat` 확인 | `flow.store_article` | 여기 하나뿐이다. 주기 실행과 백필이 같은 함수를 탄다 |
 | 객체 메타데이터 | `flow.object_metadata` | `minio_store._ascii_only` 가 ASCII 를 강제한다 |
-| 장부 컬럼 | `ledger.DDL` | `ledger.PendingArticle` · `events.article_event` — 발급이 장부만 읽고 봉투를 채운다 |
+| 장부 컬럼 | `ledger.DDL` | `ledger.LedgerRow` · `events.article_event` — 봉투가 장부 행만으로 채워진다 |
 | 소비 측 창구의 칸과 시각 표기 | `ledger.DDL` 의 `collected_article_event` 뷰 | `events.article_event`(정본) · 소비 측 `ingest/collected.VIEW_COLUMNS` · `tests/common/test_ledger_view.SHARED`. 값이 같은지는 진짜 DB 를 걸어야 나온다 (S15P21A102-247) |
 | 소스별 국가 | `contracts.SourceDef.country` (코드가 정본) | DB 거울 `collect_source_country` 를 `ledger.PostgresLedger.ensure_schema` 가 매 회차 UPSERT 한다. 뷰가 `LEFT JOIN` 으로 읽고 없으면 `XX`. 사라진 소스의 행은 지우지 않는다 — 지우면 그 소스로 받아 둔 기사가 전부 `XX` 가 된다 (S15P21A102-276) |
-| 기사·요약 토픽별 이벤트 봉투 | `common/collect/events.py` | 견본 `spark/tests/fixtures/contract/` · `scripts/gen-contract-fixtures.py` |
+| 기사 이벤트 봉투의 정본 | `common/collect/events.py` — 발행하지 않는다. 뷰와 견본을 대조하는 기준으로만 남는다 | 견본 `spark/tests/fixtures/contract/` · `scripts/gen-contract-fixtures.py` |
 | 버킷 · 계정 권한 · 수명주기 | `datastore/minio-init/init.sh` | `datastore/README.md`, `pipeline/.env` 의 `TRENDIN_MINIO_*` |
 | 접속 주소와 자격증명 | 환경변수 `TRENDIN_MINIO_ENDPOINT` · `_BUCKET` · `_ACCESS_KEY` · `_SECRET_KEY` | 코드에 주소를 적지 않는다 |
 
@@ -80,7 +79,7 @@ route 와 확장자는 1:1 이다 — `rss`→`xml`, `listing`→`html`, `api`�
 
 | 없는 것 | 대신 하는 것 |
 |---|---|
-| `metadata.json` (배치 완료 마커) | `article.json` 이 완료 표시다. `store_article` 이 그것을 마지막에 쓰고 `stat` 으로 확인한 뒤 장부에 적는다. 토픽이 비었을 때의 재구성은 장부가 맡는다 (S15P21A102-204 에서 면제 확정) |
+| `metadata.json` (배치 완료 마커) | `article.json` 이 완료 표시다. `store_article` 이 그것을 마지막에 쓰고 `stat` 으로 확인한 뒤 장부에 적는다. 무엇이 들어왔는지의 정본은 장부다 (S15P21A102-204 에서 면제 확정) |
 | 객체 삭제 | 90일 만료는 버킷 수명주기 규칙(ILM)이 건다. 크롤러 키에 `s3:DeleteObject` 권한 자체가 없다 |
 | 수집일 파티션 `collected_date=` | 발행일 KST 로 자른다. 언급량 집계가 발행일 기준이고, 수집일이면 재수집마다 키가 늘어난다 |
 

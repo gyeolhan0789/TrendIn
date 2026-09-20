@@ -40,7 +40,7 @@ def test_dag_ids_carry_scope_prefix():
 
     도메인에 매인 것은 `fashion_`·`dev_` 다 — 소스가 도메인별이라 수집이 그렇다.
     `spark_` 는 도메인에 매이지 않은 것이다. Spark Job 중 도메인을 아는 것은 `extract`
-    뿐이고(`ingest` 는 토픽 하나를 소비, `aggregate` 는 `--domain` 인자가 없다) 그 하나도
+    뿐이고(`ingest` 는 창구 하나를 읽고, `aggregate` 는 `--domain` 인자가 없다) 그 하나도
     DAG 이 아니라 **태스크**로 나뉜다. 그래서 접두를 도메인으로 붙일 수 없다.
     """
     for dag_id in load_bag().dag_ids:
@@ -90,6 +90,7 @@ def test_aggregate_완료_자산을_발행한다():
 def test_수집_DAG_이_ingest_를_깨울_자산을_낸다():
     """크론 간격이 아니라 자산으로 잇는다 (S15P21A102-247). 수집이 늦으면 `ingest` 가
     빈손으로 돌던 자리였고, Kafka 가 못 받은 몫을 들고 있어서 티가 안 났다.
+    브로커를 걷은 뒤로는(Kafka 제거 3/3) 그 완충이 없으므로 이 신호가 유일한 연결이다.
 
     자산은 **마지막 태스크**에 달려야 한다. 앞에 달면 장부에 이번 회차가 다 적히기 전에
     소비 측이 깨어난다.
@@ -106,14 +107,14 @@ def test_수집_DAG_이_ingest_를_깨울_자산을_낸다():
             assert not downstream, f"{dag_id}.{task_id} 뒤에 태스크가 있다"
 
 
-def test_자산을_내는_태스크는_Kafka_발행과_떨어져_있다():
-    """**Kafka 가 죽어도 `ingest` 는 깨어나야 한다** (S15P21A102-247 코드리뷰).
+def test_자산을_내는_태스크는_수집_매핑과_떨어져_있다():
+    """**소스 하나가 죽어도 `ingest` 는 깨어나야 한다** (S15P21A102-247 코드리뷰).
 
     소비 측이 읽는 것은 `collected_article` 행이고 그 행은 수집 태스크가 적는다. 자산을
-    발행 태스크에 걸면 브로커가 죽었을 때 그 태스크가 실패하고, 실패한 태스크는 자산을
-    내지 않는다 — 읽을 행이 다 있는데 뒤 단계만 안 깨어난다.
+    그 매핑 태스크에 걸면 소스 하나가 죽을 때마다 자산이 안 나가고, 읽을 행이 다 있는데
+    뒤 단계만 안 깨어난다.
 
-    두 가지를 본다. 자산을 내는 태스크가 발행 태스크가 **아닐 것**, 그리고 앞이 실패해도
+    두 가지를 본다. 자산을 내는 태스크가 수집 태스크가 **아닐 것**, 그리고 앞이 실패해도
     돌도록 `ALL_DONE` 일 것.
     """
     from airflow.sdk import TriggerRule
@@ -127,10 +128,8 @@ def test_자산을_내는_태스크는_Kafka_발행과_떨어져_있다():
         assert [t.task_id for t in emitters] == [SIGNAL_TASK_ID]
         for task in emitters:
             assert task.trigger_rule == TriggerRule.ALL_DONE, task.task_id
-        # 발행 태스크는 자산을 내지 않는다. 이름으로 찾는 이유는 그 태스크가 3단계에서
-        # 사라질 예정이라, 없어졌을 때 이 시험이 조용히 통과하면 안 되기 때문이다.
-        publish = dag.get_task("publish")
-        assert not publish.outlets, f"{dag_id}.publish 가 자산을 낸다"
+        # 발행 태스크는 걷혔다 (Kafka 제거 3/3). 되살아나면 여기서 걸린다.
+        assert "publish" not in dag.task_dict, f"{dag_id} 에 publish 태스크가 있다"
 
 
 def test_추출은_워커를_둘로_묶는다():

@@ -1,8 +1,8 @@
 # spark — TrendIn 데이터 처리
 
-Kafka 이벤트를 받아 MinIO 객체을 처리하고, 서비스가 조회하는 PostgreSQL 테이블을 채운다.
+수집 장부의 창구를 읽어 MinIO 객체를 처리하고, 서비스가 조회하는 PostgreSQL 테이블을 채운다.
 
-`ingest` 는 **Kafka 소비 → 계약 판별 → MinIO 객체 조회·checksum 대조 → 정제 → 중복 제거 →
+`ingest` 는 **창구 읽기 → 계약 판별 → MinIO 객체 조회·checksum 대조 → 정제 → 중복 제거 →
 `curated` Parquet → `contents` upsert → 처리 이력·DLQ·배치 통계** 까지 돈다. 백필
 (`--source objects`)도 있다. `extract`·`aggregate` 는 뼈대뿐이다.
 
@@ -13,14 +13,18 @@ Kafka 이벤트를 받아 MinIO 객체을 처리하고, 서비스가 조회하�
 ## 무엇을 하나
 
 ```
-Kafka raw-file-ready  →  ingest     객체 검증 · 정제 · contents 적재 · curated 기록
-MinIO curated         →  extract    키워드 추출 · 통합 · 승격 · keywords 적재
-내부 통계             →  aggregate  언급량 · 순위 · 성장률 · 연관 키워드
+collected_article_event  →  ingest     객체 검증 · 정제 · contents 적재 · curated 기록
+MinIO curated            →  extract    키워드 추출 · 통합 · 승격 · keywords 적재
+내부 통계                →  aggregate  언급량 · 순위 · 성장률 · 연관 키워드
 ```
 
-입력은 **기사 하나에 이벤트 하나**다. 토픽 `raw-file-ready` 에 기사 이벤트와 실행 요약 이벤트가
-함께 흐르고, 객체는 MinIO 의 기사별 `article.json` 이다. 계약과 근거는
+입력은 **기사 하나에 행 하나**다. 앱 DB 의 `collected_article_event` 뷰가 수집 장부를 봉투 모양으로
+내고, 객체는 MinIO 의 기사별 `article.json` 이다. 브로커는 걷혔다 (Kafka 제거 3/3) — 전에는 토픽
+`raw-file-ready` 를 읽었고, 그때 봉투와 칸이 같다. 계약과 근거는
 [02](docs/02-input-contract.md), 생산자 쪽 기준은 [`../docs/web-collect.md`](../docs/web-collect.md).
+
+**수집이 끝나면 깨어난다.** 수집 DAG 이 자산 `trendin://collected` 를 내고 `spark_ingest` 가 그것을
+받는다 (S15P21A102-247). 크론 간격으로 잇지 않는다.
 
 Airflow 가 `spark-submit` 으로 각 Job 을 깨우고, Job 은 처리 후 스스로 종료한다.
 
@@ -38,7 +42,7 @@ Spark 는 **상시 서비스가 아니다.** Airflow 가 `spark-submit` 으로 �
 
 ```
 데이터 EC2 ── Docker 엔진 1개
-├─ [datastore]  kafka · minio                                    상시 2
+├─ [datastore]  minio                                            상시 1
 └─ [pipeline]   postgres · apiserver · scheduler · dag-processor  상시 4
                   ↳ 태스크가 뜰 때 이 안에서 spark-submit 이 돌고 끝난다
 ```
@@ -53,7 +57,7 @@ Spark 는 **상시 서비스가 아니다.** Airflow 가 `spark-submit` 으로 �
 ## 데이터 EC2 에 올리기
 
 ```sh
-# 1. 저장소부터. Kafka · MinIO 는 datastore 가 띄운다
+# 1. 저장소부터. MinIO 는 datastore 가 띄운다
 docker compose -f datastore/compose.yaml up -d
 
 # 2. jar 를 호스트에 받아둔다 (이미지에 굽지 않고 마운트한다). curl 만 있으면 된다
@@ -130,7 +134,7 @@ spark-submit \
 
 호스트 `.venv` 로 돌릴 때만 해당한다. `--jars` 를 쓰는 순간 Hadoop 이 `winutils.exe` 를 찾고,
 없으면 SparkContext 기동이 `HADOOP_HOME and hadoop.home.dir are unset` 으로 **실패한다.**
-jar 없이 도는 뼈대 실행은 멀쩡하지만, Kafka·MinIO·JDBC 를 쓰는 순간부터 막힌다.
+jar 없이 도는 뼈대 실행은 멀쩡하지만, MinIO·JDBC 를 쓰는 순간부터 막힌다.
 2026-09-08 에 실제로 확인했다 — `submit.sh` 는 세션이 뜨기 전에 죽는다.
 
 **층 2 테스트도 파일을 쓰는 것만 막힌다.** `pytest spark/tests` 는 통과하지만 `curated`
@@ -226,7 +230,7 @@ spark/
 
 src/trendin/spark/    로직. jobs 가 import 한다
 ├─ common/    설정 · 로깅 · 세션
-├─ io/        contract.py(판별) · schema.py(스키마) · kafka.py(소비)
+├─ io/        contract.py(판별) · schema.py(스키마)
 │             objects.py(MinIO 조회) · ledger.py(처리 이력) · dlq.py(DLQ) · jdbc.py(앱 DB)
 │             contents.py(contents 적재) · stats.py(pl_batch_stat) · candidates.py(후보 표 넷)
 │             keywords.py(keywords · keyword_contents 적재 · 별칭·검수 큐·이력)
@@ -263,7 +267,7 @@ src/trendin/spark/    로직. jobs 가 import 한다
 | --- | --- | --- |
 | [00](docs/00-overview.md) | 개요 | 담당 경계 · 확정된 결정 · 용어 · **스키마 한계와 미결 항목** |
 | [01](docs/01-architecture.md) | 아키텍처 | 실행 모델 · Job 분해 · 중간 저장소 · 멱등성 |
-| [02](docs/02-input-contract.md) | 입력 계약 | Kafka 소비 · MinIO 검증 · DLQ · 재처리 |
+| [02](docs/02-input-contract.md) | 입력 계약 | 창구 읽기 · MinIO 검증 · DLQ · 재처리 |
 | [03](docs/03-normalization-spec.md) | 정제 규격 | 객체 → 표준 문서 · 중복 제거 · 품질 필터 |
 | [04](docs/04-keyword-extraction-spec.md) | 키워드 추출 | 후보 생성 · 스코어링 · 선별 · 품질 측정 |
 | [05](docs/05-keyword-registry-spec.md) | 키워드 레지스트리 | 정규화 · 동의어 통합 · 승격 |

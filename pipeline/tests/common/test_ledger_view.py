@@ -1,4 +1,4 @@
-"""장부 뷰를 진짜 PostgreSQL 에 걸고 발급 봉투와 맞춰 본다 (S15P21A102-247).
+"""장부 뷰를 진짜 PostgreSQL 에 걸고 봉투 정본과 맞춰 본다 (S15P21A102-247).
 
 **문자열 검사로는 못 잡는 것을 잡는다.** `test_ledger.py` 의 뷰 검사는 DDL 에 낱말이 있는지만
 본다. 그런데 뷰가 내는 `published_at` 은 `to_char` · `date_part` · `lpad` · `make_interval` 로
@@ -7,6 +7,8 @@
 
 토픽이 걷히면서 봉투를 만드는 자리가 파이썬에서 SQL 로 넘어갔다. 그 이사가 값을 바꾸지
 않았다는 근거가 이 파일이다 — `article_event()` 가 정본이고 뷰가 그것을 흉내 낸다.
+브로커까지 걷힌 지금(Kafka 제거 3/3) `article_event()` 는 발행하지 않는다. 오직 이 대조를
+위해 남아 있고, 그래서 이 파일이 그 함수의 유일한 존재 이유다.
 
 **DB 가 있을 때만 돈다.** 없으면 통째로 건너뛴다.
 
@@ -25,7 +27,7 @@ from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import FetchMeta
 from trendin.common.collect.db import Database
 from trendin.common.collect.events import article_event
-from trendin.common.collect.ledger import PostgresLedger, to_pending
+from trendin.common.collect.ledger import PostgresLedger, to_ledger_row
 
 DB_URL_ENV = "TRENDIN_TEST_DB_URL"
 
@@ -74,7 +76,7 @@ def make_article(
     paywalled: bool = False,
     source: str = "vogue",
 ) -> Article:
-    """`tests/common/test_events.py` 의 `pending()` 과 같은 값으로 둔다.
+    """`tests/common/test_events.py` 의 `ledger_row()` 와 같은 값으로 둔다.
 
     두 곳이 갈리면 같은 계약을 두 모양으로 설명하는 셈이 된다
     (`scripts/gen-contract-fixtures.py` 가 둔 규약).
@@ -132,7 +134,7 @@ def view_row(db: Database) -> dict:
 def envelope(article: Article) -> dict:
     """`article_event()` 가 내던 값. 뷰가 맞춰야 하는 정본이다."""
     full = article_event(
-        to_pending(article, article_key=key_of(article), article_sha256=SHA),
+        to_ledger_row(article, article_key=key_of(article), article_sha256=SHA),
         bucket=BUCKET,
         run_id=RUN_ID,
         # 참조 표에 없는 소스는 뷰가 `XX` 를 내므로 봉투 쪽도 같은 기본값을 쓴다.
@@ -152,7 +154,7 @@ def store(ledger, article: Article) -> None:
 # --- 값이 같은가 -----------------------------------------------------------
 
 
-def test_뷰가_발급_봉투와_같은_값을_낸다(ledger):
+def test_뷰가_봉투_정본과_같은_값을_낸다(ledger):
     """이 파일이 있는 이유. 하나라도 다르면 소비 측이 다른 것을 받는다."""
     store_, db = ledger
     article = make_article(
@@ -323,7 +325,7 @@ def test_창을_자르는_질의가_인덱스를_탄다(ledger):
         row = cur.fetchone()
 
     assert row is not None, "창을 자르는 인덱스가 없다"
-    # 부분 인덱스면 `event_emitted_at IS NULL` 이 없는 질의가 타지 못한다.
+    # 부분 인덱스면 그 조건이 없는 이 질의가 타지 못한다.
     assert "WHERE" not in row[0].upper()
 
 
@@ -361,19 +363,19 @@ def test_참조_표에_없는_소스는_XX_다(ledger):
 
 
 def test_장부가_국가_거울을_진짜로_읽어_온다(ledger):
-    """발급이 이 값으로 봉투를 채운다(`flow.publish_pending`). 가짜 DB 로만 보면 SQL 오타가
-    안 잡힌다 — 질의가 틀려도 미리 넣어 둔 행이 그대로 돌아온다."""
+    """뷰가 이 표를 `LEFT JOIN` 으로 읽는다. 가짜 DB 로만 보면 SQL 오타가 안 잡힌다 —
+    질의가 틀려도 미리 넣어 둔 행이 그대로 돌아온다."""
     store_, _db = ledger
 
     assert store_.source_countries() == COUNTRIES
 
 
 def test_레지스트리에서_사라진_소스도_봉투와_뷰가_같은_국가를_낸다(ledger):
-    """국가의 정본은 코드의 `SourceDef` 지만 **발급은 거울을 읽는다.**
+    """국가의 정본은 코드의 `SourceDef` 지만 **뷰는 거울을 읽는다.**
 
     거울은 소스가 레지스트리에서 사라져도 지우지 않는다 — 지우면 그 소스로 이미 받아 둔
-    기사가 뷰에서 전부 `XX` 가 된다. 그래서 발급이 코드 표를 읽으면 그 소스의 미발급 행에서
-    봉투는 `XX`, 뷰는 옛 국가를 내 두 창구가 갈린다.
+    기사가 뷰에서 전부 `XX` 가 된다. 코드 표를 대신 읽는 창구가 생기면 그 소스의 기사에서
+    한쪽은 `XX`, 뷰는 옛 국가를 내 둘이 갈린다.
     """
     store_, db = ledger
     store_.ensure_schema({"hypebeast": "HK"})  # 소스가 레지스트리에 있던 회차
@@ -385,7 +387,7 @@ def test_레지스트리에서_사라진_소스도_봉투와_뷰가_같은_국�
     store(store_, article)
     store_.ensure_schema(COUNTRIES)  # hypebeast 를 뺀 회차
 
-    # 발급이 읽는 값과 뷰가 내는 값이 같은 국가를 가리킨다.
+    # 거울이 주는 값과 뷰가 내는 값이 같은 국가를 가리킨다.
     assert store_.source_countries()["hypebeast"] == "HK"
     assert view_row(db)["source_country"] == "HK"
 
@@ -433,12 +435,11 @@ RETRY_META = FetchMeta(
 RETRY_AT = datetime(2026, 9, 3, 2, 0, tzinfo=timezone.utc)
 
 
-def test_대기_행은_창구에도_발급에도_안_나온다(ledger):
+def test_대기_행은_창구에_안_나온다(ledger):
     """MinIO 객체가 아직 없다. 소비 측이 키로 읽으면 없는 객체를 가리킨다."""
     store, db = ledger
     store.mark_retry(RETRY_META, at=RETRY_AT)
 
-    assert store.pending("fashion") == []
     with db.transaction() as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM collected_article_event")
         assert cur.fetchone()[0] == 0
@@ -497,7 +498,6 @@ def test_재시도가_성공하면_같은_행이_저장으로_바뀐다(ledger):
     )
 
     assert store.retrying("vogue") == []
-    assert len(store.pending("fashion")) == 1
     with db.transaction() as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*), max(fetch_state) FROM collected_article")
         assert cur.fetchone() == (1, "stored")

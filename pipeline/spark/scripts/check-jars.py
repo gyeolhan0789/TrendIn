@@ -2,7 +2,7 @@
 
     spark/scripts/check-jars.sh 가 jar 목록을 붙여 이 파일을 돌린다.
 
-버전이 어긋나면 보통 **처음 Kafka 를 읽을 때** NoSuchMethodError 로 죽는다 ([01 §7]).
+버전이 어긋나면 보통 **처음 S3A 나 JDBC 를 쓸 때** NoSuchMethodError 로 죽는다 ([01 §7]).
 그때는 원인이 jar 인지 코드인지 구분하기 어렵다. 여기서 먼저 갈라둔다.
 """
 
@@ -14,10 +14,6 @@ from pyspark.sql import SparkSession
 
 # 클래스 이름 → 어느 jar 가 주는 것인지
 REQUIRED = {
-    "org.apache.spark.sql.kafka010.KafkaSourceProvider": "spark-sql-kafka-0-10",
-    "org.apache.spark.kafka010.KafkaTokenUtil": "spark-token-provider-kafka-0-10",
-    "org.apache.kafka.clients.consumer.KafkaConsumer": "kafka-clients",
-    "org.apache.commons.pool2.impl.GenericKeyedObjectPool": "commons-pool2",
     "org.apache.hadoop.fs.s3a.S3AFileSystem": "hadoop-aws",
     "software.amazon.awssdk.services.s3.S3Client": "aws sdk bundle",
     "org.postgresql.Driver": "postgresql",

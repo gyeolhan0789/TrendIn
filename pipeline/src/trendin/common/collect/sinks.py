@@ -1,15 +1,14 @@
-"""저장·발급의 이음매 (S15P21A102-158 의 인터페이스).
+"""저장의 이음매 (S15P21A102-158 의 인터페이스).
 
-Protocol 뒤 실구현은 `minio_store.py` · `kafka_publisher.py` 다. 이 파일에는 boto3 도
-confluent_kafka 도 airflow 도 없다 — 여기가 "태스크 함수는 Airflow 없이 테스트한다"
-(README 규약 12)의 경계다.
+Protocol 뒤 실구현은 `minio_store.py` 다. 이 파일에는 boto3 도 airflow 도 없다 — 여기가
+"태스크 함수는 Airflow 없이 테스트한다"(README 규약 12)의 경계다.
 
 봉투는 `events.py` 다. 이음매가 바뀔 때와 팀 계약이 바뀔 때는 서로 다른 이유라 파일을 나눈다.
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Protocol
 
 # raw 확장자별 content-type. 확장자는 raw 의 실제 내용이 정한다 (keys.RAW_EXTS).
 #
@@ -42,21 +41,9 @@ class ObjectStore(Protocol):
         ...
 
     def exists(self, key: str) -> bool:
-        """`stat` 하나. 이벤트는 이게 참인 뒤에만 나간다 (불변식 5).
+        """`stat` 하나. 장부에는 이게 참인 뒤에만 적는다 (불변식 5).
 
         "없다"와 "물어보지 못했다"는 다르다. 후자는 예외로 올린다 — False 로 뭉개면
         저장은 됐는데 장부에 안 적히고, 다음 실행이 같은 기사를 또 받는다 (불변식 12).
         """
-        ...
-
-
-class EventPublisher(Protocol):
-    """발급. 전달 보장은 at-least-once 고 중복은 소비 측이 `event_id` 로 거른다."""
-
-    def publish(self, key: str, value: dict[str, Any]) -> None:
-        """메시지를 큐에 넣는다. 이 시점에 전달이 끝났다고 보면 안 된다."""
-        ...
-
-    def flush(self) -> None:
-        """큐를 비우고 전달을 확인한다. 실패한 메시지가 있으면 예외를 올린다."""
         ...

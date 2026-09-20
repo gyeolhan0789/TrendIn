@@ -1,7 +1,7 @@
 # 데이터 EC2 배포용 오버레이. pipeline/compose.yaml 위에 얹어 Airflow 를 Spark 가 든
 # 이미지로 갈아끼운다. 컨테이너 수는 늘지 않는다.
 #
-#   docker compose -f datastore/compose.yaml up -d     # Kafka · MinIO. 먼저다
+#   docker compose -f datastore/compose.yaml up -d     # MinIO. 먼저다
 #   cd pipeline
 #   spark/scripts/build-image.sh                       # 런타임 이미지 → 배포 이미지 (두 단계)
 #   docker compose -f compose.yaml -f spark/compose.spark.yaml up -d

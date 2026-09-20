@@ -1,7 +1,8 @@
 #!/bin/sh
 # datastore 완료 조건 검증. 실패 항목이 있으면 exit 1.
-# AC1~4 는 Jira S15P21A102-156, AC5 는 S15P21A102-157 (토픽 설정 · 보관 정책).
+# AC1~3 은 Jira S15P21A102-156, AC4 는 S15P21A102-158 (보관 정책).
 # curated 버킷 쓰기 · 만료 없음은 S15P21A102-243.
+# 토픽 검증은 브로커와 함께 걷혔다 (Kafka 제거 3/3).
 # Windows 는 Git Bash 에서 돌린다. 검증은 전부 컨테이너 안에서 일어난다.
 set -u
 
@@ -19,12 +20,6 @@ fail=0
 
 BUCKET=$(sed -n 's/^MINIO_BUCKET=//p' .env);                  BUCKET=${BUCKET:-raw-data}
 CURATED=$(sed -n 's/^MINIO_CURATED_BUCKET=//p' .env);         CURATED=${CURATED:-curated}
-TOPIC=$(sed -n 's/^KAFKA_TOPIC_RAW_FILE_READY=//p' .env);     TOPIC=${TOPIC:-raw-file-ready}
-PARTS=$(sed -n 's/^KAFKA_TOPIC_PARTITIONS=//p' .env);         PARTS=${PARTS:-6}
-POLICY=$(sed -n 's/^KAFKA_TOPIC_CLEANUP_POLICY=//p' .env);    POLICY=${POLICY:-delete}
-RET_MS=$(sed -n 's/^KAFKA_TOPIC_RETENTION_MS=//p' .env);      RET_MS=${RET_MS:-604800000}
-SEG_MS=$(sed -n 's/^KAFKA_TOPIC_SEGMENT_MS=//p' .env);        SEG_MS=${SEG_MS:-86400000}
-RAW_DAYS=$(sed -n 's/^MINIO_RAW_EXPIRE_DAYS=//p' .env);       RAW_DAYS=${RAW_DAYS:-90}
 CK=$(sed -n 's/^MINIO_CRAWLER_ACCESS_KEY=//p' .env); CS=$(sed -n 's/^MINIO_CRAWLER_SECRET_KEY=//p' .env)
 SK=$(sed -n 's/^MINIO_SPARK_ACCESS_KEY=//p' .env);   SS=$(sed -n 's/^MINIO_SPARK_SECRET_KEY=//p' .env)
 RU=$(sed -n 's/^MINIO_ROOT_USER=//p' .env);          RP=$(sed -n 's/^MINIO_ROOT_PASSWORD=//p' .env)
@@ -45,33 +40,21 @@ mc() {
 }
 
 echo "[AC1] 컨테이너"
-for svc in kafka minio; do
-  cid=$($DC ps -q $svc 2>/dev/null)
-  if [ -z "$cid" ]; then check 1 "$svc 가 떠 있지 않다"; continue; fi
-  [ "$(docker inspect -f '{{.State.Health.Status}}' "$cid")" = healthy ]; check $? "$svc healthy"
-  [ "$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$cid")" = unless-stopped ]; check $? "$svc restart=unless-stopped"
-done
+cid=$($DC ps -q minio 2>/dev/null)
+if [ -z "$cid" ]; then
+  check 1 "minio 가 떠 있지 않다"
+else
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$cid")" = healthy ]; check $? "minio healthy"
+  [ "$(docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "$cid")" = unless-stopped ]; check $? "minio restart=unless-stopped"
+fi
 [ "$fail" -eq 0 ] || { echo "기동부터 실패. 나머지는 건너뛴다."; exit 1; }
 
 echo "[AC2] 접속 경로"
 docker network inspect "$NET" >/dev/null 2>&1; check $? "네트워크 $NET 존재"
-for hp in kafka:9092 minio:9000; do
-  docker run --rm --network "$NET" busybox:1.37 nc -z -w 3 "${hp%:*}" "${hp#*:}" >/dev/null 2>&1
-  check $? "네트워크 안에서 $hp 도달"
-done
+docker run --rm --network "$NET" busybox:1.37 nc -z -w 3 minio 9000 >/dev/null 2>&1
+check $? "네트워크 안에서 minio:9000 도달"
 
-echo "[AC3] Kafka"
-$DC exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null | grep -qx "$TOPIC"
-check $? "토픽 $TOPIC 존재"
-printf '_verify:{"event_id":"_verify","status":"success","record_count":0}\n' \
-  | $DC exec -T kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \
-      --topic "$TOPIC" --property parse.key=true --property key.separator=: >/dev/null 2>&1
-check $? "produce"
-$DC exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
-    --topic "$TOPIC" --from-beginning --timeout-ms 20000 2>/dev/null | grep -q '_verify'
-check $? "consume (발행한 메시지 회수)"
-
-echo "[AC4] MinIO 권한 분리"
+echo "[AC3] MinIO 권한 분리"
 mc "echo verify > /tmp/v && mc cp /tmp/v crawler/$BUCKET/$OBJ" >/dev/null 2>&1
 check $? "크롤러 키 put"
 [ "$(mc "mc cat crawler/$BUCKET/$OBJ" 2>/dev/null | tr -d '\r\n')" = verify ]; check $? "크롤러 키 get"
@@ -94,18 +77,7 @@ check $? "Spark 키 $CURATED put"
 mc "mc rm spark/$CURATED/$OBJ" >/dev/null 2>&1
 check $? "Spark 키 $CURATED delete"
 
-echo "[AC5] 토픽 설정"
-PC=$($DC exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
-      --describe --topic "$TOPIC" 2>/dev/null | tr -d '\r' \
-      | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1)
-[ "${PC:-0}" -eq "$PARTS" ]; check $? "파티션 $PARTS 개 (실제 ${PC:-?})"
-CFG=$($DC exec -T kafka /opt/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092 \
-      --entity-type topics --entity-name "$TOPIC" --describe 2>/dev/null | tr -d '\r')
-for kv in "cleanup.policy=$POLICY" "retention.ms=$RET_MS" "segment.ms=$SEG_MS"; do
-  printf '%s\n' "$CFG" | grep -q -- "$kv"; check $? "$kv"
-done
-
-echo "[AC5] 보관 정책"
+echo "[AC4] 보관 정책"
 # 규칙 조회는 버킷 설정 읽기 권한이 필요하다. 관리자 계정으로 본다.
 ILM=$(mc "mc ilm rule ls admin/$BUCKET 2>/dev/null || mc ilm ls admin/$BUCKET" 2>/dev/null | tr -d '\r')
 # 정확히 1 개여야 한다. 2 개 이상이면 매 up 마다 규칙이 덧붙고 있다는 뜻이다.
@@ -125,9 +97,6 @@ else
 fi
 mc "mc version info admin/$CURATED" 2>/dev/null | grep -qiE 'un-versioned|suspended'
 check $? "$CURATED 버전 관리 off"
-# 원문이 이벤트보다 먼저 사라지면 참조가 깨진다. 등호 포함이라 같아도 통과다.
-[ "$((RAW_DAYS * 86400000))" -ge "$RET_MS" ]
-check $? "MinIO 보관 ${RAW_DAYS}일 >= Kafka retention ${RET_MS}ms"
 
 # 검증 객체만 지운다. 수집 데이터는 건드리지 않는다.
 # 크롤러 키에는 삭제 권한이 없다. 관리자 키로 지운다 — 크롤러 키로 하면 조용히

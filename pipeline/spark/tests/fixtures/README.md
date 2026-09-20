@@ -6,7 +6,7 @@ snapshots.json 각 문서의 추출 결과
 
 ## `contract/`
 
-`ingest` 가 Kafka·MinIO 없이 파싱·검증 코드를 테스트하는 근거다. 계약은 [02](../../docs/02-input-contract.md),
+`ingest` 가 저장소 없이 파싱·검증 코드를 테스트하는 근거다. 계약은 [02](../../docs/02-input-contract.md),
 생산 측 설명은 [`pipeline/docs/spark-integration.md`](../../../docs/spark-integration.md).
 
 ```
@@ -14,12 +14,16 @@ contract/
 ├─ article-event.json         기사 이벤트. object_key 가 있다
 ├─ run-summary-success.json   실행 요약(성공). object_key 가 null 이고 record_count > 0
 ├─ run-summary-failed.json    실행 요약(실패). failure_reason 이 있다
-├─ collect-run-summary-success.json  collect-run-summary 토픽의 요약(성공). 소비는 S15P21A102-206
-├─ collect-run-summary-failed.json   collect-run-summary 토픽의 요약(실패)
 └─ objects/<object_key 그대로>/
    ├─ article.json            article-event.json 의 object_key 가 가리키는 실물
    └─ raw.xml                 raw_object_key 가 가리키는 실물
 ```
+
+`run-summary-*.json` 은 **생산자가 없는 기록**이다. 브로커가 걷히면서(Kafka 제거 2/3 · 3/3) 요약
+이벤트 자체가 없어졌고, 생성 스크립트도 이것을 만들지 않는다. 남겨 둔 이유는 판별기
+(`io/contract.classify`)의 `EventShape.SUMMARY` 분기가 아직 이 모양을 받기 때문이다 — 그 분기를
+걷을지는 소비 측이 정한다. 토픽 분리 뒤 봉투였던 `collect-run-summary-*.json` 둘은 2026-09-20 에
+지웠다.
 
 `objects/` 아래 경로는 MinIO 의 `object_key` 와 **같은 형태**이다. 그래서 테스트가 버킷 루트만
 바꿔 끼우면 실제 s3a 경로와 같은 코드로 읽힌다.

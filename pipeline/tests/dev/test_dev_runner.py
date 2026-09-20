@@ -62,7 +62,7 @@ def test_hn_을_발견부터_장부_기록까지_돈다(api_bytes, clock):
             "dev/hn/api/2026/09/14/49691343/article.json",
         ]
     )
-    assert len(ledger.pending("dev")) == 4
+    assert len(ledger.rows("dev")) == 4
 
 
 def test_두_번_돌려도_장부와_객체가_안_는다(api_bytes, clock):

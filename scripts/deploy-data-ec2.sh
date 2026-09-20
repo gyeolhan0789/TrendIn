@@ -80,10 +80,10 @@ mkdir -p "$LOGS" 2>/dev/null || :
 [ -w "$LOGS" ] || die "$LOGS 에 쓸 수 없다 ($(stat -c '%U:%G %a' "$LOGS" 2>/dev/null)) — sudo chown -R $(id -un):$(id -gn) $LOGS"
 
 # 서비스가 healthy 가 될 때까지 기다린다. up -d 는 컨테이너를 만들면 바로 돌아오는데,
-# Kafka 는 그 시점에 아직 리스너를 안 열었다. 곧바로 검증하면 항상 처음 한 번은 빨갛다.
+# MinIO 는 그 시점에 아직 API 를 안 열었다. 곧바로 검증하면 항상 처음 한 번은 빨갛다.
 #
 # `docker compose up --wait` 를 쓰지 않는 이유는 datastore 에 한 번 돌고 끝나는
-# init 컨테이너가 셋 있어서다. --wait 는 그것들의 정상 종료를 실패로 셀 수 있다.
+# init 컨테이너가 있어서다. --wait 는 그것의 정상 종료를 실패로 셀 수 있다.
 wait_healthy() {
   local compose_args=$1; shift
   local deadline=$(( $(date +%s) + HEALTH_TIMEOUT ))
@@ -106,15 +106,15 @@ wait_healthy() {
 }
 
 # --- 1. 저장소 계층 ----------------------------------------------------------
-# 네트워크 주인이라 항상 먼저다. init 컨테이너 셋은 매 up 마다 멱등하게 다시 돈다.
-step "1/5  Kafka · MinIO"
+# 네트워크 주인이라 항상 먼저다. minio-init 은 매 up 마다 멱등하게 다시 돈다.
+step "1/5  MinIO"
 docker compose -f datastore/compose.yaml up -d
-wait_healthy "-f $DEPLOY_ROOT/datastore/compose.yaml" kafka minio
+wait_healthy "-f $DEPLOY_ROOT/datastore/compose.yaml" minio
 
 # --- 2. jar -----------------------------------------------------------------
 # 이미지에 굽지 않고 마운트한다. 이미 받아둔 것은 건너뛰므로 두 번째 배포부터는 즉시 끝난다.
 # 목록에 없는 옛 jar 가 남아 있으면 이 스크립트가 exit 1 로 배포를 세운다 — 클래스패스가
-# 갈린 채로 뜨면 첫 Kafka 읽기에서 NoSuchMethodError 로 죽는다.
+# 갈린 채로 뜨면 첫 S3A 읽기에서 NoSuchMethodError 로 죽는다.
 step "2/5  Spark 런타임 jar"
 pipeline/spark/scripts/fetch-jars.sh
 

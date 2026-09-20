@@ -1,14 +1,15 @@
 """수집 장부 (설계 문서 #5.4, S15P21A102-166).
 
-장부가 있는 이유는 "저장이 확인된 뒤에 발급한다"를 **재시도에도** 성립하게 만드는 자리가
-필요해서다. 저장 태스크가 여기 적고 발급 태스크가 여기서 읽는다. 둘 사이에서 죽어도
-`event_emitted_at` 이 비어 있으니 다음 실행이 이어 낸다(#4).
+장부는 이제 **소비 측이 읽는 창구 그 자체**다 (Kafka 제거 3/3). 수집이 여기 적고, 아래
+`collected_article_event` 뷰가 그 행을 봉투 모양으로 내고, Spark `ingest` 가 그 뷰를
+읽는다. 브로커가 있던 시절에는 저장과 발급 사이에 "적혔지만 아직 안 나간" 중간 상태가
+있었고 장부가 그 상태를 들고 있었는데, 발급이 없어지면서 그 상태도 없어졌다.
 
 같은 기사를 다시 받지 않는 판정(불변식 12)도 여기서 한다. 그 판정을 어댑터가 흉내 내면
 "그 실행에서 방금 본 id 만 아는" 반쪽짜리가 장부와 두 벌로 남는다.
 
-들어오는 값은 `Article`(어댑터의 출력) 그대로고, 나가는 값은 `PendingArticle`(발급 봉투를
-채울 만큼만)이다. 방향이 다르니 모양도 다르다.
+들어오는 값은 `Article`(어댑터의 출력) 그대로고, 나가는 값은 `LedgerRow`(봉투를 채울
+만큼만)다. 방향이 다르니 모양도 다르다.
 
 이 모듈은 airflow 를 import 하지 않는다 — 태스크 함수는 Airflow 없이 테스트한다
 (README 규약 12).
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Mapping, Protocol, Sequence
+from typing import Iterable, Mapping, Protocol
 
 from trendin.common.collect.article import Article
 from trendin.common.collect.contracts import FetchMeta
@@ -55,7 +56,7 @@ CREATE TABLE IF NOT EXISTS collected_article (
 -- 이 브랜치 전에 만들어진 테이블에도 칸을 연다. 이미 있으면 아무 일도 없다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS published_at_offset smallint;
 
--- 어느 실행이 이 행을 발급했나. 요약 이벤트의 건수를 이 값으로 센다 (S15P21A102-204).
+-- 어느 실행이 이 행을 발급했나 (S15P21A102-204). 발급이 없어져 새 행에는 안 채워진다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS event_run_id text;
 
 -- 유료 표시 (2026-09-17). 이미 있는 행은 판별(S15P21A102-285)이 생기기 전에 받은 것이라
@@ -71,26 +72,20 @@ ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS
     fetch_attempts smallint NOT NULL DEFAULT 0;
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS first_failed_at timestamptz;
 -- 포기할 때 본문 없는 article.json 을 이 값으로 만든다. 저장을 마친 행은 NULL 이다 —
--- 분류는 article.json 에 이미 있고, 장부는 발급 봉투에 필요한 것만 든다.
+-- 분류는 article.json 에 이미 있고, 장부는 봉투에 필요한 것만 든다.
 ALTER TABLE collected_article ADD COLUMN IF NOT EXISTS categories text[];
 
 -- 대기 행은 MinIO 에 아무것도 쓰지 않았으므로 객체 키도 해시도 없다. 두 칸이 NOT NULL
--- 이던 시절의 제약을 푼다 — 대기 행은 뷰와 발급 질의가 걸러 내므로 소비 측은 NULL 을 못 본다.
+-- 이던 시절의 제약을 푼다 — 대기 행은 뷰가 걸러 내므로 소비 측은 NULL 을 못 본다.
 ALTER TABLE collected_article ALTER COLUMN article_key DROP NOT NULL;
 ALTER TABLE collected_article ALTER COLUMN article_sha256 DROP NOT NULL;
-
--- 발급 태스크가 미발급 행만 훑는다. 장부는 계속 자라고 미발급은 늘 소수다.
-CREATE INDEX IF NOT EXISTS collected_article_pending_idx
-    ON collected_article (domain, collected_at)
-    WHERE event_emitted_at IS NULL;
 
 -- 매 회차 그 소스의 대기 행을 먼저 처리한다. 대기는 늘 소수라 부분 인덱스로 짚는다.
 CREATE INDEX IF NOT EXISTS collected_article_retrying_idx
     ON collected_article (source, first_failed_at)
     WHERE fetch_state = 'retrying';
 
--- 소비 측이 창을 잘라 읽을 때 쓴다 (S15P21A102-247). **위 부분 인덱스로는 안 된다** —
--- 그쪽은 `event_emitted_at IS NULL` 조건이 붙어 있어서, 그 조건이 없는 질의는 타지 못한다.
+-- 소비 측이 창을 잘라 읽을 때 쓴다 (S15P21A102-247).
 -- 장부는 지우지 않으므로(불변식 13) 인덱스가 없으면 회차마다 영원히 자라는 표를 통째로
 -- 훑는다. 지금은 행이 적어 티가 안 나고, 티가 날 때쯤이면 원인을 되짚기 어렵다.
 --
@@ -99,11 +94,14 @@ CREATE INDEX IF NOT EXISTS collected_article_retrying_idx
 CREATE INDEX IF NOT EXISTS collected_article_collected_at_idx
     ON collected_article (collected_at);
 
--- 요약 이벤트가 "이 실행이 발급한 건수" 를 셀 때 쓴다.
-CREATE INDEX IF NOT EXISTS collected_article_run_idx
-    ON collected_article (domain, event_run_id);
-
--- 실행 구간으로 세던 시절의 인덱스. 읽는 질의가 없어졌다 (S15P21A102-204).
+-- 발급이 있던 시절의 인덱스들. 읽는 질의가 없어졌다 (Kafka 제거 3/3, S15P21A102-204).
+--
+-- **칸(`event_emitted_at` · `event_run_id`)은 지우지 않는다.** 인덱스는 다시 만들면 되지만
+-- 칸을 떨구면 브로커가 있던 동안 어느 행이 언제 어느 실행으로 나갔는지가 영영 사라진다.
+-- 장부를 지우지 않는 이유(불변식 13)가 그 칸에도 그대로 적용된다. 쓰는 쪽만 없어졌고
+-- 값은 그 시절 행에 그대로 남아 있다.
+DROP INDEX IF EXISTS collected_article_pending_idx;
+DROP INDEX IF EXISTS collected_article_run_idx;
 DROP INDEX IF EXISTS collected_article_emitted_idx;
 
 -- 소스마다 국가 하나 (S15P21A102-276). 국가는 기사가 아니라 **소스의 속성**이라 여기 있다 —
@@ -142,7 +140,7 @@ CREATE TABLE IF NOT EXISTS collect_source_country (
 -- 수집이 소유한 `collect_source_country` 라서 남의 스키마에 묶이지 않는다. 기사가 아니라
 -- 소스의 속성이므로 장부 행에 복사하지 않고 여기서 붙인다.
 --
--- `collected_at` 은 KST 다. 발급 봉투가 그랬고 KST 는 서머타임이 없어 늘 `+09:00` 이다.
+-- `collected_at` 은 KST 다. 발급 봉투가 그랬고, KST 는 서머타임이 없어 늘 `+09:00` 이다.
 -- 창을 자를 때 쓰는 값은 `collected_at_ts` 로 따로 낸다 — 문자열로 범위를 자르면
 -- 인덱스를 못 탄다.
 --
@@ -230,11 +228,12 @@ ON CONFLICT (source) DO UPDATE SET country = EXCLUDED.country
 
 
 @dataclass(frozen=True, slots=True)
-class PendingArticle:
-    """발급을 기다리는 장부 행. 발급 봉투(#6)를 채우는 데 필요한 값이 전부 여기 있다.
+class LedgerRow:
+    """장부 행 하나. 봉투(#6)를 채우는 데 필요한 값이 전부 여기 있다.
 
-    발급이 MinIO 를 읽지 않아도 되게 만드는 게 이 모양의 목적이다 — 읽어야 하면 "저장
-    확인"의 `stat` 이 `get` 으로 커지고, 미발급이 쌓인 채 재개할 때 그만큼 다시 읽는다.
+    MinIO 를 읽지 않고도 봉투가 채워지게 만드는 게 이 모양의 목적이다 — 읽어야 하면 "저장
+    확인"의 `stat` 이 `get` 으로 커진다. 뷰(`collected_article_event`)가 같은 칸을 SQL 로
+    내는 것도 같은 이유다.
 
     `content_sha256`(raw 의 해시)은 여기 없다. 봉투의 `checksum` 은 `object_key` 가
     가리키는 객체, 즉 article.json 의 해시라서다. 이름이 비슷한 다른 값이다.
@@ -267,16 +266,8 @@ class RetryRow:
     first_failed_at: datetime
 
 
-@dataclass(frozen=True, slots=True)
-class EmittedStats:
-    """발급 실행별 기사 수와 가장 오래된 수집 시각. 수집 지연과 발급 지연을 구분한다."""
-
-    count: int
-    oldest_collected_at: datetime | None
-
-
 class Ledger(Protocol):
-    """장부. 발견과 취득 사이, 저장과 발급 사이에 끼어드는 두 자리를 연다."""
+    """장부. 발견과 취득 사이에 끼어들어 이미 받은 기사를 거르고, 받은 것을 적는다."""
 
     def ensure_schema(self, countries: Mapping[str, str]) -> None:
         """장부가 쓰는 표와 뷰를 만들고, 소스→국가 참조 표를 코드 표에 맞춘다.
@@ -290,15 +281,14 @@ class Ledger(Protocol):
         ...
 
     def source_countries(self) -> dict[str, str]:
-        """소스→국가 거울을 통째로 돌려준다. 발급 봉투의 `source_country` 가 여기서 온다.
+        """소스→국가 거울을 통째로 돌려준다. 봉투의 `source_country` 가 여기서 온다.
 
         **코드의 `SourceDef` 를 대신 읽으면 뷰와 갈린다.** 거울은 소스가 레지스트리에서
-        사라져도 지우지 않으므로(`_UPSERT_SOURCE_COUNTRY` 의 경고), 그 소스의 미발급 행이
-        장부에 남아 있으면 코드 표에는 없고 거울에는 있는 상태가 된다. 뷰는 거울을 읽으니
-        발급도 거울을 읽어야 같은 기사에 같은 국가가 붙는다.
+        사라져도 지우지 않으므로(`_UPSERT_SOURCE_COUNTRY` 의 경고), 레지스트리에서 빠진
+        소스의 기사는 코드 표에는 없고 거울에는 있다. 뷰가 거울을 읽으니 다른 창구도
+        거울을 읽어야 같은 기사에 같은 국가가 붙는다.
 
-        소스마다 묻지 않고 전량을 주는 이유는 부르는 자리가 만 건을 도는 루프 앞이라서다.
-        소스 수는 한 자리라 전량이 싸다.
+        소스마다 묻지 않고 전량을 주는 이유는 소스 수가 한 자리라 전량이 싸기 때문이다.
         """
         ...
 
@@ -330,43 +320,13 @@ class Ledger(Protocol):
     def mark_retry(self, meta: FetchMeta, *, at: datetime) -> RetryRow:
         """기사 페이지를 못 받았다고 적고, 지금까지의 시도 횟수를 돌려준다.
 
-        MinIO 에는 아무것도 쓰지 않는다. 이 행은 뷰와 발급 질의가 걸러 내므로 소비 측에
-        보이지 않는다 (S15P21A102-312).
+        MinIO 에는 아무것도 쓰지 않는다. 이 행은 뷰가 걸러 내므로 소비 측에 보이지
+        않는다 (S15P21A102-312).
         """
         ...
 
     def retrying(self, source: str) -> list[RetryRow]:
         """그 소스의 대기 행. 오래 기다린 것부터다."""
-        ...
-
-    def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
-        """아직 이벤트가 안 나간 행. 지난 실행에서 저장까지 하고 죽은 행이 여기 딸려 온다.
-
-        도메인으로 자르는 이유는 발급이 DAG 마다 하나씩이라서다 — 안 자르면 dev DAG 이
-        fashion 행까지 낸다.
-        """
-        ...
-
-    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
-        """발급된 행을 한 번에 적는다. 발급 성공 뒤에만 부른다(at-least-once).
-
-        묶음으로 받는 이유는 트랜잭션이다. 행마다 열면 만 건에 만 번이고, 중간에 죽으면
-        절반만 적힌 채로 남는다. 한 트랜잭션이면 다 적히거나 하나도 안 적힌다.
-
-        `run_id` 는 어느 실행이 냈는지다. 요약 건수를 이 값으로 센다.
-        """
-        ...
-
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
-        """그 실행이 발급한 기사 수를 소스별로 센다. 요약 이벤트의 `emitted` 와 발급 지연의 근거다.
-
-        "이번 시도가 보낸 것" 을 세지 않는 이유는 재시도 때문이다 — 발급까지 마치고 요약
-        중간에 죽으면 다음 시도는 보낼 게 없어 0 이 되고, 같은 `event_id` 로 내용이 다른
-        요약이 나간다(팀 발행 규약 3 위반). 장부에 적힌 실행으로 세면 흔들리지 않는다.
-
-        실행 구간(`event_emitted_at >= 시작시각`)으로 세지 않는 이유는 겹침이다 — 실행 둘이
-        가까우면 앞 실행이 낸 것까지 뒤 실행 몫으로 센다.
-        """
         ...
 
 
@@ -393,9 +353,9 @@ def restore_offset(value: datetime, offset_minutes: int | None) -> datetime:
     return value.astimezone(timezone(timedelta(minutes=offset_minutes)))
 
 
-def to_pending(article: Article, *, article_key: str, article_sha256: str) -> PendingArticle:
-    """`Article` 에서 발급에 필요한 값만 뽑는다. 장부를 거치지 않는 경로도 같은 모양을 쓴다."""
-    return PendingArticle(
+def to_ledger_row(article: Article, *, article_key: str, article_sha256: str) -> LedgerRow:
+    """`Article` 에서 장부 행이 드는 값만 뽑는다. 장부를 거치지 않는 경로도 같은 모양을 쓴다."""
+    return LedgerRow(
         source=article.source,
         article_id=article.article_id,
         domain=article.domain,
@@ -418,8 +378,7 @@ class InMemoryLedger:
     """
 
     def __init__(self) -> None:
-        self._rows: dict[tuple[str, str], PendingArticle] = {}
-        self._emitted: dict[tuple[str, str], tuple[datetime, str]] = {}
+        self._rows: dict[tuple[str, str], LedgerRow] = {}
         self._retrying: dict[tuple[str, str], RetryRow] = {}
         # 뷰의 `LEFT JOIN` 이 읽는 참조 표에 해당한다. 만들 표가 없으니 이것만 남는다.
         self.countries: dict[str, str] = {}
@@ -440,7 +399,7 @@ class InMemoryLedger:
         if key in self._rows:
             return False
         self._retrying.pop(key, None)  # 재시도가 성공한 자리
-        self._rows[key] = to_pending(
+        self._rows[key] = to_ledger_row(
             article, article_key=article_key, article_sha256=article_sha256
         )
         return True
@@ -461,27 +420,17 @@ class InMemoryLedger:
         rows.sort(key=lambda r: (r.first_failed_at, r.meta.article_id))
         return rows
 
-    def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
-        rows = [r for k, r in self._rows.items() if k not in self._emitted and r.domain == domain]
+    def rows(self, domain: str) -> list[LedgerRow]:
+        """적힌 행을 수집 시각 순으로. `Ledger` 규약에 없는 **대역만의 창**이다.
+
+        `InMemoryObjectStore.objects` 와 같은 자리다 — 무엇이 적혔는지 볼 수 없으면
+        "통과" 가 아무것도 보장하지 않는다. Postgres 쪽에 같은 것을 두지 않는 이유는
+        거기서 장부를 읽는 것은 뷰(`collected_article_event`)이고, 그 뷰가 맞는지는
+        진짜 DB 를 걸어야만 볼 수 있기 때문이다 (`tests/common/test_ledger_view.py`).
+        """
+        rows = [r for r in self._rows.values() if r.domain == domain]
         rows.sort(key=lambda r: (r.collected_at, r.source, r.article_id))
-        return rows[:limit]
-
-    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
-        for key in keys:
-            self._emitted[key] = (at, run_id)
-
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
-        stats: dict[str, EmittedStats] = {}
-        for key, (at, emitted_run) in self._emitted.items():
-            row = self._rows[key]
-            if row.domain == domain and emitted_run == run_id and at is not None:
-                previous = stats.get(row.source, EmittedStats(0, None))
-                oldest = previous.oldest_collected_at
-                stats[row.source] = EmittedStats(
-                    previous.count + 1,
-                    min(oldest, row.collected_at) if oldest is not None else row.collected_at,
-                )
-        return stats
+        return rows
 
 
 # 대기 행(`retrying`)이 있으면 그 자리를 저장 결과로 덮는다 — 재시도가 성공하거나 포기해
@@ -545,26 +494,6 @@ ORDER BY first_failed_at, article_id
 _SELECT_SOURCE_COUNTRY = """
 SELECT source, country FROM collect_source_country
 """
-
-_SELECT_PENDING = """
-SELECT source, article_id, domain, url, title, published_at, published_at_offset,
-       collected_at, article_key, article_sha256, raw_key, members_only, paywalled
-FROM collected_article
-WHERE event_emitted_at IS NULL AND domain = %s AND fetch_state <> 'retrying'
-ORDER BY collected_at, source, article_id
-LIMIT %s
-"""
-
-
-# `event_emitted_at IS NOT NULL` 이 붙는 이유는 재발행 때문이다. 발급 표시만 지우고
-# `event_run_id` 를 남기면 아직 안 나간 행이 옛 실행 몫으로 잡힌다.
-_SELECT_EMITTED_BY_RUN = """
-SELECT source, count(*), min(collected_at)
-FROM collected_article
-WHERE domain = %s AND event_run_id = %s AND event_emitted_at IS NOT NULL
-GROUP BY source
-"""
-
 
 class PostgresLedger:
     """앱 DB 의 장부. 접속은 `Database` 로 받는다 (Connection ID `app_db` 의 값)."""
@@ -675,40 +604,3 @@ class PostgresLedger:
             )
             for r in rows
         ]
-
-    def pending(self, domain: str, limit: int = 500) -> list[PendingArticle]:
-        with self._db.transaction() as conn, conn.cursor() as cur:
-            cur.execute(_SELECT_PENDING, (domain, limit))
-            rows = cur.fetchall()
-        return [
-            PendingArticle(
-                source=r[0],
-                article_id=r[1],
-                domain=r[2],
-                url=r[3],
-                title=r[4],
-                published_at=restore_offset(r[5], r[6]),
-                collected_at=r[7],
-                article_key=r[8],
-                article_sha256=r[9],
-                raw_key=r[10],
-                members_only=r[11],
-                paywalled=r[12],
-            )
-            for r in rows
-        ]
-
-    def mark_emitted_many(self, keys: Sequence[tuple[str, str]], at: datetime, run_id: str) -> None:
-        if not keys:
-            return
-        with self._db.transaction() as conn, conn.cursor() as cur:
-            cur.execute(
-                "UPDATE collected_article SET event_emitted_at = %s, event_run_id = %s "
-                "WHERE (source, article_id) IN %s",
-                (at, run_id, tuple(keys)),
-            )
-
-    def emitted_by_run(self, domain: str, run_id: str) -> dict[str, EmittedStats]:
-        with self._db.transaction() as conn, conn.cursor() as cur:
-            cur.execute(_SELECT_EMITTED_BY_RUN, (domain, run_id))
-            return {source: EmittedStats(count, oldest) for source, count, oldest in cur.fetchall()}

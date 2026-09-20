@@ -72,7 +72,7 @@ def test_피드_한_소스를_발견부터_장부_기록까지_돈다(feed_bytes
     assert outcome.duration_ms >= 0
     # 기사마다 raw 와 article.json 이 하나씩 (불변식 7)
     assert len(store.objects) == outcome.stored * 2
-    assert len(ledger.pending("fashion")) == outcome.stored
+    assert len(ledger.rows("fashion")) == outcome.stored
 
 
 def test_두_번_돌려도_장부와_객체가_안_는다(feed_bytes, clock):
