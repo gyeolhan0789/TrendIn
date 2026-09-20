@@ -25,6 +25,12 @@ globalThis.window = {
     setItem: (key, value) => store.set(key, value),
     removeItem: (key) => store.delete(key),
   },
+  // clearAuthSession 이 랜딩 안내 표시를 함께 되돌리므로 이쪽도 흉내 냅니다.
+  sessionStorage: {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  },
   addEventListener: () => {},
 };
 
@@ -132,5 +138,21 @@ test('한꺼번에 몰린 401도, 뒤늦게 도착한 401도 재발급을 한 �
    */
   await apiClient.get('/keywords/search', { headers: { Authorization: 'Bearer AT1' } });
   assert.equal(reissues, 1);
+  assert.equal(getAuthSession()?.refreshToken, 'RT2');
+});
+test('로그아웃이 401로 끝나도 세션을 먼저 지우지 않는다', async () => {
+  handle = (config) => {
+    if (config.url === '/auth/reissue') {
+      return reply(config, 200, { data: { accessToken: 'AT2', refreshToken: 'RT2', tokenType: 'Bearer', onboardingCompleted: true } });
+    }
+    return reply(config, 401, null);
+  };
+
+  await assert.rejects(apiClient.post('/auth/logout', { refreshToken: 'RT1' }));
+
+  /*
+   * 서버는 회전된 토큰만 쥐고 있습니다. 여기서 세션을 지워 버리면 화면이 그 토큰을 다시 보낼
+   * 수 없어, 기기에서만 로그아웃되고 서버에는 쓸 수 있는 Refresh Token이 남습니다.
+   */
   assert.equal(getAuthSession()?.refreshToken, 'RT2');
 });

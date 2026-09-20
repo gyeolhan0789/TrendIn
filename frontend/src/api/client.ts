@@ -110,7 +110,8 @@ apiClient.interceptors.response.use(undefined, async (error: AxiosError) => {
    * 로그인으로 보냅니다(RequireAuth).
    */
   if (request.retriedAfterReissue) {
-    clearAuthSession();
+    // 로그아웃은 화면이 스스로 세션을 정리합니다. 여기서 먼저 지우면 서버에서 지울 토큰까지 잃습니다.
+    if (request.url !== API_ENDPOINTS.auth.logout) clearAuthSession();
     return Promise.reject(error);
   }
 
