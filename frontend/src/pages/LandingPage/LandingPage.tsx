@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FilterSelect } from '../../components/common/FilterSelect';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { useFeaturedTrendContents } from '../../features/trend/hooks/useFeaturedTrendContents';
 import { SiteFooter } from '../../components/layout/SiteFooter';
 import { ParticleWave } from './components/ParticleWave';
+import { TodayTrends } from './components/TodayTrends';
 import { TrendSearch } from './components/TrendSearch';
 import {
   claimFirstLandingAnimationSafely,
   claimFirstLandingGuideSafely,
 } from '../../utils/landingExperience';
+import { useLandingDomain } from './useLandingDomain';
 import './particleLanding.css';
-
-const boards = [
-  { title: '급상승 트렌드', tone: 'rising', rows: [['01', '발레코어', '+128%'], ['02', '스웨이드 백', '+84%'], ['03', '레트로 스니커즈', '+62%']] },
-  { title: '신규 트렌드', tone: 'new', rows: [['01', '레이스 레이어링', 'NEW'], ['02', '버터 옐로', 'NEW'], ['03', '스카프 스타일링', 'NEW']] },
-  { title: '재급상승 트렌드', tone: 'returning', rows: [['01', '시어 소재', '+76%'], ['02', '메리제인 슈즈', '+51%'], ['03', '와이드 데님', '+39%']] },
-];
 
 function formatPublishedAt(value: string) {
   const date = new Date(value);
@@ -30,7 +27,13 @@ export function LandingPage() {
   const [playEntryAnimation] = useState(claimFirstLandingAnimationSafely);
   const [waveReady, setWaveReady] = useState(!playEntryAnimation);
   const [showGuide, setShowGuide] = useState(() => Boolean(session) && claimFirstLandingGuideSafely());
-  const featuredQuery = useFeaturedTrendContents();
+  /*
+   * 두 구역이 각자 분야를 고릅니다. 같은 훅을 두 번 부르면 고른 값은 따로 남고, 분야 목록
+   * 조회는 키가 같아 캐시가 합쳐 줍니다 — 칸이 둘이어도 목록을 두 번 받지는 않습니다.
+   */
+  const trendsDomain = useLandingDomain();
+  const featuredDomain = useLandingDomain();
+  const featuredQuery = useFeaturedTrendContents(featuredDomain.domain);
   const onWaveReady = useCallback(() => setWaveReady(true), []);
   const pageRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -81,33 +84,18 @@ export function LandingPage() {
 
         <section className="trends-section" id="trends">
           <div className="trends-inner">
-            <div className="section-heading">
-              <div>
-                <h1>오늘의 트렌드</h1>
-                <p>지금 가장 주목받는 패션 키워드를 한눈에 확인해보세요.</p>
-              </div>
-              <span className="demo-badge">DEMO DATA</span>
-            </div>
-            <div className="trend-boards">
-              {boards.map((board) => (
-                <article className={`trend-board trend-board--${board.tone}`} key={board.title}>
-                  {version !== '3' && <div className="trend-board-art" aria-hidden="true"><span /><span /></div>}
-                  <div className="trend-board-body">
-                    <h2>{version === '3' ? (board.tone === 'rising' ? '인기 트렌드' : board.tone === 'returning' ? '급상승 트렌드' : board.title) : board.title}</h2>
-                    {board.rows.map(([rank, keyword, growth]) => (
-                      <div className="trend-row" key={keyword}>
-                        <span className="trend-rank">{rank}</span>
-                        <span className="trend-keyword">{keyword}</span>
-                        <span className={`trend-growth ${growth === 'NEW' ? 'trend-growth--new' : ''}`}>{growth}</span>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
+            <TodayTrends {...trendsDomain} />
             {version === '3' && <section className="featured-section" aria-labelledby="featured-title">
               <div className="section-heading">
-                <div><h2 id="featured-title">지금 주목할 만한 콘텐츠</h2><p>패션 트렌드와 관련된 주요 콘텐츠를 모았습니다.</p></div>
+                <div><h2 id="featured-title">지금 주목할 만한 콘텐츠</h2><p>고른 분야의 인기 트렌드에서 모은 콘텐츠입니다.</p></div>
+                {/* 위 트렌드 판과 따로 고릅니다. 같은 분야로 맞추고 싶으면 두 칸을 같게 두면 됩니다. */}
+                <FilterSelect
+                  value={featuredDomain.domain ?? ''}
+                  options={featuredDomain.options}
+                  ariaLabel="콘텐츠 분야"
+                  onChange={featuredDomain.pick}
+                  disabled={featuredDomain.domains.length === 0}
+                />
               </div>
               <div className="featured-grid">
                 {featuredQuery.data?.map(({ trend, content }) => <a className="featured-card" href={content.url} key={trend.trendId} target="_blank" rel="noreferrer">
@@ -116,7 +104,9 @@ export function LandingPage() {
                   <span className="featured-meta">{content.source} · {formatPublishedAt(content.publishedAt)}</span>
                 </a>)}
               </div>
-              {featuredQuery.isPending && <p className="featured-state">콘텐츠를 불러오는 중입니다.</p>}
+              {/* 고른 분야가 없으면 조회를 아예 걸지 않아 계속 '불러오는 중'에 머뭅니다. 먼저 가릅니다. */}
+              {featuredDomain.noChosenDomain && <p className="featured-state">고른 관심 분야가 없어 보여 줄 콘텐츠가 없습니다.</p>}
+              {!featuredDomain.noChosenDomain && featuredQuery.isPending && <p className="featured-state">콘텐츠를 불러오는 중입니다.</p>}
               {featuredQuery.isError && <div className="featured-state" role="alert">콘텐츠를 불러오지 못했습니다. <button type="button" onClick={() => void featuredQuery.refetch()}>다시 시도</button></div>}
               {!featuredQuery.isPending && !featuredQuery.isError && featuredQuery.data?.length === 0 && <p className="featured-state">아직 소개할 콘텐츠가 없습니다.</p>}
             </section>}

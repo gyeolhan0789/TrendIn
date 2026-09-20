@@ -46,6 +46,15 @@
 .particle-landing .trend-keyword { min-width: 0; overflow: hidden; color: #30374b; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .particle-landing .trend-growth { margin-left: auto; color: #0f62fe; font-size: 13px; font-weight: 700; white-space: nowrap; }
 .particle-landing .trend-growth--new { border-radius: 4px; padding: 3px 7px; background: #f0eaff; color: #7c5bd4; font-size: 10px; }
+/* 직전 구간이 없어 증감률을 못 내는 줄. 값이 있는 줄과 같은 파랑으로 칠하면 숫자가 있는 것처럼 보입니다. */
+.particle-landing .trend-growth--none { color: #9aa3b5; }
+/* 줄 전체가 누르는 자리입니다. 단추로 설 때만 폭과 정렬이 어긋나 원래 줄에 맞춰 줍니다. */
+.particle-landing button.trend-row { width: 100%; text-align: left; }
+.particle-landing a.trend-row:hover, .particle-landing button.trend-row:hover { background: #f7f8fd; }
+/* 줄 대신 서는 안내. 줄과 같은 높이라 불러오는 동안에도 판이 들썩이지 않습니다. */
+.particle-landing .trend-board-state { display: flex; align-items: center; min-height: 48px; border-top: 1px solid #f0f1f6; color: #8992a5; font-size: 13px; }
+.particle-landing .trend-boards-empty { color: #8992a5; font-size: 14px; }
+.particle-landing .trend-boards-empty a { color: #0f62fe; font-weight: 600; }
 @media (max-width: 900px) { .particle-landing .trend-boards { grid-template-columns: 1fr; } .particle-landing .trends-section { min-height: 0; } .particle-landing .trend-board { min-height: 0; } }
 @media (max-width: 600px) { .particle-landing .hero { min-height: max(640px, 100svh); } .particle-landing .wave-hit-area { inset: 17% 4% 12%; } .particle-landing .trends-section { padding-top: 88px; } .particle-landing .section-heading { align-items: flex-start; } .particle-landing .demo-badge { display: none; } }
 @media (prefers-reduced-motion: reduce) { }
