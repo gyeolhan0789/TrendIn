@@ -15,6 +15,17 @@ function initialOf(nickname: string, email: string) {
   return (nickname.trim()[0] ?? email.trim()[0] ?? 'T').toUpperCase();
 }
 
+const DISPLAY_DOMAINS = [
+  { domain: 'GAME', name: '게임', icon: '🎮' },
+  { domain: 'DEVELOP', name: '개발', icon: '💻' },
+  { domain: 'FASHION', name: '패션', icon: '👗' },
+  { domain: 'BEAUTY', name: '뷰티', icon: '💄' },
+  { domain: 'MUSIC', name: '음악', icon: '🎵' },
+  { domain: 'TRAVEL', name: '여행', icon: '✈️' },
+  { domain: 'CONTENT', name: '콘텐츠', icon: '🎬' },
+  { domain: 'FINANCE', name: '금융', icon: '💰' },
+] as const;
+
 export function ProfileEditPage() {
   const navigate = useNavigate();
   const profileQuery = useMyProfile();
@@ -60,7 +71,6 @@ export function ProfileEditPage() {
       return;
     }
     if (selected.length === 0) {
-      setFormError('관심 분야는 최소 1개 이상 선택해야 합니다.');
       return;
     }
     setFormError(undefined);
@@ -124,8 +134,6 @@ export function ProfileEditPage() {
 
       <MyPageCard title="관심 분야" tone="emerald">
         <p className="mypage-card-lead">관심 분야를 설정하면 그 분야의 트렌드를 먼저 받아 볼 수 있습니다.</p>
-        {/* 분야에서 빠진 관심 키워드는 서버가 함께 지웁니다. 저장하고 나서야 알면 늦습니다. */}
-        <p className="mypage-card-lead">분야를 빼면 그 분야에 등록한 관심 키워드도 함께 지워집니다.</p>
 
         {domainsQuery.isLoading && <div className="trendin-state" aria-label="불러오는 중"><span /><span /><span /></div>}
         {domainsQuery.isError && (
@@ -136,20 +144,25 @@ export function ProfileEditPage() {
         )}
 
         {domainsQuery.isSuccess && (
-          <div className="mypage-chips">
-            {domainsQuery.data.map((option) => (
-              <button
-                key={option.domain}
-                type="button"
-                aria-pressed={selected.includes(option.domain)}
-                className={`mypage-chip${selected.includes(option.domain) ? ' is-on' : ''}`}
-                disabled={saving}
-                onClick={() => toggleDomain(option.domain)}
-              >
-                {option.name}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="mypage-chips">
+              {DISPLAY_DOMAINS.map((option) => (
+                <button
+                  key={option.domain}
+                  type="button"
+                  aria-pressed={selected.includes(option.domain)}
+                  className={`mypage-chip${selected.includes(option.domain) ? ' is-on' : ''}${option.domain !== 'FASHION' ? ' is-unavailable' : ''}`}
+                  disabled={saving || option.domain !== 'FASHION' || !domainsQuery.data.some((domain) => domain.domain === option.domain)}
+                  onClick={() => toggleDomain(option.domain)}
+                >
+                  <span aria-hidden="true">{option.icon}</span> {option.name}
+                </button>
+              ))}
+            </div>
+            {seeded && selected.length === 0 && (
+              <p className="mypage-error" role="alert">관심 분야는 최소 1개 이상 선택해야 합니다.</p>
+            )}
+          </>
         )}
       </MyPageCard>
 
@@ -160,7 +173,7 @@ export function ProfileEditPage() {
         <button
           type="button"
           className="mypage-btn mypage-btn--primary"
-          disabled={!profile || saving || (!nicknameChanged && !domainsChanged)}
+          disabled={!profile || saving || selected.length === 0 || (!nicknameChanged && !domainsChanged)}
           onClick={() => void save()}
         >
           {saving ? '저장 중…' : '변경사항 저장'}

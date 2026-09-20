@@ -1424,6 +1424,8 @@ h1 { margin: 0; line-height: 1.25; }
 .mypage-chip:hover:not(:disabled):not(.is-on) { background: #eef2ff; color: var(--lp-indigo); }
 .mypage-chip.is-on { background: var(--lp-indigo); color: #fff; }
 .mypage-chip:disabled { cursor: default; opacity: .6; }
+.mypage-chip.is-unavailable { border: 1px solid #d8dce6; background: #f6f7f9; color: #9298a6; }
+.mypage-chip.is-unavailable.is-on { background: #e9ebef; color: #6b7280; }
 
 .mypage-page .mypage-error { margin-top: 16px; color: #b8382e; font-size: 13px; }
 
