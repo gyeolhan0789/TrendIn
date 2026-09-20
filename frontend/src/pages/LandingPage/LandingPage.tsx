@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FilterSelect } from '../../components/common/FilterSelect';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
-import { useFeaturedTrendContents } from '../../features/trend/hooks/useFeaturedTrendContents';
 import { SiteFooter } from '../../components/layout/SiteFooter';
+import { FeaturedContentsCarousel } from './components/FeaturedContentsCarousel';
 import { ParticleWave } from './components/ParticleWave';
 import { TodayTrends } from './components/TodayTrends';
 import { TrendSearch } from './components/TrendSearch';
@@ -12,13 +12,6 @@ import {
 } from '../../utils/landingExperience';
 import { useLandingDomain } from './useLandingDomain';
 import './particleLanding.css';
-
-function formatPublishedAt(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('ko-KR', { month: 'short', day: 'numeric' }).format(date);
-}
 
 export function LandingPage() {
   const version: string = '3';
@@ -33,7 +26,6 @@ export function LandingPage() {
    */
   const trendsDomain = useLandingDomain();
   const featuredDomain = useLandingDomain();
-  const featuredQuery = useFeaturedTrendContents(featuredDomain.domain);
   const onWaveReady = useCallback(() => setWaveReady(true), []);
   const pageRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -97,18 +89,10 @@ export function LandingPage() {
                   disabled={featuredDomain.domains.length === 0}
                 />
               </div>
-              <div className="featured-grid">
-                {featuredQuery.data?.map(({ trend, content }) => <a className="featured-card" href={content.url} key={trend.trendId} target="_blank" rel="noreferrer">
-                  <span className="featured-tag">인기 {trend.rank ?? '-' }위 · {trend.keyword}</span>
-                  <div><h3>{content.title}</h3><p>{trend.description ?? `${trend.keyword} 트렌드의 대표 콘텐츠입니다.`}</p></div>
-                  <span className="featured-meta">{content.source} · {formatPublishedAt(content.publishedAt)}</span>
-                </a>)}
-              </div>
-              {/* 고른 분야가 없으면 조회를 아예 걸지 않아 계속 '불러오는 중'에 머뭅니다. 먼저 가릅니다. */}
-              {featuredDomain.noChosenDomain && <p className="featured-state">고른 관심 분야가 없어 보여 줄 콘텐츠가 없습니다.</p>}
-              {!featuredDomain.noChosenDomain && featuredQuery.isPending && <p className="featured-state">콘텐츠를 불러오는 중입니다.</p>}
-              {featuredQuery.isError && <div className="featured-state" role="alert">콘텐츠를 불러오지 못했습니다. <button type="button" onClick={() => void featuredQuery.refetch()}>다시 시도</button></div>}
-              {!featuredQuery.isPending && !featuredQuery.isError && featuredQuery.data?.length === 0 && <p className="featured-state">아직 소개할 콘텐츠가 없습니다.</p>}
+              <FeaturedContentsCarousel
+                domain={featuredDomain.domain}
+                noChosenDomain={featuredDomain.noChosenDomain}
+              />
             </section>}
           </div>
         </section>
