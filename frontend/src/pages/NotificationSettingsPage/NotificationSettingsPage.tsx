@@ -44,7 +44,7 @@ export function NotificationSettingsPage() {
     <MyPageScreen width="md">
       <MyPageCrumb current="알림 설정" />
 
-      <div className="mypage-head mypage-head--split">
+      <div className="mypage-head mypage-head--split trendin-page-heading">
         <div>
           <h1>알림 설정</h1>
           <p>알림 수신 방법과 항목을 세부적으로 관리하세요.</p>

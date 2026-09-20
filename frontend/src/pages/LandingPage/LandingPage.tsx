@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { useFeaturedTrendContents } from '../../features/trend/hooks/useFeaturedTrendContents';
+import { SiteFooter } from '../../components/layout/SiteFooter';
 import { ParticleWave } from './components/ParticleWave';
 import { TrendSearch } from './components/TrendSearch';
-import { claimFirstLandingExperienceSafely } from './landingExperience';
+import {
+  claimFirstLandingAnimationSafely,
+  claimFirstLandingGuideSafely,
+} from '../../utils/landingExperience';
 import './particleLanding.css';
 
 const boards = [
@@ -21,9 +26,10 @@ function formatPublishedAt(value: string) {
 export function LandingPage() {
   const version: string = '3';
   const isDark = version === '2' || version === '3';
-  const [isFirstLanding] = useState(claimFirstLandingExperienceSafely);
-  const [waveReady, setWaveReady] = useState(!isFirstLanding);
-  const [showGuide, setShowGuide] = useState(isFirstLanding);
+  const session = useAuthSession();
+  const [playEntryAnimation] = useState(claimFirstLandingAnimationSafely);
+  const [waveReady, setWaveReady] = useState(!playEntryAnimation);
+  const [showGuide, setShowGuide] = useState(() => Boolean(session) && claimFirstLandingGuideSafely());
   const featuredQuery = useFeaturedTrendContents();
   const onWaveReady = useCallback(() => setWaveReady(true), []);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -62,7 +68,7 @@ export function LandingPage() {
     <div ref={pageRef} className={`particle-landing${isDark ? ' demo-page--v2' : ''}${version === '3' ? ' demo-page--v3' : ''}`}>
 <main>
         <section className="hero" id="top" aria-label="파티클 물결 인터랙션">
-          <ParticleWave variant={version === '3' ? 'transition' : isDark ? 'dark' : 'light'} playEntryAnimation={isFirstLanding} onEntryComplete={onWaveReady} />
+          <ParticleWave variant={version === '3' ? 'transition' : isDark ? 'dark' : 'light'} playEntryAnimation={playEntryAnimation} onEntryComplete={onWaveReady} />
           {showGuide && <div className="interaction-guide" role="status">
             <span aria-hidden="true">✦</span>
             <p>마우스로 흐름을 만들고,<br />드래그로 물결을 둘러보세요.</p>
@@ -117,7 +123,7 @@ export function LandingPage() {
           </div>
         </section>
       </main>
-      <footer className="site-footer"><span>trend<span>in</span></span><span>{version === '3' ? '@SSAFY_A102' : '흐름을 읽는 새로운 시선'}</span></footer>
+      <SiteFooter />
     </div>
   );
 }

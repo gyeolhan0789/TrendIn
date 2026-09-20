@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../../../features/auth/hooks/useAuthSession';
-import { filterDetailKeywords } from '../../../features/trend/detailKeyword';
-import { useKeywordSearch } from '../../../features/trend/hooks/useKeywordSearch';
+import { isDetailKeyword } from '../../../features/trend/detailKeyword';
+import { useInfiniteKeywordSearch } from '../../../features/trend/hooks/useKeywordSearch';
 import { useTrendDetailLink } from '../../../features/trend/trendDetailLink';
 
 const SEARCH_DELAY_MS = 280;
@@ -21,10 +21,10 @@ export function TrendSearch() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const searchQuery = useKeywordSearch(debouncedQuery, Boolean(session));
-  const searching = query.length > 0 && (debouncedQuery !== query || searchQuery.isPending || searchQuery.isFetching);
+  const searchQuery = useInfiniteKeywordSearch(debouncedQuery, Boolean(session));
+  const searching = query.length > 0 && (debouncedQuery !== query || searchQuery.isPending);
   const settled = query.length > 0 && !searching && searchQuery.isSuccess;
-  const foundKeywords = settled ? filterDetailKeywords(searchQuery.data.items) : [];
+  const foundKeywords = settled ? searchQuery.data.pages.flatMap((page) => page.items) : [];
   const requireLogin = () => {
     if (session) return false;
     navigate('/login', {
@@ -52,10 +52,19 @@ export function TrendSearch() {
       {searching && <p className="search-empty">찾는 중…</p>}
       {!searching && searchQuery.isError && <p className="search-empty">검색 결과를 불러오지 못했습니다.</p>}
       {settled && foundKeywords.length > 0 && <div className="search-keywords">{foundKeywords.map((item) => (
-        <Link key={item.keywordId} {...openDetail(item.trendId)}>{item.keyword}</Link>
+        isDetailKeyword(item)
+          ? <Link key={item.keywordId} {...openDetail(item.trendId)}>{item.keyword}</Link>
+          : <span key={item.keywordId} className="is-disabled" aria-disabled="true">{item.keyword}</span>
       ))}</div>}
-      {settled && foundKeywords.length === 0 && <p className="search-empty">검색어와 맞는 트렌드가 없습니다.</p>}
-      {settled && searchQuery.data.hasNext && <small>키워드 결과가 더 있습니다. 검색어를 조금 더 입력해 주세요.</small>}
+      {settled && foundKeywords.length === 0 && <p className="search-empty">검색어와 맞는 키워드가 없습니다.</p>}
+      {settled && searchQuery.hasNextPage && <button
+        className="search-more"
+        type="button"
+        disabled={searchQuery.isFetchingNextPage}
+        onClick={() => void searchQuery.fetchNextPage()}
+      >
+        {searchQuery.isFetchingNextPage ? '불러오는 중…' : '더보기'}
+      </button>}
     </div>}
   </section>;
 }

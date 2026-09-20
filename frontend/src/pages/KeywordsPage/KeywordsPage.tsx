@@ -89,11 +89,11 @@ export function KeywordsPage() {
 
   return (
     <div className="keywords-page">
-      <section className="keywords-hero">
+      <section className="keywords-hero trendin-page-heading">
         <div>
-          <p className="keywords-eyebrow">내가 만드는 트렌드 레이더</p>
+          <p className="keywords-eyebrow trendin-page-eyebrow">내가 만드는 트렌드 레이더</p>
           <h1>관심 키워드</h1>
-          <p className="keywords-lead">지속적으로 보고 싶은 키워드를 등록하면, 트렌드에 오를 때 알려 드립니다.</p>
+          <p className="keywords-lead trendin-page-lead">지속적으로 보고 싶은 키워드를 등록하면, 트렌드에 오를 때 알려 드립니다.</p>
         </div>
         <KeywordSearchBar />
       </section>

@@ -58,7 +58,7 @@ export function AccountSettingsPage() {
   return (
     <MyPageScreen width="md">
       <MyPageCrumb current="계정 설정" />
-      <div className="mypage-head">
+      <div className="mypage-head trendin-page-heading">
         <h1>계정 설정</h1>
       </div>
 

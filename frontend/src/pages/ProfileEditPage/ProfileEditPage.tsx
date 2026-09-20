@@ -78,7 +78,7 @@ export function ProfileEditPage() {
   return (
     <MyPageScreen width="sm">
       <MyPageCrumb current="프로필 편집" />
-      <div className="mypage-head">
+      <div className="mypage-head trendin-page-heading">
         <h1>프로필 편집</h1>
       </div>
 

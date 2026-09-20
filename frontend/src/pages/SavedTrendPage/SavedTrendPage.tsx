@@ -119,9 +119,9 @@ export function SavedTrendPage() {
 
   return (
     <div className="saved-page">
-      <section className="saved-hero">
+      <section className="saved-hero trendin-page-heading">
         <div className="saved-hero-title">
-          <p className="saved-eyebrow">내가 저장한 트렌드를 한눈에</p>
+          <p className="saved-eyebrow trendin-page-eyebrow">내가 저장한 트렌드를 한눈에</p>
           <h1>저장된 트렌드</h1>
         </div>
         <FilterSelect
