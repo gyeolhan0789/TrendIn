@@ -41,6 +41,15 @@ export function projectFlat(lon: number, lat: number, width: number): Point {
   };
 }
 
+/** 평면 지도 좌표를 경위도로 되돌립니다. 커서가 짚은 자리를 알아야 그 자리를 붙든 채 확대할 수 있습니다. */
+export function unprojectFlat(x: number, y: number, width: number): { lon: number; lat: number } {
+  const mercY = TOP_Y - (y / width) * 2 * Math.PI;
+  return {
+    lon: (x / width) * 360 - 180,
+    lat: (2 * Math.atan(Math.exp(mercY)) - Math.PI / 2) / DEG,
+  };
+}
+
 export function flatPathOf(rings: RingGeometry[], width: number): string {
   let path = '';
   for (const ring of rings) {
@@ -202,25 +211,51 @@ export interface LonLat {
   lat: number;
 }
 
-/** 두 지점을 잇는 큰 원(비행기 항로처럼 휘는 선)입니다. 확산 경로를 그릴 때 씁니다. */
-export function greatCircle(from: LonLat, to: LonLat, steps = 48): LonLat[] {
+/*
+ * 큰 원 하나를 미리 풀어 둔 값입니다. 두 지점 사이의 각거리와 그 사인은 경로 위 어느 자리를
+ * 묻든 같으므로, 점마다 다시 셈하지 않고 여기 한 번만 담아 둡니다.
+ */
+interface Arc {
+  fromLon: number;
+  fromLat: number;
+  toLon: number;
+  toLat: number;
+  delta: number;
+  sinDelta: number;
+}
+
+function arcOf(from: LonLat, to: LonLat): Arc {
   const fromLon = from.lon * DEG;
   const fromLat = from.lat * DEG;
   const toLon = to.lon * DEG;
   const toLat = to.lat * DEG;
   const cosDelta = Math.sin(fromLat) * Math.sin(toLat) + Math.cos(fromLat) * Math.cos(toLat) * Math.cos(toLon - fromLon);
   const delta = Math.acos(Math.max(-1, Math.min(1, cosDelta)));
-  if (delta < 1e-6) return [from, to];
+  return { fromLon, fromLat, toLon, toLat, delta, sinDelta: Math.sin(delta) };
+}
+
+function arcPoint(arc: Arc, ratio: number): LonLat {
+  const { fromLon, fromLat, toLon, toLat, delta, sinDelta } = arc;
+  const a = Math.sin((1 - ratio) * delta) / sinDelta;
+  const b = Math.sin(ratio * delta) / sinDelta;
+  const x = a * Math.cos(fromLat) * Math.cos(fromLon) + b * Math.cos(toLat) * Math.cos(toLon);
+  const y = a * Math.cos(fromLat) * Math.sin(fromLon) + b * Math.cos(toLat) * Math.sin(toLon);
+  const z = a * Math.sin(fromLat) + b * Math.sin(toLat);
+  return { lon: Math.atan2(y, x) / DEG, lat: Math.atan2(z, Math.hypot(x, y)) / DEG };
+}
+
+/** 두 지점을 잇는 큰 원(비행기 항로처럼 휘는 선)입니다. 확산 경로를 그릴 때 씁니다. */
+export function greatCircle(from: LonLat, to: LonLat, steps = 48): LonLat[] {
+  const arc = arcOf(from, to);
+  if (arc.delta < 1e-6) return [from, to];
 
   const points: LonLat[] = [];
-  for (let step = 0; step <= steps; step += 1) {
-    const ratio = step / steps;
-    const a = Math.sin((1 - ratio) * delta) / Math.sin(delta);
-    const b = Math.sin(ratio * delta) / Math.sin(delta);
-    const x = a * Math.cos(fromLat) * Math.cos(fromLon) + b * Math.cos(toLat) * Math.cos(toLon);
-    const y = a * Math.cos(fromLat) * Math.sin(fromLon) + b * Math.cos(toLat) * Math.sin(toLon);
-    const z = a * Math.sin(fromLat) + b * Math.sin(toLat);
-    points.push({ lon: Math.atan2(y, x) / DEG, lat: Math.atan2(z, Math.hypot(x, y)) / DEG });
-  }
+  for (let step = 0; step <= steps; step += 1) points.push(arcPoint(arc, step / steps));
   return points;
+}
+
+/** 그 큰 원 위에서 ratio(0~1)만큼 간 지점. 경로를 따라가는 비행기를 놓을 자리입니다. */
+export function greatCirclePoint(from: LonLat, to: LonLat, ratio: number): LonLat {
+  const arc = arcOf(from, to);
+  return arc.delta < 1e-6 ? to : arcPoint(arc, ratio);
 }

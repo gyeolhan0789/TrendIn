@@ -369,7 +369,9 @@ export function GlobalTrendsPage() {
             stops={stops}
             focusIndex={tour.focusIndex}
             stopIndex={tour.stopIndex}
+            legProgress={tour.legProgress}
             onPickStop={tour.goTo}
+            onSteer={tour.steer}
           />
           <div className="worldtrend-toolbar">
             <div className="worldtrend-modes">
