@@ -1,5 +1,5 @@
 import type { AuthSession, AuthTokenBundle } from '../types/auth';
-import { resetLandingGuide } from '../../../utils/landingExperience';
+import { resetLandingAnimation, resetLandingGuide } from '../../../utils/landingExperience';
 
 const sessionKey = 'trendin-auth-session-v1';
 
@@ -82,6 +82,17 @@ export function setAuthSession(session: AuthSession) {
     // Device-local storage may be unavailable in private browsing.
   }
   listeners.forEach((listener) => listener());
+}
+
+/** 새 로그인 세션을 시작합니다. 토큰 재발급과 달리 홈의 첫 진입 경험도 새로 엽니다. */
+export function startAuthSession(session: AuthSession) {
+  try {
+    resetLandingAnimation(window.sessionStorage);
+    resetLandingGuide(window.sessionStorage);
+  } catch {
+    // Session storage may be unavailable in private browsing.
+  }
+  setAuthSession(session);
 }
 
 /** 재발급으로 토큰만 갈아 끼웁니다. 이미 로그아웃했다면 되살리지 않습니다. */

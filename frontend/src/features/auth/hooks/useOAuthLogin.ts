@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { oauthLogin } from '../api/authApi';
-import { setAuthSession } from '../api/authSessionStorage';
+import { startAuthSession } from '../api/authSessionStorage';
 import type { OAuthLoginRequest, OAuthLoginResult } from '../types/auth';
 
 interface OAuthLoginVariables extends OAuthLoginRequest {
@@ -17,7 +17,7 @@ export function useOAuthLogin() {
   return useMutation<OAuthLoginResult, unknown, OAuthLoginVariables>({
     mutationFn: async ({ provider, code, state }) => {
       const result = await oauthLogin(provider, { code, state });
-      setAuthSession({
+      startAuthSession({
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         tokenType: result.tokenType,

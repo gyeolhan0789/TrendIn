@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { login, signUp } from '../api/authApi';
-import { setAuthSession } from '../api/authSessionStorage';
+import { startAuthSession } from '../api/authSessionStorage';
 import { normalizeEmail } from '../validation';
 import type { LoginResult, SignUpRequest, SignUpResult } from '../types/auth';
 
@@ -24,7 +24,7 @@ export function useSignUp() {
 
       try {
         const session = await login({ email: normalized, password });
-        setAuthSession({
+        startAuthSession({
           accessToken: session.accessToken,
           refreshToken: session.refreshToken,
           tokenType: session.tokenType,
