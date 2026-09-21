@@ -1,0 +1,275 @@
+{
+  "uid": "trendin-loadtest",
+  "title": "TrendIn 부하테스트",
+  "description": "부하테스트 중 병목을 짚기 위한 화면. 응답시간·처리량·커넥션풀·JVM 을 한 화면에 둔다. 상단 대상 드롭다운으로 운영과 부하테스트 대상을 오간다.",
+  "tags": ["trendin", "loadtest"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-15m", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "대상",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": {"qryType": 1, "query": "label_values(jvm_memory_used_bytes, job)", "refId": "job"},
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "응답시간 백분위 (전체)",
+      "description": "p99 가 p95 보다 크게 벌어지면 꼬리 지연이다. 평균만 보면 놓친다.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"lineWidth": 2, "fillOpacity": 0, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "p50",
+         "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{job=\"$job\"}[$__rate_interval])) by (le))"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "p95",
+         "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"$job\"}[$__rate_interval])) by (le))"},
+        {"refId": "C", "editorMode": "code", "range": true, "legendFormat": "p99",
+         "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"$job\"}[$__rate_interval])) by (le))"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "엔드포인트별 p95",
+      "description": "느린 API 를 여기서 고른다. Phase 4 병목 분석의 출발점.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"lineWidth": 1, "fillOpacity": 0, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["max"]},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "{{uri}}",
+         "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"$job\"}[$__rate_interval])) by (le, uri))"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "처리량 (RPS)",
+      "description": "부하를 올려도 여기가 더 안 오르면 포화점이다.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 20, "stacking": {"mode": "normal"}, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"]},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "{{uri}}",
+         "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=\"$job\"}[$__rate_interval]))"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "에러율",
+      "description": "부하를 올리다 이것이 튀는 지점이 한계다.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {"lineWidth": 2, "fillOpacity": 20, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "5xx",
+         "expr": "sum(rate(http_server_requests_seconds_count{job=\"$job\", outcome=\"SERVER_ERROR\"}[$__rate_interval])) / sum(rate(http_server_requests_seconds_count{job=\"$job\"}[$__rate_interval]))"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "4xx",
+         "expr": "sum(rate(http_server_requests_seconds_count{job=\"$job\", outcome=\"CLIENT_ERROR\"}[$__rate_interval])) / sum(rate(http_server_requests_seconds_count{job=\"$job\"}[$__rate_interval]))"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HikariCP 커넥션 풀",
+      "description": "대기(pending) 가 0 을 넘으면 풀이 말랐다는 뜻이다. 이때는 API 코드를 튜닝해도 소용없고 풀 크기나 쿼리를 손대야 한다.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {"lineWidth": 2, "fillOpacity": 0, "showPoints": "never"}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "대기 (pending)"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}},
+              {"id": "custom.fillOpacity", "value": 30}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["max"]},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "사용 중 (active)",
+         "expr": "hikaricp_connections_active{job=\"$job\"}"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "유휴 (idle)",
+         "expr": "hikaricp_connections_idle{job=\"$job\"}"},
+        {"refId": "C", "editorMode": "code", "range": true, "legendFormat": "대기 (pending)",
+         "expr": "hikaricp_connections_pending{job=\"$job\"}"},
+        {"refId": "D", "editorMode": "code", "range": true, "legendFormat": "최대 (max)",
+         "expr": "hikaricp_connections_max{job=\"$job\"}"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기시간",
+      "description": "풀에서 커넥션 하나 받는 데 걸린 시간. 위 대기(pending) 와 같이 오른다.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "평균",
+         "expr": "rate(hikaricp_connections_acquire_seconds_sum{job=\"$job\"}[$__rate_interval]) / rate(hikaricp_connections_acquire_seconds_count{job=\"$job\"}[$__rate_interval])"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "최대",
+         "expr": "hikaricp_connections_acquire_seconds_max{job=\"$job\"}"}
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "JVM 힙",
+      "description": "사용량이 최대치에 붙어 톱니로 흔들리면 GC 가 바빠진다.",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "사용",
+         "expr": "sum(jvm_memory_used_bytes{job=\"$job\", area=\"heap\"})"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "최대",
+         "expr": "sum(jvm_memory_max_bytes{job=\"$job\", area=\"heap\"} > 0)"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "GC",
+      "description": "초당 GC 에 쓴 시간이 0.1 을 넘으면 그 시간의 10% 를 GC 가 먹고 있다는 뜻이다.",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "초당 GC 시간"},
+            "properties": [{"id": "unit", "value": "s"}]
+          }
+        ]
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "초당 GC 시간",
+         "expr": "sum(rate(jvm_gc_pause_seconds_sum{job=\"$job\"}[$__rate_interval]))"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "초당 GC 횟수",
+         "expr": "sum(rate(jvm_gc_pause_seconds_count{job=\"$job\"}[$__rate_interval]))"}
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "프로세스가 1 에 붙으면 앱이 한계다. 시스템만 높으면 다른 컨테이너가 먹고 있다.",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {"refId": "A", "editorMode": "code", "range": true, "legendFormat": "프로세스",
+         "expr": "process_cpu_usage{job=\"$job\"}"},
+        {"refId": "B", "editorMode": "code", "range": true, "legendFormat": "시스템",
+         "expr": "system_cpu_usage{job=\"$job\"}"}
+      ]
+    }
+  ]
+}
