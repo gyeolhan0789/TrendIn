@@ -290,3 +290,5 @@ spark/scripts/submit.sh concept --profile dev --domain fashion --dry-run  # 사�
    2026-09-16 실험에서 누설을 막고 재니 20%대였고, 후보 둘을 놓고 같은지 묻는 판정은 30/30 이었다.
 3. 임베딩 후보 생성 — 아랍어처럼 번역 관계인 표현이 미등록에 쌓이는 것이 관측되면.
 4. 여러 부모 · 개념 병합 도구 · 관리 화면 — 필요가 숫자로 보이면.
+
+통합 후보 검색과 재정렬 정책은 [concept-candidate-ranking.md](concept-candidate-ranking.md)를 본다.

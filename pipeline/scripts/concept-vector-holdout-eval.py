@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -18,8 +19,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from trendin.spark.common.config import load_config  # noqa: E402
 from trendin.spark.concept.candidates import CandidateIndex  # noqa: E402
 from trendin.spark.concept.embedding import E5Encoder  # noqa: E402
+from trendin.spark.concept.retrieval import (  # noqa: E402
+    CHANNELS,
+    CandidateRetriever,
+    RetrievalPolicy,
+)
 from trendin.spark.io import jdbc  # noqa: E402
-from trendin.spark.io.concept_vectors import vector_literal  # noqa: E402
+from trendin.spark.io.concept_vectors import VectorHit, vector_literal  # noqa: E402
 from trendin.spark.io.concepts import ConceptSink  # noqa: E402
 
 LANGUAGES = ("ko", "ja", "it", "fr")
@@ -40,13 +46,13 @@ SELECT id, concept_id, lang, normalized, canonical_name
   FROM eligible WHERE rn <= %s ORDER BY lang, rn
 """
 SEARCH_SQL = """
-SELECT c.id, c.canonical_name, min(v.embedding <=> %s::vector) AS distance
+SELECT c.id, c.canonical_name, c.category, min(v.embedding <=> %s::vector) AS distance
   FROM pl_concept_embedding v
   JOIN pl_concept_expression e ON e.id = v.expression_id
   JOIN pl_concept c ON c.id = e.concept_id
  WHERE v.model_id = %s AND e.id <> %s AND e.normalized <> %s
    AND e.status = 'ACTIVE' AND c.status = 'ACTIVE'
- GROUP BY c.id, c.canonical_name
+GROUP BY c.id, c.canonical_name, c.category
  ORDER BY distance, c.id
  LIMIT %s
 """
@@ -67,7 +73,10 @@ def main() -> int:
         parser.error("per-language and top-k must be positive; examples nonnegative")
 
     config = load_config(args.profile)
-    lexical_index = CandidateIndex(ConceptSink(config).load_dictionary())
+    dictionary = ConceptSink(config).load_dictionary()
+    lexical_index = CandidateIndex(dictionary)
+    policy = replace(RetrievalPolicy.from_config(config), top_k=args.top_k)
+    retriever = CandidateRetriever(dictionary, lexical_index, policy)
     encoder = E5Encoder()
     with jdbc.connection(config) as conn, conn.cursor() as cur:
         cur.execute("SET TRANSACTION READ ONLY")
@@ -82,9 +91,17 @@ def main() -> int:
                 counts[lang] += 1
         vectors = encoder.encode([str(row[3]) for row in samples], query=True)
         result: dict[str, dict] = defaultdict(
-            lambda: {"tested": 0, "recall_at_1": 0, "recall_at_k": 0,
-                     "lexical_recall_at_k": 0, "either_recall_at_k": 0,
-                     "hits": [], "misses": []}
+            lambda: {
+                "tested": 0,
+                "recall_at_1": 0,
+                "recall_at_k": 0,
+                "lexical_recall_at_k": 0,
+                "either_recall_at_k": 0,
+                "combined_recall_at_k": 0,
+                "channel_recall_at_k": {channel: 0 for channel in CHANNELS},
+                "hits": [],
+                "misses": [],
+            }
         )
         for (eid, cid, lang, surface, name), values in zip(samples, vectors, strict=True):
             cur.execute(SEARCH_SQL, (
@@ -97,22 +114,54 @@ def main() -> int:
                 item.concept_id for item in lexical_index.generate(str(lang), str(surface),
                                                                      limit=args.top_k)
             }
+            vector_hits = tuple(
+                VectorHit(int(item[0]), str(item[1]), str(item[2]), round(1 - float(item[3]), 4))
+                for item in hits
+            )
+            combined = retriever.retrieve(
+                original=str(surface),
+                lang=str(lang),
+                english_name=None,
+                category=None,
+                vector_hits={"original": vector_hits},
+                exclude_expression_ids=frozenset({int(eid)}),
+            )
+            combined_ids = [item.concept_id for item in combined.candidates]
             group = result[str(lang)]
             group["tested"] += 1
             group["recall_at_1"] += rank == 1
             group["recall_at_k"] += rank is not None
             group["lexical_recall_at_k"] += int(cid) in lexical_ids
             group["either_recall_at_k"] += rank is not None or int(cid) in lexical_ids
+            group["combined_recall_at_k"] += int(cid) in combined_ids
+            for channel in CHANNELS:
+                group["channel_recall_at_k"][channel] += any(
+                    item.concept_id == int(cid)
+                    and any(evidence.channel == channel for evidence in item.evidence)
+                    for item in combined.candidates
+                )
             key = "hits" if rank is not None else "misses"
             if len(group[key]) < args.examples:
                 group[key].append({
                     "surface": str(surface), "expected": str(name), "rank": rank,
                     "top": str(hits[0][1]) if hits else None,
+                    "combined_top": combined.candidates[0].name if combined.candidates else None,
                 })
     for lang in LANGUAGES:
-        result.setdefault(lang, {"tested": 0, "recall_at_1": 0,
-                                 "recall_at_k": 0, "lexical_recall_at_k": 0,
-                                 "either_recall_at_k": 0, "hits": [], "misses": []})
+        result.setdefault(
+            lang,
+            {
+                "tested": 0,
+                "recall_at_1": 0,
+                "recall_at_k": 0,
+                "lexical_recall_at_k": 0,
+                "either_recall_at_k": 0,
+                "combined_recall_at_k": 0,
+                "channel_recall_at_k": {channel: 0 for channel in CHANNELS},
+                "hits": [],
+                "misses": [],
+            },
+        )
     print(json.dumps({"top_k": args.top_k, "languages": result},
                      ensure_ascii=False, indent=2))
     return 0

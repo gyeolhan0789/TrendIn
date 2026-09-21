@@ -163,6 +163,34 @@ class CandidateIndex:
         """
         if not key:
             return ()
+        found = self.generate_all(lang, key, min_similarity=min_similarity)
+
+        best: dict[int, Candidate] = {}
+        for candidate in found:
+            current = best.get(candidate.concept_id)
+            if current is None or (candidate.tier, -candidate.score) < (
+                current.tier,
+                -current.score,
+            ):
+                best[candidate.concept_id] = candidate
+        ranked = sorted(best.values(), key=lambda c: (c.tier, -c.score, c.concept_id))
+        return tuple(ranked[:limit])
+
+    def generate_all(
+        self,
+        lang: str,
+        key: str,
+        *,
+        min_similarity: float = DEFAULT_MIN_SIMILARITY,
+    ) -> tuple[Candidate, ...]:
+        """Return every matching channel, deduplicated by concept and source.
+
+        ``generate`` keeps the historical contract of one best item per concept.  The
+        integrated retriever needs the other signals as well so it can explain and
+        combine a spelling hit with a phonetic hit instead of silently discarding one.
+        """
+        if not key:
+            return ()
         found: list[Candidate] = []
 
         for eid in self._by_spaceless.get(key.replace(" ", ""), ()):
@@ -181,18 +209,17 @@ class CandidateIndex:
             for eid, score in self._spell_index[lang].search(key, min_similarity).items():
                 found.append(self._candidate(eid, SOURCE_SPELL, score, key))
 
-        best: dict[int, Candidate] = {}
+        best: dict[tuple[int, str], Candidate] = {}
         for candidate in found:
             if candidate is None:
                 continue
-            current = best.get(candidate.concept_id)
-            if current is None or (candidate.tier, -candidate.score) < (
-                current.tier,
-                -current.score,
-            ):
-                best[candidate.concept_id] = candidate
-        ranked = sorted(best.values(), key=lambda c: (c.tier, -c.score, c.concept_id))
-        return tuple(ranked[:limit])
+            identity = (candidate.concept_id, candidate.source)
+            current = best.get(identity)
+            if current is None or candidate.score > current.score:
+                best[identity] = candidate
+        return tuple(
+            sorted(best.values(), key=lambda c: (c.tier, -c.score, c.concept_id))
+        )
 
     def _candidate(
         self, expression_id: int, source: str, score: float, key: str
