@@ -5,3 +5,4 @@
 # datastore/ · pipeline/ 은 각자 .gitattributes 로 같은 규칙을 이미 갖고 있다.
 scripts/*.sh text eol=lf
 .gitlab-ci.yml text eol=lf
+load-test/*.sh text eol=lf

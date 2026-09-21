@@ -5,15 +5,21 @@ name: s15p21a102-loadtest
 # 운영과 같은 이미지를 쓴다. 다른 빌드를 재면 그 결과를 운영에 적용할 근거가 없다.
 # 데이터만 갈라서, 더미 데이터를 아무리 부어도 운영 스키마에 닿지 않게 한다.
 #
-#   docker compose --env-file ../infra/.env -f compose.loadtest.yaml up -d
+#   ./up.sh
 #
 # infra/compose.yaml 이 먼저 떠 있어야 한다. postgres 와 shared 네트워크를 빌려 쓴다.
 
 services:
   backend-loadtest:
-    # 운영이 지금 돌리는 바로 그 이미지를 가리킨다. infra/.env 의 BACKEND_IMAGE 는
-    # 배포 때마다 갱신되므로, 재측정 전에는 이 컨테이너도 다시 만들어야 같은 코드를 잰다.
-    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in infra/.env}
+    # up.sh 가 운영 컨테이너에서 실제 이미지를 읽어 이 변수로 넘긴다.
+    #
+    # infra/.env 의 BACKEND_IMAGE 를 그대로 믿으면 안 된다. CD 는 태그를 셸
+    # 환경변수로만 넘기고 .env 에 써넣지 않으므로, .env 값은 최초 설정에서
+    # 멈춰 있다. 그 옛 이미지로 띄우면 운영에서 떠온 스키마와 어긋나
+    # Hibernate 가 없는 컬럼을 찾다가 기동에 실패한다.
+    #
+    # 그래서 직접 docker compose 를 부르지 말고 ./up.sh 를 쓴다.
+    image: ${LOADTEST_BACKEND_IMAGE:?use ./up.sh — it reads the image the production container is actually running}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -37,7 +43,7 @@ services:
       TREND_NOTIFICATION_CRON: "-"
     ports:
       # 루프백에만 공개한다. nginx 를 거치지 않으므로 외부로 새지 않는다.
-      - "127.0.0.1:${LOADTEST_BACKEND_PORT:-8081}:8080"
+      - "127.0.0.1:${LOADTEST_BACKEND_PORT:-18080}:8080"
     depends_on:
       redis-loadtest:
         condition: service_healthy
