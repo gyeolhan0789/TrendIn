@@ -22,3 +22,10 @@ scrape_configs:
     static_configs:
       - targets:
           - pipeline-metrics:9102
+
+  # Spring Boot actuator. shared 네트워크의 컨테이너 이름으로 직접 긁으므로 nginx 를 거치지 않는다.
+  - job_name: backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - backend:8080

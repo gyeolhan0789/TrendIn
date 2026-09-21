@@ -35,6 +35,8 @@ public class SecurityConfig {
     };
     private static final String[] PUBLIC_POST_ENDPOINTS =
             {"/auth/signup", "/auth/login", "/auth/reissue", "/auth/email-check"};
+    // Prometheus 가 컨테이너 네트워크로 직접 긁는다. 외부 노출은 nginx 에서 /api/actuator 를 막아 끊는다.
+    private static final String[] PUBLIC_ACTUATOR_ENDPOINTS = {"/actuator/health", "/actuator/prometheus"};
     // 제공자 이름이 경로에 들어가므로 패턴으로 연다. 지원하지 않는 제공자는 서비스가 400으로 거른다.
     private static final String OAUTH_LOGIN_PATTERN = "/auth/oauth/*/login";
 
@@ -56,6 +58,7 @@ public class SecurityConfig {
                         // 프리플라이트는 인증 헤더를 실을 수 없으므로 항상 열어둔다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_ACTUATOR_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.POST, OAUTH_LOGIN_PATTERN).permitAll()
                         .anyRequest().authenticated()
