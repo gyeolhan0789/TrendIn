@@ -18,8 +18,9 @@ GMS_KEY=... .venv/Scripts/python scripts/concept-judge.py --profile dev --limit 
 
 기본은 TSV 출력만 한다. `--apply-links` 를 주면 기존 개념의 영어 이름과 분류가
 유일하게 정확히 일치한 표기만 사전에 자동 연결한다. 새 개념과 애매한 이름은 검수 대상으로 남긴다.
-`--vector-top-k`를 켜면 벡터 후보를 별도 LLM 호출로 검증한다. 자동 반영에는
-`--apply-verified`와 평가 표본에서 정한 `--min-vector-similarity`가 모두 필요하다.
+`--vector-top-k`를 켜면 문자·음가·벡터 후보를 합쳐 재정렬하고 별도 LLM 호출로 검증한다.
+자동 반영 관문은 `concept.retrieval` 설정을 따르며 `--min-vector-similarity`로 한 회차만
+덮어쓸 수 있다.
 """
 
 from __future__ import annotations
@@ -27,13 +28,16 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from trendin.spark.common.config import load_config  # noqa: E402
+from trendin.spark.concept import vector_judge  # noqa: E402
 from trendin.spark.concept.auto_link import Link, apply_links, select_links  # noqa: E402
+from trendin.spark.concept.candidates import CandidateIndex  # noqa: E402
 from trendin.spark.concept.embedding import (  # noqa: E402
     MODEL_ID,
     MODEL_REVISION,
@@ -52,14 +56,15 @@ from trendin.spark.concept.judge import (  # noqa: E402
     parse,
     user_prompt,
 )
-from trendin.spark.concept.vector_judge import (  # noqa: E402
-    eligible_choice,
-    merge_hits,
-    parse_choice,
-    verification_slot_available,
+from trendin.spark.concept.retrieval import (  # noqa: E402
+    CandidateRetriever,
+    RankedCandidate,
+    RetrievalPolicy,
 )
 from trendin.spark.concept.vector_judge import (  # noqa: E402
-    messages as verification_messages,
+    eligible_choice,
+    parse_choice,
+    verification_slot_available,
 )
 from trendin.spark.io import jdbc  # noqa: E402
 from trendin.spark.io.concept_vectors import ConceptVectorStore, VectorHit  # noqa: E402
@@ -99,14 +104,14 @@ def estimate(groups: list[list[Question]]) -> tuple[int, int]:
     return prompt, output
 
 
-def vector_candidates(
+def vector_candidate_groups(
     encoder: E5Encoder, store: ConceptVectorStore, english_name: str,
     original: str, *, limit: int,
-) -> tuple[VectorHit, ...]:
-    """Search both the original expression and the English rendering, then deduplicate."""
+) -> dict[str, tuple[VectorHit, ...]]:
+    """Search both inputs while retaining which query produced each vector score."""
     vectors = encoder.encode([original, english_name], query=True)
     groups = [store.search(values, model_id=encoder.model_id, limit=limit) for values in vectors]
-    return merge_hits(groups, limit=limit)
+    return {"original": groups[0], "english": groups[1]}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,15 +133,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--embedding-model", default=MODEL_ID)
     parser.add_argument("--embedding-revision", default=MODEL_REVISION)
     parser.add_argument("--min-vector-similarity", type=float, default=None,
-                        help="검증된 벡터 후보를 자동 반영할 최소 유사도. 라벨 표본으로 정한다")
+                        help="호환용 이름: 설정의 통합 점수 하한을 이번 실행에서 덮어쓴다")
     parser.add_argument("--apply-verified", action="store_true",
                         help="LLM이 고르고 유사도·분류 관문도 넘은 벡터 후보를 DB에 반영")
     args = parser.parse_args(argv)
 
     if args.vector_top_k < 0:
         parser.error("--vector-top-k must be nonnegative")
-    if args.apply_verified and (not args.vector_top_k or args.min_vector_similarity is None):
-        parser.error("--apply-verified requires --vector-top-k and --min-vector-similarity")
+    if args.apply_verified and not args.vector_top_k:
+        parser.error("--apply-verified requires --vector-top-k")
     if args.min_vector_similarity is not None and not -1 <= args.min_vector_similarity <= 1:
         parser.error("--min-vector-similarity must be between -1 and 1")
 
@@ -175,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     client = GmsClient(model=args.model)
     dictionary = ConceptSink(config).load_dictionary()
     names = NameIndex(dictionary)
-    encoder = store = None
+    encoder = store = retriever = None
     if args.vector_top_k:
         store = ConceptVectorStore(config)
         total, embedded = store.coverage(model_key(args.embedding_model, args.embedding_revision))
@@ -185,12 +190,18 @@ def main(argv: list[str] | None = None) -> int:
                 "scripts/concept-vectors.py 를 먼저 실행한다"
             )
         encoder = E5Encoder(args.embedding_model, args.embedding_revision)
-        print(f"벡터 사전 표현 {embedded:,}개 · Top {args.vector_top_k}", file=sys.stderr)
+        policy = RetrievalPolicy.from_config(config)
+        if args.vector_top_k != policy.top_k:
+            policy = replace(policy, top_k=args.vector_top_k)
+        if args.min_vector_similarity is not None:
+            policy = replace(policy, min_combined_score=args.min_vector_similarity)
+        retriever = CandidateRetriever(dictionary, CandidateIndex(dictionary), policy)
+        print(f"벡터 사전 표현 {embedded:,}개 · 통합 Top {policy.top_k}", file=sys.stderr)
     print(f"사전의 영어 이름 {len(names):,}개", file=sys.stderr)
     writer = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
     columns = ["lang", "normalized", "articles", "en", "category", "결정", "사전", "닮은 이름"]
     if args.vector_top_k:
-        columns.extend(("벡터 후보", "벡터 판정"))
+        columns.extend(("통합 후보", "후보 판정"))
     writer.writerow(columns)
     counts: dict[str, int] = {}
     # 이번 회차 안에서 같은 영어 이름이 여러 번 나오면 개념 하나에 모은다 — `슈즈` 와 `신발` 이
@@ -215,24 +226,34 @@ def main(argv: list[str] | None = None) -> int:
             auto_link = link_by_key.get((verdict.lang, verdict.normalized))
             if auto_link is not None:
                 decision = "AUTO_LINK"
-            hits: tuple[VectorHit, ...] = ()
-            vector_choice: VectorHit | None = None
+            hits: tuple[RankedCandidate, ...] = ()
+            candidate_choice: RankedCandidate | None = None
             if (
-                encoder is not None and store is not None
+                encoder is not None and store is not None and retriever is not None
                 and auto_link is None and verdict.category != "generic"
             ):
-                hits = vector_candidates(
+                vector_hits = vector_candidate_groups(
                     encoder, store, verdict.english_name, verdict.normalized,
-                    limit=args.vector_top_k,
+                    limit=max(args.vector_top_k, retriever.policy.top_k),
                 )
+                retrieval = retriever.retrieve(
+                    original=verdict.normalized,
+                    lang=verdict.lang,
+                    english_name=verdict.english_name,
+                    category=verdict.category,
+                    vector_hits=vector_hits,
+                )
+                hits = retrieval.candidates
+                if retrieval.deferred:
+                    decision = "DEFER"
                 # Reserve one call for each remaining name-classification batch.
                 remaining_groups = len(groups) - group_index - 1
-                if hits and verification_slot_available(
+                if not retrieval.deferred and hits and verification_slot_available(
                     client.calls, remaining_groups, args.max_calls
                 ):
                     question = question_by_key[(verdict.lang, verdict.normalized)]
                     response = client.chat(
-                        verification_messages(verdict, hits, context=question.context)
+                        vector_judge.messages(verdict, hits, context=question.context)
                     )
                     try:
                         choice = parse_choice(response, hits)
@@ -240,22 +261,25 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"  ! {verdict.normalized}: {error}", file=sys.stderr)
                         choice = None
                     if choice is not None:
-                        decision = "VECTOR_SUGGEST"
-                        vector_choice = next(
+                        decision = "CANDIDATE_SUGGEST"
+                        candidate_choice = next(
                             hit for hit in hits if hit.concept_id == choice
                         )
                         accepted = eligible_choice(
-                            verdict, hits, choice, min_similarity=args.min_vector_similarity,
+                            verdict,
+                            hits,
+                            choice,
+                            min_similarity=retriever.policy.min_combined_score,
                             context=question.context,
                         )
                         if accepted is not None:
-                            decision = "VECTOR_LINK"
+                            decision = "CANDIDATE_LINK"
                             score = next(
                                 hit.similarity for hit in hits if hit.concept_id == accepted
                             )
-                            verified_links.append(Link(verdict, accepted, "vector", score))
-                elif hits:
-                    decision = "VECTOR_UNCHECKED"
+                            verified_links.append(Link(verdict, accepted, "combined", score))
+                elif not retrieval.deferred and hits:
+                    decision = "CANDIDATE_UNCHECKED"
                     skipped_verifications += 1
             # 이름이 같아도 분류가 다르면 다른 것이다 — `윈터`(사람)와 `겨울`(계절).
             key = (verdict.english_name.lower(), verdict.category)
@@ -277,10 +301,20 @@ def main(argv: list[str] | None = None) -> int:
                 ", ".join(f"{n}({s})" for n, s in resolution.near),
             ]
             if args.vector_top_k:
-                row.append(", ".join(f"{h.name}/{h.category}:{h.similarity:.3f}" for h in hits))
                 row.append(
-                    "" if vector_choice is None else
-                    f"{vector_choice.concept_id}:{vector_choice.name}/{vector_choice.category}"
+                    ", ".join(
+                        f"{h.name}/{h.category}:{h.score:.3f}"
+                        f"[{'+'.join(item.channel for item in h.evidence)}]"
+                        for h in hits
+                    )
+                )
+                row.append(
+                    ""
+                    if candidate_choice is None
+                    else (
+                        f"{candidate_choice.concept_id}:"
+                        f"{candidate_choice.name}/{candidate_choice.category}"
+                    )
                 )
             writer.writerow(row)
 

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from trendin.spark.concept.judge import Verdict
 
-if TYPE_CHECKING:
-    from trendin.spark.io.concept_vectors import VectorHit
+
+class VerificationCandidate(Protocol):
+    concept_id: int
+    name: str
+    category: str
+    similarity: float
+
 
 SYSTEM_PROMPT = """You verify whether a fashion-media keyword denotes an existing concept.
 The English rendering and category are suggestions, not ground truth.
@@ -20,7 +25,7 @@ Reply with JSON only: {"concept_id": 123} or {"concept_id": null}."""
 
 
 def messages(
-    verdict: Verdict, candidates: Sequence[VectorHit], *, context: str | None = None
+    verdict: Verdict, candidates: Sequence[VerificationCandidate], *, context: str | None = None
 ) -> list[dict[str, str]]:
     payload = {
         "domain": "fashion",
@@ -29,11 +34,7 @@ def messages(
         "english_suggestion": verdict.english_name,
         "category_suggestion": verdict.category,
         "context": (context or "")[:500],
-        "candidates": [
-            {"concept_id": hit.concept_id, "name": hit.name,
-             "category": hit.category, "similarity": hit.similarity}
-            for hit in candidates
-        ],
+        "candidates": [_candidate_payload(hit) for hit in candidates],
     }
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -41,11 +42,29 @@ def messages(
     ]
 
 
-def merge_hits(groups: Sequence[Sequence[VectorHit]], *, limit: int) -> tuple[VectorHit, ...]:
+def _candidate_payload(hit: VerificationCandidate) -> dict:
+    payload = {
+        "concept_id": hit.concept_id,
+        "name": hit.name,
+        "category": hit.category,
+        "combined_score": hit.similarity,
+    }
+    evidence = getattr(hit, "evidence", ())
+    if evidence:
+        payload["evidence"] = [
+            {"channel": item.channel, "score": item.score, "query": item.query}
+            for item in evidence
+        ]
+    return payload
+
+
+def merge_hits(
+    groups: Sequence[Sequence[VerificationCandidate]], *, limit: int
+) -> tuple[VerificationCandidate, ...]:
     """Keep the best score per concept when original and English queries overlap."""
     if limit < 1:
         raise ValueError("limit must be positive")
-    found: dict[int, VectorHit] = {}
+    found: dict[int, VerificationCandidate] = {}
     for group in groups:
         for hit in group:
             current = found.get(hit.concept_id)
@@ -59,7 +78,7 @@ def verification_slot_available(calls: int, remaining_batches: int, max_calls: i
     return calls + remaining_batches < max_calls
 
 
-def parse_choice(content: str, candidates: Sequence[VectorHit]) -> int | None:
+def parse_choice(content: str, candidates: Sequence[VerificationCandidate]) -> int | None:
     """Reject invented ids and malformed responses; null means no automatic link."""
     try:
         payload = json.loads(content)
@@ -78,7 +97,7 @@ def parse_choice(content: str, candidates: Sequence[VectorHit]) -> int | None:
 
 
 def eligible_choice(
-    verdict: Verdict, candidates: Sequence[VectorHit], choice: int | None,
+    verdict: Verdict, candidates: Sequence[VerificationCandidate], choice: int | None,
     *, min_similarity: float | None, context: str | None,
 ) -> int | None:
     """Require article context, matching category and calibrated similarity before a write."""
