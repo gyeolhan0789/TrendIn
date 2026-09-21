@@ -11,6 +11,9 @@
                             └─ redis-loadtest (별도. 운영 Redis 와 섞지 않는다)
 ```
 
+이 환경을 어떻게·왜 그렇게 만들었는지는 [docs/load-test-setup.md](../docs/load-test-setup.md) 에
+있다. 이 문서는 띄우고 내리는 절차만 다룬다.
+
 측정 대상은 `backend-loadtest` 하나다. 운영 `backend` 는 비교용으로 같은 화면에 남겨 둔다.
 Grafana 대시보드 **TrendIn 부하테스트** 상단의 `대상` 드롭다운으로 둘을 오간다.
 
@@ -51,29 +54,46 @@ docker compose --env-file .env -f compose.yaml exec postgres \
 
 ### 2. 스키마 옮기기 (최초 1회)
 
-운영 스키마를 그대로 복사한다. Flyway 로 새로 만들지 않는다. 이 애플리케이션에서
-Flyway 가 실제로 돌지 않고 있고(아래 "알려진 문제"), 부하테스트는 **운영이 실제로
-쓰는 스키마**를 재야 의미가 있기 때문이다.
+운영 스키마를 그대로 복사한다. 빈 데이터베이스에 Flyway 로 새로 만들 수도 있지만,
+그러면 마이그레이션에 없는 파이프라인 테이블이 빠져 운영과 다른 모습이 된다.
+부하테스트는 **운영이 실제로 쓰는 스키마**를 재야 의미가 있다.
 
 ```bash
 cd ~/S15P21A102/infra
+
+# 구조
 docker compose --env-file .env -f compose.yaml exec -T postgres sh -c \
   'PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U ssafy --schema-only --no-owner --no-privileges forever102 \
    | PGPASSWORD=$POSTGRES_PASSWORD psql -U ssafy -d trendin_test'
+
+# 마이그레이션 이력 — 이것을 빠뜨리면 안 된다
+docker compose --env-file .env -f compose.yaml exec -T postgres sh -c \
+  'PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U ssafy --data-only --table=flyway_schema_history forever102 \
+   | PGPASSWORD=$POSTGRES_PASSWORD psql -U ssafy -d trendin_test'
 ```
 
-`pl_concept_embedding` 관련 에러는 무시해도 된다. pgvector 확장을 쓰는 파이프라인
-테이블이고 백엔드 엔티티에 없다. 빠진 것이 그 하나뿐인지만 확인한다 — 차이가 1 이어야 한다.
+`--schema-only` 는 `flyway_schema_history` 를 **빈 테이블로** 만든다. 이력이 없으면
+Flyway 는 아무것도 적용되지 않은 것으로 보고 V1 부터 다시 돌리다가
+`type "metric_period" already exists` 로 죽는다. 그래서 두 번째 명령이 필요하다.
+
+`pl_concept_embedding` 관련 에러는 무시해도 된다. pgvector 를 쓰는 파이프라인
+테이블이고 백엔드 엔티티에 없다. 확장까지 맞추고 싶으면 복사 전에
+`CREATE EXTENSION vector;` 를 해 둔다.
+
+두 데이터베이스가 같은 상태인지 확인한다. 테이블 수는 1 차이(위 테이블 하나),
+마이그레이션 이력은 같아야 한다.
 
 ```bash
 for db in forever102 trendin_test; do
-  printf "%-14s " "$db"
+  printf "%-14s tables=" "$db"
   docker compose --env-file .env -f compose.yaml exec -T postgres \
     psql -U ssafy -d $db -tAc \
-    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';"
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" | tr -d '\r\n'
+  printf " migrations="
+  docker compose --env-file .env -f compose.yaml exec -T postgres \
+    psql -U ssafy -d $db -tAc 'SELECT count(*) FROM flyway_schema_history;'
 done
 ```
-
 ### 3. 스택 올리기
 
 ```bash
@@ -138,22 +158,14 @@ df -h   # 디스크가 실제로 회수됐는지 확인한다
 **운영을 새로 배포했으면 이 컨테이너도 다시 만든다.** 이미 떠 있는 컨테이너는 옛
 이미지를 계속 쓴다. `./up.sh --recreate` 로 올린다.
 
-## 알려진 문제 — Flyway 가 돌지 않는다
+## 알려진 문제
 
-`trendin_test` 를 빈 데이터베이스로 두고 백엔드를 띄웠을 때, Flyway 가 마이그레이션을
-하나도 적용하지 않았다. 기동 로그에 Flyway 줄이 한 줄도 찍히지 않는다.
-`application-dev.yml` 에 `flyway.enabled: true` 가 있고 같은 파일의
-`${DEV_POSTGRES_URL}` 은 정상적으로 풀리므로, 프로필이 안 읽힌 것은 아니다.
+**낡은 이미지로 띄우면 스키마와 어긋난다.** `./up.sh` 를 쓰면 운영이 지금 돌리는
+이미지를 찾아 주므로 생기지 않는다. `docker compose` 를 직접 불러 옛 이미지가
+뜨면, Flyway 가 이미 적용된 마이그레이션을 다시 돌리려 하거나 Hibernate 가
+없는 컬럼을 찾다가 기동에 실패한다. 실패 메시지가
+`type "..." already exists` 나 `missing column [...]` 이면 이 경우를 의심한다.
 
-운영은 스키마가 이미 있어 아무도 눈치채지 못했을 뿐, 같은 이미지이므로 운영에서도
-돌지 않고 있을 가능성이 높다. **그렇다면 앞으로 마이그레이션을 추가해도 배포로는
-반영되지 않는다.** 부하테스트에서 찾은 인덱스를 마이그레이션으로 넣을 계획이라면
-그 전에 확인해야 한다.
-
-```bash
-cd ~/S15P21A102/infra
-docker compose --env-file .env -f compose.yaml logs backend | grep -i flyway | head
-docker compose --env-file .env -f compose.yaml exec postgres \
-  psql -U ssafy -d forever102 -c \
-  'SELECT version, description, installed_on, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;'
-```
+**운영 postgres 이미지가 pgvector 로 바뀌었다.** 파이프라인의 개념 벡터 작업
+때문이다. `pl_concept_embedding` 을 테스트 DB 에도 두려면 스키마 복사 전에
+`CREATE EXTENSION vector;` 가 필요하다. 백엔드 부하테스트에는 없어도 된다.
