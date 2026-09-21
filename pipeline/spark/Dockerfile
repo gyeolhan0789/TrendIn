@@ -43,7 +43,10 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends default-jre-headless \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /opt/airflow/.cache/huggingface \
+ && chown -R airflow:0 /opt/airflow/.cache
 USER airflow
+ENV HF_HOME=/opt/airflow/.cache/huggingface
 
 # 버전의 단일 출처. ARG 로 받지 않는 이유는 컴포즈 쪽에 숫자를 한 벌 더 두게 되기 때문이다.
 # --chown 이 없으면 root 소유로 들어와 airflow 사용자가 지우지 못한다 (pip 은 성공하고
@@ -65,6 +68,7 @@ RUN . /tmp/versions.sh \
 # 망이 막힌 환경에서는 그 실패가 "후보가 0개" 로만 나타난다 ([09 §7]).
 RUN . /tmp/versions.sh \
  && python -c "from gliner import GLiNER; GLiNER.from_pretrained('${GLINER_MODEL}')" \
+ && python -c "from transformers import AutoTokenizer, AutoModel; AutoTokenizer.from_pretrained('${CONCEPT_EMBEDDING_MODEL}', revision='${CONCEPT_EMBEDDING_REVISION}'); AutoModel.from_pretrained('${CONCEPT_EMBEDDING_MODEL}', revision='${CONCEPT_EMBEDDING_REVISION}')" \
  && rm /tmp/versions.sh
 
 # checkpoint 디렉터리를 이미지 안에 미리 만든다. 도커는 빈 named volume 을 마운트할 때

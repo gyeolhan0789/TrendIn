@@ -34,9 +34,16 @@ from trendin.spark.concept.candidates import (  # noqa: E402
     CandidateIndex,
 )
 from trendin.spark.concept.dictionary import Concept, Dictionary, Expression  # noqa: E402
+from trendin.spark.concept.embedding import (  # noqa: E402
+    MODEL_ID,
+    MODEL_REVISION,
+    E5Encoder,
+    model_key,
+)
 from trendin.spark.concept.normalize import concept_key, lang_of_surface  # noqa: E402
 from trendin.spark.concept.seed import load_seed_dir  # noqa: E402
 from trendin.spark.io import jdbc  # noqa: E402
+from trendin.spark.io.concept_vectors import ConceptVectorStore  # noqa: E402
 from trendin.spark.io.concepts import UNMAPPED, ConceptSink  # noqa: E402
 
 UNMAPPED_SQL = f"""
@@ -99,7 +106,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     parser.add_argument("--min-similarity", type=float, default=DEFAULT_MIN_SIMILARITY)
     parser.add_argument("--detail", action="store_true", help="표기별 후보를 TSV 로 찍는다")
+    parser.add_argument("--vector-top-k", type=int, default=0,
+                        help="pgvector 후보도 조회한다. 0이면 기존 발음·철자 후보만")
+    parser.add_argument("--embedding-model", default=MODEL_ID)
+    parser.add_argument("--embedding-revision", default=MODEL_REVISION)
     args = parser.parse_args(argv)
+
+    if args.vector_top_k < 0:
+        parser.error("--vector-top-k must be nonnegative")
+    if args.vector_top_k and args.dictionary != "db":
+        parser.error("--vector-top-k requires --dictionary db")
 
     config = None
     if args.dictionary == "db" or args.words is None:
@@ -110,6 +126,16 @@ def main(argv: list[str] | None = None) -> int:
     else:
         dictionary = seed_dictionary(ROOT / "spark" / "conf" / "concepts")
     index = CandidateIndex(dictionary)
+    encoder = store = None
+    if args.vector_top_k:
+        store = ConceptVectorStore(config)
+        total, embedded = store.coverage(model_key(args.embedding_model, args.embedding_revision))
+        if not total or embedded != total:
+            parser.error(
+                f"개념 임베딩 {embedded}/{total}개 — "
+                "scripts/concept-vectors.py 를 먼저 실행한다"
+            )
+        encoder = E5Encoder(args.embedding_model, args.embedding_revision)
     print(
         f"사전 개념 {len(dictionary.concepts()):,} · 표현 {len(index):,}",
         file=sys.stderr,
@@ -123,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
 
     by_source: Counter[str] = Counter()
     with_candidate = 0
+    vector_only = 0
     articles_total = sum(row[3] for row in rows)
     articles_covered = 0
     if args.detail:
@@ -130,11 +157,17 @@ def main(argv: list[str] | None = None) -> int:
 
     for lang, key, surface, count in rows:
         found = index.generate(lang, key, limit=args.limit, min_similarity=args.min_similarity)
-        if not found:
+        vector_hits = ()
+        if encoder is not None and store is not None:
+            values = encoder.encode([key], query=True)[0]
+            vector_hits = store.search(values, model_id=encoder.model_id, limit=args.vector_top_k)
+        if not found and not vector_hits:
             continue
+        if vector_hits and not found:
+            vector_only += 1
         with_candidate += 1
         articles_covered += count
-        by_source[found[0].source] += 1
+        by_source[found[0].source if found else "VECTOR"] += 1
         if args.detail:
             for candidate in found:
                 concept = dictionary.concept(candidate.concept_id)
@@ -142,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
                     f"{lang}\t{key}\t{surface}\t{count}\t{candidate.source}\t"
                     f"{candidate.score}\t{concept.canonical_name}\t{concept.category}"
                 )
+            for hit in vector_hits:
+                print(f"{lang}\t{key}\t{surface}\t{count}\tVECTOR\t"
+                      f"{hit.similarity}\t{hit.name}\t{hit.category}")
 
     total = len(rows) or 1
     print(
@@ -157,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
     print("가장 높은 등급을 준 규칙별 건수:", file=sys.stderr)
     for source, n in by_source.most_common():
         print(f"  {source:12} {n:5}", file=sys.stderr)
+    if args.vector_top_k:
+        print(f"기존 규칙에서 후보가 없고 벡터에서만 나온 표기 {vector_only}건", file=sys.stderr)
     return 0
 
 

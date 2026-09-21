@@ -35,7 +35,7 @@ services:
       - shared
 
   postgres:
-    image: postgres:17-bookworm
+    image: pgvector/pgvector:0.8.6-pg17-bookworm
     restart: unless-stopped
     environment:
       POSTGRES_DB: forever102

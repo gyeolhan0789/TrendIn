@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
 from trendin.spark.concept.dictionary import Concept, Dictionary, Expression
-from trendin.spark.concept.mapping import ConceptRow, Unmapped
+from trendin.spark.concept.mapping import ConceptRow, Keyword, Unmapped
 from trendin.spark.io import jdbc
 
 log = get_logger(__name__)
@@ -272,12 +272,13 @@ SELECT a.id, a.concept_id, a.lang, a.normalized,
 # 키워드인가" 만 본다. 개념 사전은 자기 표현 목록을 따로 들고 있어서(`스니커` 도 `sneakers` 의
 # 표현이다) 원표기가 더 많은 것을 알려 주고, 사전에 없으면 미등록으로 드러난다.
 OCCURRENCES_SQL = """
-SELECT m.content_id, d.surface
+SELECT m.content_id, d.surface, c.title
   FROM pl_document_candidate d
   LEFT JOIN pl_alias       a ON a.domain = d.domain AND a.alias_key = d.normalized_key
   JOIN pl_keyword_id_map   k ON k.domain = d.domain
                             AND k.normalized_key = coalesce(a.canonical_key, d.normalized_key)
   JOIN pl_content_id_map   m ON m.url_hash = d.url_hash
+  LEFT JOIN contents      c ON c.id = m.content_id
  WHERE d.selected
    AND d.domain = %s
    AND d.stat_date >= current_date - %s
@@ -410,7 +411,7 @@ class ConceptSink:
             return int(cur.fetchone()[0])
 
     # --- 입력 --------------------------------------------------------------
-    def occurrences(self, *, domain: str, window_days: int) -> dict[int, list[str]]:
+    def occurrences(self, *, domain: str, window_days: int) -> dict[int, list[Keyword]]:
         """기사 → 선별된 표기 목록. 별칭은 대표로 바꿔 승격 여부를 본다 (`OCCURRENCES_SQL`).
 
         `domain` 은 **슬러그**(`fashion`)다. `pl_document_candidate` 와 `pl_keyword_id_map` 은 둘 다
@@ -419,9 +420,11 @@ class ConceptSink:
         """
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(OCCURRENCES_SQL, (domain, window_days))
-            grouped: dict[int, list[str]] = {}
-            for content_id, surface in cur.fetchall():
-                grouped.setdefault(int(content_id), []).append(str(surface))
+            grouped: dict[int, list[Keyword]] = {}
+            for content_id, surface, title in cur.fetchall():
+                grouped.setdefault(int(content_id), []).append(
+                    Keyword(str(surface), str(title) if title else None)
+                )
         return grouped
 
     # --- 적재 --------------------------------------------------------------

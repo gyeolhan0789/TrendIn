@@ -27,6 +27,8 @@ POSTGRES_JDBC=42.7.13    # 비교적 자유롭다
 # 망이 막힌 환경에서는 그 실패가 "후보가 0개" 로만 나타난다.
 GLINER_VERSION=0.2.29
 GLINER_MODEL=urchade/gliner_multi-v2.1
+CONCEPT_EMBEDDING_MODEL=intfloat/multilingual-e5-small
+CONCEPT_EMBEDDING_REVISION=fd1525a9fd15316a2d503bf26ab031a61d056e98
 TORCH_CPU_INDEX=https://download.pytorch.org/whl/cpu
 
 # GPU 로 돌리는 개발 PC 용 (spark/Dockerfile.gpu). **운영 이미지는 이것을 읽지 않는다.**
