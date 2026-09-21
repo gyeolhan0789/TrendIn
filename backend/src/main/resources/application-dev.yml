@@ -4,6 +4,9 @@ spring:
     url: ${DEV_POSTGRES_URL}
     username: ${DEV_POSTGRES_USER_NAME}
     password: ${DEV_POSTGRES_PASSWORD}
+    hikari:
+      # 요청이 끊겨도 계속 실행될 수 있는 긴 SQL은 PostgreSQL에서 취소한다.
+      connection-init-sql: SET statement_timeout = '30s'
   flyway:
     enabled: true
     locations: classpath:db/migration
