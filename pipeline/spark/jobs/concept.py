@@ -8,7 +8,8 @@ spark/scripts/submit.sh concept --profile local --domain fashion --dry-run  # �
 
 **하는 것** — `src/trendin/spark/concept/` 전부. 저장소의 초기 사전을 표에 반영하고, 표에서
 사전을 읽고, 최근 `concept.window_days` 일의 선별 후보를 기사별로 모아 붙이고, `article_concept`
-에 쓰고, 못 붙인 표기를 `pl_unmapped_expression` 에 쌓는다. **LLM 은 없다.**
+에 쓰고, 못 붙인 표기를 `pl_unmapped_expression` 에 쌓는다. 기본은 여기까지다. 자동 연결을
+명시적으로 켜면 영어 이름·통합 후보·LLM 검증을 거쳐 확실한 기존 개념만 같은 실행에서 붙인다.
 
 **초기 사전은 매 실행이 넣는다.** 플래그로 두면 순서를 사람이 기억해야 한다 — 사전이 빈 채로
 켜면 승격 키워드 전부가 미등록으로 쌓인다. 나중에 사전을 넣으면 창 안에서 실제로 붙은
@@ -32,6 +33,7 @@ spark/scripts/submit.sh concept --profile local --domain fashion --dry-run  # �
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,6 +44,7 @@ from trendin.spark.common.logging import get_logger
 from trendin.spark.concept.mapping import map_article
 from trendin.spark.concept.seed import apply_seed, load_seed_dir
 from trendin.spark.concept.thresholds import ConceptThresholds
+from trendin.spark.concept.workflow import AutomationPolicy
 from trendin.spark.io.concepts import ConceptSink
 from trendin.spark.io.contract import DOMAIN_VALUES
 
@@ -73,6 +76,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="붙이기만 하고 쓰지 않는다. 사전을 바꿔 보며 결과를 확인할 때",
     )
+    parser.add_argument(
+        "--auto-link",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="미등록 표현 자동 연결. 없으면 concept.automation.enabled 설정을 따른다",
+    )
 
 
 def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) -> int | None:
@@ -83,6 +92,7 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
     안이고, Spark 로 흩으면 사전을 executor 마다 실어야 한다. `aggregate` 와 같은 판단이다.
     """
     thresholds = ConceptThresholds.from_config(config)
+    automation = AutomationPolicy.from_config(config)
     window_days = args.window_days or thresholds.window_days
     if window_days < 1:
         raise ConfigError("--window-days 는 1 이상이어야 한다")
@@ -157,7 +167,177 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
         dictionary_version=version,
         context_samples=thresholds.context_samples,
     )
+    enabled = automation.enabled if args.auto_link is None else bool(args.auto_link)
+    if enabled and unmapped:
+        _run_automatic_linking(
+            config=config,
+            sink=sink,
+            dictionary=dictionary,
+            automation=replace(automation, enabled=True),
+            thresholds=thresholds,
+            grouped=grouped,
+            unmapped=unmapped,
+            dictionary_version=version,
+        )
     return None
+
+
+def _run_automatic_linking(
+    *, config: Config, sink: ConceptSink, dictionary, automation: AutomationPolicy,
+    thresholds: ConceptThresholds, grouped, unmapped, dictionary_version: int,
+) -> None:
+    """Run the optional paid path after legacy output has safely been persisted."""
+    from trendin.spark.concept import workflow
+    from trendin.spark.concept.auto_link import apply_links
+    from trendin.spark.concept.candidates import CandidateIndex
+    from trendin.spark.concept.judge import PROMPT_VERSION
+    from trendin.spark.concept.retrieval import CandidateRetriever, RetrievalPolicy
+    from trendin.spark.io.llm import GmsClient
+
+    questions = _questions(unmapped, min_articles=thresholds.min_articles)
+    if not questions:
+        log.info("자동 연결 대상 없음: 기사 수 문턱 %d", thresholds.min_articles)
+        return
+    try:
+        client = GmsClient(model=automation.model)
+    except Exception:
+        log.exception("자동 연결 LLM 초기화 실패 — 기존 사전 매핑 결과는 유지한다")
+        return
+
+    retriever = CandidateRetriever(
+        dictionary, CandidateIndex(dictionary), RetrievalPolicy.from_config(config)
+    )
+    vector_search = (
+        _vector_search(config, retriever.policy.top_k) if automation.vector_enabled else None
+    )
+    result = workflow.run_workflow(
+        questions,
+        client=client,
+        cache=sink,
+        retriever=retriever,
+        policy=automation,
+        vector_search=vector_search,
+    )
+
+    applied = []
+    for link in result.links:
+        try:
+            if apply_links(
+                config, (link,), model=automation.model,
+                prompt_version=workflow.VERIFY_PROMPT_VERSION,
+            ):
+                applied.append(link)
+        except Exception:
+            log.exception("자동 연결 적재 실패: %s/%s", link.verdict.lang, link.verdict.normalized)
+    for item in result.deferred:
+        try:
+            sink.record_auto_defer(
+                lang=item.lang,
+                normalized=item.normalized,
+                evidence=item.evidence,
+                model=automation.model,
+                prompt_version=(
+                    PROMPT_VERSION if item.reason == "NAME_FAILED"
+                    else workflow.VERIFY_PROMPT_VERSION
+                ),
+                dictionary_version=dictionary_version,
+            )
+        except Exception:
+            log.exception("자동 유보 기록 실패: %s/%s", item.lang, item.normalized)
+    log.info(
+        "자동 연결: 질문 %d · 호출 시도 %d · LINK %d · DEFER %d",
+        len(questions), result.attempted_calls, len(applied), len(result.deferred),
+    )
+    if not applied:
+        return
+
+    # Newly inserted aliases must affect article_concept in this same run, not thirty minutes later.
+    refreshed = sink.load_dictionary()
+    new_version = sink.current_version()
+    auto_pairs = {
+        (item.article_id, link.concept_id)
+        for item in unmapped
+        for link in applied
+        if (item.lang, item.normalized) == (link.verdict.lang, link.verdict.normalized)
+    }
+    rows, still_unmapped = [], []
+    resolved_keys: set[tuple[str, str]] = set()
+    for article_id, keywords in grouped.items():
+        mapped = map_article(article_id, None, keywords, refreshed)
+        rows.extend(
+            replace(row, method="AUTO_LLM")
+            if (row.article_id, row.concept_id) in auto_pairs else row
+            for row in mapped.rows
+        )
+        still_unmapped.extend(mapped.unmapped)
+        resolved_keys.update(mapped.resolved_keys)
+    sink.write(
+        rows=rows,
+        processed_article_ids=grouped.keys(),
+        unmapped=still_unmapped,
+        resolved_keys=resolved_keys,
+        dictionary_version=new_version,
+        context_samples=thresholds.context_samples,
+    )
+
+
+def _questions(unmapped, *, min_articles: int):
+    from trendin.spark.concept.judge import Question
+
+    articles: dict[tuple[str, str], set[int]] = {}
+    contexts: dict[tuple[str, str], str | None] = {}
+    surfaces: dict[tuple[str, str], str] = {}
+    for item in unmapped:
+        key = (item.lang, item.normalized)
+        articles.setdefault(key, set()).add(item.article_id)
+        surfaces.setdefault(key, item.surface)
+        if key not in contexts or (contexts[key] is None and item.context):
+            contexts[key] = item.context
+    eligible = [
+        (key, ids) for key, ids in articles.items() if len(ids) >= min_articles
+    ]
+    eligible.sort(key=lambda pair: (-len(pair[1]), pair[0]))
+    return [
+        Question(
+            index,
+            lang,
+            normalized,
+            len(ids),
+            contexts[(lang, normalized)],
+            surfaces[(lang, normalized)],
+        )
+        for index, ((lang, normalized), ids) in enumerate(eligible, start=1)
+    ]
+
+
+def _vector_search(config: Config, limit: int):
+    """Return a lazy vector search callback, or None when model/vector state is unavailable."""
+    try:
+        from trendin.spark.concept.embedding import MODEL_ID, MODEL_REVISION, E5Encoder, model_key
+        from trendin.spark.io.concept_vectors import ConceptVectorStore
+
+        store = ConceptVectorStore(config)
+        total, embedded = store.coverage(model_key(MODEL_ID, MODEL_REVISION))
+        if not total or embedded != total:
+            log.warning(
+                "개념 벡터가 불완전하다(%d/%d) — 문자·음가 후보로 계속한다",
+                embedded,
+                total,
+            )
+            return None
+        encoder = E5Encoder(MODEL_ID, MODEL_REVISION)
+    except Exception:
+        log.exception("벡터 검색 초기화 실패 — 문자·음가 후보로 계속한다")
+        return None
+
+    def search(original: str, english_name: str):
+        vectors = encoder.encode([original, english_name], query=True)
+        return {
+            "original": store.search(vectors[0], model_id=encoder.model_id, limit=limit),
+            "english": store.search(vectors[1], model_id=encoder.model_id, limit=limit),
+        }
+
+    return search
 
 
 def _repo_root() -> Path:

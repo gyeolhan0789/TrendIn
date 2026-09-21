@@ -11,7 +11,7 @@ APP_DB_URL=jdbc:postgresql://127.0.0.1:15432/forever102 APP_DB_USER=ssafy APP_DB
 않는다 — 조회는 PostgreSQL, 붙이기는 순수 파이썬이다. 그래서 `submit.sh` 가 있는 데이터
 EC2 에 안 들어가고도 DB 가 있는 기계로 터널만 열면 표를 만들고 실제로 붙여 볼 수 있다.
 
-인자는 Job 과 같다 (`--domain` · `--window-days` · `--dry-run`). `--profile` 은 설정
+인자는 Job 과 같다 (`--domain` · `--window-days` · `--dry-run` · `--auto-link`). `--profile` 은 설정
 뼈대를 어디서 가져올지이고, 접속 주소는 환경변수 `APP_DB_URL` 등이 덮는다.
 
 **운영 경로는 여전히 `submit.sh concept` 이다.** 이 스크립트는 접근 수단이 DB 뿐일 때의 시험용이다.

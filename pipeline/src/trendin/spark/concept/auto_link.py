@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Any
 
 from trendin.spark.concept.judge import NameIndex, Verdict
 
@@ -14,6 +15,7 @@ class Link:
     concept_id: int
     retrieval: str = "name"
     similarity: float | None = None
+    evidence: dict[str, Any] | None = None
 
 
 def select_links(verdicts: list[Verdict], names: NameIndex) -> tuple[Link, ...]:
@@ -50,7 +52,7 @@ def apply_links(config, links: tuple[Link, ...], *, model: str, prompt_version: 
                 key,
             )
             row = cur.fetchone()
-            if row is None or row[0] not in ("PENDING", "QUEUED"):
+            if row is None or row[0] not in ("PENDING", "JUDGED", "QUEUED"):
                 continue
             cur.execute(
                 f"SELECT 1 FROM {EXPRESSION} WHERE lang = %s AND normalized = %s LIMIT 1",
@@ -59,7 +61,9 @@ def apply_links(config, links: tuple[Link, ...], *, model: str, prompt_version: 
             if cur.fetchone() is not None:
                 continue  # 거부된 표현이나 다른 개념의 표현을 되살리지 않는다.
             cur.execute(
-                f"SELECT 1 FROM {DECISION} WHERE lang = %s AND normalized = %s LIMIT 1",
+                f"SELECT 1 FROM {DECISION} "
+                "WHERE lang = %s AND normalized = %s "
+                "AND NOT (decided_by = 'auto:llm' AND decision = 'DEFER') LIMIT 1",
                 key,
             )
             if cur.fetchone() is not None:
@@ -87,8 +91,13 @@ def apply_links(config, links: tuple[Link, ...], *, model: str, prompt_version: 
                     model,
                     prompt_version,
                     json.dumps(
-                        {"english_name": verdict.english_name, "category": verdict.category,
-                         "retrieval": link.retrieval, "similarity": link.similarity},
+                        {
+                            "english_name": verdict.english_name,
+                            "category": verdict.category,
+                            "retrieval": link.retrieval,
+                            "similarity": link.similarity,
+                            **(link.evidence or {}),
+                        },
                         ensure_ascii=False,
                     ),
                     version,
