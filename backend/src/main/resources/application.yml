@@ -12,6 +12,25 @@ spring:
       password: ${REDIS_PASSWORD:}
       timeout: 2s
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # 부하테스트 중 병목을 짚으려면 JVM·커넥션풀 지표가 필요하다. 나머지 엔드포인트는 닫아둔다.
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      # 이 설정이 없으면 http.server.requests 는 count/sum/max 만 남아 p95·p99 를 계산할 수 없다.
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
+
 jwt:
   # 로컬 개발과 테스트에서만 쓰는 기본값이다. dev 프로필은 반드시 환경변수로 덮어쓴다.
   secret: ${JWT_SECRET:trendin-local-development-only-secret-do-not-use-in-production}

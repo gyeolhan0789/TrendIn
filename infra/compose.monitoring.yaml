@@ -7,6 +7,8 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      # k6 가 부하테스트 결과를 remote write 로 밀어넣는다. 없으면 k6 출력이 405 로 거절된다.
+      - --web.enable-remote-write-receiver
     extra_hosts:
       - "pipeline-metrics:${PIPELINE_METRICS_HOST:?Set PIPELINE_METRICS_HOST in infra/.env}"
     ports:
@@ -16,6 +18,7 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - monitoring
+      - shared
 
   grafana:
     image: grafana/grafana:13.2.1
@@ -71,3 +74,7 @@ networks:
   monitoring:
     name: s15p21a102-monitoring
     driver: bridge
+  # backend 를 긁으려면 그 컨테이너가 있는 네트워크에 붙어야 한다. infra/compose.yaml 이 먼저 떠 있어야 한다.
+  shared:
+    name: s15p21a102-shared
+    external: true

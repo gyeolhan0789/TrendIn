@@ -41,6 +41,16 @@ services:
       POSTGRES_DB: forever102
       POSTGRES_USER: ssafy
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+    # 어떤 쿼리가 느린지 알아야 부하테스트 결과를 원인까지 끌고 갈 수 있다.
+    # shared_preload_libraries 는 기동 시점에만 읽히므로 컨테이너 재생성이 필요하다.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
     # 기본값은 루프백이다. 데이터 EC2 의 파이프라인이 붙어야 할 때만 서버 .env 에서
     # POSTGRES_BIND_IP 를 그 호스트의 사설 IP 로 채운다. 0.0.0.0 으로 열지 않는다 —
     # 공인 인터페이스까지 열려 보안 그룹이 유일한 방어선이 된다.
