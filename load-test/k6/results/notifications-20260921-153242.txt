@@ -1,0 +1,850 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: endpoint/notifications.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1000 max VUs, 3m30s max duration (incl. graceful stop):
+              * load: Up to 100.00 iterations/s for 3m0s over 5 stages (maxVUs: 50-1000, gracefulStop: 30s)
+
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+Run    [ 100% ] setup()
+load   [   0% ]
+
+running (0m10.9s), 0004/0050 VUs, 2 complete and 0 interrupted iterations
+load   [   0% ] 0004/0050 VUs  0m00.6s/3m0s  010.32 iters/s
+
+running (0m11.9s), 0007/0050 VUs, 9 complete and 0 interrupted iterations
+load   [   1% ] 0007/0050 VUs  0m01.6s/3m0s  010.79 iters/s
+
+running (0m12.9s), 0013/0050 VUs, 14 complete and 0 interrupted iterations
+load   [   1% ] 0013/0050 VUs  0m02.6s/3m0s  011.29 iters/s
+
+running (0m13.9s), 0023/0050 VUs, 16 complete and 0 interrupted iterations
+load   [   2% ] 0023/0050 VUs  0m03.6s/3m0s  011.81 iters/s
+
+running (0m14.9s), 0025/0050 VUs, 26 complete and 0 interrupted iterations
+load   [   3% ] 0025/0050 VUs  0m04.6s/3m0s  012.31 iters/s
+
+running (0m15.9s), 0029/0050 VUs, 35 complete and 0 interrupted iterations
+load   [   3% ] 0029/0050 VUs  0m05.6s/3m0s  012.83 iters/s
+
+running (0m16.9s), 0032/0050 VUs, 45 complete and 0 interrupted iterations
+load   [   4% ] 0032/0050 VUs  0m06.6s/3m0s  013.32 iters/s
+
+running (0m17.9s), 0035/0050 VUs, 55 complete and 0 interrupted iterations
+load   [   4% ] 0035/0050 VUs  0m07.6s/3m0s  013.80 iters/s
+
+running (0m18.9s), 0042/0050 VUs, 62 complete and 0 interrupted iterations
+load   [   5% ] 0042/0050 VUs  0m08.6s/3m0s  014.30 iters/s
+
+running (0m19.9s), 0049/0051 VUs, 69 complete and 0 interrupted iterations
+load   [   5% ] 0049/0051 VUs  0m09.6s/3m0s  014.82 iters/s
+
+running (0m20.9s), 0053/0054 VUs, 77 complete and 0 interrupted iterations
+load   [   6% ] 0053/0054 VUs  0m10.6s/3m0s  015.31 iters/s
+
+running (0m21.9s), 0055/0056 VUs, 89 complete and 0 interrupted iterations
+load   [   6% ] 0055/0056 VUs  0m11.6s/3m0s  015.83 iters/s
+
+running (0m22.9s), 0059/0060 VUs, 97 complete and 0 interrupted iterations
+load   [   7% ] 0059/0060 VUs  0m12.6s/3m0s  016.32 iters/s
+
+running (0m23.9s), 0061/0062 VUs, 109 complete and 0 interrupted iterations
+load   [   8% ] 0061/0062 VUs  0m13.6s/3m0s  016.81 iters/s
+
+running (0m24.9s), 0065/0067 VUs, 117 complete and 0 interrupted iterations
+load   [   8% ] 0065/0067 VUs  0m14.6s/3m0s  017.31 iters/s
+
+running (0m25.9s), 0069/0070 VUs, 128 complete and 0 interrupted iterations
+load   [   9% ] 0069/0070 VUs  0m15.6s/3m0s  017.82 iters/s
+
+running (0m26.9s), 0074/0076 VUs, 135 complete and 0 interrupted iterations
+load   [   9% ] 0074/0076 VUs  0m16.6s/3m0s  018.32 iters/s
+
+running (0m27.9s), 0077/0080 VUs, 146 complete and 0 interrupted iterations
+load   [  10% ] 0077/0080 VUs  0m17.6s/3m0s  018.80 iters/s
+
+running (0m28.9s), 0083/0083 VUs, 156 complete and 0 interrupted iterations
+load   [  10% ] 0083/0083 VUs  0m18.6s/3m0s  019.30 iters/s
+
+running (0m29.9s), 0088/0088 VUs, 166 complete and 0 interrupted iterations
+load   [  11% ] 0088/0088 VUs  0m19.6s/3m0s  019.81 iters/s
+
+running (0m30.9s), 0093/0094 VUs, 175 complete and 0 interrupted iterations
+load   [  11% ] 0093/0094 VUs  0m20.6s/3m0s  020.31 iters/s
+
+running (0m31.9s), 0100/0100 VUs, 183 complete and 0 interrupted iterations
+load   [  12% ] 0100/0100 VUs  0m21.6s/3m0s  020.82 iters/s
+
+running (0m32.9s), 0107/0107 VUs, 190 complete and 0 interrupted iterations
+load   [  13% ] 0107/0107 VUs  0m22.6s/3m0s  021.32 iters/s
+
+running (0m33.9s), 0113/0113 VUs, 199 complete and 0 interrupted iterations
+load   [  13% ] 0113/0113 VUs  0m23.6s/3m0s  021.81 iters/s
+
+running (0m34.9s), 0120/0121 VUs, 206 complete and 0 interrupted iterations
+load   [  14% ] 0120/0121 VUs  0m24.6s/3m0s  022.30 iters/s
+
+running (0m35.9s), 0126/0127 VUs, 217 complete and 0 interrupted iterations
+load   [  14% ] 0126/0127 VUs  0m25.6s/3m0s  022.81 iters/s
+
+running (0m36.9s), 0133/0134 VUs, 226 complete and 0 interrupted iterations
+load   [  15% ] 0133/0134 VUs  0m26.6s/3m0s  023.31 iters/s
+
+running (0m37.9s), 0140/0142 VUs, 234 complete and 0 interrupted iterations
+load   [  15% ] 0140/0142 VUs  0m27.6s/3m0s  023.80 iters/s
+
+running (0m38.9s), 0150/0150 VUs, 241 complete and 0 interrupted iterations
+load   [  16% ] 0150/0150 VUs  0m28.6s/3m0s  024.32 iters/s
+
+running (0m39.9s), 0156/0157 VUs, 252 complete and 0 interrupted iterations
+load   [  16% ] 0156/0157 VUs  0m29.6s/3m0s  024.81 iters/s
+
+running (0m40.9s), 0164/0165 VUs, 261 complete and 0 interrupted iterations
+load   [  17% ] 0164/0165 VUs  0m30.6s/3m0s  025.51 iters/s
+
+running (0m41.9s), 0173/0174 VUs, 269 complete and 0 interrupted iterations
+load   [  18% ] 0173/0174 VUs  0m31.6s/3m0s  026.35 iters/s
+
+running (0m42.9s), 0182/0183 VUs, 278 complete and 0 interrupted iterations
+load   [  18% ] 0182/0183 VUs  0m32.6s/3m0s  027.19 iters/s
+
+running (0m43.9s), 0192/0193 VUs, 286 complete and 0 interrupted iterations
+load   [  19% ] 0192/0193 VUs  0m33.6s/3m0s  028.03 iters/s
+
+running (0m44.9s), 0201/0201 VUs, 297 complete and 0 interrupted iterations
+load   [  19% ] 0201/0201 VUs  0m34.6s/3m0s  028.85 iters/s
+
+running (0m45.9s), 0211/0212 VUs, 305 complete and 0 interrupted iterations
+load   [  20% ] 0211/0212 VUs  0m35.6s/3m0s  029.68 iters/s
+
+running (0m46.9s), 0222/0222 VUs, 314 complete and 0 interrupted iterations
+load   [  20% ] 0222/0222 VUs  0m36.6s/3m0s  030.51 iters/s
+
+running (0m47.9s), 0233/0235 VUs, 321 complete and 0 interrupted iterations
+load   [  21% ] 0233/0235 VUs  0m37.6s/3m0s  031.34 iters/s
+
+running (0m48.9s), 0247/0247 VUs, 327 complete and 0 interrupted iterations
+load   [  21% ] 0247/0247 VUs  0m38.6s/3m0s  032.18 iters/s
+
+running (0m49.9s), 0261/0261 VUs, 332 complete and 0 interrupted iterations
+load   [  22% ] 0261/0261 VUs  0m39.6s/3m0s  033.03 iters/s
+
+running (0m50.9s), 0270/0271 VUs, 346 complete and 0 interrupted iterations
+load   [  23% ] 0270/0271 VUs  0m40.6s/3m0s  033.85 iters/s
+
+running (0m51.9s), 0283/0284 VUs, 354 complete and 0 interrupted iterations
+load   [  23% ] 0283/0284 VUs  0m41.6s/3m0s  034.68 iters/s
+
+running (0m52.9s), 0295/0296 VUs, 365 complete and 0 interrupted iterations
+load   [  24% ] 0295/0296 VUs  0m42.6s/3m0s  035.51 iters/s
+
+running (0m53.9s), 0311/0311 VUs, 370 complete and 0 interrupted iterations
+load   [  24% ] 0311/0311 VUs  0m43.6s/3m0s  036.34 iters/s
+
+running (0m54.9s), 0327/0327 VUs, 375 complete and 0 interrupted iterations
+load   [  25% ] 0327/0327 VUs  0m44.6s/3m0s  037.18 iters/s
+
+running (0m55.9s), 0341/0341 VUs, 385 complete and 0 interrupted iterations
+load   [  25% ] 0341/0341 VUs  0m45.6s/3m0s  038.02 iters/s
+
+running (0m56.9s), 0356/0356 VUs, 393 complete and 0 interrupted iterations
+load   [  26% ] 0356/0356 VUs  0m46.6s/3m0s  038.85 iters/s
+
+running (0m57.9s), 0372/0372 VUs, 400 complete and 0 interrupted iterations
+load   [  26% ] 0372/0372 VUs  0m47.6s/3m0s  039.68 iters/s
+
+running (0m58.9s), 0386/0387 VUs, 412 complete and 0 interrupted iterations
+load   [  27% ] 0386/0387 VUs  0m48.6s/3m0s  040.53 iters/s
+
+running (0m59.9s), 0403/0403 VUs, 420 complete and 0 interrupted iterations
+load   [  28% ] 0403/0403 VUs  0m49.6s/3m0s  041.36 iters/s
+
+running (1m00.9s), 0419/0419 VUs, 429 complete and 0 interrupted iterations
+load   [  28% ] 0419/0419 VUs  0m50.6s/3m0s  042.18 iters/s
+
+running (1m01.9s), 0438/0439 VUs, 433 complete and 0 interrupted iterations
+load   [  29% ] 0438/0439 VUs  0m51.6s/3m0s  043.02 iters/s
+
+running (1m02.9s), 0456/0457 VUs, 440 complete and 0 interrupted iterations
+load   [  29% ] 0456/0457 VUs  0m52.6s/3m0s  043.85 iters/s
+
+running (1m03.9s), 0474/0475 VUs, 449 complete and 0 interrupted iterations
+load   [  30% ] 0474/0475 VUs  0m53.6s/3m0s  044.69 iters/s
+
+running (1m04.9s), 0494/0494 VUs, 455 complete and 0 interrupted iterations
+load   [  30% ] 0494/0494 VUs  0m54.6s/3m0s  045.52 iters/s
+
+running (1m05.9s), 0514/0514 VUs, 461 complete and 0 interrupted iterations
+load   [  31% ] 0514/0514 VUs  0m55.6s/3m0s  046.36 iters/s
+
+running (1m06.9s), 0533/0534 VUs, 468 complete and 0 interrupted iterations
+load   [  31% ] 0533/0534 VUs  0m56.6s/3m0s  047.18 iters/s
+
+running (1m07.9s), 0553/0553 VUs, 477 complete and 0 interrupted iterations
+load   [  32% ] 0553/0553 VUs  0m57.6s/3m0s  048.02 iters/s
+
+running (1m08.9s), 0574/0575 VUs, 482 complete and 0 interrupted iterations
+load   [  33% ] 0574/0575 VUs  0m58.6s/3m0s  048.84 iters/s
+
+running (1m09.9s), 0597/0597 VUs, 487 complete and 0 interrupted iterations
+load   [  33% ] 0597/0597 VUs  0m59.6s/3m0s  049.69 iters/s
+
+running (1m10.9s), 0618/0618 VUs, 495 complete and 0 interrupted iterations
+load   [  34% ] 0618/0618 VUs  1m00.6s/3m0s  050.52 iters/s
+
+running (1m11.9s), 0638/0639 VUs, 505 complete and 0 interrupted iterations
+load   [  34% ] 0638/0639 VUs  1m01.6s/3m0s  051.36 iters/s
+
+running (1m12.9s), 0662/0662 VUs, 510 complete and 0 interrupted iterations
+load   [  35% ] 0662/0662 VUs  1m02.6s/3m0s  052.19 iters/s
+
+running (1m13.9s), 0686/0686 VUs, 514 complete and 0 interrupted iterations
+load   [  35% ] 0686/0686 VUs  1m03.6s/3m0s  053.02 iters/s
+
+running (1m14.9s), 0709/0709 VUs, 522 complete and 0 interrupted iterations
+load   [  36% ] 0709/0709 VUs  1m04.6s/3m0s  053.86 iters/s
+
+running (1m15.9s), 0731/0732 VUs, 531 complete and 0 interrupted iterations
+load   [  36% ] 0731/0732 VUs  1m05.6s/3m0s  054.69 iters/s
+
+running (1m16.9s), 0757/0757 VUs, 535 complete and 0 interrupted iterations
+load   [  37% ] 0757/0757 VUs  1m06.6s/3m0s  055.52 iters/s
+
+running (1m17.9s), 0780/0781 VUs, 543 complete and 0 interrupted iterations
+load   [  38% ] 0780/0781 VUs  1m07.6s/3m0s  056.35 iters/s
+
+running (1m18.9s), 0804/0805 VUs, 552 complete and 0 interrupted iterations
+load   [  38% ] 0804/0805 VUs  1m08.6s/3m0s  057.19 iters/s
+
+running (1m19.9s), 0831/0831 VUs, 556 complete and 0 interrupted iterations
+load   [  39% ] 0831/0831 VUs  1m09.6s/3m0s  058.02 iters/s
+
+running (1m20.9s), 0857/0858 VUs, 562 complete and 0 interrupted iterations
+load   [  39% ] 0857/0858 VUs  1m10.6s/3m0s  058.86 iters/s
+
+running (1m21.9s), 0883/0884 VUs, 569 complete and 0 interrupted iterations
+load   [  40% ] 0883/0884 VUs  1m11.6s/3m0s  059.69 iters/s
+
+running (1m22.9s), 0908/0909 VUs, 579 complete and 0 interrupted iterations
+load   [  40% ] 0908/0909 VUs  1m12.6s/3m0s  060.52 iters/s
+
+running (1m23.9s), 0935/0935 VUs, 587 complete and 0 interrupted iterations
+load   [  41% ] 0935/0935 VUs  1m13.6s/3m0s  061.35 iters/s
+
+running (1m24.9s), 0963/0964 VUs, 592 complete and 0 interrupted iterations
+load   [  41% ] 0963/0964 VUs  1m14.6s/3m0s  062.19 iters/s
+
+running (1m25.9s), 0993/0993 VUs, 595 complete and 0 interrupted iterations
+load   [  42% ] 0993/0993 VUs  1m15.6s/3m0s  063.01 iters/s
+time="2026-09-21T15:41:07+09:00" level=warning msg="Insufficient VUs, reached 1000 active VUs and cannot initialize more" executor=ramping-arrival-rate scenario=load
+
+running (1m26.9s), 1000/1000 VUs, 599 complete and 0 interrupted iterations
+load   [  43% ] 1000/1000 VUs  1m16.6s/3m0s  063.86 iters/s
+
+running (1m27.9s), 1000/1000 VUs, 602 complete and 0 interrupted iterations
+load   [  43% ] 1000/1000 VUs  1m17.6s/3m0s  064.69 iters/s
+
+running (1m28.9s), 1000/1000 VUs, 611 complete and 0 interrupted iterations
+load   [  44% ] 1000/1000 VUs  1m18.6s/3m0s  065.52 iters/s
+
+running (1m29.9s), 1000/1000 VUs, 620 complete and 0 interrupted iterations
+load   [  44% ] 1000/1000 VUs  1m19.6s/3m0s  066.35 iters/s
+
+running (1m30.9s), 1000/1000 VUs, 625 complete and 0 interrupted iterations
+load   [  45% ] 1000/1000 VUs  1m20.6s/3m0s  067.19 iters/s
+
+running (1m31.9s), 1000/1000 VUs, 630 complete and 0 interrupted iterations
+load   [  45% ] 1000/1000 VUs  1m21.6s/3m0s  068.01 iters/s
+
+running (1m32.9s), 1000/1000 VUs, 637 complete and 0 interrupted iterations
+load   [  46% ] 1000/1000 VUs  1m22.6s/3m0s  068.85 iters/s
+
+running (1m33.9s), 1000/1000 VUs, 641 complete and 0 interrupted iterations
+load   [  46% ] 1000/1000 VUs  1m23.6s/3m0s  069.68 iters/s
+
+running (1m34.9s), 1000/1000 VUs, 647 complete and 0 interrupted iterations
+load   [  47% ] 1000/1000 VUs  1m24.6s/3m0s  070.52 iters/s
+
+running (1m35.9s), 1000/1000 VUs, 654 complete and 0 interrupted iterations
+load   [  48% ] 1000/1000 VUs  1m25.6s/3m0s  071.35 iters/s
+
+running (1m36.9s), 1000/1000 VUs, 660 complete and 0 interrupted iterations
+load   [  48% ] 1000/1000 VUs  1m26.6s/3m0s  072.19 iters/s
+
+running (1m37.9s), 1000/1000 VUs, 663 complete and 0 interrupted iterations
+load   [  49% ] 1000/1000 VUs  1m27.6s/3m0s  073.02 iters/s
+
+running (1m38.9s), 1000/1000 VUs, 669 complete and 0 interrupted iterations
+load   [  49% ] 1000/1000 VUs  1m28.6s/3m0s  073.85 iters/s
+
+running (1m39.9s), 1000/1000 VUs, 678 complete and 0 interrupted iterations
+load   [  50% ] 1000/1000 VUs  1m29.6s/3m0s  074.68 iters/s
+
+running (1m40.9s), 1000/1000 VUs, 685 complete and 0 interrupted iterations
+load   [  50% ] 1000/1000 VUs  1m30.6s/3m0s  075.51 iters/s
+
+running (1m41.9s), 1000/1000 VUs, 693 complete and 0 interrupted iterations
+load   [  51% ] 1000/1000 VUs  1m31.6s/3m0s  076.35 iters/s
+
+running (1m42.9s), 1000/1000 VUs, 702 complete and 0 interrupted iterations
+load   [  51% ] 1000/1000 VUs  1m32.6s/3m0s  077.18 iters/s
+
+running (1m43.9s), 1000/1000 VUs, 708 complete and 0 interrupted iterations
+load   [  52% ] 1000/1000 VUs  1m33.6s/3m0s  078.02 iters/s
+
+running (1m44.9s), 1000/1000 VUs, 710 complete and 0 interrupted iterations
+load   [  53% ] 1000/1000 VUs  1m34.6s/3m0s  078.85 iters/s
+
+running (1m45.9s), 1000/1000 VUs, 716 complete and 0 interrupted iterations
+load   [  53% ] 1000/1000 VUs  1m35.6s/3m0s  079.68 iters/s
+
+running (1m46.9s), 1000/1000 VUs, 722 complete and 0 interrupted iterations
+load   [  54% ] 1000/1000 VUs  1m36.6s/3m0s  080.51 iters/s
+
+running (1m47.9s), 1000/1000 VUs, 731 complete and 0 interrupted iterations
+load   [  54% ] 1000/1000 VUs  1m37.6s/3m0s  081.35 iters/s
+
+running (1m48.9s), 1000/1000 VUs, 738 complete and 0 interrupted iterations
+load   [  55% ] 1000/1000 VUs  1m38.6s/3m0s  082.18 iters/s
+
+running (1m49.9s), 1000/1000 VUs, 743 complete and 0 interrupted iterations
+load   [  55% ] 1000/1000 VUs  1m39.6s/3m0s  083.02 iters/s
+
+running (1m50.9s), 1000/1000 VUs, 749 complete and 0 interrupted iterations
+load   [  56% ] 1000/1000 VUs  1m40.6s/3m0s  083.85 iters/s
+
+running (1m51.9s), 1000/1000 VUs, 754 complete and 0 interrupted iterations
+load   [  56% ] 1000/1000 VUs  1m41.6s/3m0s  084.69 iters/s
+
+running (1m52.9s), 1000/1000 VUs, 758 complete and 0 interrupted iterations
+load   [  57% ] 1000/1000 VUs  1m42.6s/3m0s  085.52 iters/s
+
+running (1m53.9s), 1000/1000 VUs, 761 complete and 0 interrupted iterations
+load   [  58% ] 1000/1000 VUs  1m43.6s/3m0s  086.36 iters/s
+
+running (1m54.9s), 1000/1000 VUs, 771 complete and 0 interrupted iterations
+load   [  58% ] 1000/1000 VUs  1m44.6s/3m0s  087.18 iters/s
+
+running (1m55.9s), 1000/1000 VUs, 778 complete and 0 interrupted iterations
+load   [  59% ] 1000/1000 VUs  1m45.6s/3m0s  088.02 iters/s
+
+running (1m56.9s), 1000/1000 VUs, 783 complete and 0 interrupted iterations
+load   [  59% ] 1000/1000 VUs  1m46.6s/3m0s  088.85 iters/s
+
+running (1m57.9s), 1000/1000 VUs, 789 complete and 0 interrupted iterations
+load   [  60% ] 1000/1000 VUs  1m47.6s/3m0s  089.69 iters/s
+
+running (1m58.9s), 1000/1000 VUs, 791 complete and 0 interrupted iterations
+load   [  60% ] 1000/1000 VUs  1m48.6s/3m0s  090.52 iters/s
+
+running (1m59.9s), 1000/1000 VUs, 796 complete and 0 interrupted iterations
+load   [  61% ] 1000/1000 VUs  1m49.6s/3m0s  091.36 iters/s
+
+running (2m00.9s), 1000/1000 VUs, 803 complete and 0 interrupted iterations
+load   [  61% ] 1000/1000 VUs  1m50.6s/3m0s  092.19 iters/s
+
+running (2m01.9s), 1000/1000 VUs, 810 complete and 0 interrupted iterations
+load   [  62% ] 1000/1000 VUs  1m51.6s/3m0s  093.02 iters/s
+
+running (2m02.9s), 1000/1000 VUs, 816 complete and 0 interrupted iterations
+load   [  63% ] 1000/1000 VUs  1m52.6s/3m0s  093.85 iters/s
+
+running (2m03.9s), 1000/1000 VUs, 825 complete and 0 interrupted iterations
+load   [  63% ] 1000/1000 VUs  1m53.6s/3m0s  094.69 iters/s
+
+running (2m04.9s), 1000/1000 VUs, 834 complete and 0 interrupted iterations
+load   [  64% ] 1000/1000 VUs  1m54.6s/3m0s  095.52 iters/s
+
+running (2m05.9s), 1000/1000 VUs, 842 complete and 0 interrupted iterations
+load   [  64% ] 1000/1000 VUs  1m55.6s/3m0s  096.35 iters/s
+
+running (2m06.9s), 1000/1000 VUs, 851 complete and 0 interrupted iterations
+load   [  65% ] 1000/1000 VUs  1m56.6s/3m0s  097.19 iters/s
+
+running (2m07.9s), 1000/1000 VUs, 861 complete and 0 interrupted iterations
+load   [  65% ] 1000/1000 VUs  1m57.6s/3m0s  098.02 iters/s
+
+running (2m08.9s), 1000/1000 VUs, 866 complete and 0 interrupted iterations
+load   [  66% ] 1000/1000 VUs  1m58.6s/3m0s  098.86 iters/s
+
+running (2m09.9s), 1000/1000 VUs, 870 complete and 0 interrupted iterations
+load   [  66% ] 1000/1000 VUs  1m59.6s/3m0s  099.69 iters/s
+
+running (2m10.9s), 1000/1000 VUs, 878 complete and 0 interrupted iterations
+load   [  67% ] 1000/1000 VUs  2m00.6s/3m0s  100.00 iters/s
+
+running (2m11.9s), 1000/1000 VUs, 890 complete and 0 interrupted iterations
+load   [  68% ] 1000/1000 VUs  2m01.6s/3m0s  100.00 iters/s
+
+running (2m12.9s), 1000/1000 VUs, 897 complete and 0 interrupted iterations
+load   [  68% ] 1000/1000 VUs  2m02.6s/3m0s  100.00 iters/s
+
+running (2m13.9s), 1000/1000 VUs, 903 complete and 0 interrupted iterations
+load   [  69% ] 1000/1000 VUs  2m03.6s/3m0s  100.00 iters/s
+
+running (2m14.9s), 1000/1000 VUs, 915 complete and 0 interrupted iterations
+load   [  69% ] 1000/1000 VUs  2m04.6s/3m0s  100.00 iters/s
+
+running (2m15.9s), 1000/1000 VUs, 922 complete and 0 interrupted iterations
+load   [  70% ] 1000/1000 VUs  2m05.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:41:58+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m16.9s), 1000/1000 VUs, 931 complete and 0 interrupted iterations
+load   [  70% ] 1000/1000 VUs  2m06.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:41:58+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m17.9s), 1000/1000 VUs, 938 complete and 0 interrupted iterations
+load   [  71% ] 1000/1000 VUs  2m07.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:41:59+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:00+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m18.9s), 1000/1000 VUs, 947 complete and 0 interrupted iterations
+load   [  71% ] 1000/1000 VUs  2m08.6s/3m0s  100.00 iters/s
+
+running (2m19.9s), 1000/1000 VUs, 958 complete and 0 interrupted iterations
+load   [  72% ] 1000/1000 VUs  2m09.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:02+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m20.9s), 1000/1000 VUs, 971 complete and 0 interrupted iterations
+load   [  73% ] 1000/1000 VUs  2m10.6s/3m0s  100.00 iters/s
+
+running (2m21.9s), 1000/1000 VUs, 983 complete and 0 interrupted iterations
+load   [  73% ] 1000/1000 VUs  2m11.6s/3m0s  100.00 iters/s
+
+running (2m22.9s), 1000/1000 VUs, 996 complete and 0 interrupted iterations
+load   [  74% ] 1000/1000 VUs  2m12.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:04+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:05+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:05+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m23.9s), 1000/1000 VUs, 1009 complete and 0 interrupted iterations
+load   [  74% ] 1000/1000 VUs  2m13.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:05+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m24.9s), 1000/1000 VUs, 1024 complete and 0 interrupted iterations
+load   [  75% ] 1000/1000 VUs  2m14.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m25.9s), 1000/1000 VUs, 1038 complete and 0 interrupted iterations
+load   [  75% ] 1000/1000 VUs  2m15.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:08+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:08+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:08+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m26.9s), 1000/1000 VUs, 1057 complete and 0 interrupted iterations
+load   [  76% ] 1000/1000 VUs  2m16.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m27.9s), 1000/1000 VUs, 1067 complete and 0 interrupted iterations
+load   [  76% ] 1000/1000 VUs  2m17.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m28.9s), 1000/1000 VUs, 1086 complete and 0 interrupted iterations
+load   [  77% ] 1000/1000 VUs  2m18.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:10+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m29.9s), 1000/1000 VUs, 1102 complete and 0 interrupted iterations
+load   [  78% ] 1000/1000 VUs  2m19.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:12+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m30.9s), 1000/1000 VUs, 1113 complete and 0 interrupted iterations
+load   [  78% ] 1000/1000 VUs  2m20.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:12+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:12+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:12+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:13+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:13+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m31.9s), 1000/1000 VUs, 1130 complete and 0 interrupted iterations
+load   [  79% ] 1000/1000 VUs  2m21.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:13+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:13+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:14+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:14+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m32.9s), 1000/1000 VUs, 1142 complete and 0 interrupted iterations
+load   [  79% ] 1000/1000 VUs  2m22.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:14+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:14+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:15+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:15+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m33.9s), 1000/1000 VUs, 1153 complete and 0 interrupted iterations
+load   [  80% ] 1000/1000 VUs  2m23.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:15+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:16+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:16+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m34.9s), 1000/1000 VUs, 1166 complete and 0 interrupted iterations
+load   [  80% ] 1000/1000 VUs  2m24.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:16+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:16+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m35.9s), 1000/1000 VUs, 1182 complete and 0 interrupted iterations
+load   [  81% ] 1000/1000 VUs  2m25.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:17+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:17+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:18+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:18+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:18+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m36.9s), 1000/1000 VUs, 1195 complete and 0 interrupted iterations
+load   [  81% ] 1000/1000 VUs  2m26.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:19+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m37.9s), 1000/1000 VUs, 1206 complete and 0 interrupted iterations
+load   [  82% ] 1000/1000 VUs  2m27.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:19+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m38.9s), 1000/1000 VUs, 1222 complete and 0 interrupted iterations
+load   [  83% ] 1000/1000 VUs  2m28.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:20+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m39.9s), 0999/1000 VUs, 1236 complete and 0 interrupted iterations
+load   [  83% ] 0999/1000 VUs  2m29.6s/3m0s  100.00 iters/s
+
+running (2m40.9s), 1000/1000 VUs, 1253 complete and 0 interrupted iterations
+load   [  84% ] 1000/1000 VUs  2m30.6s/3m0s  100.00 iters/s
+
+running (2m41.9s), 1000/1000 VUs, 1270 complete and 0 interrupted iterations
+load   [  84% ] 1000/1000 VUs  2m31.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:23+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:23+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:24+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m42.9s), 1000/1000 VUs, 1292 complete and 0 interrupted iterations
+load   [  85% ] 1000/1000 VUs  2m32.6s/3m0s  100.00 iters/s
+
+running (2m43.9s), 1000/1000 VUs, 1306 complete and 0 interrupted iterations
+load   [  85% ] 1000/1000 VUs  2m33.6s/3m0s  100.00 iters/s
+
+running (2m44.9s), 1000/1000 VUs, 1319 complete and 0 interrupted iterations
+load   [  86% ] 1000/1000 VUs  2m34.6s/3m0s  100.00 iters/s
+
+running (2m45.9s), 1000/1000 VUs, 1334 complete and 0 interrupted iterations
+load   [  86% ] 1000/1000 VUs  2m35.6s/3m0s  100.00 iters/s
+
+running (2m46.9s), 1000/1000 VUs, 1355 complete and 0 interrupted iterations
+load   [  87% ] 1000/1000 VUs  2m36.6s/3m0s  100.00 iters/s
+
+running (2m47.9s), 1000/1000 VUs, 1368 complete and 0 interrupted iterations
+load   [  88% ] 1000/1000 VUs  2m37.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:30+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m48.9s), 1000/1000 VUs, 1385 complete and 0 interrupted iterations
+load   [  88% ] 1000/1000 VUs  2m38.6s/3m0s  100.00 iters/s
+
+running (2m49.9s), 1000/1000 VUs, 1398 complete and 0 interrupted iterations
+load   [  89% ] 1000/1000 VUs  2m39.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:31+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m50.9s), 1000/1000 VUs, 1412 complete and 0 interrupted iterations
+load   [  89% ] 1000/1000 VUs  2m40.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:32+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m51.9s), 1000/1000 VUs, 1422 complete and 0 interrupted iterations
+load   [  90% ] 1000/1000 VUs  2m41.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:33+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:33+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:34+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m52.9s), 1000/1000 VUs, 1440 complete and 0 interrupted iterations
+load   [  90% ] 1000/1000 VUs  2m42.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:35+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m53.9s), 1000/1000 VUs, 1458 complete and 0 interrupted iterations
+load   [  91% ] 1000/1000 VUs  2m43.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:36+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:36+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (2m54.9s), 1000/1000 VUs, 1473 complete and 0 interrupted iterations
+load   [  91% ] 1000/1000 VUs  2m44.6s/3m0s  100.00 iters/s
+
+running (2m55.9s), 1000/1000 VUs, 1485 complete and 0 interrupted iterations
+load   [  92% ] 1000/1000 VUs  2m45.6s/3m0s  100.00 iters/s
+
+running (2m56.9s), 1000/1000 VUs, 1496 complete and 0 interrupted iterations
+load   [  93% ] 1000/1000 VUs  2m46.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:38+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m57.9s), 0999/1000 VUs, 1509 complete and 0 interrupted iterations
+load   [  93% ] 0999/1000 VUs  2m47.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:39+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:40+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (2m58.9s), 1000/1000 VUs, 1522 complete and 0 interrupted iterations
+load   [  94% ] 1000/1000 VUs  2m48.6s/3m0s  100.00 iters/s
+
+running (2m59.9s), 1000/1000 VUs, 1533 complete and 0 interrupted iterations
+load   [  94% ] 1000/1000 VUs  2m49.6s/3m0s  100.00 iters/s
+
+running (3m00.9s), 1000/1000 VUs, 1546 complete and 0 interrupted iterations
+load   [  95% ] 1000/1000 VUs  2m50.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:43+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m01.9s), 1000/1000 VUs, 1556 complete and 0 interrupted iterations
+load   [  95% ] 1000/1000 VUs  2m51.6s/3m0s  100.00 iters/s
+
+running (3m02.9s), 0999/1000 VUs, 1567 complete and 0 interrupted iterations
+load   [  96% ] 0999/1000 VUs  2m52.6s/3m0s  100.00 iters/s
+
+running (3m03.9s), 1000/1000 VUs, 1583 complete and 0 interrupted iterations
+load   [  96% ] 1000/1000 VUs  2m53.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:45+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m04.9s), 0999/1000 VUs, 1596 complete and 0 interrupted iterations
+load   [  97% ] 0999/1000 VUs  2m54.6s/3m0s  100.00 iters/s
+
+running (3m05.9s), 1000/1000 VUs, 1603 complete and 0 interrupted iterations
+load   [  98% ] 1000/1000 VUs  2m55.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:47+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m06.9s), 1000/1000 VUs, 1618 complete and 0 interrupted iterations
+load   [  98% ] 1000/1000 VUs  2m56.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:49+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m07.9s), 0999/1000 VUs, 1631 complete and 0 interrupted iterations
+load   [  99% ] 0999/1000 VUs  2m57.6s/3m0s  100.00 iters/s
+time="2026-09-21T15:42:50+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m08.9s), 1000/1000 VUs, 1643 complete and 0 interrupted iterations
+load   [  99% ] 1000/1000 VUs  2m58.6s/3m0s  100.00 iters/s
+
+running (3m09.9s), 1000/1000 VUs, 1650 complete and 0 interrupted iterations
+load   [ 100% ] 1000/1000 VUs  2m59.6s/3m0s  100.00 iters/s
+
+running (3m10.9s), 0992/1000 VUs, 1661 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m11.9s), 0982/1000 VUs, 1671 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m12.9s), 0976/1000 VUs, 1677 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:42:54+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m13.9s), 0969/1000 VUs, 1684 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m14.9s), 0960/1000 VUs, 1693 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:42:56+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:42:57+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:42:57+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m15.9s), 0954/1000 VUs, 1699 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m16.9s), 0947/1000 VUs, 1706 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:42:59+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m17.9s), 0940/1000 VUs, 1713 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:42:59+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m18.9s), 0932/1000 VUs, 1721 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:01+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m19.9s), 0920/1000 VUs, 1733 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m20.9s), 0913/1000 VUs, 1740 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m21.9s), 0910/1000 VUs, 1743 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:04+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:43:04+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m22.9s), 0905/1000 VUs, 1748 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m23.9s), 0901/1000 VUs, 1752 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:05+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+time="2026-09-21T15:43:06+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m24.9s), 0887/1000 VUs, 1766 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:07+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m25.9s), 0881/1000 VUs, 1772 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:08+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m26.9s), 0879/1000 VUs, 1774 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m27.9s), 0872/1000 VUs, 1781 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+time="2026-09-21T15:43:09+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m28.9s), 0864/1000 VUs, 1789 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:11+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m29.9s), 0861/1000 VUs, 1792 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m30.9s), 0855/1000 VUs, 1798 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m31.9s), 0848/1000 VUs, 1805 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m32.9s), 0840/1000 VUs, 1813 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:15+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications/unread-count\": request timeout"
+
+running (3m33.9s), 0835/1000 VUs, 1818 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:15+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m34.9s), 0826/1000 VUs, 1827 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m35.9s), 0818/1000 VUs, 1835 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:18+09:00" level=warning msg="Request Failed" error="Get \"http://127.0.0.1:18080/members/me/notifications?page=0&size=20\": request timeout"
+
+running (3m36.9s), 0814/1000 VUs, 1839 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m37.9s), 0811/1000 VUs, 1842 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m38.9s), 0804/1000 VUs, 1849 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+running (3m39.9s), 0794/1000 VUs, 1859 complete and 0 interrupted iterations
+load ↓ [ 100% ] 1000/1000 VUs  3m0s  100.00 iters/s
+
+
+  █ THRESHOLDS 
+
+    http_req_duration{name:GET /members/me/notifications}
+    ✗ 'p(95)<1000' p(95)=56.42s
+
+    http_req_duration{name:GET /members/me/notifications/unread-count}
+    ✗ 'p(95)<500' p(95)=57.27s
+
+    http_req_failed
+    ✗ 'rate<0.01' rate=3.12%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 4268   19.367244/s
+    checks_succeeded...: 96.83% 4133 out of 4268
+    checks_failed......: 3.16%  135 out of 4268
+
+    ✗ 알림 목록 200
+      ↳  97% — ✓ 2336 / ✗ 71
+    ✗ 안 읽은 개수 200
+      ↳  96% — ✓ 1797 / ✗ 64
+
+    HTTP
+    http_req_duration.......................................: avg=30.8s  min=84.22ms  med=36.71s max=1m0s   p(90)=53.08s p(95)=56.61s
+      { expected_response:true }............................: avg=29.92s min=84.22ms  med=36.12s max=59.98s p(90)=51.58s p(95)=54.52s
+      { name:GET /members/me/notifications }................: avg=30.94s min=127.04ms med=36.18s max=1m0s   p(90)=52.81s p(95)=56.42s
+      { name:GET /members/me/notifications/unread-count }...: avg=31.44s min=100.78ms med=37.34s max=1m0s   p(90)=53.45s p(95)=57.27s
+    http_req_failed.........................................: 3.12%  135 out of 4318
+    http_reqs...............................................: 4318   19.594133/s
+
+    EXECUTION
+    dropped_iterations......................................: 9497   43.095295/s
+    iteration_duration......................................: avg=57.86s min=228.71ms med=1m7s   max=2m0s   p(90)=1m36s  p(95)=1m41s 
+    iterations..............................................: 1861   8.444808/s
+    vus.....................................................: 794    min=0           max=1000
+    vus_max.................................................: 1000   min=50          max=1000
+
+    NETWORK
+    data_received...........................................: 11 MB  48 kB/s
+    data_sent...............................................: 1.7 MB 7.9 kB/s
+
+
+
+
+running (3m40.4s), 0000/1000 VUs, 1861 complete and 792 interrupted iterations
+load ✓ [ 100% ] 0792/1000 VUs  3m0s  100.00 iters/s
+time="2026-09-21T15:43:22+09:00" level=error msg="thresholds on metrics 'http_req_duration{name:GET /members/me/notifications/unread-count}, http_req_duration{name:GET /members/me/notifications}, http_req_failed' have been crossed"
