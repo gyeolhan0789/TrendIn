@@ -44,22 +44,53 @@ LOADTEST_BACKEND_IMAGE="$prod_image" docker compose \
     --env-file "$ENV_FILE" -f "$LOADTEST_COMPOSE" \
     up --detach "${extra[@]}"
 
-echo
-echo '기동을 기다리는 중...'
+
 port=${LOADTEST_BACKEND_PORT:-18080}
+health="http://127.0.0.1:${port}/actuator/health"
+project=s15p21a102-loadtest
+
+echo
+echo "기동을 기다린다: $health"
+
+status=000
 attempt=1
 while [ "$attempt" -le 60 ]; do
-    if status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-        "http://127.0.0.1:${port}/actuator/health" 2>/dev/null); then
-        if [ "$status" = "200" ]; then
+    status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$health" 2>/dev/null || echo 000)
+
+    case "$status" in
+        200)
             echo "떴다: http://127.0.0.1:${port}"
             exit 0
-        fi
+            ;;
+        503)
+            # 애플리케이션은 떴는데 DB 나 Redis 가 DOWN 이다. 기다려도 낫지 않는
+            # 종류라, 어느 쪽인지 보여주고 바로 끝낸다.
+            echo "애플리케이션은 떴지만 health 가 DOWN 이다 (HTTP 503)." >&2
+            echo >&2
+            curl --silent "$health" >&2 || true
+            echo >&2
+            exit 1
+            ;;
+    esac
+
+    # 컨테이너가 죽었으면 60번을 다 세는 것은 시간 낭비다.
+    if ! docker compose -p "$project" ps --status running --quiet backend-loadtest | grep -q .; then
+        echo "backend-loadtest 컨테이너가 떠 있지 않다. 마지막 로그:" >&2
+        echo >&2
+        docker compose -p "$project" logs --tail=40 --no-color backend-loadtest >&2 || true
+        exit 1
     fi
+
+    # 10초마다 한 번씩만 알린다. 아무것도 안 나오면 멈춘 것처럼 보인다.
+    if [ $((attempt % 5)) = 0 ]; then
+        echo "  ... ${attempt}/60 (마지막 응답 ${status})"
+    fi
+
     attempt=$((attempt + 1))
     sleep 2
 done
 
-echo "120초 안에 뜨지 않았다. 로그를 본다:" >&2
-echo "  docker compose -p s15p21a102-loadtest logs --tail=50 backend-loadtest" >&2
+echo "120초 안에 뜨지 않았다 (마지막 응답 ${status}). 마지막 로그:" >&2
+echo >&2
+docker compose -p "$project" logs --tail=40 --no-color backend-loadtest >&2 || true
 exit 1
