@@ -39,7 +39,7 @@ from trendin.spark.common.cli import main
 from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.exit_codes import NOTHING_NEW
 from trendin.spark.common.logging import get_logger
-from trendin.spark.concept.mapping import Keyword, map_article
+from trendin.spark.concept.mapping import map_article
 from trendin.spark.concept.seed import apply_seed, load_seed_dir
 from trendin.spark.concept.thresholds import ConceptThresholds
 from trendin.spark.io.concepts import ConceptSink
@@ -124,8 +124,8 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
 
     rows, unmapped, deferred = [], [], []
     resolved_keys: set[tuple[str, str]] = set()
-    for article_id, surfaces in grouped.items():
-        result = map_article(article_id, None, [Keyword(s) for s in surfaces], dictionary)
+    for article_id, keywords in grouped.items():
+        result = map_article(article_id, None, keywords, dictionary)
         rows.extend(result.rows)
         unmapped.extend(result.unmapped)
         deferred.extend(result.deferred)

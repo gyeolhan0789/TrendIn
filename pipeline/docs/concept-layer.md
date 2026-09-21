@@ -236,6 +236,8 @@ fashion 3개월(로컬, D=2026-09-18)에서 **표기 832개가 대표로 접히�
 
 ## 미등록 → 사전 (검수, `scripts/concept-review.py`)
 
+임베딩 기반 Top K 후보와 LLM 재판정 경로는 [concept-vector-retrieval.md](concept-vector-retrieval.md)를 본다.
+
 ```sh
 python scripts/concept-review.py export --profile dev > review.tsv     # 영향 큰 것부터
 python scripts/concept-review.py apply  --profile dev review.tsv --by human:jk

@@ -38,6 +38,7 @@ x-spark-airflow: &spark-airflow
     # jobs · conf · jars · sql. 코드를 고치면 재빌드 없이 다음 실행에 반영된다
     # (./src · ./dags 를 마운트하는 것과 같은 이유 — pipeline/README.md "코드 반영").
     - ./spark:/opt/airflow/spark
+    - ./scripts:/opt/airflow/scripts:ro
   environment:
     # 컨테이너 안이므로 주소가 서비스 이름이다. 호스트 포트가 필요 없다.
     SPARK_JOB_PROFILE: ${SPARK_JOB_PROFILE:-dev}

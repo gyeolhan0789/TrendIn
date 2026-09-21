@@ -76,7 +76,7 @@ def read_from_db(profile: str, domain: str, days: int) -> dict[str, dict]:
     grouped: dict[str, list[str]] = collections.defaultdict(list)
     with jdbc.connection(config) as conn, conn.cursor() as cur:
         cur.execute(OCCURRENCES_SQL, (domain, days))  # pl_ 표는 슬러그(fashion)로 저장한다
-        for content_id, surface in cur.fetchall():
+        for content_id, surface, _title in cur.fetchall():
             grouped[str(content_id)].append(str(surface))
     # 스냅숏의 "key | surface | ..." 줄 모양을 흉내 낸다. 두 번째 칸만 읽으므로 나머지는 비운다.
     return {

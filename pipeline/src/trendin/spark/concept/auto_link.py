@@ -12,6 +12,8 @@ from trendin.spark.concept.judge import NameIndex, Verdict
 class Link:
     verdict: Verdict
     concept_id: int
+    retrieval: str = "name"
+    similarity: float | None = None
 
 
 def select_links(verdicts: list[Verdict], names: NameIndex) -> tuple[Link, ...]:
@@ -85,7 +87,8 @@ def apply_links(config, links: tuple[Link, ...], *, model: str, prompt_version: 
                     model,
                     prompt_version,
                     json.dumps(
-                        {"english_name": verdict.english_name, "category": verdict.category},
+                        {"english_name": verdict.english_name, "category": verdict.category,
+                         "retrieval": link.retrieval, "similarity": link.similarity},
                         ensure_ascii=False,
                     ),
                     version,

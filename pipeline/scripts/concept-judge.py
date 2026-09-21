@@ -18,6 +18,8 @@ GMS_KEY=... .venv/Scripts/python scripts/concept-judge.py --profile dev --limit 
 
 기본은 TSV 출력만 한다. `--apply-links` 를 주면 기존 개념의 영어 이름과 분류가
 유일하게 정확히 일치한 표기만 사전에 자동 연결한다. 새 개념과 애매한 이름은 검수 대상으로 남긴다.
+`--vector-top-k`를 켜면 벡터 후보를 별도 LLM 호출로 검증한다. 자동 반영에는
+`--apply-verified`와 평가 표본에서 정한 `--min-vector-similarity`가 모두 필요하다.
 """
 
 from __future__ import annotations
@@ -31,7 +33,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from trendin.spark.common.config import load_config  # noqa: E402
-from trendin.spark.concept.auto_link import apply_links, select_links  # noqa: E402
+from trendin.spark.concept.auto_link import Link, apply_links, select_links  # noqa: E402
+from trendin.spark.concept.embedding import (  # noqa: E402
+    MODEL_ID,
+    MODEL_REVISION,
+    E5Encoder,
+    model_key,
+)
 from trendin.spark.concept.judge import (  # noqa: E402
     DEFAULT_BATCH_SIZE,
     PROMPT_VERSION,
@@ -44,19 +52,31 @@ from trendin.spark.concept.judge import (  # noqa: E402
     parse,
     user_prompt,
 )
+from trendin.spark.concept.vector_judge import (  # noqa: E402
+    eligible_choice,
+    merge_hits,
+    parse_choice,
+    verification_slot_available,
+)
+from trendin.spark.concept.vector_judge import (  # noqa: E402
+    messages as verification_messages,
+)
 from trendin.spark.io import jdbc  # noqa: E402
-from trendin.spark.io.concepts import UNMAPPED, ConceptSink  # noqa: E402
+from trendin.spark.io.concept_vectors import ConceptVectorStore, VectorHit  # noqa: E402
+from trendin.spark.io.concepts import UNMAPPED, UNMAPPED_CONTEXT, ConceptSink  # noqa: E402
 from trendin.spark.io.llm import DEFAULT_MODEL, GmsClient  # noqa: E402
 
 # 답 하나에 드는 출력 토큰 어림. `{"i":1,"en":"vintage","cat":"style"}` 가 스무 남짓이다.
 OUTPUT_TOKENS_PER_ITEM = 22
 
 UNMAPPED_SQL = f"""
-SELECT lang, normalized, article_count
-  FROM {UNMAPPED}
- WHERE status IN ('PENDING', 'QUEUED')
-   AND article_count >= %s
- ORDER BY article_count DESC, lang, normalized
+SELECT u.lang, u.normalized, u.article_count,
+       (SELECT c.snippet FROM {UNMAPPED_CONTEXT} c WHERE c.unmapped_id = u.id
+         ORDER BY c.article_id LIMIT 1) AS context
+  FROM {UNMAPPED} u
+ WHERE u.status IN ('PENDING', 'QUEUED')
+   AND u.article_count >= %s
+ ORDER BY u.article_count DESC, u.lang, u.normalized
 """
 
 
@@ -67,8 +87,8 @@ def load_questions(config, min_articles: int, limit: int | None) -> list[Questio
     if limit:
         rows = rows[:limit]
     return [
-        Question(index=i, lang=lang, normalized=key, article_count=count)
-        for i, (lang, key, count) in enumerate(rows, start=1)
+        Question(index=i, lang=lang, normalized=key, article_count=count, context=context)
+        for i, (lang, key, count, context) in enumerate(rows, start=1)
     ]
 
 
@@ -79,6 +99,16 @@ def estimate(groups: list[list[Question]]) -> tuple[int, int]:
     return prompt, output
 
 
+def vector_candidates(
+    encoder: E5Encoder, store: ConceptVectorStore, english_name: str,
+    original: str, *, limit: int,
+) -> tuple[VectorHit, ...]:
+    """Search both the original expression and the English rendering, then deduplicate."""
+    vectors = encoder.encode([original, english_name], query=True)
+    groups = [store.search(values, model_id=encoder.model_id, limit=limit) for values in vectors]
+    return merge_hits(groups, limit=limit)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--profile", default="local")
@@ -86,13 +116,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--min-articles", type=int, default=1)
     parser.add_argument("--limit", type=int, default=None, help="영향 큰 것부터 이만큼만")
-    parser.add_argument("--max-calls", type=int, default=5, help="이 회차에 허용할 호출 수")
+    parser.add_argument("--max-calls", type=int, default=5,
+                        help="영어 이름 판정과 벡터 후보 재판정을 합친 최대 LLM 호출 수")
     parser.add_argument("--estimate", action="store_true", help="부르지 않고 견적만 본다")
     parser.add_argument("--show-prompt", action="store_true", help="프롬프트 전문을 찍는다")
     parser.add_argument(
         "--apply-links", action="store_true", help="확실한 기존 개념 연결만 DB에 반영"
     )
+    parser.add_argument("--vector-top-k", type=int, default=0,
+                        help="pgvector 후보를 LLM에게 재판정시킬 개수. 0이면 끔")
+    parser.add_argument("--embedding-model", default=MODEL_ID)
+    parser.add_argument("--embedding-revision", default=MODEL_REVISION)
+    parser.add_argument("--min-vector-similarity", type=float, default=None,
+                        help="검증된 벡터 후보를 자동 반영할 최소 유사도. 라벨 표본으로 정한다")
+    parser.add_argument("--apply-verified", action="store_true",
+                        help="LLM이 고르고 유사도·분류 관문도 넘은 벡터 후보를 DB에 반영")
     args = parser.parse_args(argv)
+
+    if args.vector_top_k < 0:
+        parser.error("--vector-top-k must be nonnegative")
+    if args.apply_verified and (not args.vector_top_k or args.min_vector_similarity is None):
+        parser.error("--apply-verified requires --vector-top-k and --min-vector-similarity")
+    if args.min_vector_similarity is not None and not -1 <= args.min_vector_similarity <= 1:
+        parser.error("--min-vector-similarity must be between -1 and 1")
 
     config = load_config(args.profile)
     questions = load_questions(config, args.min_articles, args.limit)
@@ -129,17 +175,31 @@ def main(argv: list[str] | None = None) -> int:
     client = GmsClient(model=args.model)
     dictionary = ConceptSink(config).load_dictionary()
     names = NameIndex(dictionary)
+    encoder = store = None
+    if args.vector_top_k:
+        store = ConceptVectorStore(config)
+        total, embedded = store.coverage(model_key(args.embedding_model, args.embedding_revision))
+        if not total or embedded != total:
+            parser.error(
+                f"개념 임베딩 {embedded}/{total}개 — "
+                "scripts/concept-vectors.py 를 먼저 실행한다"
+            )
+        encoder = E5Encoder(args.embedding_model, args.embedding_revision)
+        print(f"벡터 사전 표현 {embedded:,}개 · Top {args.vector_top_k}", file=sys.stderr)
     print(f"사전의 영어 이름 {len(names):,}개", file=sys.stderr)
     writer = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
-    writer.writerow(
-        ("lang", "normalized", "articles", "en", "category", "결정", "사전", "닮은 이름")
-    )
+    columns = ["lang", "normalized", "articles", "en", "category", "결정", "사전", "닮은 이름"]
+    if args.vector_top_k:
+        columns.extend(("벡터 후보", "벡터 판정"))
+    writer.writerow(columns)
     counts: dict[str, int] = {}
     # 이번 회차 안에서 같은 영어 이름이 여러 번 나오면 개념 하나에 모은다 — `슈즈` 와 `신발` 이
     # 둘 다 `shoes` 로 오는 경우다. 두 번째부터는 새로 만들지 않고 첫 번째에 붙인다.
     minted: set[tuple[str, str]] = set()
     auto_links = []
-    for group in groups:
+    verified_links = []
+    skipped_verifications = 0
+    for group_index, group in enumerate(groups):
         verdicts, problems = parse(client.chat(messages(group)), group)
         for problem in problems:
             print(f"  ! {problem}", file=sys.stderr)
@@ -147,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
         batch_links = select_links(verdicts, names)
         auto_links.extend(batch_links)
         link_by_key = {(link.verdict.lang, link.verdict.normalized): link for link in batch_links}
+        question_by_key = {(q.lang, q.normalized): q for q in group}
         for verdict in verdicts:
             # 받은 영어 이름으로 **우리가** 사전을 찾는다. 모델에게 고르라고 하지 않는다.
             resolution = names.resolve(verdict.english_name, verdict.category)
@@ -154,6 +215,48 @@ def main(argv: list[str] | None = None) -> int:
             auto_link = link_by_key.get((verdict.lang, verdict.normalized))
             if auto_link is not None:
                 decision = "AUTO_LINK"
+            hits: tuple[VectorHit, ...] = ()
+            vector_choice: VectorHit | None = None
+            if (
+                encoder is not None and store is not None
+                and auto_link is None and verdict.category != "generic"
+            ):
+                hits = vector_candidates(
+                    encoder, store, verdict.english_name, verdict.normalized,
+                    limit=args.vector_top_k,
+                )
+                # Reserve one call for each remaining name-classification batch.
+                remaining_groups = len(groups) - group_index - 1
+                if hits and verification_slot_available(
+                    client.calls, remaining_groups, args.max_calls
+                ):
+                    question = question_by_key[(verdict.lang, verdict.normalized)]
+                    response = client.chat(
+                        verification_messages(verdict, hits, context=question.context)
+                    )
+                    try:
+                        choice = parse_choice(response, hits)
+                    except ValueError as error:
+                        print(f"  ! {verdict.normalized}: {error}", file=sys.stderr)
+                        choice = None
+                    if choice is not None:
+                        decision = "VECTOR_SUGGEST"
+                        vector_choice = next(
+                            hit for hit in hits if hit.concept_id == choice
+                        )
+                        accepted = eligible_choice(
+                            verdict, hits, choice, min_similarity=args.min_vector_similarity,
+                            context=question.context,
+                        )
+                        if accepted is not None:
+                            decision = "VECTOR_LINK"
+                            score = next(
+                                hit.similarity for hit in hits if hit.concept_id == accepted
+                            )
+                            verified_links.append(Link(verdict, accepted, "vector", score))
+                elif hits:
+                    decision = "VECTOR_UNCHECKED"
+                    skipped_verifications += 1
             # 이름이 같아도 분류가 다르면 다른 것이다 — `윈터`(사람)와 `겨울`(계절).
             key = (verdict.english_name.lower(), verdict.category)
             if decision == "NEW" and key in minted:
@@ -161,33 +264,53 @@ def main(argv: list[str] | None = None) -> int:
             elif decision == "NEW":
                 minted.add(key)
             counts[decision] = counts.get(decision, 0) + 1
-            writer.writerow(
-                (
-                    verdict.lang,
-                    verdict.normalized,
-                    articles.get(verdict.normalized, 0),
-                    verdict.english_name,
-                    verdict.category,
-                    decision,
-                    ", ".join(
-                        dictionary.concept(cid).canonical_name for cid in resolution.concept_ids
-                    ),
-                    ", ".join(f"{n}({s})" for n, s in resolution.near),
+            row = [
+                verdict.lang,
+                verdict.normalized,
+                articles.get(verdict.normalized, 0),
+                verdict.english_name,
+                verdict.category,
+                decision,
+                ", ".join(
+                    dictionary.concept(cid).canonical_name for cid in resolution.concept_ids
+                ),
+                ", ".join(f"{n}({s})" for n, s in resolution.near),
+            ]
+            if args.vector_top_k:
+                row.append(", ".join(f"{h.name}/{h.category}:{h.similarity:.3f}" for h in hits))
+                row.append(
+                    "" if vector_choice is None else
+                    f"{vector_choice.concept_id}:{vector_choice.name}/{vector_choice.category}"
                 )
-            )
+            writer.writerow(row)
 
     print(
         f"\n호출 {client.calls}번 · 실제 토큰 입력 {client.prompt_tokens:,} · "
         f"출력 {client.completion_tokens:,}",
         file=sys.stderr,
     )
+    if skipped_verifications:
+        print(
+            f"LLM 호출 한도로 벡터 재판정 {skipped_verifications}건을 건너뛰었다",
+            file=sys.stderr,
+        )
+    applied_total = 0
     if args.apply_links:
-        applied = apply_links(
+        applied_total += apply_links(
             config, tuple(auto_links), model=args.model, prompt_version=PROMPT_VERSION
         )
-        print(f"기존 개념 자동 연결 {applied}건 / 대상 {len(auto_links)}건", file=sys.stderr)
+    if args.apply_verified:
+        applied_total += apply_links(
+            config, tuple(verified_links), model=args.model, prompt_version="vector-v1"
+        )
+    if args.apply_links or args.apply_verified:
+        target = (len(auto_links) if args.apply_links else 0) + (
+            len(verified_links) if args.apply_verified else 0
+        )
+        print(f"기존 개념 자동 연결 {applied_total}건 / 대상 {target}건", file=sys.stderr)
     else:
-        print(f"자동 연결 가능 {len(auto_links)}건 (반영하려면 --apply-links)", file=sys.stderr)
+        print(f"정확 일치 {len(auto_links)}건 · 검증된 벡터 후보 {len(verified_links)}건 "
+              "(반영하려면 --apply-links / --apply-verified)", file=sys.stderr)
     print("결정: " + " · ".join(f"{k} {v}" for k, v in sorted(counts.items())), file=sys.stderr)
     return 0
 
