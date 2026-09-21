@@ -80,6 +80,7 @@ class Question:
     normalized: str
     article_count: int
     context: str | None = None
+    surface: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -398,6 +398,15 @@ concept:
     min_articles: 5
     # 표현당 남기는 문맥 표본 수. 검수자가 읽을 양이고 나중에 판정에 넣을 양이다.
     context_samples: 20
+  automation:
+    # 기본은 기존 사전 매핑만 수행한다. 운영에서 명시적으로 켠 경우에만 LLM 크레딧을 쓴다.
+    enabled: false
+    model: "gpt-4o-mini"
+    batch_size: 20
+    # 이름 판정과 후보 검증을 합친 한 실행의 최대 호출 시도 수.
+    max_calls: 20
+    # 모델/pgvector 준비가 실패하면 문자·음가 후보만으로 계속한다.
+    vector_enabled: true
   retrieval:
     # LLM 판정에 전달할 통합 후보 수와, 자동 후보로 인정할 최종 점수 하한.
     top_k: 5

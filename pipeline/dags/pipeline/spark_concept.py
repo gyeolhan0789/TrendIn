@@ -6,8 +6,10 @@
 **도메인 인자를 받는다.** 개념 표는 지금 패션만 있다. dev 도메인은 초기 사전이 없어 전부 미등록으로
 쌓일 뿐이라 태스크를 만들지 않는다 — 초기 사전이 생기면 `task_args` 에 한 줄 더한다.
 
-**LLM 을 부르지 않는다.** 사전에 있는 것만 붙이고 없는 것은 `pl_unmapped_expression` 에 쌓는다.
-쌓인 것을 검수 명령(`scripts/concept-review.py`)으로 처리하면 다음 실행이 반영한다.
+기본값에서는 LLM 을 부르지 않는다. 사전에 있는 것만 붙이고 없는 것은
+`pl_unmapped_expression` 에 쌓는다. `concept.automation.enabled` 를 켜거나 Job 에
+`--auto-link` 를 주면 미등록 표현을 번역하고 통합 후보를 검증해 확실한 기존 개념만 자동 연결한다.
+실패·유보 항목은 근거와 함께 남아 검수 명령(`scripts/concept-review.py`)으로 처리할 수 있다.
 
 ⚠️ **이 파일에 `airflow` 라는 낱말이 있어야 한다.** Airflow 의 안전 모드 탐색(`DagBag`)이
 파일 내용에 `dag` 과 `airflow` 가 **둘 다** 있을 때만 파싱한다. 없으면 import 오류도 없이

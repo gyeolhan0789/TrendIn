@@ -29,8 +29,10 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
@@ -314,7 +316,7 @@ RESOLVE_MAPPED_SQL = f"""
 UPDATE {UNMAPPED} u
    SET status = 'RESOLVED'
   FROM (VALUES %s) AS mapped(lang, normalized)
- WHERE u.status IN ('PENDING', 'QUEUED')
+ WHERE u.status IN ('PENDING', 'JUDGED', 'QUEUED')
    AND u.lang = mapped.lang
    AND u.normalized = mapped.normalized;
 """
@@ -521,6 +523,100 @@ class ConceptSink:
                     model,
                     prompt_version,
                     evidence,
+                    dictionary_version,
+                ),
+            )
+
+    # --- 자동 판정 ---------------------------------------------------------
+    def cached_judgement(
+        self,
+        *,
+        model: str,
+        prompt_version: str,
+        lang: str,
+        normalized: str,
+        candidate_hash: str,
+    ) -> dict[str, Any] | None:
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                f"SELECT verdict FROM {JUDGEMENT_CACHE} "
+                "WHERE model = %s AND prompt_version = %s AND lang = %s "
+                "AND normalized = %s AND candidate_hash = %s",
+                (model, prompt_version, lang, normalized, candidate_hash),
+            )
+            row = cur.fetchone()
+        if row is None:
+            return None
+        payload = row[0]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return dict(payload) if isinstance(payload, dict) else None
+
+    def cache_judgement(
+        self,
+        *,
+        model: str,
+        prompt_version: str,
+        lang: str,
+        normalized: str,
+        candidate_hash: str,
+        verdict: dict[str, Any],
+    ) -> None:
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                f"INSERT INTO {JUDGEMENT_CACHE} "
+                "(model, prompt_version, lang, normalized, candidate_hash, verdict) "
+                "VALUES (%s, %s, %s, %s, %s, %s::jsonb) "
+                "ON CONFLICT (model, prompt_version, lang, normalized, candidate_hash) "
+                "DO UPDATE SET verdict = EXCLUDED.verdict, created_at = now()",
+                (
+                    model,
+                    prompt_version,
+                    lang,
+                    normalized,
+                    candidate_hash,
+                    json.dumps(verdict, ensure_ascii=False),
+                ),
+            )
+
+    def record_auto_defer(
+        self,
+        *,
+        lang: str,
+        normalized: str,
+        evidence: dict[str, Any],
+        model: str,
+        prompt_version: str,
+        dictionary_version: int,
+    ) -> None:
+        """Keep the latest proposal queued for review and one audit row per version."""
+        encoded = json.dumps(evidence, ensure_ascii=False)
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE {UNMAPPED} SET status = 'QUEUED', proposal = %s::jsonb "
+                "WHERE lang = %s AND normalized = %s AND status <> 'RESOLVED'",
+                (encoded, lang, normalized),
+            )
+            cur.execute(
+                f"INSERT INTO {DECISION} "
+                "(lang, normalized, decision, concept_id, decided_by, model, "
+                "prompt_version, evidence, dictionary_version) "
+                "SELECT %s, %s, 'DEFER', NULL, 'auto:llm', %s, %s, %s::jsonb, %s "
+                "WHERE NOT EXISTS ("
+                f"SELECT 1 FROM {DECISION} WHERE lang = %s AND normalized = %s "
+                "AND decision = 'DEFER' AND decided_by = 'auto:llm' "
+                "AND model = %s AND prompt_version = %s AND dictionary_version = %s)",
+                (
+                    lang,
+                    normalized,
+                    model,
+                    prompt_version,
+                    encoded,
+                    dictionary_version,
+                    lang,
+                    normalized,
+                    model,
+                    prompt_version,
                     dictionary_version,
                 ),
             )
