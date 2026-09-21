@@ -1,0 +1,17 @@
+apiVersion: 1
+
+# 손으로 import 한 대시보드는 그 서버에만 남는다. 컨테이너를 다시 만들거나 팀원이
+# 각자 띄우면 사라지므로, 부하테스트에서 볼 화면은 파일로 두고 Grafana 가 읽게 한다.
+providers:
+  - name: trendin
+    orgId: 1
+    folder: TrendIn
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    # 파일이 원본이다. UI 에서 고친 내용은 다음 반영 때 덮어쓰인다.
+    allowUiUpdates: false
+    options:
+      # 이 디렉터리는 이미 compose 가 마운트하고 있다. yml 은 건너뛰고 json 만 읽는다.
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
