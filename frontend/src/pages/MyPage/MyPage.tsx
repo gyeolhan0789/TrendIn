@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import defaultProfileStar from '../../assets/default-profile-star.png';
 import { ToggleSwitch } from '../../components/common/ToggleSwitch';
+import { showToast } from '../../components/common/toast';
+import { getApiErrorMessage } from '../../api/apiResponse';
 import { MyPageCard, MyPageRow, MyPageScreen } from '../../features/myPage/components/MyPageShell';
 import {
   BellIcon,
@@ -20,13 +22,13 @@ import { useMyProfile } from '../../features/myPage/hooks/useMyProfile';
 import { useLogout } from '../../features/auth/hooks/useLogout';
 import { useNotifications } from '../../features/notification/hooks/useNotifications';
 import { useMarkNotificationAsRead } from '../../features/notification/hooks/useNotificationMutations';
-import { useNotificationSettings } from '../../features/notification/hooks/useNotificationSettings';
+import { useNotificationSettings, useUpdateNotificationSettings } from '../../features/notification/hooks/useNotificationSettings';
 import { useUnreadNotificationCount } from '../../features/notification/hooks/useUnreadNotificationCount';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { useSavedTrends } from '../../features/savedTrend/hooks/useSavedTrends';
 import { useTrendDetailLink } from '../../features/trend/trendDetailLink';
 import type { ActivityKind } from '../../features/myPage/activity';
-import type { NotificationSettings } from '../../features/notification/types/notificationSettings';
+import { updateNotificationSetting, type NotificationSettingKey } from '../../features/notification/types/notificationSettings';
 
 /** 요약 자리에는 최근 다섯 줄만 세웁니다. 나머지는 최근 활동 화면이 맡습니다. */
 const ACTIVITY_PREVIEW = 5;
@@ -69,22 +71,19 @@ function StatCard({ tone, icon, label, value, unit, to, accent = false }: {
 interface NotificationRow {
   title: string;
   desc: string;
-  read: (settings: NotificationSettings) => boolean;
-  write: (settings: NotificationSettings, on: boolean) => NotificationSettings;
+  key: NotificationSettingKey;
 }
 
 const notificationRows: NotificationRow[] = [
   {
     title: '트렌드 급등 알림',
     desc: '관심 키워드가 급등하면 즉시 알림',
-    read: (settings) => settings.trend.surge,
-    write: (settings, on) => ({ ...settings, trend: { ...settings.trend, surge: on } }),
+    key: 'keywordSurgeEnabled',
   },
   {
     title: '신규 트렌드 발견',
     desc: '새로운 트렌드가 감지되면 알림',
-    read: (settings) => settings.trend.discovered,
-    write: (settings, on) => ({ ...settings, trend: { ...settings.trend, discovered: on } }),
+    key: 'newTrendEnabled',
   },
 ];
 
@@ -101,7 +100,8 @@ export function MyPage() {
   const savedTrendsQuery = useSavedTrends();
   const unreadCountQuery = useUnreadNotificationCount();
   const notificationsQuery = useNotifications(true);
-  const [settings, updateSettings] = useNotificationSettings();
+  const settingsQuery = useNotificationSettings();
+  const updateSettings = useUpdateNotificationSettings();
   const markAsRead = useMarkNotificationAsRead();
   const logoutMutation = useLogout();
 
@@ -210,10 +210,19 @@ export function MyPage() {
             {notificationRows.map((row) => (
               <MyPageRow key={row.title} title={row.title} description={row.desc}>
                 <ToggleSwitch
-                  checked={settings.master && row.read(settings)}
-                  disabled={!settings.master}
+                  checked={settingsQuery.data?.[row.key] ?? false}
+                  disabled={!settingsQuery.data || updateSettings.isPending}
                   label={row.title}
-                  onChange={(on) => updateSettings((current) => row.write(current, on))}
+                  onChange={(on) => {
+                    if (settingsQuery.data) {
+                      updateSettings.mutate(updateNotificationSetting(settingsQuery.data, row.key, on), {
+                        onError: (error) => showToast({
+                          message: getApiErrorMessage(error) ?? '알림 설정을 저장하지 못했습니다.',
+                          type: 'error',
+                        }),
+                      });
+                    }
+                  }}
                 />
               </MyPageRow>
             ))}

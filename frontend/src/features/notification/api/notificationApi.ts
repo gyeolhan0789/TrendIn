@@ -3,6 +3,7 @@ import type { ApiResponse, Page } from '../../../api/apiResponse';
 import { unwrap } from '../../../api/apiResponse';
 import { API_ENDPOINTS } from '../../../constants/apiEndpoints';
 import type { Notification } from '../types/notification';
+import type { NotificationSettings } from '../types/notificationSettings';
 
 export async function getNotifications(page = 0, size = 10): Promise<Page<Notification>> {
   return unwrap(apiClient.get<ApiResponse<Page<Notification>>>(API_ENDPOINTS.members.notifications, {
@@ -24,4 +25,18 @@ export async function markNotificationAsRead(notificationId: number): Promise<vo
 
 export async function markAllNotificationsAsRead(): Promise<void> {
   await apiClient.patch<ApiResponse<null>>(API_ENDPOINTS.members.readAllNotifications);
+}
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return unwrap(
+    apiClient.get<ApiResponse<NotificationSettings>>(API_ENDPOINTS.members.notificationSettings),
+  );
+}
+
+export async function updateNotificationSettings(
+  settings: NotificationSettings,
+): Promise<NotificationSettings> {
+  return unwrap(
+    apiClient.put<ApiResponse<NotificationSettings>>(API_ENDPOINTS.members.notificationSettings, settings),
+  );
 }

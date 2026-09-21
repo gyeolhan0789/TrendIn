@@ -1146,7 +1146,7 @@ h1 { margin: 0; line-height: 1.25; }
 .header-notification-button { position: relative; display: grid; width: 35px; height: 35px; place-items: center; border-radius: 50%; color: #6d737c; }
 .header-notification-button:hover { background: #f3f4f6; color: #202226; }
 .header-notification-badge { position: absolute; top: -1px; right: -1px; min-width: 17px; padding: 0 4px; border: 2px solid #fff; border-radius: 9px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; line-height: 15px; text-align: center; font-variant-numeric: tabular-nums; }
-.header-notification-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 20; overflow: hidden; width: 320px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(20, 22, 28, .14); }
+.header-notification-menu { position: absolute; top: calc(100% + 10px); right: 0; z-index: 20; overflow: hidden; width: min(400px, calc(100vw - 24px)); border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgba(20, 22, 28, .14); }
 .header-notification-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #f0f1f4; }
 .header-notification-head strong { color: #202226; font-size: 14px; }
 .header-notification-head button { color: #6d737c; font-size: 12px; }
@@ -1157,11 +1157,16 @@ h1 { margin: 0; line-height: 1.25; }
 .header-notification-list li + li { border-top: 1px solid #f5f6f8; }
 .header-notification-list button { display: grid; width: 100%; gap: 5px; padding: 11px 14px; text-align: left; }
 .header-notification-list button:hover { background: #f7f8f9; }
-.header-notification-list span { color: #44484e; font-size: 13px; line-height: 1.5; }
+.header-notification-copy { display: flex; align-items: center; gap: 7px; color: #8b9099; font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.header-notification-type { flex: 0 0 auto; padding: 1px 6px; border-radius: 999px; background: #eef2ff; color: #5965c5; font-size: 10px; font-weight: 700; line-height: 17px; }
+.header-notification-type.is-keyword-surge { background: #fff1e8; color: #d96b22; }
+.header-notification-type.is-keyword-drop { background: #edf4ff; color: #3975bd; }
+.header-notification-type.is-new-trend { background: #eaf8f0; color: #27845a; }
+.header-notification-type.is-trend-turning-point { background: #f5edff; color: #7a4db0; }
 .header-notification-list time { color: #a4aab3; font-size: 11px; font-variant-numeric: tabular-nums; }
 /* 읽지 않은 알림은 왼쪽에 선을 남겨 목록에서 바로 눈에 띄게 합니다. */
 .header-notification-list li.is-unread button { box-shadow: inset 3px 0 0 var(--accent); }
-.header-notification-list li.is-unread span { color: #202226; font-weight: 500; }
+.header-notification-list li.is-unread .header-notification-copy > span:last-child { color: #202226; font-weight: 500; }
 .header-notification-more { width: 100%; padding: 10px; border-top: 1px solid #f0f1f4; color: #6d737c; font-size: 12px; }
 .header-notification-more:hover:not(:disabled) { background: #f7f8f9; color: #202226; }
 .header-notification-more:disabled { color: #c8ccd2; }

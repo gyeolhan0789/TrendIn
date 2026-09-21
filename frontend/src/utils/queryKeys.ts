@@ -24,6 +24,7 @@ export const queryKeys = {
   notifications: {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unreadCount'] as const,
+    settings: ['notifications', 'settings'] as const,
   },
   savedTrends: {
     all: ['savedTrends'] as const,

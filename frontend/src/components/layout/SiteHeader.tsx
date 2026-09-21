@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AccountMenu } from '../../features/auth/components/AccountMenu';
+import { NotificationBell } from '../../features/notification/components/NotificationBell';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import waveMark from '../../assets/trendin-wave-mark.png';
 
@@ -68,7 +69,12 @@ export function SiteHeader() {
 
         <div className="landing-header-right">
           {/* 로그인한 사람에게 다시 로그인·회원가입을 권할 이유가 없어, 그 자리를 계정 메뉴가 대신합니다. */}
-          {session ? <AccountMenu session={session} /> : (
+          {session ? (
+            <>
+              <NotificationBell />
+              <AccountMenu session={session} />
+            </>
+          ) : (
             <>
               <Link className="landing-btn landing-btn--ghost" to="/login" state={{ from: location.pathname }}>로그인</Link>
               <Link className="landing-btn landing-btn--dark" to="/signup">회원가입</Link>
