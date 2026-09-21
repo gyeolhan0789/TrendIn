@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { BASE_URL, PASSWORD } from './config.js';
+import { BASE_URL, PASSWORD, REQUEST_TIMEOUT } from './config.js';
 
 // VU 마다 로그인시키면 안 된다.
 //
@@ -15,7 +15,11 @@ export function issueTokens(memberIds) {
     const res = http.post(
       `${BASE_URL}/auth/login`,
       JSON.stringify({ email: `load${id}@test.com`, password: PASSWORD }),
-      { headers: { 'Content-Type': 'application/json' }, tags: { name: 'setup:login' } },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        tags: { name: 'setup:login' },
+        timeout: REQUEST_TIMEOUT,
+      },
     );
     if (res.status !== 200) {
       throw new Error(
@@ -48,10 +52,11 @@ export function pickToken(tokens) {
 export function authGet(url, token, name) {
   return http.get(url, {
     headers: { Authorization: `Bearer ${token}` },
+    timeout: REQUEST_TIMEOUT,
     tags: { name },
   });
 }
 
 export function anonGet(url, name) {
-  return http.get(url, { tags: { name } });
+  return http.get(url, { tags: { name }, timeout: REQUEST_TIMEOUT });
 }

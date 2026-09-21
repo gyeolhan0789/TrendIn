@@ -9,7 +9,7 @@ import { check } from 'k6';
 import { BASE_URL, hotTrendId, arrivalRate, baseThresholds } from '../lib/config.js';
 import { anonGet } from '../lib/auth.js';
 
-const PEAK_RPS = Number(__ENV.PEAK_RPS || 100);
+const PEAK_RPS = Number(__ENV.PEAK_RPS || 30);
 
 const CONTENTS = 'GET /trends/{id}/contents';
 

@@ -12,6 +12,10 @@ export const KEYWORD_COUNT = Number(__ENV.KEYWORD_COUNT || 50000);
 // 1:1 이라 id 가 같다. 이 범위를 골라야 실제로 사람들이 보는 화면을 재게 된다.
 export const HOT_TREND_COUNT = Number(__ENV.HOT_TREND_COUNT || 2000);
 
+// 한 요청이 이만큼을 넘기면 그 시점의 서버는 이미 쓸 수 없는 상태다. 기다려 봐야
+// 큐 대기 시간만 재게 되고, k6 기본값 60초로 두면 붕괴한 측정이 몇 분을 더 끈다.
+export const REQUEST_TIMEOUT = __ENV.REQUEST_TIMEOUT || '15s';
+
 const BLOCKS = MEMBER_COUNT / 100;
 
 // 시드는 회원을 id % 100 으로 갈랐다(07_activity.sql).
@@ -39,21 +43,45 @@ export function anyTrendId(n) {
 // 고정 VU 로 재면 서버가 느려질 때 요청도 같이 느려진다. 부하가 저절로 줄어드니
 // 포화점이 보이지 않고, 그래프는 완만하게 눕는다. 도착률을 고정해 올려야 서버가
 // 감당 못 하는 지점에서 큐가 쌓이고 응답시간이 꺾인다.
-export function arrivalRate(peakRps) {
+//
+// maxVUs 를 크게 잡으면 안 된다. 서버가 느려질수록 VU 가 쌓이는데, k6 는 같은
+// EC2 에서 돌고 코어는 몇 개 없다. VU 수백 개가 뜨는 순간 k6 가 서버의 CPU 를
+// 뺏어, 무엇이 한계였는지 구분할 수 없게 된다. 목표 도착률을 못 채우면(=
+// dropped_iterations 가 쌓이면) 그것은 이미 서버가 감당하지 못한다는 신호이므로,
+// VU 를 더 부어 억지로 채울 이유가 없다.
+export function arrivalRate(peakRps, opts = {}) {
+  const maxVUs = Number(__ENV.MAX_VUS || opts.maxVUs || 200);
+
+  // 기준 측정(bench.sh)은 램프를 쓰지 않는다. 램프를 섞으면 p95 에 낮은 부하
+  // 구간이 함께 들어가, 같은 값으로 다시 재도 구간 비율이 조금만 달라지면
+  // 숫자가 흔들린다. 개선 전후를 나란히 놓으려면 내내 같은 도착률이어야 한다.
+  if (__ENV.CONSTANT_RATE) {
+    const rate = Number(__ENV.CONSTANT_RATE);
+    return {
+      executor: 'constant-arrival-rate',
+      rate,
+      timeUnit: '1s',
+      duration: __ENV.BENCH_DURATION || '1m',
+      preAllocatedVUs: Math.min(50, maxVUs),
+      maxVUs,
+    };
+  }
+
+  // 무릎을 찾을 때는 램프로 올린다.
+  const stage = __ENV.STAGE_DURATION || '30s';
+  const hold = __ENV.HOLD_DURATION || '1m';
   return {
     executor: 'ramping-arrival-rate',
     startRate: Math.max(1, Math.round(peakRps / 10)),
     timeUnit: '1s',
-    // 서버가 느려지면 한 요청이 VU 를 오래 붙잡는다. 넉넉히 잡아 두지 않으면
-    // k6 가 VU 부족으로 목표 도착률을 못 채우고, 그것이 서버 한계처럼 보인다.
-    preAllocatedVUs: 50,
-    maxVUs: 1000,
+    preAllocatedVUs: Math.min(50, maxVUs),
+    maxVUs,
     stages: [
-      { target: Math.round(peakRps * 0.25), duration: '30s' },
-      { target: Math.round(peakRps * 0.5), duration: '30s' },
-      { target: Math.round(peakRps * 0.75), duration: '30s' },
-      { target: peakRps, duration: '30s' },
-      { target: peakRps, duration: '1m' },
+      { target: Math.round(peakRps * 0.25), duration: stage },
+      { target: Math.round(peakRps * 0.5), duration: stage },
+      { target: Math.round(peakRps * 0.75), duration: stage },
+      { target: peakRps, duration: stage },
+      { target: peakRps, duration: hold },
     ],
   };
 }

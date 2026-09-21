@@ -12,9 +12,16 @@
 
 import { check } from 'k6';
 import http from 'k6/http';
-import { BASE_URL, PASSWORD, MEMBER_COUNT, arrivalRate, baseThresholds } from '../lib/config.js';
+import {
+  BASE_URL,
+  PASSWORD,
+  MEMBER_COUNT,
+  REQUEST_TIMEOUT,
+  arrivalRate,
+  baseThresholds,
+} from '../lib/config.js';
 
-const PEAK_RPS = Number(__ENV.PEAK_RPS || 30);
+const PEAK_RPS = Number(__ENV.PEAK_RPS || 20);
 
 const LOGIN = 'POST /auth/login';
 
@@ -33,7 +40,11 @@ export default function () {
   const res = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ email: `load${id}@test.com`, password: PASSWORD }),
-    { headers: { 'Content-Type': 'application/json' }, tags: { name: LOGIN } },
+    {
+      headers: { 'Content-Type': 'application/json' },
+      tags: { name: LOGIN },
+      timeout: REQUEST_TIMEOUT,
+    },
   );
 
   check(res, {

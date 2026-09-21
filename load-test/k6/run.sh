@@ -32,6 +32,10 @@ if [ "$status" != "200" ]; then
 fi
 
 if [ "$#" -gt 0 ]; then
+    # 오타로 없는 파일을 주면 k6 가 3분짜리 자리를 잡아 놓고 실패한다.
+    for s in "$@"; do
+        test -f "$s" || { echo "그런 파일이 없다: $s" >&2; exit 1; }
+    done
     scripts=("$@")
 else
     # 가벼운 것부터. 앞에서 터지면 뒤는 볼 필요가 없다.
