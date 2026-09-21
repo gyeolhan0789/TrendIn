@@ -19,6 +19,10 @@ export function resetLandingGuide(storage: Pick<Storage, 'removeItem'>): void {
   storage.removeItem(LANDING_GUIDE_SEEN_KEY);
 }
 
+export function resetLandingAnimation(storage: Pick<Storage, 'removeItem'>): void {
+  storage.removeItem(LANDING_ANIMATION_SEEN_KEY);
+}
+
 export function claimFirstLandingAnimationSafely(): boolean {
   try {
     return claimFirstLandingAnimation(window.sessionStorage);

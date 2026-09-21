@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   claimFirstLandingAnimation,
   claimFirstLandingGuide,
+  resetLandingAnimation,
   resetLandingGuide,
 } from '../src/utils/landingExperience.ts';
 
@@ -20,6 +21,8 @@ test('파도 등장 애니메이션은 같은 브라우저 세션에서 한 번�
 
   assert.equal(claimFirstLandingAnimation(storage), true);
   assert.equal(claimFirstLandingAnimation(storage), false);
+  resetLandingAnimation(storage);
+  assert.equal(claimFirstLandingAnimation(storage), true);
 });
 
 test('조작 안내는 같은 로그인 세션에서 한 번만 최초로 판정한다', () => {
