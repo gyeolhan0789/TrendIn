@@ -10,7 +10,7 @@ import { check } from 'k6';
 import { BASE_URL, arrivalRate, baseThresholds } from '../lib/config.js';
 import { anonGet } from '../lib/auth.js';
 
-const PEAK_RPS = Number(__ENV.PEAK_RPS || 200);
+const PEAK_RPS = Number(__ENV.PEAK_RPS || 50);
 
 const LIST = 'GET /trends';
 

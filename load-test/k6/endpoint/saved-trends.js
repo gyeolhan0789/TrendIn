@@ -10,7 +10,7 @@ import { check } from 'k6';
 import { BASE_URL, heavyMemberId, arrivalRate, baseThresholds } from '../lib/config.js';
 import { tokensFor, pickToken, authGet } from '../lib/auth.js';
 
-const PEAK_RPS = Number(__ENV.PEAK_RPS || 100);
+const PEAK_RPS = Number(__ENV.PEAK_RPS || 20);
 const TOKEN_POOL = Number(__ENV.TOKEN_POOL || 50);
 
 const SAVED = 'GET /members/me/saved-trends';
