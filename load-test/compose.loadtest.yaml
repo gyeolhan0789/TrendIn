@@ -1,0 +1,78 @@
+name: s15p21a102-loadtest
+
+# 부하테스트 대상 스택. 운영 컨테이너는 건드리지 않는다.
+#
+# 운영과 같은 이미지를 쓴다. 다른 빌드를 재면 그 결과를 운영에 적용할 근거가 없다.
+# 데이터만 갈라서, 더미 데이터를 아무리 부어도 운영 스키마에 닿지 않게 한다.
+#
+#   docker compose --env-file ../infra/.env -f compose.loadtest.yaml up -d
+#
+# infra/compose.yaml 이 먼저 떠 있어야 한다. postgres 와 shared 네트워크를 빌려 쓴다.
+
+services:
+  backend-loadtest:
+    # 운영이 지금 돌리는 바로 그 이미지를 가리킨다. infra/.env 의 BACKEND_IMAGE 는
+    # 배포 때마다 갱신되므로, 재측정 전에는 이 컨테이너도 다시 만들어야 같은 코드를 잰다.
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE in infra/.env}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      # 운영과 같은 PostgreSQL 인스턴스의 다른 데이터베이스다. 인스턴스를 나누지 않는 것은
+      # EC2 가 한 대뿐이기 때문이고, 그래서 버퍼 풀과 디스크는 여전히 공유한다.
+      # 더미 데이터를 붓는 동안 운영 쪽 응답이 느려질 수 있다.
+      DEV_POSTGRES_URL: jdbc:postgresql://postgres:5432/trendin_test
+      DEV_POSTGRES_USER_NAME: ${DEV_POSTGRES_USER_NAME:?Set DEV_POSTGRES_USER_NAME in infra/.env}
+      DEV_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/.env}
+      # 빈 데이터베이스이므로 Flyway 가 V1 부터 전부 만든다. baseline 은 기존 스키마에
+      # 이력만 심는 것이라 여기서 켜면 테이블이 하나도 생기지 않는다.
+      DEV_FLYWAY_BASELINE_ON_MIGRATE: "false"
+      DEV_REDIS_HOST: redis-loadtest
+      DEV_REDIS_PORT: "6379"
+      DEV_REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:?Set DEV_JWT_SECRET in infra/.env}
+      # k6 는 브라우저가 아니라 preflight 를 보내지 않는다. 값은 형식만 맞으면 된다.
+      DEV_CORS_ALLOWED_ORIGINS: ${DEV_CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      # 측정 중에 알림 배치가 끼어들면 커넥션과 CPU 를 먹어 수치가 흔들린다.
+      # '-' 는 Spring 이 스케줄을 끄기 위해 정해 둔 값이다(Scheduled.CRON_DISABLED).
+      TREND_NOTIFICATION_CRON: "-"
+    ports:
+      # 루프백에만 공개한다. nginx 를 거치지 않으므로 외부로 새지 않는다.
+      - "127.0.0.1:${LOADTEST_BACKEND_PORT:-8081}:8080"
+    depends_on:
+      redis-loadtest:
+        condition: service_healthy
+    networks:
+      # redis-loadtest 를 부르는 길과, 운영 postgres·prometheus 에 닿는 길.
+      - loadtest
+      - shared
+
+  redis-loadtest:
+    image: redis:8-bookworm
+    restart: unless-stopped
+    # 운영 Redis 를 같이 쓰면 리프레시 토큰이 한 공간에 섞인다. 부하테스트가 만든
+    # 수천 개의 토큰이 운영 사용자의 것을 밀어내면 실제 사용자가 로그아웃된다.
+    #
+    # 영속화는 끈다. 던져 버릴 데이터를 디스크에 쓰면 측정 중 I/O 만 더 든다.
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --save "" --appendonly no
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infra/.env}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - loadtest
+
+networks:
+  loadtest:
+    name: s15p21a102-loadtest
+    driver: bridge
+  # 운영 postgres 가 여기 있고, prometheus 도 여기로 긁으러 온다.
+  # 이 네트워크는 infra/compose.yaml 이 만든다.
+  shared:
+    name: s15p21a102-shared
+    external: true

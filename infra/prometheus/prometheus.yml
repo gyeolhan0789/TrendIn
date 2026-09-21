@@ -29,3 +29,12 @@ scrape_configs:
     static_configs:
       - targets:
           - backend:8080
+
+  # 부하테스트 대상. 운영과 같은 화면에서 job 라벨로 갈라 본다.
+  # load-test/compose.loadtest.yaml 이 떠 있을 때만 응답하므로, 평소 targets 화면에는
+  # down 으로 남는다. 그것이 정상이다.
+  - job_name: backend-loadtest
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - backend-loadtest:8080
