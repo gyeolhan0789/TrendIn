@@ -50,6 +50,7 @@ export const API_ENDPOINTS = {
     // 저장 해제도 trendId 가 아니라 savedTrendId 로 합니다.
     savedTrend: (savedTrendId: number) => `/members/me/saved-trends/${savedTrendId}`,
     notifications: '/members/me/notifications',
+    notificationSettings: '/members/me/notification-settings',
     unreadNotificationCount: '/members/me/notifications/unread-count',
     notification: (notificationId: number) => `/members/me/notifications/${notificationId}`,
     readAllNotifications: '/members/me/notifications/read-all',

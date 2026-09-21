@@ -1,24 +1,25 @@
-/**
- * 알림을 어떤 항목까지 받을지 고른 값입니다.
- *
- * 백엔드에는 아직 이 설정을 받아 두는 API가 없습니다. 그래서 값은 기기에만 남고, 실제로
- * 나가는 알림(관심 키워드가 트렌드에 오를 때)은 이 값과 상관없이 옵니다. 화면이 그 점을
- * 함께 알립니다.
- */
 export interface NotificationSettings {
-  /** 끄면 아래 항목을 모두 잠급니다. 개별 값은 지우지 않고 그대로 둡니다. */
-  master: boolean;
-  trend: Record<TrendAlertKey, boolean>;
-  email: Record<EmailAlertKey, boolean>;
-  quiet: QuietHours;
+  keywordSurgeEnabled: boolean;
+  keywordDropEnabled: boolean;
+  newTrendEnabled: boolean;
+  trendTurningPointEnabled: boolean;
 }
 
-export type TrendAlertKey = 'surge' | 'plunge' | 'discovered' | 'turning';
-export type EmailAlertKey = 'marketing' | 'system';
+export type NotificationSettingKey = keyof NotificationSettings;
 
-/** 이 시간 동안은 알림을 미룹니다. 시작이 종료보다 늦으면 자정을 넘긴 것으로 읽습니다. */
-export interface QuietHours {
-  enabled: boolean;
-  start: string;
-  end: string;
+/** 설정 조회가 잠시 실패해도 화면과 네 가지 선택지를 유지하기 위한 서버 기본값입니다. */
+export const defaultNotificationSettings: NotificationSettings = {
+  keywordSurgeEnabled: true,
+  keywordDropEnabled: true,
+  newTrendEnabled: true,
+  trendTurningPointEnabled: true,
+};
+
+/** 한 항목만 바꿀 때에도 서버가 요구하는 전체 설정 객체를 보존합니다. */
+export function updateNotificationSetting(
+  settings: NotificationSettings,
+  key: NotificationSettingKey,
+  enabled: boolean,
+): NotificationSettings {
+  return { ...settings, [key]: enabled };
 }
