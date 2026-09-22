@@ -1254,6 +1254,8 @@ h1 { margin: 0; line-height: 1.25; }
 .keywords-empty-action { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; margin-top: 24px; border: 1px solid var(--lp-line); border-radius: 10px; color: #374151; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s, color .15s; }
 .keywords-empty-action:hover { border-color: #c7d2fe; background: #f9fafb; color: var(--lp-indigo); }
 .keywords-filter-empty { padding: 48px 0; color: var(--lp-faint); font-size: 13px; text-align: center; }
+/* 쪽 번호. `.saved-pagination` 과 같은 규칙이고 아래 추천 칸이 붙으므로 여백만 좁게 둔다. */
+.keywords-pagination { display: flex; align-items: center; justify-content: center; padding-bottom: 32px; }
 
 .keywords-recommend-section { padding-bottom: 48px; }
 .keywords-recommend { padding: 28px 32px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fafafa; }

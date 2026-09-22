@@ -9,8 +9,16 @@ import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeyw
 import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
 import { useUnreadNotificationCount } from '../../features/notification/hooks/useUnreadNotificationCount';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
+import { pageList } from '../../utils/pageList';
 
 const ALL_DOMAINS = '전체';
+
+/*
+ * 한 쪽에 여덟 줄. 서버가 아니라 화면에서 나눕니다 — 이 페이지의 통계 카드, 분야 거르개,
+ * 등록 버튼의 "이미 담음" 판정이 전부 **전체 목록**을 봅니다. 서버 페이징으로 바꾸면 그
+ * 셋이 현재 쪽만 보게 되어 개수와 거르개가 틀립니다.
+ */
+const PAGE_SIZE = 8;
 
 /* 서버는 등록한 순서대로 주고 지표는 주지 않습니다. 그래서 고를 수 있는 기준이 이 둘뿐입니다. */
 const sorts = [
@@ -50,6 +58,7 @@ export function KeywordsPage() {
   const unreadCountQuery = useUnreadNotificationCount();
   const [selectedDomain, setSelectedDomain] = useState(ALL_DOMAINS);
   const [sort, setSort] = useState('recent');
+  const [page, setPage] = useState(1);
 
   const keywords = useMemo(() => interestKeywordsQuery.data ?? [], [interestKeywordsQuery.data]);
   // 관심 키워드 응답에는 분야 코드만 있어, 표시 이름은 분야 목록에서 찾아 붙입니다.
@@ -86,6 +95,25 @@ export function KeywordsPage() {
     if (sort !== 'name') return filtered;
     return [...filtered].sort((a, b) => a.keyword.localeCompare(b.keyword, 'ko'));
   }, [activeDomain, keywords, sort]);
+
+  /*
+   * 쪽 번호를 상태로 두지 않고 매번 조여 냅니다. 마지막 쪽의 마지막 키워드를 빼면 그 쪽이
+   * 사라지는데, 상태를 그대로 두면 빈 화면에 갇힙니다 (`SavedTrendPage` 와 같은 방식).
+   */
+  const totalPages = Math.max(1, Math.ceil(visibleKeywords.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const shownKeywords = visibleKeywords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  /* 3쪽을 보다가 거르면 그 분야에 3쪽이 없어 빈 화면이 됩니다. 거르개와 정렬은 1쪽으로 돌립니다. */
+  const changeSort = (value: string) => {
+    setSort(value);
+    setPage(1);
+  };
+
+  const changeDomain = (value: string) => {
+    setSelectedDomain(value);
+    setPage(1);
+  };
 
   return (
     <div className="keywords-page">
@@ -134,7 +162,7 @@ export function KeywordsPage() {
           <span className="keywords-count">{keywords.length}</span>
         </div>
         <div className="keywords-toolbar-filters">
-          <FilterSelect value={sort} options={sorts} ariaLabel="정렬" onChange={setSort} disabled={keywords.length === 0} />
+          <FilterSelect value={sort} options={sorts} ariaLabel="정렬" onChange={changeSort} disabled={keywords.length === 0} />
           <FilterSelect
             value={activeDomain}
             options={[ALL_DOMAINS, ...usedDomains].map((domain) => ({
@@ -142,7 +170,7 @@ export function KeywordsPage() {
               label: domain === ALL_DOMAINS ? '전체 분야' : domainNames.get(domain) ?? domain,
             }))}
             ariaLabel="분야"
-            onChange={setSelectedDomain}
+            onChange={changeDomain}
             disabled={usedDomains.length === 0}
           />
         </div>
@@ -162,10 +190,30 @@ export function KeywordsPage() {
           <>
             {keywords.length === 0 && <KeywordsEmpty />}
             {keywords.length > 0 && visibleKeywords.length === 0 && <p className="keywords-filter-empty">이 분야에 등록한 키워드가 없습니다.</p>}
-            {visibleKeywords.length > 0 && <InterestKeywordList keywords={visibleKeywords} domainNames={domainNames} />}
+            {shownKeywords.length > 0 && <InterestKeywordList keywords={shownKeywords} domainNames={domainNames} />}
           </>
         )}
       </section>
+
+      {interestKeywordsQuery.isSuccess && totalPages > 1 && (
+        <section className="keywords-pagination">
+          <div className="trendin-pages">
+            {pageList(currentPage, totalPages).map((item, index) => (item === 'gap'
+              ? <span className="trendin-page-gap" key={`gap-${index}`}>···</span>
+              : (
+                <button
+                  key={item}
+                  type="button"
+                  className={item === currentPage ? 'is-current' : ''}
+                  aria-current={item === currentPage ? 'page' : undefined}
+                  onClick={() => setPage(item)}
+                >
+                  {item}
+                </button>
+              )))}
+          </div>
+        </section>
+      )}
 
       {recommendedQuery.isSuccess && (
         <section className="keywords-recommend-section">

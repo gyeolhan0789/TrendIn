@@ -15,9 +15,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class RecommendedKeywordRepositoryTest {
+
+    /* 개수 말고 다른 것을 보는 시험은 상한을 걸지 않는다. 상한은 아래 전용 시험이 본다. */
+    private static final Pageable UNLIMITED = Pageable.unpaged();
 
     @Autowired EntityManager entityManager;
     @Autowired KeywordRelationRepository keywordRelationRepository;
@@ -34,7 +39,7 @@ class RecommendedKeywordRepositoryTest {
         flushAndClear();
 
         // when
-        var result = keywordRelationRepository.findRecommendedKeywords(member.getId());
+        var result = keywordRelationRepository.findRecommendedKeywords(member.getId(), UNLIMITED);
 
         // then
         assertThat(result).singleElement()
@@ -55,7 +60,7 @@ class RecommendedKeywordRepositoryTest {
         flushAndClear();
 
         // when
-        var result = keywordRelationRepository.findRecommendedKeywords(member.getId());
+        var result = keywordRelationRepository.findRecommendedKeywords(member.getId(), UNLIMITED);
 
         // then
         assertThat(result).isEmpty();
@@ -76,7 +81,7 @@ class RecommendedKeywordRepositoryTest {
         flushAndClear();
 
         // when
-        var result = keywordRelationRepository.findRecommendedKeywords(member.getId());
+        var result = keywordRelationRepository.findRecommendedKeywords(member.getId(), UNLIMITED);
 
         // then
         assertThat(result).singleElement()
@@ -100,11 +105,43 @@ class RecommendedKeywordRepositoryTest {
         flushAndClear();
 
         // when
-        var result = keywordRelationRepository.findRecommendedKeywords(member.getId());
+        var result = keywordRelationRepository.findRecommendedKeywords(member.getId(), UNLIMITED);
 
         // then
         assertThat(result).extracting(it -> it.getKeywordId())
                 .containsExactly(highest.getId(), first.getId(), second.getId());
+    }
+
+    @Test
+    @DisplayName("상한을 주면 연관도 높은 쪽부터 그 개수까지만 가져온다")
+    void limitsToTopScoredRecommendations() {
+        /*
+         * 상한이 없으면 이 질의는 열려 있다 — 후보가 내 관심 키워드에 연결된
+         * keyword_relations 전부라, 관심 키워드를 많이 등록한 회원일수록 행이 불어난다.
+         * 화면에서 자르는 것으로는 DB 비용과 전송량이 줄지 않는다.
+         *
+         * 개수만 보지 않고 **어느 것이 남는지**까지 본다. 상한이 정렬 뒤에 걸려야
+         * "상위 N개" 이고, 정렬 전에 걸리면 아무 N개가 된다.
+         */
+        // given
+        Member member = persistMember();
+        Keyword interest = persistKeyword("Ballet Sneakers");
+        Keyword low = persistKeyword("Low");
+        Keyword middle = persistKeyword("Middle");
+        Keyword highest = persistKeyword("Highest");
+        persistInterest(member, interest);
+        persistRelation(interest, low, "10.00");
+        persistRelation(interest, middle, "50.00");
+        persistRelation(interest, highest, "90.00");
+        flushAndClear();
+
+        // when
+        var result = keywordRelationRepository.findRecommendedKeywords(
+                member.getId(), PageRequest.of(0, 2));
+
+        // then
+        assertThat(result).extracting(it -> it.getKeywordId())
+                .containsExactly(highest.getId(), middle.getId());
     }
 
     private Member persistMember() {
