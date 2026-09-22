@@ -366,8 +366,8 @@ export function OnboardingPage() {
     }
   };
 
-  // 분야를 막 고른 사람이 볼 것은 소개 화면이 아니라 그 분야가 반영된 대시보드입니다.
-  const finish = () => navigate('/dashboard', { replace: true });
+  // 관심 설정을 마친 뒤 홈에서 트렌드를 살펴봅니다.
+  const finish = () => navigate('/', { replace: true });
 
   /*
    * 로그인해야 고른 분야를 저장할 수 있습니다. 여기는 RequireAuth 밖이라 이 확인이 전부입니다.

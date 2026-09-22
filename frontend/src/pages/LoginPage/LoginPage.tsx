@@ -13,7 +13,7 @@ import { useLogin } from '../../features/auth/hooks/useLogin';
 import { validateEmail, validateLoginPassword } from '../../features/auth/validation';
 
 interface LoginLocationState {
-  /** 로그인 화면으로 보내기 전에 가려던 경로. 없으면 대시보드로 돌려보냅니다. */
+  /** 로그인 화면으로 보내기 전에 가려던 경로. 없으면 홈으로 돌려보냅니다. */
   from?: string;
 }
 
