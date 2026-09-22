@@ -4,6 +4,7 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
+import com.forever102.trend.domain.CountryNames;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.dto.TrendRegionJourneyResponse;
 import com.forever102.trend.dto.TrendRegionJourneyResponse.JourneyItemResponse;
@@ -13,7 +14,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,12 +40,8 @@ public class TrendRegionJourneyService {
         for (int index = 0; index < detections.size(); index++) {
             var detection = detections.get(index);
             regions.add(new JourneyItemResponse(detection.getCountryCode(),
-                    countryName(detection.getCountryCode()), detection.getFirstDetectedDate(), index + 1));
+                    CountryNames.of(detection.getCountryCode()), detection.getFirstDetectedDate(), index + 1));
         }
         return TrendRegionJourneyResponse.of(trendId, startDate, endDate, regions);
-    }
-
-    private String countryName(String countryCode) {
-        return Locale.of("", countryCode).getDisplayCountry(Locale.KOREAN);
     }
 }

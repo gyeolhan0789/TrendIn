@@ -82,14 +82,28 @@ class TrendRegionServiceTest {
     }
 
     @Test
-    @DisplayName("30일 국가 순위 조회는 지원하지 않는다")
-    void rejectsUnsupportedPeriod() {
-        assertThatThrownBy(() -> service.getRegions(101L, AnalysisPeriod.DAYS_30))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getErrorCode())
-                                .isEqualTo(ErrorCode.VALIDATION_ERROR));
-        then(trendRepository).shouldHaveNoInteractions();
-        then(countryMetricRepository).shouldHaveNoInteractions();
+    @DisplayName("30일도 하루치 지표를 그대로 합산해 순위를 반환한다")
+    void supportsThirtyDays() {
+        var trend = TrendFixture.trend();
+        var keyword = trend.getKeyword();
+        LocalDate start = LocalDate.of(2026, 8, 1);
+        LocalDate end = LocalDate.of(2026, 8, 31);
+        given(trendRepository.findById(101L)).willReturn(Optional.of(trend));
+        given(countryMetricRepository
+                .findByKeywordIdAndMetricDateGreaterThanEqualAndMetricDateLessThanOrderByMetricDateAsc(
+                        81L, start, end)).willReturn(List.of(
+                        new KeywordCountryDailyMetric(keyword, "KR", start, 4),
+                        new KeywordCountryDailyMetric(keyword, "KR", start.plusDays(20), 6),
+                        new KeywordCountryDailyMetric(keyword, "US", start.plusDays(10), 3)));
+
+        var response = service.getRegions(101L, AnalysisPeriod.DAYS_30);
+
+        assertThat(response.period()).isEqualTo("30D");
+        assertThat(response.startDate()).isEqualTo(start);
+        assertThat(response.regions()).extracting("countryCode", "mentionCount", "rank")
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("KR", 10L, 1),
+                        org.assertj.core.groups.Tuple.tuple("US", 3L, 2));
     }
 
     @Test
