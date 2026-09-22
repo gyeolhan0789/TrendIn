@@ -44,13 +44,29 @@ stamp=$(date +%Y%m%d-%H%M%S)
 table="$RESULTS/${name}-sweep-${stamp}.txt"
 
 # 회차마다 값을 뽑아 표로 쌓는다. k6 요약은 사람이 읽기 좋지만 회차 비교에는 불편하다.
+#
+# ⚠️ **`\.*:` 로 값이 붙은 줄만 잡는다.** k6 는 임계값에 건 메트릭을 `█ THRESHOLDS`
+# 블록에 **이름만** 한 번 더 찍고, 그 블록이 `█ TOTAL RESULTS` 보다 파일에서 먼저 온다.
+# 앵커가 없으면 `-m1` 이 값 없는 줄을 잡아 뒤의 추출이 빈손이 되고, 그 실패가 `set -e`
+# 에 걸려 **행을 쌓기 전에 스크립트가 죽는다.** 표에 헤더만 남은 원인이 이것이다
+# (2026-09-21 회차 둘 다). 점과 콜론은 값이 붙은 줄에만 있다.
+#
+# `p95` 도 같은 이유로 앵커가 필요하다. 앵커가 없으면 임계값 블록의
+# `✓ 'p(95)<1000' p(95)=103.68ms` 를 먼저 집는데, 그것은 **엔드포인트 하나의** 값이라
+# 스크립트마다 어느 엔드포인트가 잡히는지가 임계값 선언 순서에 달린다. 회차를 비교하려면
+# 집계 `http_req_duration` 한 줄에서 읽어야 한다.
 extract() {
     local file=$1 field=$2
     case "$field" in
-        p95)   grep -m1 -oE 'p\(95\)=[^ ]+' "$file" | cut -d= -f2 ;;
-        rps)   grep -m1 -E '^[[:space:]]+http_reqs' "$file" | grep -oE '[0-9.]+/s' | head -1 ;;
-        fail)  grep -m1 -E '^[[:space:]]+http_req_failed' "$file" | grep -oE '[0-9.]+%' | head -1 ;;
-        drop)  grep -m1 -E '^[[:space:]]+dropped_iterations' "$file" | awk '{print $2}' ;;
+        p95)   grep -m1 -E '^[[:space:]]+http_req_duration\.*:' "$file" \
+                   | grep -oE 'p\(95\)=[^ ]+' | cut -d= -f2 ;;
+        rps)   grep -m1 -E '^[[:space:]]+http_reqs\.*:' "$file" \
+                   | grep -oE '[0-9.]+/s' | head -1 ;;
+        fail)  grep -m1 -E '^[[:space:]]+http_req_failed\.*:' "$file" \
+                   | grep -oE '[0-9.]+%' | head -1 ;;
+        # 드롭이 없으면 이 줄 자체가 안 찍힌다. 무릎 아래 구간이 늘 그렇다 —
+        # **서버가 멀쩡할 때 추출이 실패하는 것이 정상**이라 호출부가 실패를 허용한다.
+        drop)  grep -m1 -E '^[[:space:]]+dropped_iterations\.*:' "$file" | awk '{print $2}' ;;
     esac
 }
 
@@ -82,10 +98,13 @@ for rps in "${rates[@]}"; do
         continue
     fi
 
-    got=$(extract "$out" rps)
-    p95=$(extract "$out" p95)
-    fail=$(extract "$out" fail)
-    drop=$(extract "$out" drop)
+    # `|| true` 넷 다 필요하다. 아래 `${got:-?}` · `${drop:-0}` 가 못 뽑은 값을 이미
+    # 감당하는데, `set -e` 아래에서는 그 기본값이 쓰일 자리까지 오지 못한다. 값 하나를
+    # 못 읽은 것과 회차 전체를 버리는 것은 다르다 — 읽은 것만 싣고 나머지는 `?` 로 둔다.
+    got=$(extract "$out" rps || true)
+    p95=$(extract "$out" p95 || true)
+    fail=$(extract "$out" fail || true)
+    drop=$(extract "$out" drop || true)
     row=$(printf '%-10s %-12s %-12s %-10s %-10s' \
         "$rps" "${got:-?}" "${p95:-?}" "${fail:-?}" "${drop:-0}")
     echo "$row"

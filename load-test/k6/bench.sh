@@ -119,7 +119,17 @@ for script in "${SCRIPTS[@]}"; do
         }
     ' >> "$tsv"
 
-    fail=$(grep -m1 -E '^[[:space:]]+http_req_failed' "$raw" | grep -oE '[0-9.]+%' | head -1)
+    # ⚠️ `\.*:` 가 있어야 한다. k6 는 `http_req_failed` 를 **두 번** 찍는다 — 임계값
+    # 목록(`█ THRESHOLDS`)에 이름만 한 줄, 그리고 `█ TOTAL RESULTS` 에 값이 붙은 줄.
+    # 앞의 것이 파일에서 먼저 나오므로 `-m1` 이 값 없는 줄을 잡고, 뒤의 `%` 추출이
+    # 빈손으로 끝난다. 그 실패가 `set -e` 에 걸려 **첫 스크립트에서 스크립트 전체가
+    # 죽었다** — 표에 한 줄만 남고 2번째 raw 파일은 만들어지지도 않았다. 점과 콜론은
+    # 값이 붙은 줄에만 있다.
+    #
+    # `|| true` 는 그 다음 방어다. 이 값은 진행 표시용이라, 못 뽑았다고 측정을
+    # 멈출 이유가 없다. `${fail:-?}` 기본값이 쓰일 기회를 `set -e` 가 빼앗지 않게 한다.
+    fail=$(grep -m1 -E '^[[:space:]]+http_req_failed\.*:' "$raw" \
+        | grep -oE '[0-9.]+%' | head -1 || true)
     echo "완료 (실패 ${fail:-?})"
 done
 
