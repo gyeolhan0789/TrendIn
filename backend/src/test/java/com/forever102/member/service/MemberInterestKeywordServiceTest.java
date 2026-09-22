@@ -3,6 +3,7 @@ package com.forever102.member.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
@@ -28,10 +29,13 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +43,8 @@ class MemberInterestKeywordServiceTest {
 
     private static final Long MEMBER_ID = 1L;
     private static final Long KEYWORD_ID = 81L;
+    /* 서비스가 저장소에 넘기는 상한. 값을 시험이 따로 적어 두어 바뀌면 여기서 걸린다. */
+    private static final Pageable TOP_EIGHT = PageRequest.of(0, 8);
 
     @Mock MemberRepository memberRepository;
     @Mock KeywordRepository keywordRepository;
@@ -147,7 +153,8 @@ class MemberInterestKeywordServiceTest {
         given(projection.getKeyword()).willReturn("Mary Jane Sneakers");
         given(projection.getDomain()).willReturn(Domain.FASHION);
         given(projection.getRelationScore()).willReturn(new BigDecimal("91.50"));
-        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID)).willReturn(java.util.List.of(projection));
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_EIGHT))
+                .willReturn(java.util.List.of(projection));
 
         // when
         var result = interestKeywordService.getRecommendedKeywords(MEMBER_ID);
@@ -165,13 +172,38 @@ class MemberInterestKeywordServiceTest {
     @DisplayName("추천할 키워드가 없으면 빈 목록을 반환한다")
     void returnsEmptyRecommendedKeywords() {
         // given
-        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID)).willReturn(java.util.List.of());
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_EIGHT))
+                .willReturn(java.util.List.of());
 
         // when
         var result = interestKeywordService.getRecommendedKeywords(MEMBER_ID);
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("추천은 연관도 상위 8개만 요청한다")
+    void asksRepositoryForTopEightOnly() {
+        /*
+         * 개수를 서비스가 정하고 저장소 질의가 LIMIT 으로 받는다. 화면에서 자르는 것과
+         * 다르다 — 상한이 질의에 걸려야 DB 가 만드는 행과 전송량이 함께 줄어든다.
+         *
+         * **정렬을 Pageable 에 넣지 않는 것도 계약이다.** 질의가 이미 order by 를 갖고
+         * 있어서, 여기에 sort 를 주면 둘이 겹쳐 SQL 이 어긋난다.
+         */
+        // given
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        given(keywordRelationRepository.findRecommendedKeywords(eq(MEMBER_ID), captor.capture()))
+                .willReturn(java.util.List.of());
+
+        // when
+        interestKeywordService.getRecommendedKeywords(MEMBER_ID);
+
+        // then
+        assertThat(captor.getValue().getPageSize()).isEqualTo(8);
+        assertThat(captor.getValue().getPageNumber()).isZero();
+        assertThat(captor.getValue().getSort().isSorted()).isFalse();
     }
 
     @Test
