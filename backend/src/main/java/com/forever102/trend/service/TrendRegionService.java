@@ -4,6 +4,7 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
+import com.forever102.trend.domain.CountryNames;
 import com.forever102.trend.domain.KeywordCountryDailyMetric;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.dto.TrendRegionResponse;
@@ -15,7 +16,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,8 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TrendRegionService {
 
+    /* 나라별 자료는 하루 단위라 30일도 그대로 더하면 됩니다. 구간만 넓어질 뿐 세는 방법은 같습니다. */
     private static final Set<AnalysisPeriod> SUPPORTED_PERIODS =
-            Set.of(AnalysisPeriod.HOURS_24, AnalysisPeriod.DAYS_7);
+            Set.of(AnalysisPeriod.HOURS_24, AnalysisPeriod.DAYS_7, AnalysisPeriod.DAYS_30);
 
     private final TrendRepository trendRepository;
     private final KeywordCountryDailyMetricRepository countryMetricRepository;
@@ -77,12 +78,8 @@ public class TrendRegionService {
                 previousCount = entry.getValue();
             }
             result.add(new RegionItemResponse(rank, entry.getKey(),
-                    countryName(entry.getKey()), entry.getValue()));
+                    CountryNames.of(entry.getKey()), entry.getValue()));
         }
         return List.copyOf(result);
-    }
-
-    private String countryName(String countryCode) {
-        return Locale.of("", countryCode).getDisplayCountry(Locale.KOREAN);
     }
 }

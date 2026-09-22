@@ -4,6 +4,7 @@ import com.forever102.global.exception.BusinessException;
 import com.forever102.global.exception.ErrorCode;
 import com.forever102.trend.domain.AnalysisPeriod;
 import com.forever102.trend.domain.AnalysisWindow;
+import com.forever102.trend.domain.CountryNames;
 import com.forever102.trend.domain.KeywordCountryDailyMetric;
 import com.forever102.trend.domain.Trend;
 import com.forever102.trend.dto.TrendRegionHistoryResponse;
@@ -64,7 +65,7 @@ public class TrendRegionHistoryService {
                     metric == null ? 0L : metric.getMentionCount()));
         }
         return TrendRegionHistoryResponse.of(trendId, normalizedCountryCode,
-                countryName(normalizedCountryCode), period, startAt, endAt, history);
+                CountryNames.of(normalizedCountryCode), period, startAt, endAt, history);
     }
 
     private void validatePeriod(AnalysisPeriod period) {
@@ -79,9 +80,5 @@ public class TrendRegionHistoryService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalized;
-    }
-
-    private String countryName(String countryCode) {
-        return Locale.of("", countryCode).getDisplayCountry(Locale.KOREAN);
     }
 }

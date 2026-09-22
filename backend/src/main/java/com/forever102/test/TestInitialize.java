@@ -95,6 +95,9 @@ public class TestInitialize implements ApplicationRunner {
     private final KeywordMetricRepository metricRepository;
     private final KeywordMetricHistoryRepository historyRepository;
     private final KeywordCountryDailyMetricRepository countryMetricRepository;
+
+    /* countrySpreads() 는 지표를 만들 때 키워드마다 불리므로 한 번만 펼쳐 둔다. */
+    private Set<String> spreadKeywordCache;
     private final KeywordRelationRepository relationRepository;
     private final ContentRepository contentRepository;
     private final PasswordEncoder passwordEncoder;
@@ -436,8 +439,23 @@ public class TestInitialize implements ApplicationRunner {
         if ("Vector Database".equals(keyword.getName()) || "벡터 검색".equals(keyword.getName())) {
             return 0L;
         }
-        long base = 40 + RANDOM.nextInt(400);
+        /*
+         * 확산 경로를 넣어 둔 키워드는 언급량을 크게 잡아 목록 맨 위에 세운다. 무작위로 두면
+         * 서른 줄쯤 아래로 밀려, 지도와 흐름보기를 보려면 목록을 한참 굴려 내려가야 한다.
+         * 로컬에서 찾아내지 못하는 화면은 없는 화면과 같다.
+         */
+        long base = spreadKeywords().contains(keyword.getName())
+                ? 700 + RANDOM.nextInt(200)
+                : 40 + RANDOM.nextInt(400);
         return base * periodWeight(period);
+    }
+
+    /** 나라 자료를 붙여 둔 키워드 이름. countrySpreads() 가 유일한 근거라 따로 적지 않는다. */
+    private Set<String> spreadKeywords() {
+        if (spreadKeywordCache == null) {
+            spreadKeywordCache = Set.copyOf(countrySpreads().keySet());
+        }
+        return spreadKeywordCache;
     }
 
     /** 급감 사례를 넣어 증가율이 음수인 경우를 재현한다. */
@@ -567,6 +585,42 @@ public class TestInitialize implements ApplicationRunner {
 
         // 나라가 하나뿐이라 경로가 한 칸이다.
         spreads.put("Rust", List.of(new CountryStop("KR", 11, 1, 26)));
+
+        /*
+         * 신규 트렌드의 확산 경로. 흐름보기는 30일 구간의 신규 트렌드에서만 열리는데, 나라를 붙인
+         * 키워드가 모두 신규가 아니면 로컬에서 그 화면을 한 번도 볼 수 없다. 대륙을 건너뛰도록
+         * 두어 지도가 태평양·대서양을 건너는 대목까지 확인할 수 있게 한다.
+         */
+        spreads.put("WebAssembly", List.of(
+                new CountryStop("US", 27, 1, 31),
+                new CountryStop("DE", 21, 1, 24),
+                new CountryStop("BR", 15, 1, 18),
+                new CountryStop("IN", 11, 1, 22),
+                new CountryStop("JP", 6, 1, 16),
+                new CountryStop("AU", 3, 1, 12)));
+
+        spreads.put("Sheer Layering", List.of(
+                new CountryStop("FR", 25, 1, 28),
+                new CountryStop("IT", 19, 1, 20),
+                new CountryStop("GB", 13, 1, 17),
+                new CountryStop("KR", 7, 1, 23),
+                new CountryStop("US", 2, 1, 15)));
+
+        // 분야마다 신규 트렌드가 둘은 되어야, 한 줄만 보고 그 하나의 특징으로 읽지 않는다.
+        spreads.put("LLM Agent", List.of(
+                new CountryStop("US", 29, 1, 38),
+                new CountryStop("CA", 23, 1, 19),
+                new CountryStop("GB", 18, 1, 25),
+                new CountryStop("IN", 12, 1, 29),
+                new CountryStop("CN", 8, 1, 21),
+                new CountryStop("KR", 4, 1, 26)));
+
+        spreads.put("메탈릭 액세서리", List.of(
+                new CountryStop("IT", 24, 1, 26),
+                new CountryStop("ES", 17, 1, 18),
+                new CountryStop("MX", 11, 1, 14),
+                new CountryStop("BR", 6, 1, 20),
+                new CountryStop("JP", 2, 1, 22)));
 
         /*
          * 화면이 자리를 모르는 나라를 섞는다. PH와 SG는 지도 참조표에 아직 없고, XX는 파이프라인이
