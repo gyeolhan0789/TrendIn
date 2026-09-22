@@ -6,7 +6,7 @@ import { SavedTrendPage } from '../SavedTrendPage/SavedTrendPage';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { Skeleton } from '../../components/common/Skeleton';
-import { AddInterestKeywordButton } from '../../features/myPage/components/AddInterestKeywordButton';
+import { useInterestKeywordToggle } from '../../features/myPage/hooks/useInterestKeywordToggle';
 import { BookmarkButton } from '../../features/savedTrend/components/BookmarkButton';
 import { useTrendContents } from '../../features/trend/hooks/useTrendContents';
 import { useTrendDetail } from '../../features/trend/hooks/useTrendDetail';
@@ -123,6 +123,8 @@ export function TrendDetailPage() {
   const historyQuery = useTrendHistory(trendId, period);
   const keywordsQuery = useTrendRelatedKeywords(trendId);
   const contentsQuery = useTrendContents(trendId);
+  /* 연관 키워드 칩을 눌러 담고 다시 눌러 뺍니다. 홈의 추천 꼬리표와 같은 훅입니다. */
+  const interest = useInterestKeywordToggle();
   const trend = detailQuery.data;
   const periodLabel = periodLabels[period];
 
@@ -360,13 +362,40 @@ export function TrendDetailPage() {
             {keywordsQuery.isSuccess && relatedKeywords.length === 0 && <EmptyState />}
             {relatedKeywords.length > 0 && (
               <div className="detail-keyword-list">
-                {visibleKeywords.map((keyword) => (
-                  <span className={`detail-keyword${getKeywordStrength(keyword.relationScore)}`} key={keyword.keywordId}>
-                    <b>{keyword.keyword}</b>
-                    <i title={`연관도 ${keyword.relationScore}점`}>{Math.round(keyword.relationScore)}</i>
-                    <AddInterestKeywordButton keywordId={keyword.keywordId} keyword={keyword.keyword} />
-                  </span>
-                ))}
+                {/*
+                  * 칩 하나가 통째로 단추입니다. 예전에는 칩이 span 이고 안의 ＋ 만 눌렸는데,
+                  * 그 부호를 정확히 겨눠야 담겼습니다. 이제 칩 어디를 눌러도 담기고, 담긴
+                  * 칩을 다시 누르면 빠집니다 (홈의 추천 꼬리표와 같은 동작).
+                  *
+                  * 단추 안에 단추를 둘 수 없어 `AddInterestKeywordButton` 대신 같은 그림을
+                  * span 으로 그립니다. 연관도 점수를 누르는 것도 담기로 이어집니다.
+                  */}
+                {visibleKeywords.map((keyword) => {
+                  const registered = interest.registered(keyword.keywordId);
+                  return (
+                    <button
+                      type="button"
+                      className={`detail-keyword${getKeywordStrength(keyword.relationScore)}${registered ? ' is-registered' : ''}`}
+                      key={keyword.keywordId}
+                      aria-pressed={registered}
+                      disabled={interest.pending(keyword.keywordId) || !interest.ready}
+                      aria-label={registered ? `${keyword.keyword} 관심 키워드에서 빼기` : `${keyword.keyword} 관심 키워드로 등록`}
+                      title={registered ? '다시 누르면 관심 키워드에서 빠집니다' : '관심 키워드로 등록'}
+                      onClick={() => interest.toggle(keyword.keywordId, keyword.keyword)}
+                    >
+                      <b>{keyword.keyword}</b>
+                      {/* 연관도 점수. 단추 안이라 title 을 겹쳐 두지 않습니다 — 위 title 이 읽힙니다. */}
+                      <i>{Math.round(keyword.relationScore)}</i>
+                      <span className={`interest-add${registered ? ' is-registered' : ''}`} aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          {registered
+                            ? <polyline points="20 6 9 17 4 12" />
+                            : <><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>}
+                        </svg>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>

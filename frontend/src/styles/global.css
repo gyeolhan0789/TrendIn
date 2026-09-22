@@ -507,7 +507,16 @@ h1 { margin: 0; line-height: 1.25; }
 .detail-page--drawer .detail-related .detail-section-title { margin-bottom: 14px; }
 .detail-page--drawer .detail-keyword-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .detail-page--drawer .detail-keyword { display: inline-flex; align-items: center; gap: 10px; padding: 10px 8px 10px 16px; border-radius: 10px; color: #333; background: #f6f8fc; font-size: 14px; letter-spacing: -.2px; transition: background .15s; }
-.detail-page--drawer .detail-keyword:hover { background: #edf1fa; }
+.detail-page--drawer .detail-keyword:hover:not(:disabled) { background: #edf1fa; }
+/*
+ * 담긴 칩. 안의 체크만 색이 바뀌면 12px 짜리 그림 하나에 기대는 셈이라, 칩 바닥까지
+ * 물들여 한눈에 가립니다. 색은 체크와 같은 갈래(amber)로 맞춥니다.
+ */
+.detail-page--drawer .detail-keyword.is-registered { background: #fbf1e6; }
+.detail-page--drawer .detail-keyword.is-registered:hover:not(:disabled) { background: #f6e7d5; }
+.detail-page--drawer .detail-keyword.is-registered b { color: var(--amber); font-weight: 600; }
+/* 보내는 동안에만 물러납니다. 담긴 칩도 잠기지 않으므로 이 상태는 '아직 안 끝났다' 뿐입니다. */
+.detail-page--drawer .detail-keyword:disabled { opacity: .55; }
 .detail-page--drawer .detail-keyword b { font-weight: 500; }
 .detail-page--drawer .detail-keyword i { color: #888; font: 600 13px "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-style: normal; font-variant-numeric: tabular-nums; }
 .detail-page--drawer .detail-keyword.is-strong i { color: var(--amber); }
@@ -1107,16 +1116,17 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-panel > .explore-panel-lead { margin-bottom: 22px; }
 .explore-quick { display: flex; flex-wrap: wrap; gap: 8px; }
 /*
- * 꼬리표 하나가 통째로 단추이고, 누를 때마다 담기와 빼기를 오갑니다.
+ * **꼬리표 하나가 통째로 단추입니다.** 오른쪽 부호는 상태 표시이지 따로 누르는 자리가
+ * 아닙니다 — 꼬리표 어디를 눌러도 같이 동작합니다. 누를 때마다 담기와 빼기를 오갑니다.
  *
- * **담기 부호(＋·✓)를 두지 않습니다.** 꼬리표 안의 또 다른 단추처럼 보여 어디를 눌러야
- * 하는지 흐려지고, 상태마다 부호가 들락날락하면 꼬리표 폭이 바뀌어 옆 줄까지 밀립니다.
- * 담긴 것은 색과 글씨 굵기로 가립니다 — 색 하나에만 기대지 않도록 굵기를 함께 둡니다.
- * 낭독기에는 `aria-pressed` 가 전해집니다.
+ * 담긴 것은 부호(＋→✓)와 색, 글씨 굵기 셋으로 가립니다. 색 하나에만 기대지 않도록
+ * 나머지 둘을 함께 둡니다. 낭독기에는 `aria-pressed` 가 전해집니다.
  */
-.explore-quick button { display: inline-flex; align-items: center; padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s, color .15s; }
+.explore-quick button { display: inline-flex; align-items: center; gap: 14px; padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s, color .15s; }
 .explore-quick button:hover:not(:disabled) { border-color: #d1d5db; background: #f3f4f6; }
+.explore-quick button > span { color: var(--lp-faint); font-size: 13px; }
 .explore-quick button.is-registered { border-color: #c7d2fe; background: #ede9fe; color: var(--lp-indigo); font-weight: 600; }
+.explore-quick button.is-registered > span { color: var(--lp-indigo); }
 /*
  * 담은 꼬리표도 눌립니다(다시 누르면 빠집니다). 위의 회색 hover 가 덮으면 담긴 표시가
  * 손을 얹는 동안 사라져 안 담긴 것처럼 보이므로, 같은 갈래의 짙은 색으로 따로 답니다.
