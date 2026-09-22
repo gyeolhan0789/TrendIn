@@ -105,8 +105,17 @@ for script in "${SCRIPTS[@]}"; do
             return total
         }
         /name:/ && /avg=/ {
-            if (!match($0, /name:[^}]+/)) next
+            # ⚠️ `[^}]+` 로 잘라서는 안 된다. 태그 값 자체에 `}` 가 들어 있다 —
+            # `{ name:GET /trends/{id}/contents }` 는 `{id}` 의 닫는 괄호에서 멈춰
+            # `GET /trends/{id` 만 남았다. 그러면 contents · history 셋 · regions 셋이
+            # **전부 같은 이름**이 되고, `compare.sh` 가 이름만으로 키를 만들므로
+            # (`key = f[3]`) 일곱 행이 한 칸에 겹쳐 마지막 값만 살아남는다. 비교가
+            # 조용히 틀린 값을 준다 — 오류가 아니라 그럴듯한 숫자로 나온다.
+            #
+            # 태그 블록의 닫는 짝은 값 뒤의 ` }` 다. 탐욕 매칭으로 거기까지 간다.
+            if (!match($0, /name:.* \}/)) next
             ep = substr($0, RSTART + 5, RLENGTH - 5)
+            sub(/ \}$/, "", ep)
             sub(/[ \t]+$/, "", ep)
             if (ep == "setup:login") next
             avg = med = p95 = ""
