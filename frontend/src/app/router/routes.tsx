@@ -1,19 +1,22 @@
+import { lazy } from 'react';
 import { Route } from 'react-router-dom';
-import { AccountSettingsPage } from '../../pages/AccountSettingsPage/AccountSettingsPage';
-import { GlobalTrendsPage } from '../../pages/GlobalTrendsPage/GlobalTrendsPage';
-import { HomePage } from '../../pages/HomePage/HomePage';
-import { KeywordsPage } from '../../pages/KeywordsPage/KeywordsPage';
-import { LandingPage } from '../../pages/LandingPage/LandingPage';
-import { LoginPage } from '../../pages/LoginPage/LoginPage';
-import { MyPage } from '../../pages/MyPage/MyPage';
-import { NotificationSettingsPage } from '../../pages/NotificationSettingsPage/NotificationSettingsPage';
-import { OAuthCallbackPage } from '../../pages/OAuthCallbackPage/OAuthCallbackPage';
-import { OnboardingPage } from '../../pages/OnboardingPage/OnboardingPage';
-import { ProfileEditPage } from '../../pages/ProfileEditPage/ProfileEditPage';
-import { RecentActivityPage } from '../../pages/RecentActivityPage/RecentActivityPage';
-import { SavedTrendPage } from '../../pages/SavedTrendPage/SavedTrendPage';
-import { SignUpPage } from '../../pages/SignUpPage/SignUpPage';
-import { TrendDetailPage } from '../../pages/TrendDetailPage/TrendDetailPage';
+
+// 첫 화면에 필요하지 않은 페이지와 랜딩의 3D 엔진은 해당 경로에 들어갈 때만 받습니다.
+const AccountSettingsPage = lazy(() => import('../../pages/AccountSettingsPage/AccountSettingsPage').then(({ AccountSettingsPage }) => ({ default: AccountSettingsPage })));
+const GlobalTrendsPage = lazy(() => import('../../pages/GlobalTrendsPage/GlobalTrendsPage').then(({ GlobalTrendsPage }) => ({ default: GlobalTrendsPage })));
+const HomePage = lazy(() => import('../../pages/HomePage/HomePage').then(({ HomePage }) => ({ default: HomePage })));
+const KeywordsPage = lazy(() => import('../../pages/KeywordsPage/KeywordsPage').then(({ KeywordsPage }) => ({ default: KeywordsPage })));
+const LandingPage = lazy(() => import('../../pages/LandingPage/LandingPage').then(({ LandingPage }) => ({ default: LandingPage })));
+const LoginPage = lazy(() => import('../../pages/LoginPage/LoginPage').then(({ LoginPage }) => ({ default: LoginPage })));
+const MyPage = lazy(() => import('../../pages/MyPage/MyPage').then(({ MyPage }) => ({ default: MyPage })));
+const NotificationSettingsPage = lazy(() => import('../../pages/NotificationSettingsPage/NotificationSettingsPage').then(({ NotificationSettingsPage }) => ({ default: NotificationSettingsPage })));
+const OAuthCallbackPage = lazy(() => import('../../pages/OAuthCallbackPage/OAuthCallbackPage').then(({ OAuthCallbackPage }) => ({ default: OAuthCallbackPage })));
+const OnboardingPage = lazy(() => import('../../pages/OnboardingPage/OnboardingPage').then(({ OnboardingPage }) => ({ default: OnboardingPage })));
+const ProfileEditPage = lazy(() => import('../../pages/ProfileEditPage/ProfileEditPage').then(({ ProfileEditPage }) => ({ default: ProfileEditPage })));
+const RecentActivityPage = lazy(() => import('../../pages/RecentActivityPage/RecentActivityPage').then(({ RecentActivityPage }) => ({ default: RecentActivityPage })));
+const SavedTrendPage = lazy(() => import('../../pages/SavedTrendPage/SavedTrendPage').then(({ SavedTrendPage }) => ({ default: SavedTrendPage })));
+const SignUpPage = lazy(() => import('../../pages/SignUpPage/SignUpPage').then(({ SignUpPage }) => ({ default: SignUpPage })));
+const TrendDetailPage = lazy(() => import('../../pages/TrendDetailPage/TrendDetailPage').then(({ TrendDetailPage }) => ({ default: TrendDetailPage })));
 
 /*
  * 랜딩은 로그인 전에도 열리는 소개 화면이라 가드 밖에 둡니다. 다만 트렌드 조회는
