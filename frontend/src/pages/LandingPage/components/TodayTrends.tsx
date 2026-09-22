@@ -108,8 +108,16 @@ function TrendBoard({ board, domain, loggedIn, openDetail, requireLogin }: Trend
           <TrendRow
             key={trend.trendId}
             trend={trend}
-            /* 순위를 매기지 않는 갈래에서는 rank 가 비어 와, 받은 차례를 그대로 씁니다. */
-            rank={trend.rank ?? index + 1}
+            /*
+             * 판 안에서의 차례입니다. **`trend.rank` 를 쓰지 않습니다** — 그 값은 분야
+             * 전체의 언급량 순위라, 갈래가 다른 기준으로 줄을 세운 판에서는 251·35·52
+             * 처럼 뒤섞여 찍힙니다. 급상승 판은 증가율로 줄을 세우니 언급량 순위와
+             * 애초에 다른 순서입니다.
+             *
+             * 줄 세우는 기준은 서버가 갈래마다 다르게 쓰고(인기·신규는 언급량, 급상승은
+             * 증가율) 여기서는 그 순서를 그대로 둡니다. 번호만 1부터 답니다.
+             */
+            rank={index + 1}
             loggedIn={loggedIn}
             openDetail={openDetail}
             requireLogin={requireLogin}

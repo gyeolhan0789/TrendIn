@@ -50,7 +50,8 @@ function FeaturedContentsSlide({ domain, type, label, noChosenDomain }: Featured
       <div className="featured-grid">
         {query.data?.map(({ trend, content }, index) => (
           <a className="featured-card" href={content.url} key={trend.trendId} target="_blank" rel="noreferrer">
-            <span className="featured-tag">{label} {trend.rank ?? index + 1}위 · {trend.keyword}</span>
+            {/* 받은 차례입니다. `trend.rank` 는 분야 전체의 언급량 순위라 갈래 판의 번호로 쓰면 뒤섞입니다. */}
+            <span className="featured-tag">{label} {index + 1}위 · {trend.keyword}</span>
             <div>
               <h3>{content.title}</h3>
               <p>{trend.description ?? `${trend.keyword} 트렌드의 대표 콘텐츠입니다.`}</p>

@@ -18,9 +18,15 @@ export async function getFeaturedTrendContents(domain: string, type: TrendType):
     page: 0,
     size: 4,
   });
+  /*
+   * **받은 순서를 그대로 둡니다.** 예전에는 `trend.rank` 로 다시 줄을 세웠는데, 그 값은
+   * 분야 전체의 언급량 순위라 갈래가 세운 줄을 덮어썼습니다. 급상승은 서버가 증가율로
+   * 줄을 세우므로, 언급량 순위로 다시 정렬하면 1~4위가 아예 다른 넷이 됩니다.
+   *
+   * 갈래마다 기준이 다른 것은 서버가 정합니다 (인기·신규는 언급량, 급상승은 증가율).
+   */
   const rankedTrends = trends
     .filter((trend) => Number.isInteger(trend.trendId) && trend.trendId > 0)
-    .sort((left, right) => (left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
     .slice(0, 4);
   const contents = await Promise.allSettled(
     rankedTrends.map((trend) => getTrendContents(trend.trendId, 0, 1)),
