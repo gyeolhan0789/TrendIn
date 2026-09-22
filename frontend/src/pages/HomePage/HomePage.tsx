@@ -4,7 +4,7 @@ import heroWave from '../../assets/flowing-wave.webp';
 import { CylinderCarousel } from '../../components/common/CylinderCarousel';
 import { FilterSelect } from '../../components/common/FilterSelect';
 import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
-import { useRegisterInterestKeyword } from '../../features/myPage/hooks/useInterestKeywordMutations';
+import { useDeleteInterestKeyword, useRegisterInterestKeyword } from '../../features/myPage/hooks/useInterestKeywordMutations';
 import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
 import type { RecommendedKeyword } from '../../features/myPage/types/myPage';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
@@ -108,8 +108,11 @@ export function HomePage() {
    * 서버는 이미 담은 키워드를 추천에서 빼 줍니다. 그대로 그리면 담는 순간 꼬리표가 사라져,
    * 담았다는 표시를 볼 새가 없고 뒤 꼬리표들이 앞으로 밀려 눈이 따라가지 못합니다.
    *
-   * 그래서 처음 받은 목록을 붙잡아 둡니다. 자리는 그대로 두고 아래 registeredIds 가 체크로
+   * 그래서 처음 받은 목록을 붙잡아 둡니다. 자리는 그대로 두고 아래 registeredBy 가 색만
    * 뒤집습니다. 새 추천은 화면을 다시 열 때 받습니다.
+   *
+   * 다시 눌러 빼는 것도 이 덕에 됩니다 — 빠진 키워드가 목록에서 사라지지 않고 색만 풀려,
+   * 같은 자리에서 담기와 빼기를 오갈 수 있습니다.
    */
   const [recommended, setRecommended] = useState<RecommendedKeyword[]>([]);
 
@@ -121,13 +124,17 @@ export function HomePage() {
   }, [recommended.length, recommendedQuery.data]);
 
   /*
-   * 이미 담은 키워드인지는 꼬리표마다 목록을 훑지 않고 여기서 한 번만 추려 둡니다.
-   * 등록이 끝나면 관심 키워드 목록이 다시 받아져 이 집합도 따라 바뀌고, 꼬리표가 체크 표시로 넘어갑니다.
+   * 키워드 id → 등록 기록 id. 꼬리표마다 목록을 훑지 않고 여기서 한 번만 추려 둡니다.
+   * 담기·빼기가 끝나면 관심 키워드 목록이 다시 받아져 이 표도 따라 바뀌고 꼬리표 색이 넘어갑니다.
+   *
+   * **담았는지만 보는 집합이 아니라 표인 이유**는 빼는 길이 생겼기 때문입니다. 뺄 때는
+   * 키워드가 아니라 등록 기록을 가리켜야 합니다 (`deleteInterestKeyword(interestKeywordId)`).
    */
   const interestKeywordsQuery = useInterestKeywords();
   const registerMutation = useRegisterInterestKeyword();
-  const registeredIds = useMemo(
-    () => new Set((interestKeywordsQuery.data ?? []).map((item) => item.keywordId)),
+  const deleteMutation = useDeleteInterestKeyword();
+  const registeredBy = useMemo(
+    () => new Map((interestKeywordsQuery.data ?? []).map((item) => [item.keywordId, item.interestKeywordId])),
     [interestKeywordsQuery.data],
   );
 
@@ -215,21 +222,28 @@ export function HomePage() {
           <p className="explore-panel-lead">내 관심 키워드와 함께 언급되는 말입니다. 눌러서 관심 키워드로 담아 보세요.</p>
           <div className="explore-quick">
             {recommended.map((item) => {
-              const registered = registeredIds.has(item.keywordId);
-              const pending = registerMutation.isPending && registerMutation.variables?.keywordId === item.keywordId;
+              /* 값이 있으면 담긴 것이고, 그 값이 뺄 때 가리킬 등록 기록입니다. */
+              const interestKeywordId = registeredBy.get(item.keywordId);
+              const registered = interestKeywordId !== undefined;
+              const pending = (registerMutation.isPending && registerMutation.variables?.keywordId === item.keywordId)
+                || (deleteMutation.isPending && deleteMutation.variables?.interestKeywordId === interestKeywordId);
               return (
                 <button
                   type="button"
                   key={item.keywordId}
                   className={registered ? 'is-registered' : undefined}
+                  /* 누를 때마다 담기와 빼기를 오가는 단추라 눌린 상태를 알려 줍니다. */
+                  aria-pressed={registered}
                   /* 담았는지 아직 모르는 동안 누르면 이미 담은 것을 또 보내게 됩니다. */
-                  disabled={registered || pending || !interestKeywordsQuery.isSuccess}
-                  aria-label={registered ? `${item.keyword} 관심 키워드에 등록됨` : `${item.keyword} 관심 키워드로 등록`}
-                  title={registered ? '이미 등록한 관심 키워드' : '관심 키워드로 등록'}
-                  onClick={() => registerMutation.mutate({ keywordId: item.keywordId, keyword: item.keyword })}
+                  disabled={pending || !interestKeywordsQuery.isSuccess}
+                  aria-label={registered ? `${item.keyword} 관심 키워드에서 빼기` : `${item.keyword} 관심 키워드로 등록`}
+                  title={registered ? '다시 누르면 관심 키워드에서 빠집니다' : '관심 키워드로 등록'}
+                  /* undefined 로 갈라야 아래 분기에서 등록 기록 id 가 number 로 좁혀집니다. */
+                  onClick={() => (interestKeywordId === undefined
+                    ? registerMutation.mutate({ keywordId: item.keywordId, keyword: item.keyword })
+                    : deleteMutation.mutate({ interestKeywordId, keyword: item.keyword }))}
                 >
                   {item.keyword}
-                  <span aria-hidden="true">{registered ? '✓' : '＋'}</span>
                 </button>
               );
             })}

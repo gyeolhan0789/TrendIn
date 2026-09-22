@@ -23,7 +23,15 @@ export interface Trend {
   domain: TrendDomainRef;
   /** 한 트렌드가 여러 갈래에 동시에 들 수 있습니다. */
   trendTypes: TrendType[];
-  /** 언급량 순위. 순위를 매기지 않은 갈래에서는 비어 있습니다. */
+  /**
+   * **분야 전체의 언급량 순위입니다. 판에 찍는 번호로 쓰면 안 됩니다.**
+   *
+   * 갈래마다 줄 세우는 기준이 달라(인기·신규는 언급량, 급상승은 증가율) 이 값은 판의
+   * 차례와 무관합니다. 급상승 판에 그대로 쓰면 251·35·52 처럼 뒤섞여 찍힙니다.
+   * 판에 보이는 번호는 받은 차례(`index + 1`)를 씁니다.
+   *
+   * 순위를 매기지 않은 갈래에서는 비어 있습니다.
+   */
   rank: number | null;
   mentionCount: number;
   previousMentionCount: number;

@@ -1097,19 +1097,33 @@ h1 { margin: 0; line-height: 1.25; }
 .explore-panel { padding: 24px; border: 1px solid var(--lp-line); border-radius: 14px; background: #fff; }
 .explore-panel-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 15px; font-weight: 700; }
 .explore-panel-lead { margin-bottom: 14px; color: var(--lp-faint); font-size: 12px; }
+/*
+ * 머리글·설명 묶음과 눌리는 키워드 칸 사이를 띄운다. 글과 단추가 같은 간격으로 붙어 있으면
+ * 설명이 첫 칸의 이름처럼 읽힌다.
+ *
+ * **직계 자식만 고른다.** `.explore-quick` 안의 상태 문구(불러오는 중·없음·실패)가 같은
+ * 클래스를 쓰는데, 그쪽은 flex 항목이라 아래 여백이 칸 높이로 드러난다.
+ */
+.explore-panel > .explore-panel-lead { margin-bottom: 22px; }
 .explore-quick { display: flex; flex-wrap: wrap; gap: 8px; }
 /*
- * 꼬리표 하나가 통째로 단추입니다. 글자 오른쪽에 담기 부호가 서고, 담고 나면 체크로 바뀝니다.
- * 담은 꼬리표는 잠기지만 흐리게 두지 않습니다. 못 누르는 것이 아니라 이미 담았다는 뜻이라,
- * 물러나 보이면 오히려 실패한 것처럼 읽힙니다.
+ * 꼬리표 하나가 통째로 단추이고, 누를 때마다 담기와 빼기를 오갑니다.
+ *
+ * **담기 부호(＋·✓)를 두지 않습니다.** 꼬리표 안의 또 다른 단추처럼 보여 어디를 눌러야
+ * 하는지 흐려지고, 상태마다 부호가 들락날락하면 꼬리표 폭이 바뀌어 옆 줄까지 밀립니다.
+ * 담긴 것은 색과 글씨 굵기로 가립니다 — 색 하나에만 기대지 않도록 굵기를 함께 둡니다.
+ * 낭독기에는 `aria-pressed` 가 전해집니다.
  */
-.explore-quick button { display: inline-flex; align-items: center; gap: 14px; padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s, color .15s; }
+.explore-quick button { display: inline-flex; align-items: center; padding: 8px 18px; border: 1px solid var(--lp-line); border-radius: 8px; background: #fff; color: #374151; font-size: 13px; transition: background .15s, border-color .15s, color .15s; }
 .explore-quick button:hover:not(:disabled) { border-color: #d1d5db; background: #f3f4f6; }
-.explore-quick button > span { color: var(--lp-faint); font-size: 13px; }
 .explore-quick button.is-registered { border-color: #c7d2fe; background: #ede9fe; color: var(--lp-indigo); font-weight: 600; }
-.explore-quick button.is-registered > span { color: var(--lp-indigo); }
-/* 담는 중에만 물러납니다. 잠긴 꼬리표 가운데 이때만 아직 끝나지 않은 상태입니다. */
-.explore-quick button:disabled:not(.is-registered) { color: #b6bac1; }
+/*
+ * 담은 꼬리표도 눌립니다(다시 누르면 빠집니다). 위의 회색 hover 가 덮으면 담긴 표시가
+ * 손을 얹는 동안 사라져 안 담긴 것처럼 보이므로, 같은 갈래의 짙은 색으로 따로 답니다.
+ */
+.explore-quick button.is-registered:hover:not(:disabled) { border-color: #a5b4fc; background: #ddd6fe; }
+/* 보내는 동안에만 물러납니다. 담긴 것도 잠기지 않으므로 이 상태는 '아직 안 끝났다' 뿐입니다. */
+.explore-quick button:disabled { color: #b6bac1; }
 
 .explore-cta { display: flex; position: relative; overflow: hidden; flex-direction: column; justify-content: center; padding: 28px 44px 28px 24px; border-radius: 14px; background: linear-gradient(135deg, #ede9fe, #e0e7ff); }
 .explore-cta-glow { position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; border-radius: 50%; background: rgba(167, 139, 250, .2); filter: blur(12px); }
