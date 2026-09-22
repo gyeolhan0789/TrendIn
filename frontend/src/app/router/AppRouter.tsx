@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { SiteLayout } from '../../components/layout/SiteLayout';
@@ -8,7 +9,9 @@ import type { TrendDetailLocationState } from '../../features/trend/trendDetailL
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <RoutedScreens />
+      <Suspense fallback={<div className="trendin-state" role="status">화면을 불러오는 중입니다.</div>}>
+        <RoutedScreens />
+      </Suspense>
     </BrowserRouter>
   );
 }

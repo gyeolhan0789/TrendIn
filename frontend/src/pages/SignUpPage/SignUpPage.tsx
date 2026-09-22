@@ -127,7 +127,7 @@ export function SignUpPage() {
   const checkDisabled = signUpMutation.isPending || checkingEmail || (checkedCurrent && typeof available === 'boolean');
 
   return (
-    <AuthScene>
+    <AuthScene useHomeLogo>
       <div className="auth-scene-card">
         <h2>회원가입</h2>
         <p className="auth-scene-card-lead">TrendIn과 함께 더 빠르게,<br />나만의 관심 트렌드를 시작해보세요.</p>

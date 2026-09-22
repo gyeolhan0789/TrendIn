@@ -19,7 +19,7 @@ import {
 const trendRows: { key: NotificationSettingKey; title: string; desc: string }[] = [
   { key: 'keywordSurgeEnabled', title: '키워드 급등 알림', desc: '관심 키워드 검색량이 급등하면 즉시 알림' },
   { key: 'keywordDropEnabled', title: '키워드 급락 알림', desc: '관심 키워드 검색량이 급락하면 알림' },
-  { key: 'newTrendEnabled', title: '신규 트렌드 발견', desc: '새로운 트렌드가 감지되면 알림' },
+  { key: 'newTrendEnabled', title: '신규 트렌드 발견', desc: '관심 키워드가 신규 트렌드로 진입하면 알림' },
   { key: 'trendTurningPointEnabled', title: '트렌드 전환점 알림', desc: '트렌드 유형이 바뀌면 알림' },
 ];
 

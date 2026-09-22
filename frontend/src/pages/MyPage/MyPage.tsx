@@ -82,7 +82,7 @@ const notificationRows: NotificationRow[] = [
   },
   {
     title: '신규 트렌드 발견',
-    desc: '새로운 트렌드가 감지되면 알림',
+    desc: '관심 키워드가 신규 트렌드로 진입하면 알림',
     key: 'newTrendEnabled',
   },
 ];
@@ -126,7 +126,6 @@ export function MyPage() {
   return (
     <MyPageScreen width="wide">
       <div className="mypage-head mypage-head--top trendin-page-heading">
-        <p className="mypage-eyebrow">내 계정과 활동을 한눈에</p>
         <h1>마이페이지</h1>
       </div>
 
