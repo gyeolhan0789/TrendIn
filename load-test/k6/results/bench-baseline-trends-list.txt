@@ -198,7 +198,7 @@ load   [ 100% ] 000/050 VUs  1m00.0s/1m0s  10.00 iters/s
   █ THRESHOLDS 
 
     http_req_duration{name:GET /trends}
-    ✓ 'p(95)<500' p(95)=28.68ms
+    ✓ 'p(95)<500' p(95)=25.02ms
 
     http_req_failed
     ✓ 'rate<0.01' rate=0.00%
@@ -206,31 +206,31 @@ load   [ 100% ] 000/050 VUs  1m00.0s/1m0s  10.00 iters/s
 
   █ TOTAL RESULTS 
 
-    checks_total.......: 600     9.999734/s
-    checks_succeeded...: 100.00% 600 out of 600
-    checks_failed......: 0.00%   0 out of 600
+    checks_total.......: 601     10.013417/s
+    checks_succeeded...: 100.00% 601 out of 601
+    checks_failed......: 0.00%   0 out of 601
 
     ✓ 트렌드 목록 200
 
     HTTP
-    http_req_duration..............: avg=21.11ms min=17.62ms med=19.81ms max=62.9ms p(90)=24.46ms p(95)=28.68ms
-      { expected_response:true }...: avg=21.11ms min=17.62ms med=19.81ms max=62.9ms p(90)=24.46ms p(95)=28.68ms
-      { name:GET /trends }.........: avg=21.11ms min=17.62ms med=19.81ms max=62.9ms p(90)=24.46ms p(95)=28.68ms
-    http_req_failed................: 0.00%  0 out of 600
-    http_reqs......................: 600    9.999734/s
+    http_req_duration..............: avg=20.41ms min=17.77ms med=19.78ms max=33.27ms p(90)=22.61ms p(95)=25.02ms
+      { expected_response:true }...: avg=20.41ms min=17.77ms med=19.78ms max=33.27ms p(90)=22.61ms p(95)=25.02ms
+      { name:GET /trends }.........: avg=20.41ms min=17.77ms med=19.78ms max=33.27ms p(90)=22.61ms p(95)=25.02ms
+    http_req_failed................: 0.00%  0 out of 601
+    http_reqs......................: 601    10.013417/s
 
     EXECUTION
-    iteration_duration.............: avg=21.51ms min=17.91ms med=20.23ms max=63.2ms p(90)=24.85ms p(95)=29.08ms
-    iterations.....................: 600    9.999734/s
+    iteration_duration.............: avg=20.77ms min=18.06ms med=20.13ms max=34.35ms p(90)=22.97ms p(95)=25.55ms
+    iterations.....................: 601    10.013417/s
     vus............................: 0      min=0        max=0 
     vus_max........................: 50     min=50       max=50
 
     NETWORK
     data_received..................: 385 kB 6.4 kB/s
-    data_sent......................: 77 kB  1.3 kB/s
+    data_sent......................: 78 kB  1.3 kB/s
 
 
 
 
-running (1m00.0s), 000/050 VUs, 600 complete and 0 interrupted iterations
+running (1m00.0s), 000/050 VUs, 601 complete and 0 interrupted iterations
 load ✓ [ 100% ] 000/050 VUs  1m0s  10.00 iters/s

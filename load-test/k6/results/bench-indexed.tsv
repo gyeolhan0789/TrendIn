@@ -1,0 +1,13 @@
+indexed	trends-list	GET /trends	24.37	22.81	34.27
+indexed	trend-contents	GET /trends/{id}/contents	84.87	73.98	141.76
+indexed	notifications	GET /members/me/notifications	4.90	4.53	7.33
+indexed	notifications	GET /members/me/notifications/unread-count	2.80	2.60	4.39
+indexed	saved-trends	GET /members/me/interest-keywords	3.75	3.42	5.92
+indexed	saved-trends	GET /members/me/saved-trends	9.54	8.77	15.39
+indexed	trend-history	GET /trends/{id}	4.65	4.23	6.99
+indexed	trend-history	GET /trends/{id}/history?period=24H	3.67	3.34	5.85
+indexed	trend-history	GET /trends/{id}/history?period=30D	3.72	3.43	6.03
+indexed	trend-regions	GET /trends/{id}/regions	2.12	1.92	3.09
+indexed	trend-regions	GET /trends/{id}/regions/{code}/history	1.99	1.84	2.93
+indexed	trend-regions	GET /trends/{id}/regions/journey	4.10	3.83	5.96
+indexed	auth-login	POST /auth/login	86.23	84.72	96.98
