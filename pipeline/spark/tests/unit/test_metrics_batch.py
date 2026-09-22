@@ -79,6 +79,10 @@ class FakeSink:
         """`(keyword_id, concept_id, countable)`. 기본은 비어 있다 — 개념 표 없음."""
         return tuple(self._concepts)
 
+    def silenced_expressions(self):
+        """세지 않기로 판정된 표기의 keyword_id. 기본은 비어 있다 — 판정 표 없음."""
+        return frozenset(getattr(self, "_silenced", ()))
+
     def write(self, **kwargs):
         self.written = kwargs
         return None
@@ -492,3 +496,19 @@ def test_둘_다_끄면_개념_표를_읽지도_않는다():
 
     assert staged(sink, 1)[MENTION_RANK] == 1
     assert staged(sink, 2)[MENTION_RANK] == 2
+
+
+def test_개념이_없어도_세지_않기로_판정된_표기는_순위에서_빠진다():
+    """`Vogue Italia` 처럼 개념이 아직 없는 표기는 `countable` 을 걸 자리가 없다.
+
+    그래도 세지 않기로 **판정**됐으면 순위에서 빠져야 한다. 개념이 나중에 생기면 그쪽
+    `countable=false` 가 이 일을 넘겨받는다.
+    """
+    sink = FakeSink(rising_series(), sources={1: 2})
+    sink._silenced = {1}
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] is None
+    assert staged(sink, 1)[TREND_TYPES] == []
+    # 지표 자체는 남는다 — 세지 않는 개념과 같은 규약이다.
+    assert staged(sink, 1)[MENTION_COUNT] == 9

@@ -101,3 +101,35 @@ def test_같은_파일_안_대표_이름_중복은_먼저_온_것만_남는다()
 def test_파일_모양이_틀리면_거부한다(bad):
     with pytest.raises(ValueError):
         parse_seed(bad, file_name="x.json")
+
+
+def test_이용_조건은_출처의_기본값이_붙는다():
+    # 위키데이터 구조화 데이터는 CC0 다. 행마다 남겨 둬야 나중에 무엇을 배포할 수 있는지 안다.
+    (concept,) = parse_seed(doc(), file_name="brands.json")
+    assert concept.license == "CC0-1.0"
+
+    (handmade,) = parse_seed(
+        {"source": "seed", "category": "apparel", "items": [{"labels": {"en": "vest"}}]},
+        file_name="vocabulary-apparel.json",
+    )
+    assert handmade.license is None
+
+
+def test_파일이_이용_조건을_적으면_그것이_이긴다():
+    # Wiktionary 처럼 조건이 다른 데서 만든 파일을 손으로 내릴 때 쓴다.
+    (concept,) = parse_seed(
+        {
+            "source": "seed",
+            "license": "CC-BY-SA-4.0",
+            "category": "apparel",
+            "items": [{"labels": {"en": "vest", "ko": "조끼"}}],
+        },
+        file_name="wiktionary-apparel.json",
+    )
+    assert concept.license == "CC-BY-SA-4.0"
+
+
+def test_모르는_출처는_받지_않는다():
+    # 이용 조건을 모르는 데이터가 섞이면 되짚을 수 없다. 새 출처는 SOURCE_LICENSES 에 등록한다.
+    with pytest.raises(ValueError, match="source"):
+        parse_seed(doc(source="wiktionary"), file_name="x.json")

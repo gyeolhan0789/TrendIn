@@ -68,6 +68,7 @@ CONTENTS = "contents"
 # 돌려주고 집계가 표기 단위로 그대로 돈다 (`metrics/concepts.py` 의 머리말).
 CONCEPT = "pl_concept"
 EXPRESSION = "pl_concept_expression"
+DECISION = "pl_mapping_decision"
 # 개념을 키워드에 잇는 자리. 표기(`normalized_name`)가 유일한 접점이다 — 승격된 키워드에는
 # 개념 번호를 담는 칸이 없고, 그 칸을 더하는 것은 서비스 표를 고치는 일이라 우리 몫이 아니다.
 KEYWORDS = "keywords"
@@ -361,6 +362,23 @@ COUNTRY_TABLE_SQL = f"SELECT to_regclass('{COUNTRY_METRICS}') IS NOT NULL"
 
 # 개념 표가 있는가. **없어도 집계는 돈다** — 순위를 접는 것은 개선이지 선행 조건이 아니라,
 # 위 셋(`SERVICE_TABLES_SQL` 계열)과 달리 없다고 거부하지 않고 경고만 남긴다.
+# 개념이 아직 없는 표기도 순위에서 뺄 수 있어야 한다. `Vogue Italia` · `London Fashion Week`
+# 처럼 세지 않기로 **판정된** 것들은 사전에 개념이 없어서 `countable` 을 걸 자리가 없다.
+# 그래서 판정 기록을 직접 본다. 개념이 나중에 생기면 그쪽 `countable=false` 가 이 일을 넘겨받는다.
+#
+# 사람이 뒤집은 판정이 모델 판정보다 뒤에 오므로 표기별 **최신** 한 줄만 본다.
+SILENCED_SQL = f"""
+WITH latest AS (
+  SELECT DISTINCT ON (lang, normalized) normalized, decision
+    FROM {DECISION}
+   ORDER BY lang, normalized, decided_at DESC
+)
+SELECT k.id FROM {KEYWORDS} k JOIN latest ON latest.normalized = k.normalized_name
+ WHERE latest.decision = 'EXCLUDE'
+"""
+
+DECISION_TABLE_SQL = f"SELECT to_regclass('{DECISION}') IS NOT NULL"
+
 CONCEPT_TABLES_SQL = (
     f"SELECT to_regclass('{CONCEPT}') IS NOT NULL"
     f" AND to_regclass('{EXPRESSION}') IS NOT NULL"
@@ -659,6 +677,19 @@ class MetricSink:
         for keyword_id, source_id in self._query(PERIOD_SOURCES_SQL, (start, end)):
             found.setdefault(int(keyword_id), set()).add(str(source_id))
         return found
+
+    def silenced_expressions(self) -> frozenset[int]:
+        """세지 않기로 판정된 표기의 `keywords.id`.
+
+        **판정 표가 없으면 빈 집합이다.** 개념 Job 을 아직 돌리지 않은 환경에서 집계가 서지
+        않으면 안 된다 — `concept_groups` 와 같은 규약이다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(DECISION_TABLE_SQL)
+            if not bool(cur.fetchone()[0]):
+                return frozenset()
+            cur.execute(SILENCED_SQL)
+            return frozenset(int(row[0]) for row in cur.fetchall())
 
     def concept_groups(self) -> tuple[tuple[int, int, bool], ...]:
         """`(keyword_id, concept_id, countable)` — 개념 층이 붙여 둔 것 ([개념층]).

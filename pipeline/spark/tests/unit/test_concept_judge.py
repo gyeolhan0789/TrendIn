@@ -177,10 +177,22 @@ def test_자동연결은_정확한_영어이름과_분류가_유일할때만() -
         Verdict("ja", "スニーカーの人", "sneakers", "person"),
         Verdict("ja", "夏", "summer", "generic"),
     ]
-    links = select_links(verdicts, names)
+    contexts = {(v.lang, v.normalized): f"{v.normalized} が話題だ" for v in verdicts}
+    links = select_links(verdicts, names, contexts)
     assert [(link.verdict.normalized, link.concept_id) for link in links] == [
         ("スニーカー", 1)
     ]
+
+
+def test_문맥이_표기_한_낱말뿐이면_정확_일치라도_잇지_않는다() -> None:
+    """`Coach` 는 사전에 브랜드로만 있지만 감독이기도 하다. 가릴 근거가 없으면 사람에게 넘긴다."""
+    names = NameIndex(Dictionary(CONCEPTS, EXPRESSIONS))
+    verdicts = [Verdict("ja", "スニーカー", "sneakers", "footwear")]
+
+    assert select_links(verdicts, names, {("ja", "スニーカー"): "スニーカー"}) == ()
+    assert select_links(verdicts, names, {("ja", "スニーカー"): "  "}) == ()
+    assert select_links(verdicts, names, {}) == ()
+    assert len(select_links(verdicts, names, {("ja", "スニーカー"): "白いスニーカーが流行"})) == 1
 
 
 def test_자동연결은_한번만_쓰고_결정과_버전을_남긴다() -> None:

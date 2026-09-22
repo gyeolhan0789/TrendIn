@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS {CATEGORY} (
 INSERT INTO {CATEGORY} (code, name_ko) VALUES
     ('apparel', '의류'), ('footwear', '신발'), ('accessory', '액세서리'), ('material', '소재'),
     ('color', '색상'), ('style', '스타일'), ('brand', '브랜드'), ('designer', '디자이너'),
-    ('person', '인물'), ('generic', '일반 단어')
+    ('person', '인물'), ('generic', '일반 단어'), ('media', '매체'), ('event', '행사')
 ON CONFLICT (code) DO NOTHING;
 
 -- 개념. 정체성은 id 이고 이름은 전부 바꿀 수 있다. countable=false 는 세지 않는 일반 단어.
@@ -109,7 +109,13 @@ CREATE TABLE IF NOT EXISTS {EXPRESSION} (
     normalized text        NOT NULL,
     kind       text        NOT NULL,
     ambiguous  boolean     NOT NULL DEFAULT false,
+    -- 어디서 왔나. `source` 는 종류(`wikidata` · `seed` · `llm`), `source_id` 는 그 안의
+    -- 식별자(`Q894874` · `vocabulary-core.json`), `license` 는 그 출처의 이용 조건이다.
+    -- 셋을 나눠 두는 이유는 **출처 단위로 되돌리기 위해서다** — 대량으로 부은 사전이 매핑을
+    -- 깎으면 그 출처만 골라 내려야 하는데, 종류만 있으면 브랜드와 의류가 한 덩어리가 된다.
     source     text        NOT NULL,
+    source_id  text,
+    license    text,
     status     text        NOT NULL DEFAULT 'ACTIVE',
     decided_by text,
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -226,6 +232,16 @@ CREATE TABLE IF NOT EXISTS {STAGE_UNMAPPED} (
     article_id bigint NOT NULL,
     snippet    text
 );
+
+-- 이미 있는 표에 칸을 더한다. `CREATE TABLE IF NOT EXISTS` 는 옛 표를 고치지 않는다
+-- (`io/candidates.py` 와 같은 사정). 옛 행은 비어 있다 — 그때는 종류만 적었다.
+-- 개념의 `source` 에는 `wikidata:Q894874` 처럼 식별자가 붙어 있으므로 **표현이 개념과 같은
+-- 출처에서 온 경우에 한해** 그쪽에서 되짚을 수 있다. 사람이 나중에 더한 표현은 되짚지 못한다.
+ALTER TABLE {EXPRESSION} ADD COLUMN IF NOT EXISTS source_id text;
+ALTER TABLE {EXPRESSION} ADD COLUMN IF NOT EXISTS license text;
+-- 출처 단위로 내리려면 그 출처의 행만 빨리 찾아야 한다.
+CREATE INDEX IF NOT EXISTS pl_concept_expression_source_idx
+    ON {EXPRESSION} (source, source_id);
 """
 
 CONCEPTS_SQL = f"""
@@ -256,6 +272,15 @@ SELECT a.id, a.concept_id, a.lang, a.normalized,
   LEFT JOIN multi m ON m.lang = a.lang AND m.normalized = a.normalized
 """
 
+# 검수가 내린 쌍. 사전 적재의 `ON CONFLICT DO NOTHING` 이 REJECTED 행에도 걸려 되살리지
+# 않으므로, 적재하지 않고 메모리로만 재보는 쪽(`concept/seed.apply_seed_in_memory`)도
+# 같은 것을 빼야 실제 적재와 같은 수가 나온다.
+REJECTED_EXPRESSIONS_SQL = f"""
+SELECT lang, normalized, concept_id
+  FROM {EXPRESSION}
+ WHERE status = 'REJECTED'
+"""
+
 # 승격된 키워드의 기사별 발생 — MVP 의 계약 A 를 DB 에서 만든다. 추출이 언어·문맥을 실어 주기
 # 전까지의 자리이고, 그때는 이 질의 대신 파일을 읽는다 (`docs/concept-layer.md` 계약 A).
 #
@@ -273,6 +298,14 @@ SELECT a.id, a.concept_id, a.lang, a.normalized,
 # **조회에 쓰는 표기는 대표가 아니라 기사에 나온 원표기다.** 별칭 홉은 "이 표기가 승격된
 # 키워드인가" 만 본다. 개념 사전은 자기 표현 목록을 따로 들고 있어서(`스니커` 도 `sneakers` 의
 # 표현이다) 원표기가 더 많은 것을 알려 주고, 사전에 없으면 미등록으로 드러난다.
+# 표기별 기사 수와 매체 수. 한 매체의 일회성 표기를 개념으로 만들지 않기 위한 근거다.
+EXPRESSION_EVIDENCE_SQL = """
+SELECT d.normalized_key, count(DISTINCT d.url_hash), count(DISTINCT d.source_id)
+  FROM pl_document_candidate d
+ WHERE d.selected AND d.domain = %s AND d.stat_date >= current_date - %s
+ GROUP BY 1
+"""
+
 OCCURRENCES_SQL = """
 SELECT m.content_id, d.surface, c.title
   FROM pl_document_candidate d
@@ -400,6 +433,15 @@ class ConceptSink:
         log.info("사전 적재: 개념 %d · 표현 %d", len(concepts), len(dictionary))
         return dictionary
 
+    def rejected_expression_keys(self) -> frozenset[tuple[str, str, int]]:
+        """검수가 내린 `(lang, normalized, concept_id)`. 사전이 되살리지 않는 쌍이다."""
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(REJECTED_EXPRESSIONS_SQL)
+            return frozenset(
+                (str(lang), str(normalized), int(concept_id))
+                for lang, normalized, concept_id in cur.fetchall()
+            )
+
     def current_version(self) -> int:
         return int(self._scalar(f"SELECT max(version) FROM {VERSION}") or 0)
 
@@ -428,6 +470,53 @@ class ConceptSink:
                     Keyword(str(surface), str(title) if title else None)
                 )
         return grouped
+
+    def expression_evidence(self, *, domain: str, window_days: int) -> dict[str, tuple[int, int]]:
+        """표기 → (기사 수, 매체 수). 새 개념을 만들 근거다.
+
+        판정 하나로 사전에 개념을 만들지 않고, **기사가 스스로 증명한 것**을 함께 본다
+        (`concept/minting.py`).
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(EXPRESSION_EVIDENCE_SQL, (domain, window_days))
+            return {str(key): (int(articles), int(sources)) for key, articles, sources in cur}
+
+    def mint_concepts(self, mints: Sequence[Any], *, decided_by: str) -> int:
+        """새 개념과 그 표기를 **한 트랜잭션**으로 넣는다.
+
+        **세지 않는 것으로 넣는다.** `countable=false` 면 순위 접기가 이미 걸러 내므로 잘못
+        만든 개념 하나가 화면을 흔들지 않는다. 사람이 훑고 올리는 것이 승격이다.
+        """
+        if not mints:
+            return 0
+        made = 0
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            for mint in mints:
+                cur.execute(
+                    f"""
+                    INSERT INTO {CONCEPT} (canonical_name, category, countable, source)
+                    VALUES (%s, %s, false, %s)
+                    ON CONFLICT (canonical_name, category) DO NOTHING
+                    RETURNING id
+                    """,
+                    (mint.canonical_name, mint.category, decided_by),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    # 같은 이름·분류가 이미 있다. 이번 회차에 만들 것이 아니라 다음 회차가
+                    # 사전 조회로 붙일 것이다.
+                    continue
+                concept_id = int(row[0])
+                cur.execute(
+                    f"""
+                    INSERT INTO {EXPRESSION} (concept_id, lang, surface, normalized, kind, source)
+                    VALUES (%s, %s, %s, %s, 'canonical', %s)
+                    ON CONFLICT (lang, normalized, concept_id) DO NOTHING
+                    """,
+                    (concept_id, mint.lang, mint.surface, mint.normalized, decided_by),
+                )
+                made += 1
+        return made
 
     # --- 적재 --------------------------------------------------------------
     def write(
@@ -527,6 +616,76 @@ class ConceptSink:
                 ),
             )
 
+    def settled_decisions(
+        self, *, prompt_version: str, dictionary_version: int
+    ) -> dict[tuple[str, str], str]:
+        """다시 묻지 않아도 되는 표현 — `(lang, normalized) -> decision`.
+
+        무엇을 아직 믿을지는 `concept.workflow.reusable` 이 정한다. 여기서는 표현별 최신
+        판정만 꺼내 그 규칙에 넘긴다.
+        """
+        rows = self._rows(
+            f"SELECT DISTINCT ON (lang, normalized) lang, normalized, decision, "
+            f"dictionary_version, prompt_version FROM {DECISION} "
+            "ORDER BY lang, normalized, decided_at DESC"
+        )
+        from trendin.spark.concept.workflow import reusable
+
+        settled: dict[tuple[str, str], str] = {}
+        for lang, normalized, decision, version, prompt in rows:
+            if reusable(
+                str(decision),
+                None if prompt is None else str(prompt),
+                None if version is None else int(version),
+                prompt_version=prompt_version,
+                dictionary_version=dictionary_version,
+            ):
+                settled[(str(lang), str(normalized))] = str(decision)
+        return settled
+
+    def record_decisions(
+        self,
+        decisions: Sequence[Any],
+        *,
+        decided_by: str,
+        model: str,
+        prompt_version: str,
+        dictionary_version: int,
+    ) -> int:
+        """한 회차의 판정을 **한 트랜잭션**으로 남긴다.
+
+        네 결론을 모두 적는다. `LINK` 만 남기면 나머지 셋은 다음 회차에 다시 판정되고, 같은
+        표현을 매달 LLM 에게 되묻게 된다.
+        """
+        if not decisions:
+            return 0
+        from psycopg2.extras import execute_values
+
+        rows = [
+            (
+                item.lang,
+                item.normalized,
+                item.decision,
+                item.concept_id,
+                decided_by,
+                model,
+                prompt_version,
+                json.dumps(item.evidence, ensure_ascii=False, default=str),
+                dictionary_version,
+            )
+            for item in decisions
+        ]
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            execute_values(
+                cur,
+                f"INSERT INTO {DECISION} "
+                "(lang, normalized, decision, concept_id, decided_by, model, "
+                "prompt_version, evidence, dictionary_version) VALUES %s",
+                rows,
+                template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)",
+            )
+        return len(rows)
+
     # --- 자동 판정 ---------------------------------------------------------
     def cached_judgement(
         self,
@@ -622,6 +781,11 @@ class ConceptSink:
             )
 
     # --- 내부 --------------------------------------------------------------
+    def _rows(self, statement: str) -> list[tuple]:
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(statement)
+            return list(cur.fetchall())
+
     def _scalar(self, statement: str):
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(statement)

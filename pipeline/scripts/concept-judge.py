@@ -48,6 +48,7 @@ from trendin.spark.concept.judge import (  # noqa: E402
     DEFAULT_BATCH_SIZE,
     PROMPT_VERSION,
     SYSTEM_PROMPT,
+    UNCOUNTED,
     NameIndex,
     Question,
     batches,
@@ -215,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
         for problem in problems:
             print(f"  ! {problem}", file=sys.stderr)
         articles = {q.normalized: q.article_count for q in group}
-        batch_links = select_links(verdicts, names)
+        contexts = {(q.lang, q.normalized): q.context for q in group}
+        batch_links = select_links(verdicts, names, contexts)
         auto_links.extend(batch_links)
         link_by_key = {(link.verdict.lang, link.verdict.normalized): link for link in batch_links}
         question_by_key = {(q.lang, q.normalized): q for q in group}
@@ -230,7 +232,7 @@ def main(argv: list[str] | None = None) -> int:
             candidate_choice: RankedCandidate | None = None
             if (
                 encoder is not None and store is not None and retriever is not None
-                and auto_link is None and verdict.category != "generic"
+                and auto_link is None and verdict.category not in UNCOUNTED
             ):
                 vector_hits = vector_candidate_groups(
                     encoder, store, verdict.english_name, verdict.normalized,
@@ -256,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
                         vector_judge.messages(verdict, hits, context=question.context)
                     )
                     try:
-                        choice = parse_choice(response, hits)
+                        choice = parse_choice(response, hits).concept_id
                     except ValueError as error:
                         print(f"  ! {verdict.normalized}: {error}", file=sys.stderr)
                         choice = None

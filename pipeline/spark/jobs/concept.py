@@ -33,6 +33,7 @@ spark/scripts/submit.sh concept --profile local --domain fashion --dry-run  # �
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,7 +43,7 @@ from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.exit_codes import NOTHING_NEW
 from trendin.spark.common.logging import get_logger
 from trendin.spark.concept.mapping import map_article
-from trendin.spark.concept.seed import apply_seed, load_seed_dir
+from trendin.spark.concept.seed import apply_seed, apply_seed_in_memory, load_seed_dir
 from trendin.spark.concept.thresholds import ConceptThresholds
 from trendin.spark.concept.workflow import AutomationPolicy
 from trendin.spark.io.concepts import ConceptSink
@@ -82,6 +83,23 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="미등록 표현 자동 연결. 없으면 concept.automation.enabled 설정을 따른다",
     )
+    parser.add_argument(
+        "--seed-in-memory",
+        action="store_true",
+        help="초기 사전을 DB 에 쓰지 않고 메모리에만 얹는다. --dry-run 과 함께만 쓴다",
+    )
+    parser.add_argument(
+        "--seed-dir",
+        type=Path,
+        default=None,
+        help="초기 사전을 여기서 읽는다. --dry-run 과 함께만 쓴다. 없으면 concept.seed_dir",
+    )
+    parser.add_argument(
+        "--dump",
+        type=Path,
+        default=None,
+        help="기사별 결과를 JSON Lines 로 떨군다. 사전을 바꾸기 전후를 맞댈 때",
+    )
 
 
 def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) -> int | None:
@@ -91,6 +109,16 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
     규모가 그렇다: 창 30일에 승격 키워드 발생이 수천 행이고 사전이 수만 행이다. 드라이버 메모리
     안이고, Spark 로 흩으면 사전을 executor 마다 실어야 한다. `aggregate` 와 같은 판단이다.
     """
+    if args.seed_in_memory and not args.dry_run:
+        # 메모리 사전의 새 개념은 음수 번호다 — `pl_article_concept` 의 외래키를 못 만족한다.
+        # DB 를 건드리기 전에 세운다.
+        raise ConfigError("--seed-in-memory 는 --dry-run 과 함께만 쓴다")
+    if args.seed_dir is not None and not args.dry_run:
+        # **운영에 들어가는 사전은 저장소에 커밋된 것뿐이다.** 검수를 거치지 않은 폴더를
+        # 명령줄 한 줄로 적재할 수 있으면 git 이 승인 계층인 것이 무너진다. 실험은 여기서
+        # 읽고, 통과한 파일만 `spark/conf/concepts/` 로 옮겨 커밋한다. 운영에서 사전 위치를
+        # 바꿔야 하면 그것은 설정(`concept.seed_dir`)이 할 일이다.
+        raise ConfigError("--seed-dir 는 --dry-run 과 함께만 쓴다 — 적재는 커밋된 사전만 한다")
     thresholds = ConceptThresholds.from_config(config)
     automation = AutomationPolicy.from_config(config)
     window_days = args.window_days or thresholds.window_days
@@ -102,29 +130,41 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
     sink.ensure_schema()
 
     dry_run = bool(args.dry_run)
+    seed_in_memory = bool(args.seed_in_memory)
 
     # 초기 사전을 먼저 반영한다. dry-run 도 반영한다 — dry-run 이 막는 것은 기사별 개념 쓰기이고,
-    # 사전 없이 돌리면 전부 미등록이 되어 확인할 것이 없다.
-    seed_dir = Path(thresholds.seed_dir)
+    # 사전 없이 돌리면 전부 미등록이 되어 확인할 것이 없다. **사전 변경 자체를 되돌려 가며
+    # 비교할 때만** `--seed-in-memory` 로 적재를 건너뛴다. 그 경우 이 실행은 DB 를 읽기만 한다.
+    seed_dir = Path(args.seed_dir or thresholds.seed_dir)
     if not seed_dir.is_absolute():
         seed_dir = _repo_root() / seed_dir
+    if args.seed_dir is not None:
+        log.info("초기 사전을 %s 에서 읽는다 — 이 실행에만 쓴다", seed_dir)
     concepts = load_seed_dir(seed_dir)
     if not concepts:
         # `Path.glob` 은 없는 디렉터리에서도 조용히 빈 결과를 준다. 그대로 두면 사전이 빈 채로
         # 돌아 승격 키워드 전부가 미등록으로 쌓이므로 여기서 세운다.
         raise ConfigError(f"초기 사전을 읽지 못했다 — concept.seed_dir 를 확인한다: {seed_dir}")
-    result = apply_seed(config, concepts)
-    if result.concepts_new or result.expressions_new or result.parents_set:
-        version = sink.bump_version(
-            note=(
-                f"초기 사전 적재: 개념 {result.concepts_new} · 표현 {result.expressions_new} · "
-                f"상위 {result.parents_set}"
-            ),
-            changed_by="seed",
+    if seed_in_memory:
+        dictionary, seeded = apply_seed_in_memory(
+            sink.load_dictionary(),
+            concepts,
+            rejected=sink.rejected_expression_keys(),
         )
-        log.info("사전 버전 %d", version)
-
-    dictionary = sink.load_dictionary()
+    else:
+        seeded = apply_seed(config, concepts)
+        if seeded.concepts_new or seeded.expressions_new or seeded.parents_set:
+            log.info(
+                "사전 버전 %d",
+                sink.bump_version(
+                    note=(
+                        f"초기 사전 적재: 개념 {seeded.concepts_new} · "
+                        f"표현 {seeded.expressions_new} · 상위 {seeded.parents_set}"
+                    ),
+                    changed_by="seed",
+                ),
+            )
+        dictionary = sink.load_dictionary()
     version = sink.current_version()
 
     grouped = sink.occurrences(domain=args.domain, window_days=window_days)
@@ -134,12 +174,27 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
 
     rows, unmapped, deferred = [], [], []
     resolved_keys: set[tuple[str, str]] = set()
+    # 덤프는 기사별로 "무엇이 붙었나" 를 알아야 한다 — 합친 집합으로는 기사 단위가 사라진다.
+    resolved_by_article: dict[int, tuple[tuple[str, str], ...]] = {}
+    context_by_article: dict[int, tuple[tuple[str, str], ...]] = {}
     for article_id, keywords in grouped.items():
         result = map_article(article_id, None, keywords, dictionary)
         rows.extend(result.rows)
         unmapped.extend(result.unmapped)
         deferred.extend(result.deferred)
         resolved_keys.update(result.resolved_keys)
+        if args.dump:
+            resolved_by_article[article_id] = result.resolved_keys
+            context_by_article[article_id] = result.context_keys
+
+    # 문맥을 그 낱말이 실제로 나온 문장으로 바꾼다. 기사 제목을 그대로 쓰던 자리인데, 운영
+    # 미등록의 91%가 제목에 그 낱말이 없었다 — 가릴 근거가 되기는커녕 엉뚱한 쪽으로 끌고 간다
+    # (`concept/context.py`). 본문은 미등록이 나온 기사만 읽는다.
+    # `--dry-run` 에서는 건너뛴다. 쓰지 않을 문맥 때문에 본문을 읽을 이유가 없고, 회귀 검사
+    # (`--dump --seed-in-memory --dry-run`)가 그 비용을 매번 치르게 된다. 덤프는 표기가 어디로
+    # 갔는지만 적지 문맥을 적지 않는다.
+    if not dry_run:
+        unmapped = _with_sentences(spark, config, unmapped, thresholds)
 
     distinct_unmapped = {(u.lang, u.normalized) for u in unmapped}
     log.info(
@@ -154,6 +209,23 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
     )
     for d in deferred[:20]:
         log.info("  유보: 기사 %d · %s → 개념 %s", d.article_id, d.normalized, d.concept_ids)
+
+    if args.dump:
+        written = _dump(
+            args.dump,
+            domain=args.domain,
+            window_days=window_days,
+            dictionary_version=version,
+            seed_in_memory=seed_in_memory,
+            seed_dir=seed_dir,
+            dictionary=dictionary,
+            rows=rows,
+            unmapped=unmapped,
+            deferred=deferred,
+            resolved=resolved_by_article,
+            context=context_by_article,
+        )
+        log.info("덤프 %d줄 → %s", written, args.dump)
 
     if dry_run:
         log.info("dry-run — 쓰지 않는다")
@@ -178,13 +250,135 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
             grouped=grouped,
             unmapped=unmapped,
             dictionary_version=version,
+            domain=args.domain,
+            window_days=window_days,
         )
     return None
+
+
+def _mint_new_concepts(
+    *, sink, automation, result, questions, dictionary, domain: str, window_days: int
+) -> None:
+    """판정이 "새 개념" 이라고 한 것 중 근거가 선 것만 사전에 넣는다.
+
+    넣더라도 `countable=false` 라 순위에는 나오지 않는다. 사람이 훑고 올리는 것이 승격이고,
+    그래서 잘못 만든 개념 하나가 화면을 흔들지 않는다 (`concept/minting.py`).
+    """
+    from trendin.spark.concept import minting, workflow
+
+    if not automation.create_concepts:
+        return
+    wanted = {
+        item.key for item in result.decisions if item.decision == workflow.NEW_CONCEPT
+    }
+    if not wanted:
+        return
+    by_key = {question.key: question for question in questions}
+    proposals = []
+    for key in sorted(wanted):
+        decision = next(d for d in result.decisions if d.key == key and d.decision == "NEW_CONCEPT")
+        english = decision.evidence.get("english_name")
+        category = decision.evidence.get("category")
+        question = by_key.get(key)
+        if not english or not category or question is None:
+            continue
+        proposals.append(
+            (key[0], key[1], question.surface or key[1], str(english), str(category))
+        )
+    if not proposals:
+        return
+    try:
+        evidence = {
+            key: minting.Evidence(articles, sources)
+            for key, (articles, sources) in sink.expression_evidence(
+                domain=domain, window_days=window_days
+            ).items()
+        }
+    except Exception:
+        log.exception("근거를 읽지 못했다 — 새 개념을 만들지 않는다")
+        return
+    mints = minting.select(
+        proposals,
+        evidence,
+        [concept.canonical_name for concept in dictionary.concepts()],
+        minting.MintPolicy(automation.min_create_articles, automation.min_create_sources),
+    )
+    if not mints:
+        log.info("새 개념 후보 %d건 중 근거가 선 것이 없다", len(proposals))
+        return
+    try:
+        made = sink.mint_concepts(mints, decided_by=minting.AUTO_SOURCE)
+        log.info(
+            "새 개념 %d건을 잠정으로 넣었다 (세지 않음, 사람 검수 대기) — 후보 %d건 중",
+            made, len(proposals),
+        )
+    except Exception:
+        log.exception("새 개념 적재 실패 — 이번 회차 연결 결과는 그대로 둔다")
+
+
+def _with_sentences(spark, config: Config, unmapped: list, thresholds) -> list:
+    """미등록 발생의 문맥을 기사 본문의 문장으로 채운다. 못 읽으면 그대로 둔다.
+
+    **판정 대상이 될 표현의 기사만 읽는다.** 창 안의 미등록 발생 전부를 읽으면 parquet 을 수천
+    개 열게 되고, 원래 DB 만 쓰던 이 Job 이 갑자기 무거워진다. 문맥이 필요한 것은 기사 수
+    문턱을 넘어 실제로 판정에 오르는 표현뿐이다 — 나머지는 어차피 묻지 않는다.
+    """
+    from dataclasses import replace as _replace
+
+    from trendin.spark.concept.context import find_sentence
+    from trendin.spark.io.article_bodies import load_bodies
+    from trendin.spark.normalize.curated import curated_root
+
+    if not unmapped:
+        return unmapped
+    counts: dict[tuple[str, str], set[int]] = {}
+    for item in unmapped:
+        counts.setdefault((item.lang, item.normalized), set()).add(item.article_id)
+    wanted = {
+        key for key, ids in counts.items() if len(ids) >= thresholds.min_articles
+    }
+    if not wanted:
+        return unmapped
+    try:
+        root = curated_root(config)
+    except Exception:
+        log.warning("curated 경로를 읽지 못했다 — 문맥은 제목 그대로 둔다")
+        return unmapped
+    needed = {
+        item.article_id for item in unmapped if (item.lang, item.normalized) in wanted
+    }
+    log.info(
+        "문맥용 본문 %d개 기사를 읽는다 (판정 대상 표현 %d개 · 미등록 발생 %d)",
+        len(needed), len(wanted), len(unmapped),
+    )
+    bodies = load_bodies(spark, config, needed, curated_root=root)
+    if not bodies:
+        log.info("본문을 읽지 못했다 — 문맥은 제목 그대로 둔다")
+        return unmapped
+
+    filled = 0
+    out = []
+    for item in unmapped:
+        if (item.lang, item.normalized) not in wanted:
+            # 판정에 오르지 않을 표현이다. 본문을 읽지 않았으니 있던 값을 그대로 둔다.
+            out.append(item)
+            continue
+        body = bodies.get(item.article_id)
+        sentence = find_sentence(body, item.context, item.surface) if body else None
+        if sentence is None:
+            # 본문에도 제목에도 없으면 비운다. 엉뚱한 제목을 문맥이라고 넘기지 않는다.
+            out.append(_replace(item, context=None))
+            continue
+        filled += 1
+        out.append(_replace(item, context=sentence))
+    log.info("등장 문장을 붙인 미등록 발생 %d건 (판정 대상 %d개 표현)", filled, len(wanted))
+    return out
 
 
 def _run_automatic_linking(
     *, config: Config, sink: ConceptSink, dictionary, automation: AutomationPolicy,
     thresholds: ConceptThresholds, grouped, unmapped, dictionary_version: int,
+    domain: str, window_days: int,
 ) -> None:
     """Run the optional paid path after legacy output has safely been persisted."""
     from trendin.spark.concept import workflow
@@ -210,6 +404,11 @@ def _run_automatic_linking(
     vector_search = (
         _vector_search(config, retriever.policy.top_k) if automation.vector_enabled else None
     )
+    # 지난 회차에 이미 결론이 난 표현은 다시 묻지 않는다. 같은 `Getty Images` 를 매달 LLM 에게
+    # 되묻는 것을 막는 자리다. 무엇을 아직 믿을지는 사전 버전과 프롬프트 버전이 정한다.
+    settled = sink.settled_decisions(
+        prompt_version=PROMPT_VERSION, dictionary_version=dictionary_version
+    )
     result = workflow.run_workflow(
         questions,
         client=client,
@@ -217,6 +416,25 @@ def _run_automatic_linking(
         retriever=retriever,
         policy=automation,
         vector_search=vector_search,
+        settled=settled,
+    )
+    if result.reused:
+        log.info("이미 판정된 표현 %d건은 건너뛴다", len(result.reused))
+    try:
+        recorded = sink.record_decisions(
+            result.decisions,
+            decided_by="auto:llm",
+            model=automation.model,
+            prompt_version=PROMPT_VERSION,
+            dictionary_version=dictionary_version,
+        )
+        log.info("판정 %d건을 기록했다", recorded)
+    except Exception:
+        log.exception("판정 기록 실패 — 이번 회차 연결 결과는 그대로 둔다")
+
+    _mint_new_concepts(
+        sink=sink, automation=automation, result=result, questions=questions,
+        dictionary=dictionary, domain=domain, window_days=window_days,
     )
 
     applied = []
@@ -279,6 +497,105 @@ def _run_automatic_linking(
         dictionary_version=new_version,
         context_samples=thresholds.context_samples,
     )
+
+
+def _dump(
+    path: Path,
+    *,
+    domain: str,
+    window_days: int,
+    dictionary_version: int,
+    seed_in_memory: bool,
+    seed_dir: Path,
+    dictionary,
+    rows,
+    unmapped,
+    deferred,
+    resolved: dict[int, tuple[tuple[str, str], ...]],
+    context: dict[int, tuple[tuple[str, str], ...]],
+) -> int:
+    """기사별 결과를 JSON Lines 로 떨군다 — 사전을 바꾸기 전후를 맞대기 위한 것.
+
+    **표기 단위로 맞댄다.** `resolved` · `context` · `deferred` · `unmapped` 한 줄이 각각
+    `(article_id, lang, normalized)` 하나의 결과이고, 한 표기는 **넷 중 정확히 하나**다.
+    그래서 두 덤프를 맞대면 `resolved → deferred` 같은 이동이 바로 세어진다 — 사전을
+    늘렸을 때 **원래 붙던 것이 모호해져 밀려난** 건수가 그 회귀 지표다.
+
+    `context` 를 따로 두는 이유는 그것이 셋과 다른 상태이기 때문이다. 모호했지만 문맥 규칙이
+    갈라 붙인 표기라 기사에는 개념이 남는데, 검수 대기에서는 안 내려간다. 넷으로 나누지 않으면
+    이 표기들이 덤프에서 아예 빠져 "말뭉치가 달라졌다" 로 잘못 세어진다.
+
+    개념 번호로 맞대면 안 된다. `--seed-in-memory` 의 새 개념은 음수이고 두 실행에서 같은
+    번호라는 보장이 없다. `row` 줄은 "어느 개념이 몇 기사에 붙었나" 를 따로 세기 위한 것이고,
+    번호가 양수인 실행끼리만 비교한다.
+
+    줄을 전부 정렬해 쓴다 — `diff` 로도 읽히고, 읽어서 세는 쪽도 순서에 기대지 않는다.
+    """
+    lines: list[dict] = [
+        {
+            "t": "meta",
+            "domain": domain,
+            "window_days": window_days,
+            "dictionary_version": dictionary_version,
+            "seed_in_memory": seed_in_memory,
+            "seed_dir": str(seed_dir),
+            "concepts": len(dictionary.concepts()),
+            "expressions": len(dictionary),
+            "articles": len(resolved),
+            "rows": len(rows),
+            "context": sum(len(keys) for keys in context.values()),
+            "deferred": len(deferred),
+            "unmapped": len(unmapped),
+        }
+    ]
+    for kind, per_article in (("resolved", resolved), ("context", context)):
+        for article_id in sorted(per_article):
+            for lang, normalized in sorted(per_article[article_id]):
+                lines.append(
+                    {
+                        "t": kind,
+                        "article_id": article_id,
+                        "lang": lang,
+                        "normalized": normalized,
+                    }
+                )
+    for item in sorted(deferred, key=lambda d: (d.article_id, d.lang, d.normalized)):
+        lines.append(
+            {
+                "t": "deferred",
+                "article_id": item.article_id,
+                "lang": item.lang,
+                "normalized": item.normalized,
+                "concept_ids": sorted(item.concept_ids),
+            }
+        )
+    for item in sorted(unmapped, key=lambda u: (u.article_id, u.lang, u.normalized)):
+        lines.append(
+            {
+                "t": "unmapped",
+                "article_id": item.article_id,
+                "lang": item.lang,
+                "normalized": item.normalized,
+            }
+        )
+    for row in sorted(rows, key=lambda r: (r.article_id, r.concept_id)):
+        lines.append(
+            {
+                "t": "row",
+                "article_id": row.article_id,
+                "concept_id": row.concept_id,
+                "method": row.method,
+            }
+        )
+
+    path = Path(path)
+    if path.parent != Path(""):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as out:
+        for line in lines:
+            out.write(json.dumps(line, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+            out.write("\n")
+    return len(lines)
 
 
 def _questions(unmapped, *, min_articles: int):
