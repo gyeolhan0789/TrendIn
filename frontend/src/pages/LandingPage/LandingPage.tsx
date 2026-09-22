@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FilterSelect } from '../../components/common/FilterSelect';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { SiteFooter } from '../../components/layout/SiteFooter';
 import { FeaturedContentsCarousel } from './components/FeaturedContentsCarousel';
@@ -20,12 +19,7 @@ export function LandingPage() {
   const [playEntryAnimation] = useState(claimFirstLandingAnimationSafely);
   const [waveReady, setWaveReady] = useState(!playEntryAnimation);
   const [showGuide, setShowGuide] = useState(() => Boolean(session) && claimFirstLandingGuideSafely());
-  /*
-   * 두 구역이 각자 분야를 고릅니다. 같은 훅을 두 번 부르면 고른 값은 따로 남고, 분야 목록
-   * 조회는 키가 같아 캐시가 합쳐 줍니다 — 칸이 둘이어도 목록을 두 번 받지는 않습니다.
-   */
   const trendsDomain = useLandingDomain();
-  const featuredDomain = useLandingDomain();
   const onWaveReady = useCallback(() => setWaveReady(true), []);
   const pageRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -79,20 +73,9 @@ export function LandingPage() {
             <TodayTrends {...trendsDomain} />
             {version === '3' && <section className="featured-section" aria-labelledby="featured-title">
               <div className="section-heading">
-                <div><h2 id="featured-title">지금 주목할 만한 콘텐츠</h2><p>고른 분야의 인기 트렌드에서 모은 콘텐츠입니다.</p></div>
-                {/* 위 트렌드 판과 따로 고릅니다. 같은 분야로 맞추고 싶으면 두 칸을 같게 두면 됩니다. */}
-                <FilterSelect
-                  value={featuredDomain.domain ?? ''}
-                  options={featuredDomain.options}
-                  ariaLabel="콘텐츠 분야"
-                  onChange={featuredDomain.pick}
-                  disabled={featuredDomain.domains.length === 0}
-                />
+                <div><h2 id="featured-title">지금 주목할 만한 콘텐츠</h2><p>가을 패션에서 주목할 만한 콘텐츠를 모았습니다.</p></div>
               </div>
-              <FeaturedContentsCarousel
-                domain={featuredDomain.domain}
-                noChosenDomain={featuredDomain.noChosenDomain}
-              />
+              <FeaturedContentsCarousel />
             </section>}
           </div>
         </section>
