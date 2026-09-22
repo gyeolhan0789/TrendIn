@@ -123,7 +123,7 @@ function HeroWave({ type }: { type: TrendType }) {
  * 1위 한 건을 크게 세우는 카드입니다. 순위 알약·키워드·분야만 위에 두고,
  * 줄을 세운 값 하나를 카드 바닥에 크게 깝니다. 여러 수치를 늘어놓는 대신 기준값 하나만 남깁니다.
  */
-function RankHero({ trend, type, look }: { trend: Trend; type: TrendType; look: BoardLook }) {
+function RankHero({ trend, type, look, rank }: { trend: Trend; type: TrendType; look: BoardLook; rank: number }) {
   const openDetail = useTrendDetailLink();
 
   return (
@@ -132,9 +132,12 @@ function RankHero({ trend, type, look }: { trend: Trend; type: TrendType; look: 
       {/* 담기 단추는 평소 숨어 있다가 카드에 손을 얹거나 초점이 가면 드러납니다. 담긴 것은 늘 보입니다. */}
       <BookmarkButton trendId={trend.trendId} keyword={trend.keyword} className="rank-bookmark rank-bookmark--float" />
 
-      {/* 두 자리로 맞춰야 01·02 처럼 폭이 고르게 읽힙니다. 낭독기에는 '1위'로 들리게 단위를 따로 답니다. */}
+      {/*
+        * 두 자리로 맞춰야 01·02 처럼 폭이 고르게 읽힙니다. 낭독기에는 '1위'로 들리게 단위를 따로 답니다.
+        * 숫자는 서버가 내려 준 rank 가 아니라 판 안에서의 차례입니다. 아래 RankRow 와 같은 규칙입니다.
+        */}
       <span className="rank-hero-rank">
-        {String(trend.rank ?? 1).padStart(2, '0')}
+        {String(rank).padStart(2, '0')}
         <span className="sr-only">위</span>
       </span>
 
@@ -218,7 +221,7 @@ export function TrendRankBoard({ type, domain, period }: TrendRankBoardProps) {
 
       {hero && (
         <div className="rank-board-body">
-          <RankHero trend={hero} type={type} look={look} />
+          <RankHero trend={hero} type={type} look={look} rank={1} />
           <div className="rank-board-list">
             {/* 갈래마다 오른쪽 끝에 쓰는 값이 달라, 무엇으로 줄을 세웠는지 칸 이름으로 밝혀 둡니다. */}
             <div className="rank-list-head">
@@ -227,8 +230,12 @@ export function TrendRankBoard({ type, domain, period }: TrendRankBoardProps) {
               <span>{look.measure}</span>
             </div>
             <ol className="rank-board-rest">
+              {/*
+                * 1위 카드가 목록의 맨 앞을 가져갔으므로 오른쪽 줄은 2위부터 셉니다. page 를 0 으로
+                * 고정하고 size 만 늘리는 구조라, '더보기'로 뒤를 더 받아도 앞 번호는 그대로 이어집니다.
+                */}
               {rest.map((trend, index) => (
-                <RankRow key={trend.trendId} trend={trend} type={type} rank={trend.rank ?? index + 2} />
+                <RankRow key={trend.trendId} trend={trend} type={type} rank={index + 2} />
               ))}
             </ol>
           </div>
