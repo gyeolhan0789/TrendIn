@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import heroWave from '../../assets/flowing-wave.webp';
 import { CylinderCarousel } from '../../components/common/CylinderCarousel';
 import { FilterSelect } from '../../components/common/FilterSelect';
-import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
-import { useDeleteInterestKeyword, useRegisterInterestKeyword } from '../../features/myPage/hooks/useInterestKeywordMutations';
+import { useInterestKeywordToggle } from '../../features/myPage/hooks/useInterestKeywordToggle';
 import { useRecommendedKeywords } from '../../features/myPage/hooks/useRecommendedKeywords';
 import type { RecommendedKeyword } from '../../features/myPage/types/myPage';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
@@ -124,19 +123,10 @@ export function HomePage() {
   }, [recommended.length, recommendedQuery.data]);
 
   /*
-   * 키워드 id → 등록 기록 id. 꼬리표마다 목록을 훑지 않고 여기서 한 번만 추려 둡니다.
-   * 담기·빼기가 끝나면 관심 키워드 목록이 다시 받아져 이 표도 따라 바뀌고 꼬리표 색이 넘어갑니다.
-   *
-   * **담았는지만 보는 집합이 아니라 표인 이유**는 빼는 길이 생겼기 때문입니다. 뺄 때는
-   * 키워드가 아니라 등록 기록을 가리켜야 합니다 (`deleteInterestKeyword(interestKeywordId)`).
+   * 담기·빼기가 끝나면 관심 키워드 목록이 다시 받아져, 꼬리표의 부호와 색이 따라 넘어갑니다.
+   * 트렌드 상세의 연관 키워드 칩도 같은 훅을 씁니다.
    */
-  const interestKeywordsQuery = useInterestKeywords();
-  const registerMutation = useRegisterInterestKeyword();
-  const deleteMutation = useDeleteInterestKeyword();
-  const registeredBy = useMemo(
-    () => new Map((interestKeywordsQuery.data ?? []).map((item) => [item.keywordId, item.interestKeywordId])),
-    [interestKeywordsQuery.data],
-  );
+  const interest = useInterestKeywordToggle();
 
   const updateParams = (updates: Record<string, string | undefined>, replace = false) => {
     const next = new URLSearchParams(searchParams);
@@ -222,11 +212,7 @@ export function HomePage() {
           <p className="explore-panel-lead">내 관심 키워드와 함께 언급되는 말입니다. 눌러서 관심 키워드로 담아 보세요.</p>
           <div className="explore-quick">
             {recommended.map((item) => {
-              /* 값이 있으면 담긴 것이고, 그 값이 뺄 때 가리킬 등록 기록입니다. */
-              const interestKeywordId = registeredBy.get(item.keywordId);
-              const registered = interestKeywordId !== undefined;
-              const pending = (registerMutation.isPending && registerMutation.variables?.keywordId === item.keywordId)
-                || (deleteMutation.isPending && deleteMutation.variables?.interestKeywordId === interestKeywordId);
+              const registered = interest.registered(item.keywordId);
               return (
                 <button
                   type="button"
@@ -234,16 +220,14 @@ export function HomePage() {
                   className={registered ? 'is-registered' : undefined}
                   /* 누를 때마다 담기와 빼기를 오가는 단추라 눌린 상태를 알려 줍니다. */
                   aria-pressed={registered}
-                  /* 담았는지 아직 모르는 동안 누르면 이미 담은 것을 또 보내게 됩니다. */
-                  disabled={pending || !interestKeywordsQuery.isSuccess}
+                  disabled={interest.pending(item.keywordId) || !interest.ready}
                   aria-label={registered ? `${item.keyword} 관심 키워드에서 빼기` : `${item.keyword} 관심 키워드로 등록`}
                   title={registered ? '다시 누르면 관심 키워드에서 빠집니다' : '관심 키워드로 등록'}
-                  /* undefined 로 갈라야 아래 분기에서 등록 기록 id 가 number 로 좁혀집니다. */
-                  onClick={() => (interestKeywordId === undefined
-                    ? registerMutation.mutate({ keywordId: item.keywordId, keyword: item.keyword })
-                    : deleteMutation.mutate({ interestKeywordId, keyword: item.keyword }))}
+                  onClick={() => interest.toggle(item.keywordId, item.keyword)}
                 >
                   {item.keyword}
+                  {/* 상태 표시입니다. 이 부호만이 아니라 꼬리표 어디를 눌러도 같이 동작합니다. */}
+                  <span aria-hidden="true">{registered ? '✓' : '＋'}</span>
                 </button>
               );
             })}
