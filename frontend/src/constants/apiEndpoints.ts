@@ -39,6 +39,16 @@ export const API_ENDPOINTS = {
      * 불러야 해서 아직 쓰지 않습니다. 나라별 증감을 보여 주기로 하면 그때 붙입니다.
      */
   },
+  /*
+   * 나라를 축으로 보는 조회입니다. 트렌드를 고르기 전에도 불러야 해서 /trends 아래가 아닙니다.
+   * 두 조회 모두 domain 과 period 가 필수입니다.
+   */
+  regions: {
+    // 한 분야를 나라별로 갈라 본 언급량. 지도를 칠하는 값이자 나라 목록입니다.
+    list: '/regions',
+    // 나라 하나에서 많이 언급된 트렌드. size 로 잘라 받습니다.
+    trends: (countryCode: string) => `/regions/${countryCode}/trends`,
+  },
   members: {
     me: '/members/me',
     domains: '/members/me/domains',

@@ -18,6 +18,12 @@ export const queryKeys = {
     regions: (trendId: number, period: string) => ['trends', 'regions', trendId, period] as const,
     regionJourney: (trendId: number) => ['trends', 'regionJourney', trendId] as const,
   },
+  regions: {
+    // 분야와 기간이 다르면 다른 지도라 둘 다 키에 싣습니다.
+    countries: (domain: string, period: string) => ['regions', 'countries', domain, period] as const,
+    countryTrends: (domain: string, countryCode: string, period: string, size: number) =>
+      ['regions', 'countryTrends', domain, countryCode, period, size] as const,
+  },
   keywords: {
     search: (query: string) => ['keywords', 'search', query] as const,
   },

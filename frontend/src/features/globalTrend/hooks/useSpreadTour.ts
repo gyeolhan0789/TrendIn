@@ -25,6 +25,8 @@ export interface TourStop {
 
 /** 나라 하나를 들여다볼 때의 배율. 나라 모양이 또렷하게 보이는 정도입니다. */
 const FOCUS_ZOOM = 3.6;
+/** 나라를 고를 때 다가가는 정도. 고른 나라가 커지되 이웃 나라가 함께 보이는 만큼입니다. */
+export const PICK_ZOOM = 2;
 const WORLD_ZOOM = 1;
 /*
  * 나라와 나라 사이를 건널 때 물러설 수 있는 가장 먼 배율입니다. 세계 전체(1)까지 물러서면
@@ -38,8 +40,13 @@ const TRAVEL_ZOOM = 1.9;
  */
 export const MIN_ZOOM = WORLD_ZOOM * 0.9;
 export const MAX_ZOOM = 14;
-const MOVE_MS = 2200;
-const HOLD_MS = 2100;
+/*
+ * 한 구간을 건너는 데 드는 밑바탕 시간과, 닿은 나라에 머무는 시간입니다. 비행기는 카메라와
+ * 같은 진행도를 타므로 이 값이 곧 비행기 속도입니다. 여섯 나라짜리 경로를 끝까지 보는 데
+ * 예전에는 스무 초가 넘게 걸려, 다 보기 전에 눈이 먼저 떠났습니다.
+ */
+const MOVE_MS = 1400;
+const HOLD_MS = 1200;
 
 interface Motion {
   from: MapView;
@@ -83,13 +90,22 @@ export interface SpreadTour {
   playing: boolean;
   play: () => void;
   pause: () => void;
-  goTo: (index: number) => void;
+  /** 자리 하나로 다가갑니다. zoom 을 주면 그만큼만 다가가, 나라 하나만 남기지 않을 수 있습니다. */
+  goTo: (index: number, zoom?: number) => void;
   showWorld: () => void;
   /** 손으로 지도를 움직일 때. 따라가던 움직임을 멈추고 조작을 넘겨받습니다. */
   steer: (update: (view: MapView) => MapView) => void;
 }
 
-export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTour {
+/**
+ * autoPlayKey 가 바뀌면 그 경로를 처음부터 따라갑니다. null 이면 따라가지 않고 자리만 되돌립니다.
+ * 전체보기처럼 경로가 없는 화면에서도 지도를 손으로 옮기고 나라로 다가가는 데는 이 훅을 씁니다.
+ *
+ * follow 를 끄면 카메라가 가만히 있고 비행기만 건넙니다. 평면 지도는 세계가 통째로 들어와
+ * 있어서, 나라마다 확 당겼다 놓으면 어디서 어디로 가는 길인지가 오히려 안 보입니다. 지구본은
+ * 반대로 뒤쪽이 가려져 있어 따라 돌아야 길이 이어집니다.
+ */
+export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, follow = true): SpreadTour {
   const [view, setView] = useState<MapView>({ lon: 20, lat: 18, zoom: WORLD_ZOOM });
   const [stopIndex, setStopIndex] = useState(-1);
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -107,7 +123,11 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
 
   stopsRef.current = stops;
 
-  const startMotion = useCallback((to: MapView, distance: number) => {
+  /* steady 는 카메라를 붙들어 둔 채 시간만 흘려보낼 때입니다. 물러섰다 다가오는 일도 없습니다. */
+  const followRef = useRef(follow);
+  followRef.current = follow;
+
+  const startMotion = useCallback((to: MapView, distance: number, steady = false) => {
     const from = viewRef.current;
     // 멈춰 있는 동안에는 그리기 고리를 접어 둡니다. 움직일 일이 생겼으니 여기서 다시 깨웁니다.
     setAwake((count) => count + 1);
@@ -115,32 +135,44 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
       from,
       to,
       // 멀리 갈수록 많이 물러섭니다. 이웃 나라로 갈 때는 거의 그대로 미끄러집니다.
-      via: distance > 12 ? Math.max(TRAVEL_ZOOM, FOCUS_ZOOM - distance / 26) : 0,
+      via: steady || distance <= 12 ? 0 : Math.max(TRAVEL_ZOOM, FOCUS_ZOOM - distance / 26),
       startedAt: performance.now(),
-      duration: Math.min(3200, MOVE_MS * (0.55 + Math.min(1, distance / 120))),
+      duration: Math.min(2000, MOVE_MS * (0.55 + Math.min(1, distance / 120))),
     };
   }, []);
 
-  const moveToStop = useCallback((index: number) => {
+  const moveToStop = useCallback((index: number, zoom = FOCUS_ZOOM) => {
     const stop = stopsRef.current[index];
     if (!stop) return;
     const current = viewRef.current;
-    const distance = angularDistance(current, stop);
     targetRef.current = index;
     setFocusIndex(index);
+
+    /*
+     * 따라가지 않을 때는 보던 자리를 그대로 둡니다. 건너는 데 걸리는 시간만 앞 나라와의 거리로
+     * 재어, 태평양을 건널 때는 오래 날고 이웃 나라로는 금방 닿습니다.
+     */
+    if (!followRef.current) {
+      const previous = stopsRef.current[index - 1] ?? stop;
+      if (index >= 1) setLegProgress(0);
+      startMotion(current, angularDistance(previous, stop), true);
+      return;
+    }
+
+    const distance = angularDistance(current, stop);
     /*
      * 첫 자리로 갈 때는 건널 구간이 없어 비행기를 태우지 않으므로 치웁니다. 이어지는 구간이면
      * 그대로 둡니다. 서 있던 나라가 곧 새 구간의 출발지라, 손대지 않아도 제자리에서 떠납니다.
      */
     if (index < 1) setLegProgress(null);
-    startMotion({ lon: stop.lon, lat: stop.lat, zoom: FOCUS_ZOOM }, distance);
+    startMotion({ lon: stop.lon, lat: stop.lat, zoom }, distance);
   }, [startMotion]);
 
-  const goTo = useCallback((index: number) => {
+  const goTo = useCallback((index: number, zoom?: number) => {
     setPlaying(false);
     playingRef.current = false;
     setStopIndex(-1);
-    moveToStop(index);
+    moveToStop(index, zoom);
   }, [moveToStop]);
 
   const showWorld = useCallback(() => {
@@ -198,7 +230,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string): SpreadTou
     setFocusIndex(-1);
     setStopIndex(-1);
     setLegProgress(null);
-    if (stops.length === 0) return;
+    if (autoPlayKey === null || stops.length === 0) return;
     setPlaying(true);
     playingRef.current = true;
     holdUntilRef.current = 0;

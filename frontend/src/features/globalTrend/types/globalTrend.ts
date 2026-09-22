@@ -1,10 +1,11 @@
 import type { RegionPeriodCode } from '../../../constants/filterCodes';
 
 /*
- * 트렌드가 어느 나라에서 얼마나 언급됐고, 어느 나라에서 먼저 잡혔는지입니다.
+ * 나라와 트렌드는 같은 표를 양쪽에서 읽습니다. 트렌드를 고르면 나라별 언급량이 나오고,
+ * 나라를 고르면 그 나라에서 많이 언급된 트렌드가 나옵니다. 둘은 같은 구간을 보므로 숫자가 맞습니다.
  *
- * 두 조회가 보는 구간이 다릅니다. 나라별 순위는 고른 기간(24H·7D)을 보고, 확산 경로는 늘
- * 30일을 봅니다. 그래서 순위에 없는 나라가 경로에는 있을 수 있습니다. 최근에 잠잠해진 나라입니다.
+ * 확산 경로만 예외입니다. 늘 30일을 보므로, 24시간이나 7일 순위에 없는 나라가 경로에는
+ * 있을 수 있습니다. 최근에 잠잠해진 나라입니다.
  */
 
 /** 나라 하나의 언급량. 순위는 언급량이 같으면 같은 등수를 받습니다. */
@@ -26,6 +27,44 @@ export interface TrendRegionList {
   endDate: string;
   /** 언급량이 많은 순서. 자료가 아직 없으면 비어 옵니다. */
   regions: TrendRegion[];
+}
+
+/**
+ * 한 분야를 나라별로 갈라 본 언급량입니다. 트렌드를 고르지 않아도 지도를 칠할 수 있습니다.
+ * 줄 모양은 {@link TrendRegion} 과 같아, 지도에 올릴 때 두 조회를 갈라 다룰 필요가 없습니다.
+ */
+export interface CountryRegionList {
+  domain: string;
+  period: RegionPeriodCode;
+  timezone: string;
+  startDate: string;
+  endDate: string;
+  /** 나라를 가리지 않은 전체 언급량. 나라별 몫을 내는 분모입니다. */
+  totalMentionCount: number;
+  countries: TrendRegion[];
+}
+
+/** 나라 하나에서 많이 언급된 트렌드 한 줄. */
+export interface CountryTrend {
+  rank: number;
+  /** 아직 트렌드로 묶이지 않은 키워드는 비어 옵니다. 그런 줄은 상세로 갈 수 없습니다. */
+  trendId: number | null;
+  keywordId: number;
+  keyword: string;
+  mentionCount: number;
+}
+
+export interface CountryTrendList {
+  domain: string;
+  countryCode: string;
+  countryName: string;
+  period: RegionPeriodCode;
+  timezone: string;
+  startDate: string;
+  endDate: string;
+  /** 잘라 내기 전 이 나라의 전체 언급량. TOP 5 만 받아도 몫이 제대로 나옵니다. */
+  totalMentionCount: number;
+  trends: CountryTrend[];
 }
 
 /** 한 나라에서 처음 잡힌 날. order 는 1부터이고 날짜가 이른 순서입니다. */

@@ -3,17 +3,40 @@ import type { ApiResponse } from '../../../api/apiResponse';
 import { unwrap } from '../../../api/apiResponse';
 import { API_ENDPOINTS } from '../../../constants/apiEndpoints';
 import type { RegionPeriodCode } from '../../../constants/filterCodes';
-import type { TrendRegionJourney, TrendRegionList } from '../types/globalTrend';
+import type {
+  CountryRegionList,
+  CountryTrendList,
+  TrendRegionJourney,
+  TrendRegionList,
+} from '../types/globalTrend';
 
-/**
- * 트렌드가 나라별로 얼마나 언급됐는지 가져옵니다.
- *
- * 기간은 24H 나 7D 만 받습니다. 30D 를 보내면 서버가 거절하므로 부르는 쪽이 그 둘로 좁혀야 합니다.
- */
+/** 트렌드 하나가 나라별로 얼마나 언급됐는지 가져옵니다. 세 기간을 모두 받습니다. */
 export async function getTrendRegions(trendId: number, period: RegionPeriodCode): Promise<TrendRegionList> {
   return unwrap(apiClient.get<ApiResponse<TrendRegionList>>(API_ENDPOINTS.trends.regions(trendId), {
     params: { period },
   }));
+}
+
+/**
+ * 한 분야를 나라별로 갈라 언급량이 많은 차례로 가져옵니다.
+ * 트렌드를 고르기 전에도 지도를 칠할 수 있어야 해서 트렌드를 받지 않습니다.
+ */
+export async function getRegionCountries(domain: string, period: RegionPeriodCode): Promise<CountryRegionList> {
+  return unwrap(apiClient.get<ApiResponse<CountryRegionList>>(API_ENDPOINTS.regions.list, {
+    params: { domain, period },
+  }));
+}
+
+/** 나라 하나에서 많이 언급된 트렌드를 가져옵니다. size 는 받아 올 줄 수입니다. */
+export async function getCountryTrends(
+  domain: string,
+  countryCode: string,
+  period: RegionPeriodCode,
+  size: number,
+): Promise<CountryTrendList> {
+  return unwrap(apiClient.get<ApiResponse<CountryTrendList>>(
+    API_ENDPOINTS.regions.trends(countryCode), { params: { domain, period, size } },
+  ));
 }
 
 /**

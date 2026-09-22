@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { CountryFlag } from './CountryFlag';
 import { CONTINENTS, WORLD_COUNTRIES } from '../data/worldAtlas';
 import {
   FLAT_ASPECT,
@@ -50,12 +51,28 @@ const FLAT_LAND = BY_CONTINENT.filter((group) => group.continent !== 'AN').map((
   path: group.countries.map((country) => flatPathOf(country.rings, REFERENCE_WIDTH)).join(''),
 }));
 
+/** 전체보기에서 언급량을 지도에 바로 적을 나라 수. 이보다 많아지면 글자끼리 겹칩니다. */
+const LABELLED_COUNTS = 12;
+
 /*
- * 이어 붙일 지도는 늘 두 장으로 둡니다. 기준 자리가 화면 왼쪽 바로 바깥(-worldWidth ~ 0)이고
- * 지도 폭은 화면보다 넓으니, 두 장이면 어떤 자리에서도 화면을 덮습니다. 필요한 만큼만 그리려고
- * 장수를 바꾸면 배율이 바뀌는 순간 큰 path 가 붙었다 떨어져 그 한 칸에서 움직임이 걸립니다.
+ * 이 배율을 넘으면 이름표를 저절로 펼칩니다. 화면에 남는 나라가 몇 안 되는 지점이라 다 펼쳐도
+ * 겹치지 않습니다. '선택 국가 확대'가 다가가는 배율(2)보다 살짝 아래에 두어, 그 단추를 누르면
+ * 반드시 펼쳐진 채로 닿습니다.
  */
-const FLAT_COPIES = [0, 1];
+const DETAIL_ZOOM = 1.9;
+
+/*
+ * 평면 지도에서 그릴 수 있는 세계의 네모.
+ *
+ * 북극해에 닿는 나라들(캐나다·그린란드·러시아)의 테두리는 자료에서 위도 90 선을 따라 닫혀
+ * 있습니다. 땅을 칠하던 때는 그 윗변이 바탕에 묻혔는데, 테두리만 남기고부터는 지도 맨 위에
+ * 가로줄로 드러났습니다. 실제 땅은 북위 84도(y 18)보다 위로 가지 않으므로, 위아래 네 칸을
+ * 잘라 내면 그 줄만 사라집니다.
+ *
+ * 가로도 함께 가둡니다. 날짜변경선을 넘는 나라는 경도를 이어 붙여 그리느라 x 가 1000을 넘는데,
+ * 지도를 옆으로 이어 붙이지 않게 된 뒤로는 그 부분이 바다 위에 홀로 떠 있게 됐습니다.
+ */
+const FLAT_CLIP = { x: 0, y: 4, width: REFERENCE_WIDTH, height: REFERENCE_WIDTH * FLAT_ASPECT - 8 };
 
 const FLAT_BY_ID = new Map(WORLD_COUNTRIES.map((country) => [country.id, flatPathOf(country.rings, REFERENCE_WIDTH)]));
 
@@ -67,14 +84,21 @@ export interface MapStop {
   weight: number;
   /** 핀에 적을 값. 무엇을 재는 값인지 아는 쪽에서 다듬어 넘깁니다. */
   label: string;
-  /** 그 나라에서 처음 잡힌 날. */
-  since: string;
+  /** 그 나라에서 처음 잡힌 날. 확산 경로를 따라갈 때만 씁니다. */
+  since?: string;
 }
 
 interface WorldMapProps {
   mode: MapMode;
   view: MapView;
   stops: MapStop[];
+  /*
+   * 확산 경로를 따라가는 중인지. 켜면 지나온 나라만 칠하고 그 사이를 선과 비행기로 잇습니다.
+   * 끄면 자료가 있는 나라를 한꺼번에 칠합니다. 순서가 없는 전체보기가 이쪽입니다.
+   */
+  trail: boolean;
+  /** 전체보기에서 도드라지게 둘 나라. 경로를 따라갈 때는 머무르는 나라가 그 자리를 대신합니다. */
+  selectedCode?: string | null;
   /** 지금 향하고 있는 자리. 여기까지의 경로만 선으로 잇습니다. */
   focusIndex: number;
   /** 이미 닿아서 머무르고 있는 자리. 이름표를 펼쳐 보여 줍니다. */
@@ -134,7 +158,12 @@ function curvePlane(sx: number, sy: number, mx: number, my: number, ex: number, 
  */
 const PLANE_PATH = 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z';
 /** 배율과 무관하게 화면에서 늘 같은 크기입니다. 확대했다고 비행기가 나라를 덮으면 안 됩니다. */
+/*
+ * 비행기 크기. 평면 지도에서는 작게 둡니다. 지구본은 경로를 따라 돌며 다가가 나라가 크게
+ * 보이는데, 평면 지도는 세계를 통째로 둔 채 비행기만 건너므로 같은 크기면 나라보다 커 보입니다.
+ */
 const PLANE_SCALE = 2.25;
+const PLANE_SCALE_FLAT = 1.45;
 
 /** 한 번 휠을 굴릴 때 바뀌는 배율. 값이 크면 한 칸에 훌쩍 넘어가 어디를 보고 있었는지 놓칩니다. */
 const WHEEL_STEP = 0.0016;
@@ -161,19 +190,24 @@ interface FlatLayout {
 }
 
 function flatLayoutOf(view: MapView, width: number, height: number): FlatLayout {
-  /* 지도가 칸을 가득 덮게 맞춥니다. 세로로 맞추면 위아래에 빈 띠가 남아 지도가 떠 보입니다. */
-  const fitWidth = Math.max(width, height / FLAT_ASPECT);
+  /*
+   * 배율 1에서 세계가 통째로 들어오게 맞춥니다. 칸을 덮도록 세로에 맞추면, 지도 칸이 세로로
+   * 길 때 가로가 잘려 배율 1인데도 세계의 절반만 보입니다. 이 화면이 먼저 답할 것은 '어느
+   * 나라가 진한가'라, 한국과 미국이 양끝으로 밀려 나가면 답이 화면 밖에 있게 됩니다.
+   * 위아래에 남는 띠는 바다가 이미 칸 전체를 칠하고 있어 극지방 바다로 읽힙니다.
+   */
+  const fitWidth = Math.min(width, height / FLAT_ASPECT);
   const worldWidth = fitWidth * view.zoom;
   const worldHeight = worldWidth * FLAT_ASPECT;
   const center = projectFlat(view.lon, view.lat, worldWidth);
   /*
-   * 가로로는 지도를 붙들지 않고 옆에 같은 지도를 이어 붙입니다. 웹 지도가 그렇듯 날짜변경선에서
-   * 끊기지 않아야, 서울에서 상파울루로 갈 때 태평양을 건너는 동안 화면이 멈추지 않습니다.
-   * 기준 자리는 화면 왼쪽 바로 바깥에 두고, 화면을 덮을 만큼만 오른쪽으로 더 깝니다.
+   * 가로세로 모두 지도 넓이 안에 가둡니다. 예전에는 옆에 같은 지도를 이어 붙여 날짜변경선에서
+   * 끊기지 않게 했는데, 그러면 한쪽으로 끝없이 끌려 지금 보는 곳이 지구의 어디인지 놓칩니다.
+   * 지도가 칸보다 작으면 가운데에 둡니다.
    */
-  const raw = width / 2 - center.x;
-  const offsetX = ((raw % worldWidth) + worldWidth) % worldWidth - worldWidth;
-  /* 세로는 위아래가 끝이라 그대로 붙들어, 바다 밖으로 넘어가지 않게 합니다. */
+  const offsetX = worldWidth <= width
+    ? (width - worldWidth) / 2
+    : Math.min(0, Math.max(width - worldWidth, width / 2 - center.x));
   const offsetY = worldHeight <= height
     ? (height - worldHeight) / 2
     : Math.min(0, Math.max(height - worldHeight, height / 2 - center.y));
@@ -181,15 +215,24 @@ function flatLayoutOf(view: MapView, width: number, height: number): FlatLayout 
 }
 
 /*
- * 평면 지도에서 화면 가운데에 둘 자리를 경위도로 돌려 줍니다. 세로는 지도 밖이 나오지 않는
- * 만큼만 받습니다. 가두지 않으면 아래로 계속 끌 때 보이는 것은 그대로인데 값만 쌓여,
- * 되돌릴 때 한참을 헛끌게 됩니다.
+ * 평면 지도에서 화면 가운데에 둘 자리를 경위도로 돌려 줍니다. 가로세로 모두 지도 밖이 나오지
+ * 않는 만큼만 받습니다. 가두지 않으면 계속 끌 때 보이는 것은 그대로인데 값만 쌓여, 되돌릴 때
+ * 한참을 헛끌게 됩니다.
  */
-function flatCenterOf(layout: { worldWidth: number; worldHeight: number }, height: number, x: number, y: number) {
+function flatCenterOf(
+  layout: { worldWidth: number; worldHeight: number },
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+) {
+  const settledX = layout.worldWidth <= width
+    ? layout.worldWidth / 2
+    : Math.min(Math.max(x, width / 2), layout.worldWidth - width / 2);
   const settledY = layout.worldHeight <= height
     ? layout.worldHeight / 2
     : Math.min(Math.max(y, height / 2), layout.worldHeight - height / 2);
-  return unprojectFlat(x, settledY, layout.worldWidth);
+  return unprojectFlat(settledX, settledY, layout.worldWidth);
 }
 
 function useElementSize() {
@@ -217,23 +260,22 @@ interface Placed {
   visible: boolean;
 }
 
-/* 같은 자리가 이어 붙인 지도마다 나오므로, 화면 가운데에 가장 가까운 것 하나만 골라 표시를 답니다. */
-function nearestX(x: number, worldWidth: number, viewportWidth: number) {
-  let best = x;
-  for (let copy = -1; copy <= 2; copy += 1) {
-    const candidate = x + copy * worldWidth;
-    if (Math.abs(candidate - viewportWidth / 2) < Math.abs(best - viewportWidth / 2)) best = candidate;
-  }
-  return best;
+/*
+ * 이름표가 펼쳐질 자리. 핀이 오른쪽 끝에 붙어 있으면 이름표가 칸 밖으로 나가 잘리므로,
+ * 이만큼 여유가 없으면 왼쪽으로 펼칩니다.
+ */
+const LABEL_SPACE = 200;
+
+function markerClass(here: boolean, passed: boolean, flip: boolean) {
+  const flipped = flip ? ' is-flip' : '';
+  if (here) return `worldmap-pin is-here${flipped}`;
+  if (passed) return `worldmap-pin is-passed${flipped}`;
+  return `worldmap-pin${flipped}`;
 }
 
-function markerClass(index: number, focusIndex: number, stopIndex: number) {
-  if (index === stopIndex) return 'worldmap-pin is-here';
-  if (index <= focusIndex) return 'worldmap-pin is-passed';
-  return 'worldmap-pin';
-}
-
-export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress, onPickStop, onSteer }: WorldMapProps) {
+export function WorldMap({
+  mode, view, stops, trail, selectedCode, focusIndex, stopIndex, legProgress, onPickStop, onSteer,
+}: WorldMapProps) {
   const [ref, size] = useElementSize();
   const { width, height } = size;
   const ready = width > 0 && height > 0;
@@ -277,7 +319,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       }
       const layout = flatLayoutOf(current, scene.width, scene.height);
       const center = projectFlat(current.lon, current.lat, layout.worldWidth);
-      const moved = flatCenterOf(layout, scene.height, center.x - dx, center.y - dy);
+      const moved = flatCenterOf(layout, scene.width, scene.height, center.x - dx, center.y - dy);
       return { ...current, lon: moved.lon, lat: moved.lat };
     });
   }, [onSteer]);
@@ -301,7 +343,10 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       const next = { worldWidth, worldHeight: worldWidth * FLAT_ASPECT };
       const point = projectFlat(under.lon, under.lat, worldWidth);
       /* 바뀐 배율에서도 그 자리가 커서 밑에 남으려면, 가운데는 커서에서 떨어진 만큼 옆으로 갑니다. */
-      const center = flatCenterOf(next, scene.height, point.x + scene.width / 2 - px, point.y + scene.height / 2 - py);
+      const center = flatCenterOf(
+        next, scene.width, scene.height,
+        point.x + scene.width / 2 - px, point.y + scene.height / 2 - py,
+      );
       return { lon: center.lon, lat: center.lat, zoom };
     });
   }, [onSteer]);
@@ -368,7 +413,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       }
       if (flat) {
         const point = projectFlat(stop.country.lon, stop.country.lat, flat.worldWidth);
-        const x = nearestX(flat.offsetX + point.x, flat.worldWidth, width);
+        const x = flat.offsetX + point.x;
         const y = flat.offsetY + point.y;
         return { index, stop, x, y, visible: x > -40 && x < width + 40 && y > -40 && y < height + 40 };
       }
@@ -379,6 +424,8 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
   /* 지나온 길입니다. 아직 닿지 않은 구간은 그리지 않아, 선이 늘어나며 따라오는 것처럼 보입니다. */
   const legs = useMemo(() => {
     const drawn: { key: string; path: string; active: boolean }[] = [];
+    /* 전체보기에는 건너간 차례가 없습니다. 선을 그으면 없는 순서를 지도가 지어냅니다. */
+    if (!trail) return { drawn, plane: null as Plane | null };
     /* 비행기는 지금 건너고 있는 한 구간에만 띄웁니다. */
     let plane: Plane | null = null;
     const last = Math.min(focusIndex, stops.length - 1);
@@ -410,12 +457,10 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       if (flat) {
         const start = projectFlat(from.lon, from.lat, flat.worldWidth);
         const end = projectFlat(to.lon, to.lat, flat.worldWidth);
-        const sx = nearestX(flat.offsetX + start.x, flat.worldWidth, width);
+        /* 지도를 한 장만 깔므로 자리도 하나뿐입니다. 태평양을 건너는 구간은 지도를 가로지릅니다. */
+        const sx = flat.offsetX + start.x;
         const sy = flat.offsetY + start.y;
-        /* 도착 자리도 여러 번 나오므로, 출발 자리에서 가장 가까운 것으로 이어 태평양을 건너게 합니다. */
-        let ex = flat.offsetX + end.x;
-        while (ex - sx > flat.worldWidth / 2) ex -= flat.worldWidth;
-        while (sx - ex > flat.worldWidth / 2) ex += flat.worldWidth;
+        const ex = flat.offsetX + end.x;
         const ey = flat.offsetY + end.y;
         // 두 점 사이를 곧게 이으면 지도에 눌러 붙어 보여, 위로 살짝 띄운 곡선으로 잇습니다.
         const lift = Math.hypot(ex - sx, ey - sy) * 0.22;
@@ -430,7 +475,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       }
     }
     return { drawn, plane };
-  }, [stops, focusIndex, mode, globe, flat, width, legProgress]);
+  }, [trail, stops, focusIndex, mode, globe, flat, width, legProgress]);
 
   /*
    * 트렌드가 닿은 나라는 그 나라의 값만큼 진하게 칠합니다. 같은 색으로 모두 덮으면 어디가 더
@@ -438,17 +483,53 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
    */
   const hottest = Math.max(...stops.map((stop) => Math.abs(stop.weight)), 1);
 
-  const highlights = stops.map((stop, index) => ({
-    index,
-    id: stop.country.atlasId,
-    passed: index <= focusIndex,
-    here: index === stopIndex,
-    depth: 0.32 + 0.53 * (Math.abs(stop.weight) / hottest),
-  }));
+  /*
+   * 경로를 따라갈 때는 아직 닿지 않은 나라를 비워 두어 길이 늘어나는 것이 보이게 합니다.
+   * 전체보기는 반대로 자료가 있는 나라를 한꺼번에 칠합니다. 그 화면이 답할 것은 순서가 아니라
+   * 어디가 더 뜨거운지이고, 비워 두면 언급이 0인 나라와 구분되지 않습니다.
+   */
+  /*
+   * 한 나라를 골라 두었으면 나머지는 한 겹 물러섭니다. 눈이 고른 나라로 먼저 가되, 물러선
+   * 나라들도 형체는 남아 있어 세계 안에서 그 나라가 어디쯤 얼마나 뜨거운지를 함께 봅니다.
+   * 아예 지워 버리면 견줄 것이 없어져 '5위'가 무엇에 견준 5위인지 알 수 없습니다.
+   */
+  const DIMMED = 0.42;
+
+  const highlights = stops.map((stop, index) => {
+    const here = trail ? index === stopIndex : stop.country.code === selectedCode;
+    /*
+     * 진하기는 1위를 1로 둔 견줌입니다. 바닥을 0.38 로 올려 둔 것은, 언급이 가장 적은 나라도
+     * 칠하지 않은 흰 나라와는 한눈에 갈려야 하기 때문입니다. 적은 것과 없는 것은 다릅니다.
+     */
+    const depth = 0.38 + 0.62 * (Math.abs(stop.weight) / hottest);
+    return {
+      index,
+      id: stop.country.atlasId,
+      passed: trail ? index <= focusIndex : true,
+      here,
+      depth: !here && !trail && selectedCode ? depth * DIMMED : depth,
+    };
+  });
+
+  const markerState = new Map(highlights.map((highlight) => [highlight.index, highlight]));
+
+  /*
+   * 전체보기에서는 언급량을 지도 위에 바로 적습니다. 색만으로는 '조금 더 진하다'까지만 읽히고
+   * 몇 건인지는 읽히지 않기 때문입니다. 다만 나라가 수십이면 글자가 서로 겹쳐 아무것도 읽을 수
+   * 없으므로 값이 큰 몇 곳만 적고, 나머지는 점에 대면 펼쳐 보이게 둡니다.
+   */
+  const labelled = useMemo(() => {
+    if (trail) return new Set<number>();
+    return new Set(stops
+      .map((stop, index) => ({ index, weight: Math.abs(stop.weight) }))
+      .sort((left, right) => right.weight - left.weight)
+      .slice(0, LABELLED_COUNTS)
+      .map((item) => item.index));
+  }, [trail, stops]);
 
   return (
     <div
-      className={`worldmap worldmap--${mode}${onSteer ? ' is-steerable' : ''}${dragging ? ' is-dragging' : ''}`}
+      className={`worldmap worldmap--${mode}${view.zoom >= DETAIL_ZOOM ? ' is-detailed' : ''}${onSteer ? ' is-steerable' : ''}${dragging ? ' is-dragging' : ''}`}
       ref={ref}
       onPointerDown={startDrag}
       onPointerMove={moveDrag}
@@ -458,15 +539,33 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
       {ready && (
         <svg className="worldmap-canvas" width={width} height={height} role="img" aria-label="국가별 관심도 지도">
           <defs>
+            {/*
+              * 바다는 흰색입니다. 색이 있으면 나라에 칠한 로고 빛깔과 겨뤄, 지도에서 색이 보이는
+              * 곳이 곧 자료가 있는 곳이라는 규칙이 깨집니다. 다만 공은 흰 바탕 위의 흰 원이 되면
+              * 테두리가 사라지므로, 가장자리로 갈수록 아주 옅은 회청색을 깔아 둥글기만 남깁니다.
+              */}
             <radialGradient id="worldmap-ocean" cx="35%" cy="32%" r="78%">
-              <stop offset="0%" stopColor="#c3dcf7" />
-              <stop offset="50%" stopColor="#7ba6da" />
-              <stop offset="100%" stopColor="#2f4a7d" />
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="62%" stopColor="#fbfcfe" />
+              <stop offset="100%" stopColor="#e8edf5" />
             </radialGradient>
-            {/* 지금 머무르는 나라를 채우는 빛깔. 한 가지 색으로 덮는 것보다 부드럽게 도드라집니다. */}
-            <linearGradient id="worldmap-here" x1="0" y1="0" x2="0.4" y2="1">
-              <stop offset="0%" stopColor="#6366F1" />
-              <stop offset="100%" stopColor="#A855F7" />
+            {/*
+              * 언급이 잡힌 나라를 채우는 빛깔. 로고의 진주빛 물결에서 그대로 가져왔습니다.
+              * 흰빛에서 하늘파랑을 지나 보라로 넘어가며, 한 나라 안에서도 결이 돕니다.
+              */}
+            <linearGradient id="worldmap-brand" x1="0" y1="0" x2="0.55" y2="1">
+              {/* 가장 밝은 쪽도 흰색을 쓰지 않습니다. 바다가 흰색이라 나라가 거기서 끊겨 보입니다. */}
+              <stop offset="0%" stopColor="#e4ecff" />
+              <stop offset="30%" stopColor="#c2d5fa" />
+              <stop offset="65%" stopColor="#a894f0" />
+              <stop offset="100%" stopColor="#6d5ae2" />
+            </linearGradient>
+            {/* 고른 나라는 같은 결을 한 단계 짙게 씁니다. 흰빛이 빠지면 눈이 먼저 그리로 갑니다. */}
+            <linearGradient id="worldmap-here" x1="0" y1="0" x2="0.55" y2="1">
+              <stop offset="0%" stopColor="#dbe6fb" />
+              <stop offset="35%" stopColor="#9fb6ef" />
+              <stop offset="72%" stopColor="#8b74e8" />
+              <stop offset="100%" stopColor="#5b46d8" />
             </linearGradient>
             {/* 공 둘레의 빛무리. 흐림 효과(blur)는 돌릴 때마다 다시 계산해 화면이 걸리므로, 가장자리만 옅어지는 그러데이션으로 냅니다. */}
             <radialGradient id="worldmap-glow">
@@ -474,9 +573,12 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
               <stop offset="88%" stopColor="rgba(99,102,241,0.22)" />
               <stop offset="100%" stopColor="rgba(99,102,241,0)" />
             </radialGradient>
+            <clipPath id="worldmap-flat-clip">
+              <rect x={FLAT_CLIP.x} y={FLAT_CLIP.y} width={FLAT_CLIP.width} height={FLAT_CLIP.height} />
+            </clipPath>
             <radialGradient id="worldmap-shade" cx="35%" cy="32%" r="80%">
-              <stop offset="55%" stopColor="rgba(0,0,0,0)" />
-              <stop offset="100%" stopColor="rgba(12,24,58,0.42)" />
+              <stop offset="78%" stopColor="rgba(0,0,0,0)" />
+              <stop offset="100%" stopColor="rgba(35,52,92,0.16)" />
             </radialGradient>
           </defs>
 
@@ -511,12 +613,13 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
             <g>
               <rect className="worldmap-sea" x="0" y="0" width={width} height={height} />
               {/* 화면을 덮을 만큼 같은 지도를 옆으로 이어 붙입니다. 날짜변경선에서 땅이 잘리지 않습니다. */}
-              {FLAT_COPIES.map((copy) => (
-                <g
-                  key={copy}
-                  strokeWidth={1 / flat.scale}
-                  transform={`translate(${(flat.offsetX + copy * flat.worldWidth).toFixed(2)} ${flat.offsetY.toFixed(2)}) scale(${flat.scale.toFixed(5)})`}
-                >
+              {/* 지도는 한 장뿐입니다. 옆으로 이어 붙이지 않아 끝에 닿으면 더 밀리지 않습니다. */}
+              <g
+                strokeWidth={1 / flat.scale}
+                transform={`translate(${flat.offsetX.toFixed(2)} ${flat.offsetY.toFixed(2)}) scale(${flat.scale.toFixed(5)})`}
+              >
+                {/* 자르는 네모는 이 안쪽, 배율이 걸리기 전의 자리로 적습니다. */}
+                <g clipPath="url(#worldmap-flat-clip)">
                   {FLAT_LAND.map((group) => (
                     <path key={group.continent} className={`worldmap-land worldmap-land--${group.continent}`} d={group.path} />
                   ))}
@@ -533,7 +636,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
                     );
                   })}
                 </g>
-              ))}
+              </g>
             </g>
           )}
 
@@ -566,7 +669,7 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
           </defs>
           <g
             className="worldmap-plane"
-            transform={`translate(${legs.plane.x.toFixed(1)} ${legs.plane.y.toFixed(1)}) rotate(${(legs.plane.angle + 90).toFixed(1)}) scale(${PLANE_SCALE}) translate(-11.5 -12)`}
+            transform={`translate(${legs.plane.x.toFixed(1)} ${legs.plane.y.toFixed(1)}) rotate(${(legs.plane.angle + 90).toFixed(1)}) scale(${mode === 'flat' ? PLANE_SCALE_FLAT : PLANE_SCALE}) translate(-11.5 -12)`}
           >
             <path d={PLANE_PATH} />
           </g>
@@ -577,16 +680,27 @@ export function WorldMap({ mode, view, stops, focusIndex, stopIndex, legProgress
         <button
           type="button"
           key={pin.stop.country.code}
-          className={markerClass(pin.index, focusIndex, stopIndex)}
+          className={markerClass(
+            markerState.get(pin.index)?.here ?? false,
+            markerState.get(pin.index)?.passed ?? false,
+            pin.x > width - LABEL_SPACE,
+          )}
           style={{ left: `${pin.x}px`, top: `${pin.y}px` }}
           onClick={() => onPickStop(pin.index)}
         >
           <span className="worldmap-pin-dot" aria-hidden="true" />
+          {labelled.has(pin.index) && (
+            <span className="worldmap-pin-count" aria-hidden="true">{pin.stop.label}</span>
+          )}
           <span className="worldmap-pin-label">
-            <span className="worldmap-pin-name">{pin.stop.country.flag} {pin.stop.country.name}</span>
+            <span className="worldmap-pin-name">
+              <CountryFlag code={pin.stop.country.code} className="worldmap-pin-flag" />
+              {pin.stop.country.name}
+            </span>
             <span className="worldmap-pin-figures">
               <span className="worldmap-pin-growth">{pin.stop.label}</span>
-              <span className="worldmap-pin-date">{pin.stop.since}부터</span>
+              {/* 처음 잡힌 날은 확산 경로에만 있습니다. 전체보기에서는 적을 것이 없어 비웁니다. */}
+              {pin.stop.since && <span className="worldmap-pin-date">{pin.stop.since}부터</span>}
             </span>
           </span>
         </button>

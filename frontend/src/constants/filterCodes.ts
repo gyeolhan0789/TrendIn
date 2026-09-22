@@ -12,10 +12,10 @@ export type PeriodCode = (typeof ANALYSIS_PERIODS)[number];
 export const DEFAULT_PERIOD: PeriodCode = '24H';
 
 /**
- * 국가별 조회가 받는 기간입니다. 서버는 24H 와 7D 만 받고 30D 는 거절합니다.
- * 확산 경로(journey)는 기간을 받지 않고 늘 30D 로 봅니다.
+ * 국가별 조회가 받는 기간입니다. 나라별 자료는 하루 단위라 세 기간을 모두 받습니다.
+ * 확산 경로(journey)만 예외로 기간을 받지 않고 늘 30D 로 봅니다.
  */
-export const REGION_PERIODS = ['24H', '7D'] as const;
+export const REGION_PERIODS = ['24H', '7D', '30D'] as const;
 
 export type RegionPeriodCode = (typeof REGION_PERIODS)[number];
 
