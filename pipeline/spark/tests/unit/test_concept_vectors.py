@@ -25,9 +25,10 @@ class FakeCursor:
 
     def execute(self, sql, params):
         assert sql == SEARCH_SQL
-        vector, model, limit = params
+        vector, model, excluded, limit = params
         assert vector.startswith("[") and vector.endswith("]")
         assert model == model_key()
+        assert excluded == []
         assert limit == 5
 
     def fetchall(self):
@@ -83,6 +84,23 @@ class VectorStoreTest(unittest.TestCase):
     def test_wrong_dimension_is_rejected_before_query(self) -> None:
         with self.assertRaises(ValueError):
             vector_literal([0.1, 0.2])
+
+    def test_search_passes_held_out_expression_ids(self) -> None:
+        class ExcludingCursor(FakeCursor):
+            def execute(self, sql, params):
+                assert sql == SEARCH_SQL
+                assert params[2] == [3, 7]
+
+        @contextmanager
+        def excluding_connection(_config):
+            yield FakeConnection(ExcludingCursor)
+
+        with patch("trendin.spark.io.concept_vectors.jdbc.connection", excluding_connection):
+            ConceptVectorStore(object()).search(
+                [0.1] * DIMENSIONS,
+                model_id=model_key(),
+                exclude_expression_ids=frozenset({7, 3}),
+            )
 
     def test_coverage_rejects_missing_and_stale_embeddings(self) -> None:
         with patch("trendin.spark.io.concept_vectors.jdbc.connection", coverage_connection):

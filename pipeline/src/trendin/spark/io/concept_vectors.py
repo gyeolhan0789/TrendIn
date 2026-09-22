@@ -35,7 +35,8 @@ SELECT c.id, c.canonical_name, c.category, min(v.embedding <=> %s::vector) AS di
   FROM {TABLE} v
   JOIN pl_concept_expression e ON e.id = v.expression_id
   JOIN pl_concept c ON c.id = e.concept_id
- WHERE v.model_id = %s AND e.status = 'ACTIVE' AND c.status = 'ACTIVE'
+ WHERE v.model_id = %s AND NOT (e.id = ANY(%s))
+   AND e.status = 'ACTIVE' AND c.status = 'ACTIVE'
  GROUP BY c.id, c.canonical_name, c.category
  ORDER BY distance, c.id
  LIMIT %s
@@ -133,12 +134,16 @@ class ConceptVectorStore:
         return len(expressions), len(pending)
 
     def search(
-        self, values: list[float], *, model_id: str, limit: int = 5
+        self, values: list[float], *, model_id: str, limit: int = 5,
+        exclude_expression_ids: frozenset[int] = frozenset(),
     ) -> tuple[VectorHit, ...]:
         if limit < 1:
             raise ValueError("limit must be positive")
         with jdbc.connection(self.config) as conn, conn.cursor() as cur:
-            cur.execute(SEARCH_SQL, (vector_literal(values), model_id, limit))
+            cur.execute(
+                SEARCH_SQL,
+                (vector_literal(values), model_id, sorted(exclude_expression_ids), limit),
+            )
             rows = cur.fetchall()
         return tuple(
             VectorHit(int(cid), str(name), str(category), round(1.0 - float(distance), 4))

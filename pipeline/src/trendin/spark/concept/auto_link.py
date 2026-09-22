@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from trendin.spark.concept.judge import NameIndex, Verdict
+from trendin.spark.concept.judge import UNCOUNTED, NameIndex, Verdict, usable_context
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,11 +19,24 @@ class Link:
     evidence: dict[str, Any] | None = None
 
 
-def select_links(verdicts: list[Verdict], names: NameIndex) -> tuple[Link, ...]:
-    """동일 영어 이름·분류가 유일할 때만 자동 연결 대상으로 고른다."""
+def select_links(
+    verdicts: list[Verdict],
+    names: NameIndex,
+    contexts: Mapping[tuple[str, str], str | None],
+) -> tuple[Link, ...]:
+    """동일 영어 이름·분류가 유일하고 **기사 문맥이 있을 때만** 자동 연결 대상으로 고른다.
+
+    **문맥을 여기서도 보는 이유** — 이 경로는 후보도 관문도 거치지 않고 바로 잇는다. 그런데
+    사전에 이름이 하나뿐이라는 것은 그 말이 한 가지 뜻이라는 뜻이 아니다. `Coach` 는 사전에
+    브랜드로만 있지만 감독이기도 하고, `rose` 는 색이면서 꽃이다. 문맥이 없으면 가릴 방법이
+    없으므로 사람에게 넘긴다 — 평가 문서의 "문맥 없는 표기는 점수와 무관하게 유보한다" 다.
+    """
     selected = []
     for verdict in verdicts:
-        if verdict.category == "generic":
+        if verdict.category in UNCOUNTED:
+            continue
+        context = contexts.get((verdict.lang, verdict.normalized))
+        if not usable_context(context, verdict.normalized, verdict.english_name):
             continue
         concept_id = names.exact_link(verdict.english_name, verdict.category)
         if concept_id is not None:

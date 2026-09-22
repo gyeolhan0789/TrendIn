@@ -89,6 +89,7 @@ def build_grouping(
     weights: dict[int, int],
     *,
     keywords: set[int],
+    silenced_keywords: frozenset[int] = frozenset(),
 ) -> Grouping:
     """개념 행 → 접기 규칙.
 
@@ -107,9 +108,13 @@ def build_grouping(
     ambiguous = {keyword_id for keyword_id, ids in seen.items() if len(ids) > 1}
 
     members: dict[int, list[int]] = {}
-    silenced: set[int] = set()
+    # 개념이 아직 없어 `countable` 을 걸 자리가 없는 표기다. 세지 않기로 판정된 것들이라
+    # 접을 대상도 아니다 — `Vogue Italia` 를 어디에 접겠는가.
+    silenced: set[int] = {keyword_id for keyword_id in silenced_keywords if keyword_id in keywords}
     for ref in refs:
         if ref.keyword_id in ambiguous or ref.keyword_id not in keywords:
+            continue
+        if ref.keyword_id in silenced:
             continue
         if not ref.countable:
             # 세지 않는 개념은 접지도 않는다. 접어 봐야 순위에 들지 않을 행 하나를 더

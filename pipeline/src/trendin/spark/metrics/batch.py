@@ -143,10 +143,13 @@ def load_grouping(
     drop = thresholds is None or thresholds.drop_uncountable
     if not fold and not drop:
         return Grouping(representative={}, silenced=frozenset())
+    
     refs = [
         ConceptRef(keyword_id, concept_id, countable if drop else True)
         for keyword_id, concept_id, countable in sink.concept_groups()
     ]
+    # 개념이 아직 없지만 세지 않기로 판정된 표기. 판정 기록을 순위에 반영하는 자리다.
+    silenced_keywords = sink.silenced_expressions() if drop else frozenset()
     if not fold:
         # 세지 않을 개념만 가려내고 접지는 않는다. 같은 개념의 두 표기를 서로 다른 개념
         # 번호로 흩어 놓으면 `build_grouping` 이 묶을 짝을 못 찾는다.
@@ -154,7 +157,9 @@ def load_grouping(
     weights = {
         keyword_id: sum(item.daily.values()) for keyword_id, item in series.items()
     }
-    return build_grouping(refs, weights, keywords=set(series))
+    return build_grouping(
+        refs, weights, keywords=set(series), silenced_keywords=silenced_keywords
+    )
 
 
 def fold_series(

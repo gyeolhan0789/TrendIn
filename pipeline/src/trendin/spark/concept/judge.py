@@ -26,8 +26,11 @@
 - **한 번에 여러 개를 묶는다.** 지시문을 나눠 낸다.
 - **답을 짧게 받는다.** gpt-4o-mini 는 출력 단가가 입력의 네 배라 여기가 제일 비싸다.
   설명을 받지 않고 `{"i":1,"en":"vintage","cat":"style"}` 만 받는다.
-- **첫 판정에는 문맥을 넣지 않는다.** 벡터 후보 재판정에는 기사 제목을 넣어 대상이 같은지
-  확인한다. 문맥이 없으면 벡터 후보를 자동 반영하지 않는다.
+- **첫 판정에도 문맥을 넣는다 (2026-09-22 에 뒤집었다).** 원래는 토큰을 아끼려고 낱말만
+  던졌는데, 그 절약이 다의어 오연결로 돌아왔다. 같은 표기에 뜻이 다른 실제 기사 문맥을 준
+  여섯 쌍에서 **여섯 쌍 모두 같은 답**이 나왔다 — 프로그래밍 기사의 `coach` 와 Tapestry 실적
+  기사의 `Coach` 가 똑같이 패션 브랜드로 이어졌다. 낱말만 보는 한 구조적으로 못 푼다.
+  넣는 것은 기사 제목이 아니라 **그 낱말이 실제로 나온 문장**이다 (`concept/context.py`).
 
 **pyspark 를 import 하지 않는다** (층 1).
 """
@@ -37,7 +40,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-PROMPT_VERSION = "name-v2"
+# v4 (2026-09-22): `event` 를 `media` 에서 떼어냈다. v3 은 첫 판정에 등장 문장을 실었다.
+# **올리지 않으면 옛 분류로 내린 판정이 그대로 재사용된다** — 판정 캐시와 `workflow.reusable`
+# 이 둘 다 이 값을 열쇠로 쓴다.
+PROMPT_VERSION = "name-v4"
 
 # 분류는 `pl_concept_category` 와 같아야 한다 (`io/concepts.py` DDL).
 CATEGORIES = (
@@ -50,16 +56,39 @@ CATEGORIES = (
     "brand",
     "designer",
     "person",
+    "media",
+    "event",
     "generic",
 )
 
+# 세지 않는 분류. 순위에 올릴 대상이 아니므로 개념에 잇지도 않는다.
+#
+# **`media` 를 따로 둔 이유** — 2026-09-22 안정성 측정에서 같은 입력 두 번에 결정이 어긋난
+# 4건이 전부 잡지였다 (`Vogue Italia` · `British Vogue` · `Glamour` · `GQ`). 잡지는 상식적으로
+# 브랜드이기도 해서, 칸이 `generic` 과 `brand` 뿐이면 모델이 매번 다르게 고른다. 자기 자리를
+# 주면 흔들릴 이유가 없어진다. 순위 51 · 69 · 85 · 101 위라 화면에 바로 보이는 자리였다.
+#
+# **`event` 는 여기 없다.** 처음에는 패션위크·갈라를 `media` 에 함께 넣었는데 잘못이었다 —
+# 잡지는 패션을 **보도하는** 쪽이고 패션위크는 **패션 자체**다. 추출기도 `컬렉션 또는 행사` 를
+# 별도 라벨로 갖고 있어 그쪽 구분과도 맞다. 행사를 세기로 한 것은 제품 결정이라, 뒤집을 때는
+# 이 집합에 더하지 말고 개념의 `countable` 을 내린다 — 분류는 그대로 두고 세는지만 바꾸는
+# 쪽이 되돌리기 쉽다.
+UNCOUNTED = frozenset({"generic", "media"})
+
 SYSTEM_PROMPT = """You label keywords taken from fashion media for a trend database.
+Each item has "w" (the keyword) and may have "c", one sentence where it actually appeared.
+When "c" is present, judge the keyword AS USED IN THAT SENTENCE, not by the word alone.
+The same word can be a fashion brand in one article and an everyday word in another.
 For each item give "en" (the English name of the thing) and "cat" (one category).
-Categories: apparel, footwear, accessory, material, color, style, brand, designer, person, generic.
+Categories: apparel, footwear, accessory, material, color, style, brand, designer, person, \
+media, event, generic.
 - person: a real individual (celebrity, model, athlete). Give the usual English name.
-- designer: a fashion designer. brand: a label, house or company.
-- generic: not a fashion trend worth counting - everyday words, seasons, emotions, places, \
-media outlets, platforms, photo agencies.
+- designer: a fashion designer. brand: a label, house or company that makes or sells fashion.
+- media: something that REPORTS ON fashion - magazines (Vogue, GQ, Elle), websites, TV networks, \
+social platforms, photo agencies. A magazine is a company, but here it is media, never brand.
+- event: an occasion fashion HAPPENS AT - fashion weeks, galas, film festivals, award shows, \
+runway seasons. Not media: a magazine covers the event, the event is not the magazine.
+- generic: not a fashion trend worth counting - everyday words, seasons, emotions, places.
 - "en" is ALWAYS a real English word or name, never a category name. Even for generic items: \
 yeoreum -> {"en":"summer","cat":"generic"}.
 - Use the term fashion media actually uses, in the singular. Common nouns lowercase, \
@@ -69,6 +98,29 @@ Reply with JSON only, no prose: {"r":[{"i":1,"en":"vintage","cat":"style"}]}
 One object per input id, same ids, same order."""
 
 DEFAULT_BATCH_SIZE = 20
+
+
+def usable_context(context: str | None, *identifiers: str | None) -> bool:
+    """이 문맥이 표기 말고 다른 정보를 담고 있나.
+
+    비었거나 표기를 되풀이한 것뿐이면 없는 것으로 친다. 평가 문서의 "문맥 없는 표기는 점수와
+    무관하게 유보한다" 를 실제로 지키는 자리다 — 관문이 문맥의 **존재**만 보고 있어서
+    `Coach` 의 문맥이 `Coach` 한 낱말이어도 통과했다. 브랜드인지 감독인지 가릴 근거가 하나도
+    없는데 자동으로 이어진다.
+
+    **길이로는 자르지 않는다.** 2026-09-22 운영 미등록 6,920건에서 표기를 뺀 나머지가 열 자
+    미만인 것이 10건뿐이었고, 그마저 `모델 배윤영의 로맨틱 코어` 처럼 멀쩡한 기사 제목이었다.
+    문턱을 세우면 잡는 것보다 버리는 것이 많다. 실제로 갈리는 것은 문맥이 아예 없는 376건이다.
+    """
+    text = (context or "").strip()
+    if not text:
+        return False
+    folded = text.casefold()
+    for item in identifiers:
+        key = (item or "").strip().casefold()
+        if key and folded == key:
+            return False
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +133,11 @@ class Question:
     article_count: int
     context: str | None = None
     surface: str | None = None
+
+    @property
+    def key(self) -> tuple[str, str]:
+        """판정 기록과 미등록 표를 잇는 열쇠. 두 곳이 같은 쌍을 쓴다."""
+        return (self.lang, self.normalized)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,9 +152,23 @@ def batches(questions: list[Question], size: int = DEFAULT_BATCH_SIZE) -> list[l
     return [questions[i : i + size] for i in range(0, len(questions), size)]
 
 
+# 문맥 한 줄의 길이 상한. 프롬프트에 그대로 실린다.
+CONTEXT_CHARS = 200
+
+
 def user_prompt(batch: list[Question]) -> str:
-    """배치 하나의 사용자 메시지. 공백 없는 JSON 이라 토큰이 덜 든다."""
-    items = [{"i": q.index, "w": q.normalized} for q in batch]
+    """배치 하나의 사용자 메시지. 공백 없는 JSON 이라 토큰이 덜 든다.
+
+    문맥은 **있을 때만** 싣는다. 없는 자리를 빈 문자열로 채우면 토큰만 쓰고, 모델이 문맥이
+    있는 항목과 없는 항목을 구분하지 못한다.
+    """
+    items = []
+    for question in batch:
+        item = {"i": question.index, "w": question.normalized}
+        context = (question.context or "").strip()
+        if context and context.casefold() != question.normalized.casefold():
+            item["c"] = context[:CONTEXT_CHARS]
+        items.append(item)
     return json.dumps({"items": items}, ensure_ascii=False, separators=(",", ":"))
 
 

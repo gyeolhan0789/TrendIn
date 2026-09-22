@@ -81,7 +81,13 @@ class MappingResult:
     rows: tuple[ConceptRow, ...]
     unmapped: tuple[Unmapped, ...]
     deferred: tuple[Deferred, ...]
+    # 모호하지 않게 붙은 표기. 이것만 검수 대기에서 내린다 (`io/concepts.RESOLVE_MAPPED_SQL`).
     resolved_keys: tuple[tuple[str, str], ...]
+    # 모호했지만 문맥 규칙이 갈라 붙인 표기. **`resolved_keys` 와 일부러 나눠 둔다** —
+    # 붙기는 붙었으므로 기사에는 개념이 남지만, 규칙이 추측한 것이라 검수 대기에서는 내리지
+    # 않는다. 나누지 않으면 사전 변경 전후를 맞댈 때 이 표기들이 셋 중 어디에도 없어
+    # "말뭉치가 달라졌다" 로 잘못 세어진다 (`jobs/concept.py` 의 `--dump`).
+    context_keys: tuple[tuple[str, str], ...] = ()
 
 
 def map_article(
@@ -117,6 +123,7 @@ def map_article(
             pending.append((lang, key, hits))
 
     deferred: list[Deferred] = []
+    context_keys: set[tuple[str, str]] = set()
     for lang, key, hits in pending:
         chosen = disambiguate(hits, {cid: dictionary.concept(cid) for cid in resolved})
         if chosen is None:
@@ -125,6 +132,7 @@ def map_article(
             )
         else:
             _attach(resolved, methods, chosen, METHOD_CONTEXT)
+            context_keys.add((lang, key))
 
     rows = tuple(
         ConceptRow(article_id, cid, tuple(sorted(resolved[cid])), methods[cid])
@@ -135,6 +143,7 @@ def map_article(
         unmapped=tuple(unmapped),
         deferred=tuple(deferred),
         resolved_keys=tuple(sorted(resolved_keys)),
+        context_keys=tuple(sorted(context_keys)),
     )
 
 
