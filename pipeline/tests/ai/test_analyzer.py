@@ -61,16 +61,20 @@ def test_description_summary_reason_JSON을_파싱한다():
     assert "모든 관점" in reason_instruction
 
 
-def test_분량을_문장_수가_아니라_글자_수로_묶는다():
-    """"1~5문장" 이던 때 모델은 규격을 지켰는데도 `reason` 이 300자를 넘겼다.
-
-    문장을 몇 개 쓸지만 정해 두면 한 문장이 얼마나 길어질지는 아무것도 안 묶인다.
-    """
+def test_필드별_문장_수와_글자_수_기준을_안내한다():
     for limit in (DESCRIPTION_PROMPT_CHARS, SUMMARY_MAX_CHARS, REASON_MAX_CHARS):
         assert f"{limit}자를 넘기지 않는다" in DEVELOPER_PROMPT
-    assert "문장으로 종합한다" not in DEVELOPER_PROMPT
+    assert "3~4문장" in DEVELOPER_PROMPT
+    assert "정확히 2문장" in DEVELOPER_PROMPT
     # `description` 은 프롬프트에 적는 수와 계약이 받는 수가 다르다 — 넘겨도 버리지 않는다.
     assert DESCRIPTION_PROMPT_CHARS < DESCRIPTION_MAX_CHARS
+
+
+def test_summary의_가독성과_필드별_역할을_안내한다():
+    assert "정형화된 지표 설명으로 시작하지 않는다" in DEVELOPER_PROMPT
+    assert "짧고 읽기 쉬운 문장으로 나눈다" in DEVELOPER_PROMPT
+    assert "세 필드에서 같은 사실이나 표현을 반복하지 않는다" in DEVELOPER_PROMPT
+    assert "스타일, 아이템, 활용 방식과 흐름" in DEVELOPER_PROMPT
 
 
 def test_유형_이름과_기사_번호를_쓰지_말라고_이른다():
