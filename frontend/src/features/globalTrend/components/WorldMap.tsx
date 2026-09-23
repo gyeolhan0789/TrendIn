@@ -77,6 +77,13 @@ const FLAT_CLIP = { x: 0, y: 4, width: REFERENCE_WIDTH, height: REFERENCE_WIDTH 
 const FLAT_BY_ID = new Map(WORLD_COUNTRIES.map((country) => [country.id, flatPathOf(country.rings, REFERENCE_WIDTH)]));
 
 const SHAPE_BY_ID = new Map(WORLD_COUNTRIES.map((country) => [country.id, country]));
+const ICE_LAND_IDS = new Set(['010', '304', '352']);
+const DESERT_LAND_IDS = new Set([
+  '012', '818', '434', '504', '788', '732', '478', '466', '562', '148', '729', '728',
+  '682', '887', '512', '784', '634', '414', '368', '400', '760',
+  '398', '795', '860', '004', '586', '496',
+  '036',
+]);
 
 export interface MapStop {
   country: CountryGeo;
@@ -540,14 +547,13 @@ export function WorldMap({
         <svg className="worldmap-canvas" width={width} height={height} role="img" aria-label="국가별 관심도 지도">
           <defs>
             {/*
-              * 바다는 흰색입니다. 색이 있으면 나라에 칠한 로고 빛깔과 겨뤄, 지도에서 색이 보이는
-              * 곳이 곧 자료가 있는 곳이라는 규칙이 깨집니다. 다만 공은 흰 바탕 위의 흰 원이 되면
-              * 테두리가 사라지므로, 가장자리로 갈수록 아주 옅은 회청색을 깔아 둥글기만 남깁니다.
+              * 3D 바다는 실제 지구본처럼 살짝 더 하늘빛이 돌게 둡니다. 2D 바다는 CSS의 평면
+              * 전용 색을 그대로 씁니다.
               */}
             <radialGradient id="worldmap-ocean" cx="35%" cy="32%" r="78%">
-              <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="62%" stopColor="#fbfcfe" />
-              <stop offset="100%" stopColor="#e8edf5" />
+              <stop offset="0%" stopColor="#eef8ff" />
+              <stop offset="62%" stopColor="#dceefb" />
+              <stop offset="100%" stopColor="#c9dfef" />
             </radialGradient>
             {/*
               * 언급이 잡힌 나라를 채우는 빛깔. 로고의 진주빛 물결에서 그대로 가져왔습니다.
@@ -570,7 +576,7 @@ export function WorldMap({
             {/* 공 둘레의 빛무리. 흐림 효과(blur)는 돌릴 때마다 다시 계산해 화면이 걸리므로, 가장자리만 옅어지는 그러데이션으로 냅니다. */}
             <radialGradient id="worldmap-glow">
               <stop offset="72%" stopColor="rgba(99,102,241,0)" />
-              <stop offset="88%" stopColor="rgba(99,102,241,0.22)" />
+              <stop offset="91%" stopColor="rgba(96,165,250,0.18)" />
               <stop offset="100%" stopColor="rgba(99,102,241,0)" />
             </radialGradient>
             <clipPath id="worldmap-flat-clip">
@@ -592,6 +598,12 @@ export function WorldMap({
               <path className="worldmap-graticule" d={globe.graticule} />
               {globe.land.map((group) => (
                 <path key={group.continent} className={`worldmap-land worldmap-land--${group.continent}`} d={group.path} />
+              ))}
+              {WORLD_COUNTRIES.filter((country) => DESERT_LAND_IDS.has(country.id)).map((country) => (
+                <path key={`desert-${country.id}`} className="worldmap-land-desert" d={globePathOf(country.rings, globe.frame)} />
+              ))}
+              {WORLD_COUNTRIES.filter((country) => ICE_LAND_IDS.has(country.id)).map((country) => (
+                <path key={`ice-${country.id}`} className="worldmap-land-ice" d={globePathOf(country.rings, globe.frame)} />
               ))}
               {highlights.map((highlight) => {
                 const shape = SHAPE_BY_ID.get(highlight.id);
@@ -655,16 +667,18 @@ export function WorldMap({
       {ready && legs.plane && (
         <svg className="worldmap-plane-layer" width={width} height={height} aria-hidden="true">
           {/*
-            * 테두리에 쓰는 로고 결입니다. 기수 쪽 하늘파랑에서 꼬리 쪽 연보라로 넘어갑니다.
-            * 속을 채울 때보다 진하게 둡니다. 테두리는 가늘어서, 속을 칠할 때의 옅은 빛깔로는
-            * 형체가 잡히지 않습니다. 자리를 비율(objectBoundingBox)로 잡아 두어, 기수가 돌면
-            * 결도 같이 돕니다.
+            * 기존 비행기 형태는 유지하고, 별 배경과 지구본 위에서 튀지 않도록 하늘빛 계열로
+            * 다시 칠합니다.
             */}
           <defs>
+            <linearGradient id="worldmap-plane-fill" x1="0" y1="0" x2="0.4" y2="1">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="52%" stopColor="#e7f6ff" />
+              <stop offset="100%" stopColor="#b8dfff" />
+            </linearGradient>
             <linearGradient id="worldmap-plane-edge" x1="0" y1="0" x2="0.35" y2="1">
-              <stop offset="0%" stopColor="#5BA4E8" />
-              <stop offset="50%" stopColor="#8E9FE8" />
-              <stop offset="100%" stopColor="#9A66DE" />
+              <stop offset="0%" stopColor="#bfebff" />
+              <stop offset="100%" stopColor="#5fa8ef" />
             </linearGradient>
           </defs>
           <g
