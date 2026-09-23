@@ -2,18 +2,13 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { showToast } from '../../components/common/toast';
 import { MyPageCard, MyPageCrumb, MyPageScreen } from '../../features/myPage/components/MyPageShell';
-import { DownloadIcon, UserIcon, WarnIcon } from '../../features/myPage/components/myPageIcons';
+import { DownloadIcon, UserIcon } from '../../features/myPage/components/myPageIcons';
 import { useInterestKeywords } from '../../features/myPage/hooks/useInterestKeywords';
 import { useMyProfile } from '../../features/myPage/hooks/useMyProfile';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { useSavedTrends } from '../../features/savedTrend/hooks/useSavedTrends';
 import { useLogout } from '../../features/auth/hooks/useLogout';
 import { downloadFile, toCsv, today } from '../../utils/download';
-
-/** 준비 중인 자리에 다는 표. 눌러도 되는 것처럼 보이지 않게 단추 대신 이 표를 세웁니다. */
-function SoonBadge() {
-  return <span className="mypage-badge">준비 중</span>;
-}
 
 export function AccountSettingsPage() {
   const navigate = useNavigate();
@@ -98,17 +93,6 @@ export function AccountSettingsPage() {
             <p className="mypage-row-desc">{savedTrends.length}개 트렌드 · JSON 형식</p>
             <button type="button" disabled={savedTrends.length === 0} onClick={exportSavedTrends}>다운로드</button>
           </div>
-        </div>
-      </MyPageCard>
-
-      <MyPageCard title="위험 영역" tone="rose" icon={<WarnIcon />} danger>
-        <div className="mypage-danger">
-          <div className="mypage-row-text">
-            <p className="mypage-row-title">계정 삭제</p>
-            <p className="mypage-row-desc">모든 자료가 영구히 지워집니다. 되돌릴 수 없습니다.</p>
-          </div>
-          {/* 계정을 지우는 API가 없습니다. 눌리는 단추를 두면 눌러 놓고 지워진 줄 압니다. */}
-          <SoonBadge />
         </div>
       </MyPageCard>
 

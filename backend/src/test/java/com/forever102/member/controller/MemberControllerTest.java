@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -528,6 +529,39 @@ class MemberControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("트렌드 ID는 필수입니다."));
         then(savedTrendService).should(never()).register(any(), any());
+    }
+
+    @Test
+    @DisplayName("로그인한 회원이 본인 계정을 탈퇴하고 문서화한다")
+    void withdraws() throws Exception {
+        /*
+         * 이 엔드포인트만 공통 응답 봉투를 쓰지 않는다. 204는 본문을 실을 수 없는 상태
+         * 코드라, 봉투를 돌려주면 코드가 적은 것과 클라이언트가 받는 것이 어긋난다.
+         */
+        // when & then
+        mockMvc.perform(delete("/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""))
+                .andDo(document("members-withdraw",
+                        preprocessRequest(prettyPrint()),
+                        requestHeaders(headerWithName(HttpHeaders.AUTHORIZATION)
+                                .description("Bearer 액세스 토큰"))));
+        then(memberService).should().withdraw(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("토큰의 회원이 남아 있지 않은 탈퇴는 404로 응답한다")
+    void rejectsWithdrawForMissingMember() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.MEMBER_NOT_FOUND))
+                .given(memberService).withdraw(MEMBER_ID);
+
+        // when & then
+        mockMvc.perform(delete("/members/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("존재하지 않는 회원입니다."));
     }
 
     @Test

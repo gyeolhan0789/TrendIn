@@ -31,4 +31,14 @@ public interface MemberInterestKeywordRepository extends JpaRepository<MemberInt
     @Query("delete from MemberInterestKeyword mik "
             + "where mik.member.id = :memberId and mik.keyword.domain not in :domains")
     void deleteByMemberIdAndKeywordDomainNotIn(Long memberId, Collection<Domain> domains);
+
+    /**
+     * 탈퇴할 회원의 관심 키워드를 모두 지운다.
+     *
+     * <p>이 표의 외래키에는 ON DELETE CASCADE가 없다. 회원 행을 먼저 지우면 DB가 외래키
+     * 위반으로 막으므로, 탈퇴는 이 표를 직접 비우고 나서 회원을 지운다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from MemberInterestKeyword mik where mik.member.id = :memberId")
+    void deleteAllByMemberId(Long memberId);
 }

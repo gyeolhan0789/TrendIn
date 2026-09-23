@@ -15,6 +15,16 @@ export async function updateMyProfile(nickname: string): Promise<MyProfile> {
   return unwrap(apiClient.patch<ApiResponse<MyProfile>>(API_ENDPOINTS.members.me, { nickname }));
 }
 
+/**
+ * 계정을 탈퇴 처리합니다. 되돌릴 수 없습니다.
+ *
+ * **이 엔드포인트만 204 라 본문이 없습니다.** 다른 호출과 달리 `unwrap` 을 쓰지 않는 이유가
+ * 그것입니다 — 벗겨 낼 봉투 자체가 내려오지 않습니다.
+ */
+export async function withdraw(): Promise<void> {
+  await apiClient.delete<void>(API_ENDPOINTS.members.me);
+}
+
 /** 분야를 주면 그 분야의 키워드만, 주지 않으면 전부 등록한 순서대로 옵니다. */
 export async function getInterestKeywords(domain?: string): Promise<InterestKeyword[]> {
   return unwrap(apiClient.get<ApiResponse<InterestKeyword[]>>(API_ENDPOINTS.members.interestKeywords, {

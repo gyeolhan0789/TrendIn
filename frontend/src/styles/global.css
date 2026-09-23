@@ -1538,6 +1538,27 @@ h1 { margin: 0; line-height: 1.25; }
 
 .mypage-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 6px; background: #f3f4f6; color: var(--lp-muted); font-size: 11px; font-weight: 600; }
 
+/*
+ * 되돌릴 수 없는 단추. 위험 영역 안에 서므로 카드의 연한 붉은 바탕 위에서도 눌러야 할 것으로
+ * 읽히도록 채워 둔다. 두 단추가 나란히 설 때는 좁은 화면에서 줄이 바뀌어도 붙어 있게 한다.
+ */
+.mypage-btn--danger { flex-shrink: 0; padding: 10px 20px; background: #dc2626; color: #fff; font-size: 13px; }
+.mypage-btn--danger:hover:not(:disabled) { background: #b91c1c; color: #fff; }
+.mypage-btn--danger:disabled { background: #fca5a5; cursor: default; }
+/*
+ * 한 번 더 묻는 대화상자. 네이티브 `<dialog>` 라 가운데 세우는 일과 배경은 브라우저가 한다 —
+ * `margin: auto` 가 top layer 안에서 상하좌우 가운데로 보낸다.
+ *
+ * `::backdrop` 은 top layer 에 함께 그려져 z-index 를 줄 필요가 없다. 같은 이유로 토스트가
+ * 이 상자 뒤에 가리므로, 알림을 보여야 할 때는 상자를 먼저 닫는다.
+ */
+.confirm-dialog { width: min(420px, calc(100vw - 32px)); margin: auto; padding: 28px; border: 1px solid var(--lp-line); border-radius: 16px; background: #fff; color: var(--lp-ink); }
+.confirm-dialog::backdrop { background: rgba(17, 24, 38, .45); }
+.confirm-dialog h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.confirm-dialog p { margin: 10px 0 0; color: var(--lp-muted); font-size: 14px; line-height: 1.6; }
+.confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.confirm-dialog-actions .mypage-btn { padding: 10px 20px; font-size: 13px; }
+
 .mypage-btn--dark { background: var(--lp-ink); color: #fff; }
 .mypage-btn--dark:hover:not(:disabled) { background: #2d2d44; color: #fff; }
 .mypage-btn--dark:disabled { background: #9ca3af; cursor: default; }
