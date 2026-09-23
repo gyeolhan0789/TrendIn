@@ -54,6 +54,9 @@ UNMAPPED_CONTEXT = "pl_unmapped_context"
 DECISION = "pl_mapping_decision"
 VERSION = "pl_dictionary_version"
 JUDGEMENT_CACHE = "pl_concept_judgement_cache"
+# 자동 판정이 사전·순위에 한 일의 원장. 회차(`run_id`) 단위로 되돌리는 근거다
+# (`concept/rollback.py`).
+CHANGE = "pl_concept_change"
 STAGE_ARTICLE_CONCEPT = "pl_stage_article_concept"
 STAGE_PROCESSED = "pl_stage_article_processed"
 STAGE_UNMAPPED = "pl_stage_unmapped"
@@ -192,6 +195,37 @@ CREATE TABLE IF NOT EXISTS {DECISION} (
 );
 CREATE INDEX IF NOT EXISTS pl_mapping_decision_key_idx
     ON {DECISION} (lang, normalized, decided_at DESC);
+
+-- 자동 판정의 원장. **사람이 한 일은 적지 않는다** — 되돌리기 명령이 사람의 결론을 건드리지
+-- 않게 하려는 것이다. 한 줄이 한 표기에 대해 한 일 하나이고, `run_id` 가 한 회차를 묶는다.
+--   DECISION  판정 표에 결론을 적었다 (EXCLUDE 는 적히는 순간 순위에서 빠진다)
+--   LINK      기존 개념에 표현을 붙였다
+--   MINT      세지 않는 새 개념과 그 표현을 만들었다
+-- 되돌리면 지우지 않고 `reverted_at` 을 채운다. 무엇이 있었고 누가 내렸는지가 같이 남는다.
+CREATE TABLE IF NOT EXISTS {CHANGE} (
+    id                 bigserial   PRIMARY KEY,
+    run_id             text        NOT NULL,
+    action             text        NOT NULL,
+    lang               text        NOT NULL,
+    normalized         text        NOT NULL,
+    decision           text,
+    concept_id         bigint,
+    expression_id      bigint,
+    decision_id        bigint,
+    -- 바꾸기 전 미등록 상태. 참고로만 남긴다 — 되돌리기는 늘 검수 대기(PENDING)로 보낸다.
+    prior_status       text,
+    dictionary_version integer,
+    decided_by         text        NOT NULL,
+    model              text,
+    prompt_version     text,
+    evidence           jsonb       NOT NULL DEFAULT '{{}}'::jsonb,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    reverted_at        timestamptz,
+    reverted_by        text,
+    CHECK (action IN ('DECISION', 'LINK', 'MINT'))
+);
+CREATE INDEX IF NOT EXISTS pl_concept_change_run_idx ON {CHANGE} (run_id);
+CREATE INDEX IF NOT EXISTS pl_concept_change_key_idx ON {CHANGE} (lang, normalized);
 
 CREATE TABLE IF NOT EXISTS {VERSION} (
     version    integer     PRIMARY KEY,
@@ -354,6 +388,20 @@ UPDATE {UNMAPPED} u
    AND u.normalized = mapped.normalized;
 """
 
+# 표기별로 이미 쌓인 문맥 표본의 수와 그중 첫 문장. 본문을 다시 읽을지 고르는 데 쓴다.
+STORED_CONTEXT_SQL = f"""
+SELECT lang, normalized, samples, snippet FROM (
+  SELECT u.lang, u.normalized,
+         count(*) OVER (PARTITION BY u.id) AS samples,
+         row_number() OVER (PARTITION BY u.id ORDER BY c.article_id) AS rn,
+         c.snippet
+    FROM {UNMAPPED} u
+    JOIN {UNMAPPED_CONTEXT} c ON c.unmapped_id = u.id
+   WHERE u.article_count >= %s AND u.status <> 'RESOLVED'
+) ranked WHERE rn = 1
+"""
+
+
 # 미등록: 표현 upsert → 기사 집합 → 문맥 표본(N건 상한) → article_count 재계산.
 UNMAPPED_MERGE_SQL = f"""
 INSERT INTO {UNMAPPED} (lang, normalized, surface_sample)
@@ -394,6 +442,13 @@ TRUNCATE {STAGE_UNMAPPED};
 
 # 미등록의 기사 이력은 지우지 않는다. 새 사전으로 실제 매핑된 표현의 상태만 위에서
 # RESOLVED 로 바꾼다. 이번 창에 다시 등장하지 않은 표현은 그대로 검수 대상으로 남는다.
+
+
+def new_run_id() -> str:
+    """자동 판정 한 회차의 이름. 명령줄에 옮겨 적기 쉽게 짧고, 시각 순으로 정렬된다."""
+    from datetime import datetime, timezone
+
+    return "auto-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 @dataclass(frozen=True, slots=True)
@@ -481,41 +536,94 @@ class ConceptSink:
             cur.execute(EXPRESSION_EVIDENCE_SQL, (domain, window_days))
             return {str(key): (int(articles), int(sources)) for key, articles, sources in cur}
 
-    def mint_concepts(self, mints: Sequence[Any], *, decided_by: str) -> int:
-        """새 개념과 그 표기를 **한 트랜잭션**으로 넣는다.
+    def mint_concepts(
+        self,
+        mints: Sequence[Any],
+        *,
+        decided_by: str,
+        run_id: str | None = None,
+        uncounted: Iterable[str] = (),
+    ) -> int:
+        """새 개념과 그 표기를 **한 트랜잭션**으로 넣고 원장에 남긴다.
 
-        **세지 않는 것으로 넣는다.** `countable=false` 면 순위 접기가 이미 걸러 내므로 잘못
-        만든 개념 하나가 화면을 흔들지 않는다. 사람이 훑고 올리는 것이 승격이다.
+        **세는 개념으로 넣는다.** `uncounted` 에 든 분류만 `countable=false` 다. 전에는 전부
+        세지 않게 만들었는데, 세지 않는 개념에 붙은 키워드는 순위에서 빠지므로
+        (`metrics/concepts.build_grouping`) 그때까지 키워드로 순위에 오르던 것을 숨기게
+        됐다. 자동으로 만든 개념인지는 `source` 로 가린다.
+
+        하나라도 만들면 사전 버전을 한 번 올린다. 후보 목록이 바뀌므로 유보 판정을 다시 믿으면
+        안 되고(`concept/workflow.reusable`), 되돌릴 때도 어느 버전에서 생겼는지가 남아야 한다.
         """
         if not mints:
             return 0
+        run = run_id or new_run_id()
+        hidden = set(uncounted)
         made = 0
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext('pl_dictionary_version'))")
+            cur.execute(f"SELECT coalesce(max(version), 0) FROM {VERSION}")
+            version = int(cur.fetchone()[0]) + 1
             for mint in mints:
                 cur.execute(
                     f"""
                     INSERT INTO {CONCEPT} (canonical_name, category, countable, source)
-                    VALUES (%s, %s, false, %s)
+                    VALUES (%s, %s, %s, %s)
                     ON CONFLICT (canonical_name, category) DO NOTHING
                     RETURNING id
                     """,
-                    (mint.canonical_name, mint.category, decided_by),
+                    (mint.canonical_name, mint.category, mint.category not in hidden, decided_by),
                 )
                 row = cur.fetchone()
                 if row is None:
-                    # 같은 이름·분류가 이미 있다. 이번 회차에 만들 것이 아니라 다음 회차가
-                    # 사전 조회로 붙일 것이다.
+                    # 같은 이름·분류가 이미 있다 — 되돌려 `RETIRED` 가 된 것도 여기 걸린다. 이번
+                    # 회차에 만들 것이 아니라 다음 회차가 사전 조회로 붙일 것이다.
                     continue
                 concept_id = int(row[0])
                 cur.execute(
                     f"""
-                    INSERT INTO {EXPRESSION} (concept_id, lang, surface, normalized, kind, source)
-                    VALUES (%s, %s, %s, %s, 'canonical', %s)
+                    INSERT INTO {EXPRESSION}
+                        (concept_id, lang, surface, normalized, kind, source, source_id, decided_by)
+                    VALUES (%s, %s, %s, %s, 'canonical', %s, %s, %s)
                     ON CONFLICT (lang, normalized, concept_id) DO NOTHING
+                    RETURNING id
                     """,
-                    (concept_id, mint.lang, mint.surface, mint.normalized, decided_by),
+                    (
+                        concept_id, mint.lang, mint.surface, mint.normalized,
+                        decided_by, run, decided_by,
+                    ),
+                )
+                expression = cur.fetchone()
+                cur.execute(
+                    f"SELECT status FROM {UNMAPPED} WHERE lang = %s AND normalized = %s",
+                    (mint.lang, mint.normalized),
+                )
+                prior = cur.fetchone()
+                cur.execute(
+                    f"INSERT INTO {CHANGE} (run_id, action, lang, normalized, decision, "
+                    "concept_id, expression_id, prior_status, dictionary_version, decided_by, "
+                    "evidence) VALUES (%s, 'MINT', %s, %s, 'NEW_CONCEPT', %s, %s, %s, %s, %s, "
+                    "%s::jsonb)",
+                    (
+                        run, mint.lang, mint.normalized, concept_id,
+                        int(expression[0]) if expression else None,
+                        prior[0] if prior else None, version, decided_by,
+                        json.dumps(
+                            {
+                                "canonical_name": mint.canonical_name,
+                                "category": mint.category,
+                                "articles": mint.articles,
+                                "sources": mint.sources,
+                            },
+                            ensure_ascii=False,
+                        ),
+                    ),
                 )
                 made += 1
+            if made:
+                cur.execute(
+                    f"INSERT INTO {VERSION} (version, note, changed_by) VALUES (%s, %s, %s)",
+                    (version, f"LLM 새 개념 잠정 {made}건 ({run})", decided_by),
+                )
         return made
 
     # --- 적재 --------------------------------------------------------------
@@ -651,11 +759,16 @@ class ConceptSink:
         model: str,
         prompt_version: str,
         dictionary_version: int,
+        run_id: str | None = None,
     ) -> int:
-        """한 회차의 판정을 **한 트랜잭션**으로 남긴다.
+        """한 회차의 판정을 **한 트랜잭션**으로 남기고, 같은 트랜잭션에서 원장에도 적는다.
 
         네 결론을 모두 적는다. `LINK` 만 남기면 나머지 셋은 다음 회차에 다시 판정되고, 같은
         표현을 매달 LLM 에게 되묻게 된다.
+
+        **원장에 같이 적는 이유** — 판정 표에 적힌 `EXCLUDE` 는 그 자체로 순위에서 표기를
+        뺀다 (`io/metrics.SILENCED_SQL`). 사전 행이 하나도 안 생겨도 화면이 바뀌는 자리라,
+        되돌릴 수 있으려면 이것도 회차에 묶여 있어야 한다.
         """
         if not decisions:
             return 0
@@ -675,12 +788,23 @@ class ConceptSink:
             )
             for item in decisions
         ]
+        run = run_id or new_run_id()
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            # `execute_values` 는 VALUES 한 자리만 채우므로 회차 번호는 미리 인용해 박는다.
+            run_literal = cur.mogrify("%s", (run,)).decode("utf-8")
             execute_values(
                 cur,
-                f"INSERT INTO {DECISION} "
+                f"WITH written AS (INSERT INTO {DECISION} "
                 "(lang, normalized, decision, concept_id, decided_by, model, "
-                "prompt_version, evidence, dictionary_version) VALUES %s",
+                "prompt_version, evidence, dictionary_version) VALUES %s "
+                "RETURNING id, lang, normalized, decision, concept_id, decided_by, model, "
+                "prompt_version, dictionary_version) "
+                f"INSERT INTO {CHANGE} (run_id, action, lang, normalized, decision, concept_id, "
+                "decision_id, prior_status, dictionary_version, decided_by, model, prompt_version) "
+                f"SELECT {run_literal}, 'DECISION', w.lang, w.normalized, w.decision, "
+                "w.concept_id, w.id, u.status, w.dictionary_version, w.decided_by, w.model, "
+                f"w.prompt_version FROM written w LEFT JOIN {UNMAPPED} u "
+                "ON u.lang = w.lang AND u.normalized = w.normalized",
                 rows,
                 template="(%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)",
             )
@@ -747,15 +871,27 @@ class ConceptSink:
         model: str,
         prompt_version: str,
         dictionary_version: int,
+        run_id: str | None = None,
+        write_decision: bool = True,
     ) -> None:
-        """Keep the latest proposal queued for review and one audit row per version."""
-        encoded = json.dumps(evidence, ensure_ascii=False)
+        """검수 대기에 최신 제안을 남기고, **결정이 아직 없는 표기에만** 자동 유보를 한 줄 적는다.
+
+        **결정이 적힌 표기에는 유보를 덧쓰지 않는다** (`write_decision=False`). 판정 표는 표기마다
+        최신 결정만 읽힌다. 제외·새 개념으로 적힌 표기 위에 유보를 덧쓰면 그 결론이 지워진다 —
+        2026-09-23 첫 자동 반영 회차에서 제외 183건이 전부 이렇게 덮여 순위에 적용되지 않았다
+        (`io/metrics.SILENCED_SQL`). 여기 남는 것은 `NAME_FAILED` 처럼 결론 없이 끝난 표기다.
+
+        적은 유보는 원장에도 남긴다. 되돌리기가 회차 번호 하나로 이것까지 찾을 수 있어야 한다.
+        """
+        encoded = json.dumps(evidence, ensure_ascii=False, default=str)
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(
                 f"UPDATE {UNMAPPED} SET status = 'QUEUED', proposal = %s::jsonb "
                 "WHERE lang = %s AND normalized = %s AND status <> 'RESOLVED'",
                 (encoded, lang, normalized),
             )
+            if not write_decision:
+                return
             cur.execute(
                 f"INSERT INTO {DECISION} "
                 "(lang, normalized, decision, concept_id, decided_by, model, "
@@ -764,7 +900,8 @@ class ConceptSink:
                 "WHERE NOT EXISTS ("
                 f"SELECT 1 FROM {DECISION} WHERE lang = %s AND normalized = %s "
                 "AND decision = 'DEFER' AND decided_by = 'auto:llm' "
-                "AND model = %s AND prompt_version = %s AND dictionary_version = %s)",
+                "AND model = %s AND prompt_version = %s AND dictionary_version = %s) "
+                "RETURNING id",
                 (
                     lang,
                     normalized,
@@ -779,6 +916,227 @@ class ConceptSink:
                     dictionary_version,
                 ),
             )
+            written = cur.fetchone()
+            if written is None:
+                return
+            cur.execute(
+                f"INSERT INTO {CHANGE} (run_id, action, lang, normalized, decision, decision_id, "
+                "dictionary_version, decided_by, model, prompt_version, evidence) "
+                "VALUES (%s, 'DECISION', %s, %s, 'DEFER', %s, %s, 'auto:llm', %s, %s, %s::jsonb)",
+                (
+                    run_id or new_run_id(), lang, normalized, int(written[0]),
+                    dictionary_version, model, prompt_version, encoded,
+                ),
+            )
+
+    def stored_contexts(self, *, min_articles: int) -> dict[tuple[str, str], tuple[int, str]]:
+        """표기 → (쌓인 문맥 표본 수, 첫 문장). 표본이 없는 표기는 빠진다.
+
+        **본문을 다시 읽지 않기 위한 것이다.** 표본은 표현당 상한이 있고 찬 뒤에는 새 문장이
+        들어가지 못하므로(`UNMAPPED_MERGE_SQL`), 이미 찬 표기의 기사를 또 읽으면 뽑은 문장이
+        그대로 버려진다. 30일 창을 매 회차 다시 읽던 것이 여기서 갈린다.
+
+        첫 문장을 같이 돌려주는 이유는 건너뛴 표기도 판정에는 문맥이 필요해서다. 새로 뽑는
+        대신 저장된 것을 쓴다 — 기사 제목으로 되돌아가면 `judge.usable_context` 가 막는다.
+        """
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(STORED_CONTEXT_SQL, (min_articles,))
+            return {
+                (str(lang), str(normalized)): (int(samples), str(snippet))
+                for lang, normalized, samples, snippet in cur
+                if snippet
+            }
+
+    def record_proposals(
+        self,
+        proposals: Sequence[Any],
+        *,
+        model: str,
+        prompt_version: str,
+        dictionary_version: int,
+    ) -> int:
+        """이번 회차 판정을 **제안으로만** 남긴다. 사전은 건드리지 않는다.
+
+        **`pl_mapping_decision` 에 적지 않는 것이 요점이다.** 그 표는 사람이 내린 결론을 담고,
+        거기 적힌 것은 `concept/workflow.reusable` 이 다시 묻지 않는다. LLM 판단을 거기 넣으면
+        나중에 반영을 켜도 이미 "결론 난" 표현은 영영 다시 보지 않는다 — 특히 `NEW_CONCEPT`
+        이 그렇다. 제안은 회차마다 덮어써야 하는 것이라 자리가 다르다 (표 주석: "LLM 제안
+        원문. 확정이 아니다").
+
+        **상태는 건드리지 않는다.** `QUEUED` 는 "사람이 이번엔 넘어갔다" 는 뜻이고, 검수
+        내보내기가 그것을 뒤로 민다. 제안이 달렸다고 그 자리로 보내면 정작 미리 채워 준 줄이
+        맨 아래로 간다. 제안은 상태가 아니라 딸린 자료다.
+
+        `RESOLVED` 는 아예 제외한다. 이미 붙은 표기에 제안을 덮으면 끝난 일이 다시 올라온다.
+        """
+        if not proposals:
+            return 0
+        from psycopg2.extras import execute_values
+
+        rows = [
+            (
+                item.lang,
+                item.normalized,
+                json.dumps(
+                    {
+                        "decision": item.decision,
+                        "concept_id": item.concept_id,
+                        "model": model,
+                        "prompt_version": prompt_version,
+                        "dictionary_version": dictionary_version,
+                        **item.evidence,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
+            for item in proposals
+        ]
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            execute_values(
+                cur,
+                f"UPDATE {UNMAPPED} u SET proposal = v.proposal::jsonb "
+                "FROM (VALUES %s) AS v(lang, normalized, proposal) "
+                "WHERE u.lang = v.lang AND u.normalized = v.normalized "
+                "AND u.status <> 'RESOLVED'",
+                rows,
+            )
+        return len(rows)
+
+    # --- 원장 --------------------------------------------------------------
+    def changes(
+        self, *, run_id: str | None = None, key: tuple[str, str] | None = None
+    ) -> list[Any]:
+        """원장에서 회차 하나 또는 표기 하나의 줄을 `concept/rollback.Change` 로 돌려준다."""
+        from trendin.spark.concept.rollback import Change
+
+        where, params = [], []
+        if run_id is not None:
+            where.append("run_id = %s")
+            params.append(run_id)
+        if key is not None:
+            where.append("lang = %s AND normalized = %s")
+            params.extend(key)
+        if not where:
+            return []
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, run_id, action, lang, normalized, decision, concept_id, "
+                f"expression_id, reverted_at IS NOT NULL FROM {CHANGE} "
+                f"WHERE {' AND '.join(where)} ORDER BY id",
+                params,
+            )
+            return [
+                Change(
+                    id=int(row[0]), run_id=str(row[1]), action=str(row[2]),
+                    lang=str(row[3]), normalized=str(row[4]),
+                    decision=None if row[5] is None else str(row[5]),
+                    concept_id=None if row[6] is None else int(row[6]),
+                    expression_id=None if row[7] is None else int(row[7]),
+                    reverted=bool(row[8]),
+                )
+                for row in cur.fetchall()
+            ]
+
+    def auto_runs(self, *, limit: int = 20) -> list[tuple]:
+        """최근 회차 — `(run_id, 처음 시각, LINK, MINT, EXCLUDE, 전체, 되돌린 수)`."""
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT run_id, min(created_at), "
+                "count(*) FILTER (WHERE action = 'LINK'), "
+                "count(*) FILTER (WHERE action = 'MINT'), "
+                "count(*) FILTER (WHERE action = 'DECISION' AND decision = 'EXCLUDE'), "
+                "count(*), count(reverted_at) "
+                f"FROM {CHANGE} GROUP BY run_id ORDER BY min(created_at) DESC LIMIT %s",
+                (limit,),
+            )
+            return list(cur.fetchall())
+
+    def revert(self, plan: Any, *, by: str, note: str) -> dict[str, Any]:
+        """`concept/rollback.Plan` 을 **한 트랜잭션**으로 되돌린다. 지우지 않고 상태를 내린다.
+
+        **사람이 손댄 개념은 내리지 않는다.** 새 개념에 검수가 표현을 더 붙였으면 그건 이미 사람의
+        결론이다. 그런 개념은 건너뛰고 돌려주는 값에 적는다 — 표기 쪽(보류·검수 대기)은 그대로
+        되돌린다. 세는지 여부로는 가리지 않는다. 새 개념은 이제 처음부터 세는 개념이다.
+        """
+        if plan.empty:
+            return {"changes": 0}
+        concepts = list(plan.concepts)
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext('pl_dictionary_version'))")
+            kept: list[int] = []
+            if concepts:
+                cur.execute(
+                    f"SELECT DISTINCT c.id FROM {CONCEPT} c LEFT JOIN {EXPRESSION} e "
+                    "ON e.concept_id = c.id AND e.status = 'ACTIVE' "
+                    "AND e.source NOT IN ('llm', 'auto:llm') "
+                    "WHERE c.id = ANY(%s) AND e.id IS NOT NULL",
+                    (concepts,),
+                )
+                kept = sorted(int(row[0]) for row in cur.fetchall())
+                concepts = [item for item in concepts if item not in kept]
+            cur.execute(
+                f"UPDATE {EXPRESSION} SET status = 'REJECTED', decided_by = %s "
+                "WHERE status = 'ACTIVE' AND (id = ANY(%s) OR concept_id = ANY(%s)) "
+                "AND concept_id <> ALL(%s) RETURNING id",
+                (by, list(plan.expressions), concepts, kept),
+            )
+            rejected = sorted(int(row[0]) for row in cur.fetchall())
+            if concepts:
+                cur.execute(
+                    f"UPDATE {CONCEPT} SET status = 'RETIRED', updated_at = now() "
+                    "WHERE id = ANY(%s) AND status = 'ACTIVE'",
+                    (concepts,),
+                )
+            # 기사에 붙은 행도 내린다. 창 밖 기사는 다음 회차가 다시 붙이지 않으므로 여기서 치워야
+            # 한다. 되돌린 표현만으로 붙은 행은 지우고, 다른 표현과 함께 붙은 행은 그 표현만 뺀다.
+            cur.execute(
+                f"DELETE FROM {ARTICLE_CONCEPT} "
+                "WHERE concept_id = ANY(%s) OR expression_ids <@ %s::bigint[]",
+                (concepts, rejected),
+            )
+            removed = cur.rowcount
+            if rejected:
+                cur.execute(
+                    f"UPDATE {ARTICLE_CONCEPT} SET expression_ids = ARRAY("
+                    "SELECT x FROM unnest(expression_ids) AS x WHERE x <> ALL(%s::bigint[])) "
+                    "WHERE expression_ids && %s::bigint[]",
+                    (rejected, rejected),
+                )
+            cur.execute(
+                f"INSERT INTO {VERSION} (version, note, changed_by) "
+                f"SELECT coalesce(max(version), 0) + 1, %s, %s FROM {VERSION} RETURNING version",
+                (note, by),
+            )
+            version = int(cur.fetchone()[0])
+            evidence = json.dumps(
+                {"rollback": note, "changes": list(plan.change_ids)}, ensure_ascii=False
+            )
+            for lang, normalized in plan.keys:
+                # 사람 보류가 최신 결정이 된다 — 순위 제외가 풀리고, 자동 판정이 다시 손대지 않는다.
+                cur.execute(
+                    f"INSERT INTO {DECISION} (lang, normalized, decision, decided_by, evidence, "
+                    "dictionary_version) VALUES (%s, %s, 'DEFER', %s, %s::jsonb, %s)",
+                    (lang, normalized, by, evidence, version),
+                )
+                cur.execute(
+                    f"UPDATE {UNMAPPED} SET status = %s WHERE lang = %s AND normalized = %s",
+                    (STATUS_PENDING, lang, normalized),
+                )
+            cur.execute(
+                f"UPDATE {CHANGE} SET reverted_at = now(), reverted_by = %s "
+                "WHERE id = ANY(%s) AND reverted_at IS NULL",
+                (by, list(plan.change_ids)),
+            )
+        return {
+            "changes": len(plan.change_ids),
+            "expressions": len(rejected),
+            "concepts": len(concepts),
+            "kept_concepts": kept,
+            "article_rows": removed,
+            "keys": len(plan.keys),
+            "version": version,
+        }
 
     # --- 내부 --------------------------------------------------------------
     def _rows(self, statement: str) -> list[tuple]:

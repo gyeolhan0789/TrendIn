@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -194,7 +195,9 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
     # (`--dump --seed-in-memory --dry-run`)가 그 비용을 매번 치르게 된다. 덤프는 표기가 어디로
     # 갔는지만 적지 문맥을 적지 않는다.
     if not dry_run:
-        unmapped = _with_sentences(spark, config, unmapped, thresholds)
+        unmapped = _with_sentences(
+            spark, config, unmapped, thresholds, _stored_contexts(sink, thresholds)
+        )
 
     distinct_unmapped = {(u.lang, u.normalized) for u in unmapped}
     log.info(
@@ -257,12 +260,13 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
 
 
 def _mint_new_concepts(
-    *, sink, automation, result, questions, dictionary, domain: str, window_days: int
+    *, sink, automation, result, questions, dictionary, domain: str, window_days: int,
+    run_id: str,
 ) -> None:
     """판정이 "새 개념" 이라고 한 것 중 근거가 선 것만 사전에 넣는다.
 
-    넣더라도 `countable=false` 라 순위에는 나오지 않는다. 사람이 훑고 올리는 것이 승격이고,
-    그래서 잘못 만든 개념 하나가 화면을 흔들지 않는다 (`concept/minting.py`).
+    세는 개념으로 넣는다 — 그 표기는 사전에 없던 동안에도 키워드로 순위에 셌다. 숨길 분류는
+    `concept.automation.mint_uncounted` 에 적는다.
     """
     from trendin.spark.concept import minting, workflow
 
@@ -307,25 +311,44 @@ def _mint_new_concepts(
         log.info("새 개념 후보 %d건 중 근거가 선 것이 없다", len(proposals))
         return
     try:
-        made = sink.mint_concepts(mints, decided_by=minting.AUTO_SOURCE)
-        log.info(
-            "새 개념 %d건을 잠정으로 넣었다 (세지 않음, 사람 검수 대기) — 후보 %d건 중",
-            made, len(proposals),
+        made = sink.mint_concepts(
+            mints, decided_by=minting.AUTO_SOURCE, run_id=run_id,
+            uncounted=automation.mint_uncounted,
         )
+        log.info("새 개념 %d건을 넣었다 — 후보 %d건 중", made, len(proposals))
     except Exception:
         log.exception("새 개념 적재 실패 — 이번 회차 연결 결과는 그대로 둔다")
 
 
-def _with_sentences(spark, config: Config, unmapped: list, thresholds) -> list:
+def _stored_contexts(sink, thresholds) -> dict:
+    """이미 쌓인 문맥 표본. 읽지 못하면 빈 사전 — 예전처럼 본문을 다 읽는다."""
+    try:
+        return sink.stored_contexts(min_articles=thresholds.min_articles)
+    except Exception:
+        log.exception("쌓인 문맥을 읽지 못했다 — 본문을 전부 읽는다")
+        return {}
+
+
+def _with_sentences(spark, config: Config, unmapped: list, thresholds, stored) -> list:
     """미등록 발생의 문맥을 기사 본문의 문장으로 채운다. 못 읽으면 그대로 둔다.
 
     **판정 대상이 될 표현의 기사만 읽는다.** 창 안의 미등록 발생 전부를 읽으면 parquet 을 수천
     개 열게 되고, 원래 DB 만 쓰던 이 Job 이 갑자기 무거워진다. 문맥이 필요한 것은 기사 수
     문턱을 넘어 실제로 판정에 오르는 표현뿐이다 — 나머지는 어차피 묻지 않는다.
+
+    **표본이 이미 찬 표기는 본문을 읽지 않는다.** 저장은 표현당 상한이 있어서
+    (`io/concepts.UNMAPPED_MERGE_SQL`), 찬 표기의 기사를 또 읽어 봐야 뽑은 문장이 그대로
+    버려진다. 이것이 시간의 거의 전부다 — 본문은 발행일 폴더로 나뉘어 있고 읽을 기사 목록의
+    처음부터 끝까지가 통째로 스캔되므로, 30일에 흩어진 목록 하나가 30일치를 다 읽게 만든다.
+    빼고 나면 남는 것이 새로 올라온 표기뿐이라 범위가 최근 며칠로 좁아진다.
+
+    건너뛴 표기에는 저장해 둔 문장을 그대로 얹는다. 비우거나 제목으로 되돌리면 판정이 문맥
+    없는 표기가 되어 유보로 떨어진다 (`concept/judge.usable_context`).
     """
     from dataclasses import replace as _replace
 
     from trendin.spark.concept.context import find_sentence
+    from trendin.spark.concept.context import plan as context_plan
     from trendin.spark.io.article_bodies import load_bodies
     from trendin.spark.normalize.curated import curated_root
 
@@ -334,32 +357,54 @@ def _with_sentences(spark, config: Config, unmapped: list, thresholds) -> list:
     counts: dict[tuple[str, str], set[int]] = {}
     for item in unmapped:
         counts.setdefault((item.lang, item.normalized), set()).add(item.article_id)
-    wanted = {
-        key for key, ids in counts.items() if len(ids) >= thresholds.min_articles
-    }
+    chosen = context_plan(
+        {key: len(ids) for key, ids in counts.items()},
+        min_articles=thresholds.min_articles,
+        context_samples=thresholds.context_samples,
+        stored=stored,
+    )
+    wanted, kept = chosen.wanted, chosen.kept
+
+    def _apply(item, sentence: str | None):
+        return item if item.context == sentence else _replace(item, context=sentence)
+
+    def _reuse(items: list) -> list:
+        """본문을 읽지 못했을 때도 저장된 문장은 쓴다."""
+        if not kept:
+            return items
+        return [_apply(item, kept.get(item.key, item.context)) for item in items]
+
     if not wanted:
-        return unmapped
+        if kept:
+            log.info("문맥 표본이 이미 찬 표현 %d개 — 본문을 읽지 않는다", len(kept))
+        return _reuse(unmapped)
     try:
         root = curated_root(config)
     except Exception:
         log.warning("curated 경로를 읽지 못했다 — 문맥은 제목 그대로 둔다")
-        return unmapped
+        return _reuse(unmapped)
     needed = {
         item.article_id for item in unmapped if (item.lang, item.normalized) in wanted
     }
     log.info(
-        "문맥용 본문 %d개 기사를 읽는다 (판정 대상 표현 %d개 · 미등록 발생 %d)",
-        len(needed), len(wanted), len(unmapped),
+        "문맥용 본문 %d개 기사를 읽는다 (문장이 필요한 표현 %d개 · 표본이 찬 표현 %d개 건너뜀 "
+        "· 미등록 발생 %d)",
+        len(needed), len(wanted), len(kept), len(unmapped),
     )
     bodies = load_bodies(spark, config, needed, curated_root=root)
     if not bodies:
         log.info("본문을 읽지 못했다 — 문맥은 제목 그대로 둔다")
-        return unmapped
+        return _reuse(unmapped)
 
     filled = 0
     out = []
     for item in unmapped:
-        if (item.lang, item.normalized) not in wanted:
+        key = item.key
+        if key in kept:
+            # 저장해 둔 문장이 있다. 같은 것을 다시 뽑을 이유가 없다.
+            out.append(_apply(item, kept[key]))
+            continue
+        if key not in wanted:
             # 판정에 오르지 않을 표현이다. 본문을 읽지 않았으니 있던 값을 그대로 둔다.
             out.append(item)
             continue
@@ -371,7 +416,10 @@ def _with_sentences(spark, config: Config, unmapped: list, thresholds) -> list:
             continue
         filled += 1
         out.append(_replace(item, context=sentence))
-    log.info("등장 문장을 붙인 미등록 발생 %d건 (판정 대상 %d개 표현)", filled, len(wanted))
+    log.info(
+        "등장 문장을 붙인 미등록 발생 %d건 (새로 뽑은 표현 %d개 · 저장분을 쓴 표현 %d개)",
+        filled, len(wanted), len(kept),
+    )
     return out
 
 
@@ -386,6 +434,7 @@ def _run_automatic_linking(
     from trendin.spark.concept.candidates import CandidateIndex
     from trendin.spark.concept.judge import PROMPT_VERSION
     from trendin.spark.concept.retrieval import CandidateRetriever, RetrievalPolicy
+    from trendin.spark.io.concepts import new_run_id
     from trendin.spark.io.llm import GmsClient
 
     questions = _questions(unmapped, min_articles=thresholds.min_articles)
@@ -420,13 +469,49 @@ def _run_automatic_linking(
     )
     if result.reused:
         log.info("이미 판정된 표현 %d건은 건너뛴다", len(result.reused))
+    counts = Counter(item.decision for item in result.decisions)
+    log.info(
+        "판정 갈래: LINK %d · NEW %d · EXCLUDE %d · DEFER %d — 질문 %d · 호출 시도 %d",
+        counts.get(workflow.LINK, 0),
+        counts.get(workflow.NEW_CONCEPT, 0),
+        counts.get(workflow.EXCLUDE, 0),
+        counts.get(workflow.DEFER, 0),
+        len(questions),
+        result.attempted_calls,
+    )
+
+    if not automation.apply_links:
+        # **관찰 모드.** 판정은 돌되 사전에는 아무것도 넣지 않는다. 결과는 검수 대기의
+        # 제안으로만 남고, 사전은 사람이 `scripts/concept-review.py apply` 로 승인한 것만
+        # 받는다. 판정을 `pl_mapping_decision` 에도 적지 않는다 — 거기 적으면 굳어서
+        # 나중에 반영을 켜도 그 표현은 다시 보지 않는다 (`io/concepts.record_proposals`).
+        try:
+            recorded = sink.record_proposals(
+                result.decisions,
+                model=automation.model,
+                prompt_version=PROMPT_VERSION,
+                dictionary_version=dictionary_version,
+            )
+            log.info("제안 %d건을 검수 대기에 남겼다 — 사전 반영 없음", recorded)
+        except Exception:
+            log.exception("제안 기록 실패 — 이번 회차 연결 결과는 그대로 둔다")
+        return
+
+    # **이 회차가 바꾼 것은 전부 이 번호로 묶인다.** 판정 표·연결·새 개념 세 자리가 같은 번호로
+    # 원장(`io/concepts.CHANGE`)에 남고, 되돌릴 때 이 번호 하나로 한꺼번에 내린다.
+    run_id = new_run_id()
+    log.info("자동 반영 회차 %s 시작", run_id)
     try:
+        # `LINK` 는 여기 적지 않는다. 연결이 실제로 들어갔을 때 `apply_links` 가 같은 트랜잭션에서
+        # 적는다 — 여기서도 적으면 한 연결이 판정 표에 두 번 남고, 막혀서 안 들어간 연결도
+        # "이었다" 로 남는다.
         recorded = sink.record_decisions(
-            result.decisions,
+            [item for item in result.decisions if item.decision != workflow.LINK],
             decided_by="auto:llm",
             model=automation.model,
             prompt_version=PROMPT_VERSION,
             dictionary_version=dictionary_version,
+            run_id=run_id,
         )
         log.info("판정 %d건을 기록했다", recorded)
     except Exception:
@@ -434,19 +519,20 @@ def _run_automatic_linking(
 
     _mint_new_concepts(
         sink=sink, automation=automation, result=result, questions=questions,
-        dictionary=dictionary, domain=domain, window_days=window_days,
+        dictionary=dictionary, domain=domain, window_days=window_days, run_id=run_id,
     )
 
-    applied = []
-    for link in result.links:
-        try:
-            if apply_links(
-                config, (link,), model=automation.model,
-                prompt_version=workflow.VERIFY_PROMPT_VERSION,
-            ):
-                applied.append(link)
-        except Exception:
-            log.exception("자동 연결 적재 실패: %s/%s", link.verdict.lang, link.verdict.normalized)
+    applied: tuple = ()
+    try:
+        applied = apply_links(
+            config, tuple(result.links), model=automation.model,
+            prompt_version=workflow.VERIFY_PROMPT_VERSION, run_id=run_id,
+        )
+    except Exception:
+        log.exception("자동 연결 적재 실패 — 이번 회차 연결은 하나도 들어가지 않았다")
+    # 유보 목록에는 제외·새 개념으로 결론 난 표기도 섞여 있다(`workflow.run_workflow` 가 사유를
+    # 남기려고 같이 담는다). 그 표기에 유보를 또 적으면 최신 결정이 유보가 되어 결론이 지워진다.
+    decided = {item.key for item in result.decisions}
     for item in result.deferred:
         try:
             sink.record_auto_defer(
@@ -459,12 +545,16 @@ def _run_automatic_linking(
                     else workflow.VERIFY_PROMPT_VERSION
                 ),
                 dictionary_version=dictionary_version,
+                run_id=run_id,
+                write_decision=(item.lang, item.normalized) not in decided,
             )
         except Exception:
             log.exception("자동 유보 기록 실패: %s/%s", item.lang, item.normalized)
     log.info(
-        "자동 연결: 질문 %d · 호출 시도 %d · LINK %d · DEFER %d",
-        len(questions), result.attempted_calls, len(applied), len(result.deferred),
+        "자동 반영 회차 %s: 질문 %d · 호출 시도 %d · LINK %d · DEFER %d — 되돌리려면 "
+        "scripts/concept-review.py rollback --run %s --by human:<이름>",
+        run_id, len(questions), result.attempted_calls, len(applied), len(result.deferred),
+        run_id,
     )
     if not applied:
         return

@@ -51,9 +51,20 @@ class AutomationPolicy:
     batch_size: int
     max_calls: int
     vector_enabled: bool
+    # 판정을 사전에 실제로 반영할지. **`enabled` 와 따로 잠근다** — 도는 것과 반영하는 것은
+    # 다른 결정이다. 꺼 두면 판정은 돌되 결과는 제안으로만 남고 사전은 사람이 승인한 것만
+    # 받는다 (`io/concepts.record_proposals`). 켤 때는 되돌릴 방법을 먼저 갖춘다.
+    apply_links: bool = False
     create_concepts: bool = False
     min_create_articles: int = 3
     min_create_sources: int = 2
+    # 새 개념을 **세지 않는 개념으로** 만들 분류. 기본은 비어 있다 — 새 개념은 세는 개념이다.
+    #
+    # 세지 않는 개념에 붙은 키워드는 순위에서 **빠진다** (`metrics/concepts.build_grouping`).
+    # 사전에 없던 표기는 그때까지 키워드 그대로 순위에 셌으므로, 새 개념을 세지 않게 만들면
+    # 원래 순위에 오르던 것이 숨는다. 2026-09-23 첫 회차에서 837개를 그렇게 만들어 키워드
+    # 833개(브랜드 133 · 의류 55 · 스타일 63 포함)가 순위에서 빠질 뻔했다.
+    mint_uncounted: frozenset[str] = frozenset()
 
     @classmethod
     def from_config(cls, config: Config) -> "AutomationPolicy":
@@ -64,14 +75,23 @@ class AutomationPolicy:
             batch_size=int(section.get("batch_size", judge.DEFAULT_BATCH_SIZE)),
             max_calls=int(section.get("max_calls", 20)),
             vector_enabled=bool(section.get("vector_enabled", True)),
+            apply_links=bool(section.get("apply_links", False)),
             create_concepts=bool(section.get("create_concepts", False)),
             min_create_articles=int(section.get("min_create_articles", 3)),
             min_create_sources=int(section.get("min_create_sources", 2)),
+            mint_uncounted=frozenset(
+                str(item) for item in (section.get("mint_uncounted") or ())
+            ),
         )
         if policy.batch_size < 1:
             raise ConfigError("concept.automation.batch_size 는 1 이상이어야 한다")
         if policy.max_calls < 1:
             raise ConfigError("concept.automation.max_calls 는 1 이상이어야 한다")
+        if policy.create_concepts and not policy.apply_links:
+            raise ConfigError(
+                "concept.automation.create_concepts 는 apply_links 없이 켤 수 없다 — "
+                "반영을 잠근 채 개념만 만들면 사전에 사람이 못 본 행이 남는다"
+            )
         if policy.min_create_articles < 1 or policy.min_create_sources < 1:
             raise ConfigError(
                 "concept.automation.min_create_articles · min_create_sources 는 1 이상이어야 한다"

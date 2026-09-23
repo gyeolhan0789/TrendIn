@@ -97,7 +97,7 @@ proper names capitalized.
 Reply with JSON only, no prose: {"r":[{"i":1,"en":"vintage","cat":"style"}]}
 One object per input id, same ids, same order."""
 
-DEFAULT_BATCH_SIZE = 20
+DEFAULT_BATCH_SIZE = 10  # 20 이면 묶음 뒤쪽이 뭉개진다 (conf/base.yaml `automation.batch_size`)
 
 
 def usable_context(context: str | None, *identifiers: str | None) -> bool:

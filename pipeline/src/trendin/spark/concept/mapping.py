@@ -67,6 +67,11 @@ class Unmapped:
     surface: str
     context: str | None
 
+    @property
+    def key(self) -> tuple[str, str]:
+        """표현을 가리키는 열쇠. 판정·문맥·미등록 표가 같은 쌍을 쓴다."""
+        return (self.lang, self.normalized)
+
 
 @dataclass(frozen=True, slots=True)
 class Deferred:

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.concept.candidates import CandidateIndex
 from trendin.spark.concept.dictionary import Concept, Dictionary, Expression
 from trendin.spark.concept.judge import Question
@@ -244,3 +247,33 @@ def test_매체는_일반어와_같이_세지_않는다():
     # 후보 검색까지 가지 않는다 — 셀 대상이 아니면 이을 개념도 없다.
     assert client.calls == 1
 
+
+
+def _automation(**section) -> Config:
+    return Config({"concept": {"automation": {"enabled": True, **section}}}, profile="test")
+
+
+def test_새_개념은_기본으로_세는_개념이다():
+    """세지 않는 개념에 붙은 키워드는 순위에서 빠진다. 숨길 분류는 설정에 적은 것뿐이다."""
+    assert AutomationPolicy.from_config(_automation()).mint_uncounted == frozenset()
+    policy = AutomationPolicy.from_config(_automation(mint_uncounted=["person"]))
+    assert policy.mint_uncounted == frozenset({"person"})
+
+
+def test_반영은_실행과_따로_잠긴다():
+    """`enabled` 는 도는 것이고 `apply_links` 는 사전에 넣는 것이다.
+
+    켠 채로 관찰하려면 둘이 갈라져 있어야 한다 (S15P21A102-363). 기본은 관찰이다 —
+    사전에 행을 만드는 쪽이 명시적으로 켜는 것이어야 한다.
+    """
+    assert AutomationPolicy.from_config(_automation()).apply_links is False
+    assert AutomationPolicy.from_config(_automation(apply_links=True)).apply_links is True
+
+
+def test_반영을_잠근_채로_개념만_만들_수_없다():
+    """반영이 잠겼는데 개념이 생기면 사전에 사람이 못 본 행이 남는다."""
+    with pytest.raises(ConfigError):
+        AutomationPolicy.from_config(_automation(create_concepts=True))
+    assert AutomationPolicy.from_config(
+        _automation(create_concepts=True, apply_links=True)
+    ).create_concepts is True
