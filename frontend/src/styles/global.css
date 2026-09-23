@@ -1292,6 +1292,8 @@ h1 { margin: 0; line-height: 1.25; }
 .keywords-recommend-card > span { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; overflow: hidden; }
 .keywords-recommend-card strong { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .keywords-recommend-card small { display: flex; align-items: center; gap: 6px; overflow: hidden; color: var(--lp-faint); font-size: 12px; white-space: nowrap; }
+/* 쪽 번호. 패널 안이라 아래 여백만 두고, 칸과 붙지 않게 위를 띄운다. */
+.keywords-recommend-pages { display: flex; justify-content: center; margin-top: 20px; }
 
 @media (max-width: 900px) {
   .keywords-page > section { padding-left: 20px; padding-right: 20px; }
