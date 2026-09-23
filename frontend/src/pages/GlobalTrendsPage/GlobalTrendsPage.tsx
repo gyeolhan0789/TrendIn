@@ -522,7 +522,7 @@ export function GlobalTrendsPage() {
   const mappedOut = journey.length - stops.length;
 
   return (
-    <div className={`worldtrend-page${isCountryTab ? ' is-country' : ''}${folded.left ? ' is-left-folded' : ''}${folded.right ? ' is-right-folded' : ''}`}>
+    <div className={`worldtrend-page${isCountryTab ? ' is-country' : ''}${mapMode === 'globe' ? ' is-globe' : ''}${folded.left ? ' is-left-folded' : ''}${folded.right ? ' is-right-folded' : ''}`}>
       <aside className="worldtrend-list">
         {/* 두 탭은 같은 자료를 반대로 읽습니다. 보기 방식이지 다른 화면이 아니라 한 칸 안에 둡니다. */}
         <div className="worldtrend-tabs" role="tablist" aria-label="보기 방식">
@@ -674,6 +674,9 @@ export function GlobalTrendsPage() {
       </aside>
 
       <main className="worldtrend-stage">
+        {mapMode === 'globe' && (
+          <div className="worldtrend-star-bg" aria-hidden="true" />
+        )}
         <div className="worldtrend-map">
           <WorldMap
             mode={mapMode}

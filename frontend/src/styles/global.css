@@ -2076,7 +2076,7 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-page.is-country { --panel-right: 400px; }
 .worldtrend-page.is-left-folded { --panel-left: 0px; }
 .worldtrend-page.is-right-folded { --panel-right: 0px; }
-.worldtrend-list { display: flex; position: absolute; z-index: 6; top: 0; bottom: 0; left: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden; border-right: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
+.worldtrend-list { display: flex; position: absolute; z-index: 6; top: 0; bottom: 0; left: 0; flex-direction: column; width: 300px; min-height: 0; overflow: hidden; border-right: 1px solid rgba(17, 24, 39, .1); background: #fff; box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
 .worldtrend-page.is-left-folded .worldtrend-list { transform: translateX(-100%); }
 .worldtrend-list-head { padding: 18px 20px 10px; }
 .worldtrend-list-head h1 { font-size: 19px; font-weight: 800; letter-spacing: -.5px; }
@@ -2121,7 +2121,47 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-page .is-up { color: #4F46E5; }
 .worldtrend-page .is-down { color: #9ca3af; }
 
-.worldtrend-stage { display: flex; position: absolute; flex-direction: column; inset: 0; background: #f0f2f8; }
+.worldtrend-stage { display: flex; position: absolute; flex-direction: column; inset: 0; background: #f4f7fb; transition: background .2s ease; }
+.worldtrend-page.is-globe .worldtrend-stage { background: #070b10; }
+.worldtrend-star-bg { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; background:
+  radial-gradient(circle at 12% 18%, rgba(178, 221, 255, .95) 0 .9px, rgba(178, 221, 255, .22) 1.8px, transparent 4px),
+  radial-gradient(circle at 24% 78%, rgba(255, 255, 255, .88) 0 .75px, rgba(255, 255, 255, .18) 1.6px, transparent 3.6px),
+  radial-gradient(circle at 34% 42%, rgba(143, 177, 220, .7) 0 .55px, rgba(143, 177, 220, .12) 1.4px, transparent 3.2px),
+  radial-gradient(circle at 46% 16%, rgba(255, 230, 172, .78) 0 .85px, rgba(255, 230, 172, .18) 1.8px, transparent 4px),
+  radial-gradient(circle at 58% 70%, rgba(201, 230, 255, .82) 0 .7px, rgba(201, 230, 255, .16) 1.5px, transparent 3.4px),
+  radial-gradient(circle at 72% 31%, rgba(255, 255, 255, .9) 0 1px, rgba(255, 255, 255, .2) 2px, transparent 4.4px),
+  radial-gradient(circle at 82% 84%, rgba(178, 221, 255, .72) 0 .6px, rgba(178, 221, 255, .13) 1.5px, transparent 3.3px),
+  radial-gradient(circle at 92% 50%, rgba(242, 207, 114, .55) 0 .65px, rgba(242, 207, 114, .13) 1.6px, transparent 3.6px);
+  background-size: 198px 176px, 242px 209px, 165px 231px, 286px 253px, 220px 187px, 187px 264px, 264px 198px, 341px 286px;
+  background-position: 0 0, 54px 24px, 18px 72px, 90px 18px, 132px 86px, 36px 124px, 120px 32px, 160px 110px;
+  opacity: .9;
+  animation: worldtrend-stars-twinkle 5.8s ease-in-out infinite;
+}
+.worldtrend-star-bg::before, .worldtrend-star-bg::after { position: absolute; inset: 0; content: ""; }
+.worldtrend-star-bg::before { background:
+  radial-gradient(circle, rgba(218, 239, 255, .88) 0 .6px, rgba(218, 239, 255, .14) 1.4px, transparent 3.1px) 16px 22px / 106px 97px,
+  radial-gradient(circle, rgba(255, 255, 255, .58) 0 .5px, rgba(255, 255, 255, .1) 1.3px, transparent 2.9px) 42px 58px / 136px 119px,
+  radial-gradient(circle, rgba(155, 197, 240, .45) 0 .45px, rgba(155, 197, 240, .1) 1.2px, transparent 2.8px) 78px 16px / 163px 145px;
+  animation: worldtrend-stars-sparkle 3.4s ease-in-out infinite alternate;
+}
+.worldtrend-star-bg::after { display: none; }
+@keyframes worldtrend-stars-twinkle {
+  0%, 100% { opacity: .78; filter: brightness(.92); }
+  36% { opacity: 1; filter: brightness(1.18); }
+  64% { opacity: .86; filter: brightness(1.02); }
+}
+@keyframes worldtrend-stars-sparkle {
+  0% { opacity: .42; filter: brightness(.85); transform: scale(1); }
+  48% { opacity: .95; filter: brightness(1.55); transform: scale(1.006); }
+  100% { opacity: .62; filter: brightness(1.08); transform: scale(1.002); }
+}
+@keyframes worldtrend-stars-glow {
+  0%, 100% { opacity: .62; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .worldtrend-star-bg, .worldtrend-star-bg::before, .worldtrend-star-bg::after { animation: none; }
+}
 .worldtrend-toolbar { display: flex; position: absolute; z-index: 5; top: 12px; right: 14px; left: 14px; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .worldtrend-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 /*
@@ -2141,7 +2181,7 @@ h1 { margin: 0; line-height: 1.25; }
  * 가려지는데, 하필 고른 나라가 거기 있으면 답이 화면 밖에 있게 됩니다. 칸을 접으면 --panel-*
  * 이 0이 되어 지도가 그 자리까지 그대로 넓어집니다.
  */
-.worldtrend-map { display: flex; position: relative; flex: 1; min-height: 0; margin-right: var(--panel-right); margin-left: var(--panel-left); transition: margin .24s ease; }
+.worldtrend-map { display: flex; position: relative; z-index: 1; flex: 1; min-height: 0; margin-right: var(--panel-right); margin-left: var(--panel-left); transition: margin .24s ease; }
 /*
  * 지도 가장자리의 접기 손잡이. 접힌 칸에 두면 손잡이까지 사라지므로 지도 쪽에 붙입니다.
  * 꺾쇠는 늘 '이 단추를 누르면 칸이 갈 쪽'을 가리킵니다.
@@ -2184,7 +2224,7 @@ h1 { margin: 0; line-height: 1.25; }
 .worldtrend-flow-note { padding: 5px 10px; border-radius: 7px; background: rgba(255, 255, 255, .88); box-shadow: 0 1px 6px rgba(17, 24, 39, .08); color: var(--lp-faint); font-size: 11.5px; text-align: center; }
 
 
-.worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: var(--panel-right); min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: rgba(255, 255, 255, .76); box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
+.worldtrend-side { display: flex; position: absolute; z-index: 6; top: 0; right: 0; bottom: 0; flex-direction: column; width: var(--panel-right); min-height: 0; overflow: hidden auto; border-left: 1px solid rgba(17, 24, 39, .1); background: #fff; box-shadow: 0 0 26px rgba(17, 24, 39, .1); transition: transform .24s ease; }
 .worldtrend-page.is-right-folded .worldtrend-side { transform: translateX(100%); }
 /*
  * 국가별 화면의 오른쪽 칸. 고른 나라가 바뀌면 통째로 다시 그려지며 스며듭니다. 왼쪽을 누른
@@ -2291,12 +2331,17 @@ h1 { margin: 0; line-height: 1.25; }
 /* 휠로 배율을 바꾸고 끌어서 옮깁니다. touch-action 을 끄지 않으면 손가락 끌기를 브라우저가 스크롤로 먼저 가져갑니다. */
 .worldmap.is-steerable { cursor: grab; touch-action: none; }
 .worldmap.is-dragging { cursor: grabbing; }
-.worldmap--globe { background: radial-gradient(circle at 50% 45%, #fafbfd, #eff1f7); }
+.worldmap--globe { background: transparent; }
 .worldmap-canvas { display: block; }
 .worldmap-graticule { fill: none; stroke: rgba(23, 37, 84, .14); stroke-width: .6; }
-.worldmap--globe .worldmap-land { stroke-width: .5; }
-/* 바다는 흰색입니다. 지도에서 빛깔이 보이는 곳은 오직 언급이 잡힌 나라뿐이어야 합니다. */
-.worldmap-sea { fill: #ffffff; }
+.worldmap--globe .worldmap-land { fill: #e7f1d5; stroke: rgba(105, 125, 93, .3); stroke-width: .5; }
+.worldmap--globe .worldmap-land--EU, .worldmap--globe .worldmap-land--AS { fill: #eaf2d8; }
+.worldmap--globe .worldmap-land--AF, .worldmap--globe .worldmap-land--OC { fill: #e4eed2; }
+.worldmap--globe .worldmap-land--NA, .worldmap--globe .worldmap-land--SA { fill: #e2efd2; }
+.worldmap--globe .worldmap-land-desert { fill: #f5ead6; fill-opacity: .48; stroke: rgba(139, 116, 82, .18); stroke-width: .52; }
+.worldmap--globe .worldmap-land-ice { fill: #fbfcfb; stroke: rgba(170, 182, 190, .36); stroke-width: .55; }
+/* 바다는 흰색에 가까운 쿨그레이입니다. 아주 옅은 하늘빛만 남겨 마커와 라벨을 방해하지 않습니다. */
+.worldmap-sea { fill: #f4f7fb; }
 
 /*
  * 언급이 잡힌 나라. 로고의 진주빛 결(흰빛-하늘파랑-연보라-보라)을 그대로 씁니다. 회색 땅 위에
@@ -2328,14 +2373,7 @@ h1 { margin: 0; line-height: 1.25; }
  * 핀(2·3)보다 위에 둡니다. 지나가는 나라의 점에 가려지면 비행기가 사라진 것처럼 보입니다.
  */
 .worldmap-plane-layer { position: absolute; z-index: 4; top: 0; left: 0; pointer-events: none; }
-/*
- * 속은 흰색, 테두리는 로고 결의 그라데이션입니다.
- *
- * paint-order 로 테두리를 먼저 깔고 그 위에 속을 칠합니다. 이러면 테두리의 안쪽 절반이 속에
- * 덮여 바깥으로만 남습니다. 순서를 두지 않으면 가운데를 파고들어, 흰 속이 가느다란 심으로
- * 줄어듭니다. 굵기는 그리기 전 자리의 값이라 키우는 배율만큼 같이 두꺼워집니다.
- */
-.worldmap-plane { fill: #fff; stroke: url(#worldmap-plane-edge); stroke-width: 1.7; paint-order: stroke; pointer-events: none; }
+.worldmap-plane { fill: url(#worldmap-plane-fill); stroke: url(#worldmap-plane-edge); stroke-width: 1.2; filter: drop-shadow(0 0 4px rgba(147, 197, 253, .58)) drop-shadow(0 1px 4px rgba(15, 23, 42, .14)); paint-order: stroke; pointer-events: none; }
 @keyframes worldmap-pulse { 0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .5); } 100% { box-shadow: 0 0 0 14px rgba(79, 70, 229, 0); } }
 
 .worldmap-pin { display: block; position: absolute; z-index: 2; cursor: pointer; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; padding: 0; }
