@@ -44,7 +44,7 @@ class MemberInterestKeywordServiceTest {
     private static final Long MEMBER_ID = 1L;
     private static final Long KEYWORD_ID = 81L;
     /* 서비스가 저장소에 넘기는 상한. 값을 시험이 따로 적어 두어 바뀌면 여기서 걸린다. */
-    private static final Pageable TOP_EIGHT = PageRequest.of(0, 8);
+    private static final Pageable TOP_FORTY = PageRequest.of(0, 40);
 
     @Mock MemberRepository memberRepository;
     @Mock KeywordRepository keywordRepository;
@@ -153,7 +153,7 @@ class MemberInterestKeywordServiceTest {
         given(projection.getKeyword()).willReturn("Mary Jane Sneakers");
         given(projection.getDomain()).willReturn(Domain.FASHION);
         given(projection.getRelationScore()).willReturn(new BigDecimal("91.50"));
-        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_EIGHT))
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_FORTY))
                 .willReturn(java.util.List.of(projection));
 
         // when
@@ -172,7 +172,7 @@ class MemberInterestKeywordServiceTest {
     @DisplayName("추천할 키워드가 없으면 빈 목록을 반환한다")
     void returnsEmptyRecommendedKeywords() {
         // given
-        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_EIGHT))
+        given(keywordRelationRepository.findRecommendedKeywords(MEMBER_ID, TOP_FORTY))
                 .willReturn(java.util.List.of());
 
         // when
@@ -183,8 +183,8 @@ class MemberInterestKeywordServiceTest {
     }
 
     @Test
-    @DisplayName("추천은 연관도 상위 8개만 요청한다")
-    void asksRepositoryForTopEightOnly() {
+    @DisplayName("추천은 연관도 상위 40개만 요청한다")
+    void asksRepositoryForTopFortyOnly() {
         /*
          * 개수를 서비스가 정하고 저장소 질의가 LIMIT 으로 받는다. 화면에서 자르는 것과
          * 다르다 — 상한이 질의에 걸려야 DB 가 만드는 행과 전송량이 함께 줄어든다.
@@ -201,7 +201,7 @@ class MemberInterestKeywordServiceTest {
         interestKeywordService.getRecommendedKeywords(MEMBER_ID);
 
         // then
-        assertThat(captor.getValue().getPageSize()).isEqualTo(8);
+        assertThat(captor.getValue().getPageSize()).isEqualTo(40);
         assertThat(captor.getValue().getPageNumber()).isZero();
         assertThat(captor.getValue().getSort().isSorted()).isFalse();
     }
