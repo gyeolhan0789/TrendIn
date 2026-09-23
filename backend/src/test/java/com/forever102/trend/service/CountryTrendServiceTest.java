@@ -16,12 +16,14 @@ import com.forever102.trend.domain.Keyword;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository.CountryMentionTotal;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository.KeywordMentionTotal;
+import com.forever102.trend.repository.KeywordConceptRepository;
 import com.forever102.trend.repository.KeywordRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,13 +39,15 @@ class CountryTrendServiceTest {
 
     @Mock KeywordCountryDailyMetricRepository countryMetricRepository;
     @Mock KeywordRepository keywordRepository;
+    @Mock KeywordConceptRepository keywordConceptRepository;
     @Mock TrendRepository trendRepository;
     CountryTrendService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-08-31T12:34:56Z"), AnalysisWindow.ANALYSIS_ZONE);
-        service = new CountryTrendService(countryMetricRepository, keywordRepository, trendRepository, clock);
+        service = new CountryTrendService(countryMetricRepository, keywordRepository,
+                keywordConceptRepository, trendRepository, clock);
     }
 
     @Test
@@ -74,7 +78,7 @@ class CountryTrendServiceTest {
         LocalDate start = LocalDate.of(2026, 8, 24);
         LocalDate end = LocalDate.of(2026, 8, 31);
         var trend = TrendFixture.trend();
-        Keyword other = new Keyword("Cargo Pants", Domain.FASHION);
+        Keyword other = new Keyword("카고 팬츠", Domain.FASHION);
         ReflectionTestUtils.setField(other, "id", 82L);
         given(countryMetricRepository.findKeywordTotalsInCountry(
                 any(Domain.class), any(String.class), any(LocalDate.class), any(LocalDate.class),
@@ -82,6 +86,8 @@ class CountryTrendServiceTest {
         given(keywordRepository.findAllById(List.of(81L, 82L)))
                 .willReturn(List.of(trend.getKeyword(), other));
         given(trendRepository.findByKeywordIdIn(List.of(81L, 82L))).willReturn(List.of(trend));
+        given(keywordConceptRepository.findConceptNames(List.of(81L, 82L)))
+                .willReturn(Map.of(82L, "cargo pants"));
         given(countryMetricRepository.sumMentionsInCountry(Domain.FASHION, "KR", start, end))
                 .willReturn(100L);
 
@@ -92,10 +98,29 @@ class CountryTrendServiceTest {
         // 잘라 낸 두 줄의 합(65)이 아니라 나라 전체 합이라야 몫이 제대로 나옵니다.
         assertThat(response.totalMentionCount()).isEqualTo(100L);
         // 트렌드로 묶이지 않은 키워드는 trendId 없이 이름과 언급량만 나갑니다.
-        assertThat(response.trends()).extracting("rank", "trendId", "keyword", "mentionCount")
+        // 개념 사전에 없는 키워드는 영어 이름이 비고, 있는 키워드는 원문 옆에 영어 이름이 실립니다.
+        assertThat(response.trends()).extracting("rank", "trendId", "keyword", "conceptName", "mentionCount")
                 .containsExactly(
-                        Tuple.tuple(1, 101L, "Ballet Sneakers", 40L),
-                        Tuple.tuple(2, null, "Cargo Pants", 25L));
+                        Tuple.tuple(1, 101L, "Ballet Sneakers", null, 40L),
+                        Tuple.tuple(2, null, "카고 팬츠", "cargo pants", 25L));
+    }
+
+    @Test
+    @DisplayName("패션이 아닌 분야는 개념 사전을 찾지 않고 영어 이름을 비워 둔다")
+    void skipsConceptNamesOutsideFashion() {
+        Keyword keyword = new Keyword("Kubernetes", Domain.DEVELOP);
+        ReflectionTestUtils.setField(keyword, "id", 91L);
+        given(countryMetricRepository.findKeywordTotalsInCountry(
+                any(Domain.class), any(String.class), any(LocalDate.class), any(LocalDate.class),
+                any(Pageable.class))).willReturn(List.of(keywordTotal(91L, 12)));
+        given(keywordRepository.findAllById(List.of(91L))).willReturn(List.of(keyword));
+        given(trendRepository.findByKeywordIdIn(List.of(91L))).willReturn(List.of());
+
+        var response = service.getCountryTrends(Domain.DEVELOP, "US", AnalysisPeriod.DAYS_7, 5);
+
+        assertThat(response.trends()).extracting("keyword", "conceptName")
+                .containsExactly(Tuple.tuple("Kubernetes", null));
+        then(keywordConceptRepository).shouldHaveNoInteractions();
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.forever102.trend.domain;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * 나라 코드를 한국어 이름으로 바꿉니다.
@@ -10,10 +11,17 @@ import java.util.Locale;
  */
 public final class CountryNames {
 
+    /*
+     * Locale 은 홍콩·마카오에 지위를 괄호로 덧붙입니다("홍콩(중국 특별행정구)"). 좁은 목록 칸에서
+     * 이름보다 괄호가 길어 떼어 냅니다. JDK 25 기준으로 괄호가 붙는 코드는 HK·MO 둘뿐입니다.
+     */
+    private static final Pattern QUALIFIER = Pattern.compile("\\s*\\([^)]*\\)$");
+
     private CountryNames() {
     }
 
     public static String of(String countryCode) {
-        return Locale.of("", countryCode).getDisplayCountry(Locale.KOREAN);
+        String name = Locale.of("", countryCode).getDisplayCountry(Locale.KOREAN);
+        return QUALIFIER.matcher(name).replaceFirst("");
     }
 }
