@@ -15,6 +15,7 @@ import com.forever102.trend.dto.CountryTrendResponse.CountryTrendItemResponse;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository.CountryMentionTotal;
 import com.forever102.trend.repository.KeywordCountryDailyMetricRepository.KeywordMentionTotal;
+import com.forever102.trend.repository.KeywordConceptRepository;
 import com.forever102.trend.repository.KeywordRepository;
 import com.forever102.trend.repository.TrendRepository;
 import java.time.Clock;
@@ -51,6 +52,7 @@ public class CountryTrendService {
 
     private final KeywordCountryDailyMetricRepository countryMetricRepository;
     private final KeywordRepository keywordRepository;
+    private final KeywordConceptRepository keywordConceptRepository;
     private final TrendRepository trendRepository;
     private final Clock trendClock;
 
@@ -85,10 +87,10 @@ public class CountryTrendService {
         long totalMentionCount = countryMetricRepository.sumMentionsInCountry(
                 domain, normalizedCode, startDate, endDate);
         return CountryTrendResponse.of(domain, normalizedCode, CountryNames.of(normalizedCode),
-                period, startDate, endDate, totalMentionCount, items(totals));
+                period, startDate, endDate, totalMentionCount, items(domain, totals));
     }
 
-    private List<CountryTrendItemResponse> items(List<KeywordMentionTotal> totals) {
+    private List<CountryTrendItemResponse> items(Domain domain, List<KeywordMentionTotal> totals) {
         if (totals.isEmpty()) {
             return List.of();
         }
@@ -98,6 +100,13 @@ public class CountryTrendService {
         /* 키워드마다 트렌드가 있다는 보장이 없어, 없으면 trendId 를 비워 둡니다. */
         Map<Long, Trend> trendsByKeywordId = trendRepository.findByKeywordIdIn(keywordIds).stream()
                 .collect(Collectors.toMap(trend -> trend.getKeyword().getId(), Function.identity()));
+        /*
+         * 개념 사전은 패션 어휘로만 채워져 있습니다. 다른 분야 키워드에 대 보면 철자만 같은 패션
+         * 개념이 붙으므로 아예 찾지 않습니다.
+         */
+        Map<Long, String> conceptNames = domain == Domain.FASHION
+                ? keywordConceptRepository.findConceptNames(keywordIds)
+                : Map.of();
 
         List<CountryTrendItemResponse> result = new ArrayList<>();
         long previousCount = Long.MIN_VALUE;
@@ -114,7 +123,8 @@ public class CountryTrendService {
             }
             Trend trend = trendsByKeywordId.get(total.getKeywordId());
             result.add(new CountryTrendItemResponse(rank, trend == null ? null : trend.getId(),
-                    keyword.getId(), keyword.getName(), total.getMentionCount()));
+                    keyword.getId(), keyword.getName(), conceptNames.get(keyword.getId()),
+                    total.getMentionCount()));
         }
         return List.copyOf(result);
     }

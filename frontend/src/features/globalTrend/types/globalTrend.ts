@@ -50,7 +50,13 @@ export interface CountryTrend {
   /** 아직 트렌드로 묶이지 않은 키워드는 비어 옵니다. 그런 줄은 상세로 갈 수 없습니다. */
   trendId: number | null;
   keywordId: number;
+  /** 기사에 적힌 원문 그대로입니다. 나라마다 언어가 다릅니다. */
   keyword: string;
+  /**
+   * 키워드가 붙은 개념의 대표 이름(영어)입니다. 개념 사전에 없거나 두 개념에 걸린 키워드,
+   * 원문이 영어인 키워드, 패션이 아닌 분야의 키워드는 비어 옵니다. 원문과 철자가 같을 수도 있습니다.
+   */
+  conceptName: string | null;
   mentionCount: number;
 }
 

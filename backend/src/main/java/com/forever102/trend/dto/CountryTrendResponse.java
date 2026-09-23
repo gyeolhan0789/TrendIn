@@ -11,6 +11,10 @@ import java.util.List;
  *
  * trendId 는 비어 있을 수 있습니다. 나라별 언급은 키워드 단위로 쌓이는데 아직 트렌드로
  * 묶이지 않은 키워드가 있어서입니다. 그런 줄은 이름과 언급량만 읽히고 상세로 갈 수 없습니다.
+ *
+ * keyword 는 기사에 적힌 원문 그대로라 나라마다 언어가 다릅니다. conceptName 은 그 키워드가 붙은
+ * 개념의 대표 이름(영어)이고, 개념 사전에 없거나 두 개념에 걸린 키워드, 원문이 영어 표현인 키워드는
+ * 비어 있습니다. 원문과 같은 철자일 수도 있어, 덧붙일지는 화면이 정합니다.
  */
 public record CountryTrendResponse(
         Domain domain,
@@ -37,6 +41,7 @@ public record CountryTrendResponse(
             Long trendId,
             Long keywordId,
             String keyword,
+            String conceptName,
             long mentionCount
     ) {
     }
