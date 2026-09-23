@@ -22,6 +22,8 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 # 문장 경계. 마침표·물음표·느낌표와 동아시아 문장부호를 함께 본다. 약어의 마침표까지 가려내지는
 # 않는다 — 여기서 필요한 것은 그 낱말 둘레의 한 문장이지 완벽한 분할이 아니다.
@@ -59,3 +61,49 @@ def _trim(text: str) -> str:
     if len(cleaned) <= MAX_CONTEXT_CHARS:
         return cleaned
     return cleaned[:MAX_CONTEXT_CHARS].rstrip() + "…"
+
+
+@dataclass(frozen=True, slots=True)
+class ContextPlan:
+    """이번 회차에 본문을 읽을 표기와, 저장분을 그대로 쓸 표기.
+
+    `kept` 는 표기 → 저장해 둔 문장이다. 비우거나 제목으로 되돌리지 않고 그 문장을 얹는다 —
+    문맥 없는 표기는 판정이 유보로 떨어뜨린다 (`judge.usable_context`).
+    """
+
+    wanted: frozenset[tuple[str, str]]
+    kept: Mapping[tuple[str, str], str]
+
+
+def plan(
+    counts: Mapping[tuple[str, str], int],
+    *,
+    min_articles: int,
+    context_samples: int,
+    stored: Mapping[tuple[str, str], tuple[int, str]],
+) -> ContextPlan:
+    """표기별 기사 수와 이미 쌓인 표본을 보고 무엇을 읽을지 고른다.
+
+    거르는 것이 둘이다.
+
+    **기사 수 문턱을 못 넘은 표기.** 판정에 오르지 않으니 물어볼 일이 없고, 물어보지 않으면
+    문맥도 필요 없다.
+
+    **표본이 이미 찬 표기.** 저장은 표현당 상한이 있어 찬 뒤에는 새 문장이 들어가지 못한다
+    (`io/concepts.UNMAPPED_MERGE_SQL`). 그 기사를 또 읽으면 뽑은 문장이 그대로 버려진다.
+    본문이 발행일 폴더째로 스캔되는 탓에, 30일에 흩어진 목록 하나가 30일치를 다 읽게 만든다.
+    빼고 나면 남는 것이 새로 올라온 표기뿐이라 범위가 최근 며칠로 좁아진다.
+    """
+    kept = {}
+    judged = set()
+    for key, articles in counts.items():
+        if articles < min_articles:
+            continue
+        judged.add(key)
+        samples, sentence = stored.get(key, (0, ""))
+        # **상한이 아니라 뽑을 수 있는 수와 견준다.** 기사 5건짜리 표기는 표본이 다섯을 넘지
+        # 못하므로 상한(20)과 견주면 영영 "덜 찼다" 가 되어 매 회차 다시 읽힌다. 미등록
+        # 표기의 다수가 그 구간이라 그렇게 두면 이 갈래가 거의 아무것도 못 줄인다.
+        if sentence and samples >= min(context_samples, articles):
+            kept[key] = sentence
+    return ContextPlan(frozenset(judged - set(kept)), kept)

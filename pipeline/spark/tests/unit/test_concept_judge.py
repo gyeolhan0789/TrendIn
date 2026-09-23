@@ -242,8 +242,10 @@ def test_자동연결은_한번만_쓰고_결정과_버전을_남긴다() -> Non
     modules = {
         "trendin.spark.io.jdbc": SimpleNamespace(connection=lambda _: Connection(cursor)),
         "trendin.spark.io.concepts": SimpleNamespace(
+            CHANGE="pl_concept_change",
             DECISION="pl_mapping_decision", EXPRESSION="pl_concept_expression",
             UNMAPPED="pl_unmapped_expression", VERSION="pl_dictionary_version",
+            new_run_id=lambda: "auto-test",
         ),
     }
     link = Link(Verdict("ja", "スニーカー", "sneakers", "footwear"), 1)
@@ -252,6 +254,8 @@ def test_자동연결은_한번만_쓰고_결정과_버전을_남긴다() -> Non
     with patch.dict(sys.modules, modules), patch.object(
         io, "jdbc", modules["trendin.spark.io.jdbc"], create=True
     ):
-        assert apply_links(None, (link,), model="test", prompt_version="name-v2") == 1
-        assert apply_links(None, (link,), model="test", prompt_version="name-v2") == 0
-    assert len(cursor.writes) == 4  # 표현, 미등록 상태, 결정 이력, 사전 버전
+        assert apply_links(None, (link,), model="test", prompt_version="name-v2") == (link,)
+        assert apply_links(None, (link,), model="test", prompt_version="name-v2") == ()
+    # 표현, 미등록 상태, 결정 이력, 원장, 사전 버전 — 되돌리려면 원장 줄이 반드시 있어야 한다.
+    assert len(cursor.writes) == 5
+    assert any("pl_concept_change" in sql for sql in cursor.writes)
