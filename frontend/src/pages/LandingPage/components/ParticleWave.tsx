@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { followStep } from '../scrollFollow';
 
 const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const ease = (value: number) => { const t = clamp(value); return t * t * (3 - 2 * t); };
@@ -516,6 +517,8 @@ export function ParticleWave({
       wakeDX: 0, wakeDY: 0, lastWakeTime: 0, nextWake: 0,
       rotationVelocityX: 0, rotationVelocityY: 0,
       lastTime: 0, startTime: 0, entryComplete: !playEntryAnimation || reducedMotion.matches,
+      /* 스크롤 진행도를 뒤따라가는 값. null 이면 아직 한 프레임도 그리지 않은 상태입니다. */
+      scatter: null as number | null,
     };
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -582,7 +585,17 @@ export function ParticleWave({
       if (!state.startTime) state.startTime = time;
       const elapsed = (time - state.startTime) / 1000;
       const heroRect = hero.getBoundingClientRect();
-      const scrollProgress = clamp((-heroRect.top + 64) / Math.max(heroRect.height, window.innerHeight * .65));
+      const scrollTarget = clamp((-heroRect.top + 64) / Math.max(heroRect.height, window.innerHeight * .65));
+      /*
+       * 스크롤 진행도를 그대로 쓰지 않고 한 박자 뒤따라갑니다. 홈은 한 칸씩 멎는 화면이라
+       * 스크롤 자체는 한 번에 건너뛰는데, 별이 흩어지는 모습까지 같이 건너뛰면 한 순간에
+       * 끝납니다. 스크롤이 멎은 뒤에도 흩어짐이 이어서 마무리됩니다.
+       *
+       * 첫 프레임은 따라가지 않고 그 자리에서 시작합니다. 새로고침으로 화면 중간에 들어왔을
+       * 때, 아직 흩어지지 않은 상태에서부터 흩어지는 장면이 다시 흐르면 안 됩니다.
+       */
+      state.scatter = state.scatter === null ? scrollTarget : followStep(state.scatter, scrollTarget, seconds);
+      const scrollProgress = state.scatter;
       const entryProgress = !playEntryAnimation || reducedMotion.matches ? 0 : 1 - ease(elapsed / 3.2);
       uniforms.uScrollProgress.value = scrollProgress;
       uniforms.uLightScatter.value = variant === 'transition' ? ease(clamp((scrollProgress - .2) / .6)) : 0;
