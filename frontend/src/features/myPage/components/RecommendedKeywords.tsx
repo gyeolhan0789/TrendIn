@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { TagChip } from '../../trend/components/TagChip';
 import { AddInterestKeywordButton } from './AddInterestKeywordButton';
-import { pageList } from '../../../utils/pageList';
 import type { RecommendedKeyword } from '../types/myPage';
 
 /** 한 쪽에 여덟 개. 서버가 최대 40개를 주므로 다섯 쪽까지 나온다. */
@@ -54,22 +53,25 @@ export function RecommendedKeywords({ recommendations }: RecommendedKeywordsProp
         ))}
       </div>
 
+      {/*
+        * 쪽 번호를 접지 않고 전부 편니다. 다른 목록은 `pageList()` 로 가운데를 `···` 로
+        * 줄이지만, 여기는 서버 상한이 40개라 **많아야 다섯 쪽**입니다. 그 정도를 접으면
+        * 자리를 아끼지도 못하면서 몇 쪽이 있는지만 가립니다.
+        */}
       {totalPages > 1 && (
         <div className="keywords-recommend-pages">
           <div className="trendin-pages">
-            {pageList(currentPage, totalPages).map((item, index) => (item === 'gap'
-              ? <span className="trendin-page-gap" key={`gap-${index}`}>···</span>
-              : (
-                <button
-                  key={item}
-                  type="button"
-                  className={item === currentPage ? 'is-current' : ''}
-                  aria-current={item === currentPage ? 'page' : undefined}
-                  onClick={() => setPage(item)}
-                >
-                  {item}
-                </button>
-              )))}
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((item) => (
+              <button
+                key={item}
+                type="button"
+                className={item === currentPage ? 'is-current' : ''}
+                aria-current={item === currentPage ? 'page' : undefined}
+                onClick={() => setPage(item)}
+              >
+                {item}
+              </button>
+            ))}
           </div>
         </div>
       )}
