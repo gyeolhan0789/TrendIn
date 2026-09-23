@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import defaultProfileStar from '../../assets/default-profile-star.png';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { showToast } from '../../components/common/toast';
 import { getApiErrorMessage } from '../../api/apiResponse';
 import { validateNickname } from '../../features/auth/validation';
 import { MyPageCard, MyPageCrumb, MyPageScreen } from '../../features/myPage/components/MyPageShell';
+import { WarnIcon } from '../../features/myPage/components/myPageIcons';
 import { useMyProfile } from '../../features/myPage/hooks/useMyProfile';
 import { useUpdateMyProfile } from '../../features/myPage/hooks/useUpdateMyProfile';
+import { useWithdraw } from '../../features/myPage/hooks/useWithdraw';
 import { useDomains } from '../../features/onboarding/hooks/useDomains';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
 import { useUpdateMyDomains } from '../../features/onboarding/hooks/useUpdateMyDomains';
@@ -29,10 +32,12 @@ export function ProfileEditPage() {
   const myDomainsQuery = useMyDomains(true);
   const updateProfile = useUpdateMyProfile();
   const updateDomains = useUpdateMyDomains();
+  const withdrawMutation = useWithdraw();
 
   const [nickname, setNickname] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [formError, setFormError] = useState<string>();
+  const [confirming, setConfirming] = useState(false);
   // 받아 온 값으로 한 번만 채웁니다. 이후에는 고치던 내용이 이깁니다.
   const [seeded, setSeeded] = useState(false);
 
@@ -79,6 +84,26 @@ export function ProfileEditPage() {
     } catch (error) {
       setFormError(getApiErrorMessage(error) ?? '프로필을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
+  };
+
+  /*
+   * 실패하면 상자를 닫고 화면에 머뭅니다. 훅이 실패를 알리고 세션도 남겨 두므로 다시
+   * 눌러 볼 수 있습니다.
+   *
+   * **닫는 이유가 따로 있습니다.** `showModal()` 로 연 상자는 top layer 에 그려져 z-index
+   * 를 가진 무엇보다도 위에 섭니다. 상자를 열어 둔 채로는 실패 알림이 그 뒤에 가려,
+   * 사용자는 아무 일도 안 일어난 것으로 봅니다.
+   *
+   * 성공했을 때만 랜딩으로 보냅니다 — 계정이 없어 여기 머물 수 없습니다.
+   */
+  const deleteAccount = async () => {
+    try {
+      await withdrawMutation.mutateAsync();
+    } catch {
+      setConfirming(false);
+      return;
+    }
+    navigate('/', { replace: true });
   };
 
   return (
@@ -163,6 +188,37 @@ export function ProfileEditPage() {
       </MyPageCard>
 
       {formError && <p className="mypage-error" role="alert">{formError}</p>}
+
+      {/* 카드들의 마지막 자리다. 아래 저장·취소 단추는 이 화면 전체를 닫는 것이라 맨 끝에 둔다. */}
+      <MyPageCard title="위험 영역" tone="rose" icon={<WarnIcon />} danger>
+        <div className="mypage-danger">
+          <div className="mypage-row-text">
+            <p className="mypage-row-title">계정 삭제</p>
+            <p className="mypage-row-desc">모든 자료가 영구히 지워집니다. 되돌릴 수 없습니다.</p>
+          </div>
+          <button
+            type="button"
+            className="mypage-btn mypage-btn--danger"
+            disabled={saving}
+            onClick={() => setConfirming(true)}
+          >
+            계정 삭제
+          </button>
+        </div>
+      </MyPageCard>
+
+      {/* 되돌릴 수 없는 일이라 한 번 더 묻는다. 무엇이 지워지는지는 이 상자에서만 말한다. */}
+      <ConfirmDialog
+        open={confirming}
+        danger
+        title="정말 계정을 삭제하시겠습니까?"
+        description="관심 키워드·저장한 트렌드·알림이 모두 지워지고 모든 기기에서 로그아웃됩니다. 되돌릴 수 없습니다."
+        confirmLabel="영구 삭제"
+        pendingLabel="삭제 중…"
+        pending={withdrawMutation.isPending}
+        onConfirm={() => void deleteAccount()}
+        onCancel={() => setConfirming(false)}
+      />
 
       <div className="mypage-actions">
         <Link className="mypage-btn mypage-btn--ghost" to="/mypage">취소</Link>

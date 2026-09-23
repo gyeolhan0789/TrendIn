@@ -70,6 +70,19 @@ public class MemberController {
         return BaseResponse.success(memberService.updateMyInfo(memberId, request));
     }
 
+    /**
+     * 본인 계정을 탈퇴 처리한다 (AUTH-006).
+     *
+     * <p><b>이 엔드포인트만 공통 응답 봉투를 쓰지 않는다.</b> 규격이 204 No Content이고,
+     * 204는 본문을 실을 수 없는 상태 코드다. {@code BaseResponse}를 돌려주면 서버는 본문을
+     * 쓰려 하지만 나가지 않아, 클라이언트가 받는 것과 코드가 적은 것이 어긋난다.
+     */
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(@AuthenticationPrincipal Long memberId) {
+        memberService.withdraw(memberId);
+    }
+
     @GetMapping("/domains")
     public BaseResponse<List<DomainResponse>> getMyDomains(@AuthenticationPrincipal Long memberId) {
         return BaseResponse.success(memberDomainService.getMyDomains(memberId));

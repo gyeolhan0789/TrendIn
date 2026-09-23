@@ -27,6 +27,19 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             + "where notification.member.id = :memberId and notification.read = false")
     int markAllAsReadByMemberId(@Param("memberId") Long memberId);
 
+    /**
+     * 탈퇴할 회원의 알림을 모두 지운다.
+     *
+     * <p>이 표의 외래키에는 ON DELETE CASCADE가 없다. 회원 행을 먼저 지우면 DB가 외래키
+     * 위반으로 막으므로, 탈퇴는 이 표를 직접 비우고 나서 회원을 지운다.
+     *
+     * <p>알림은 개인에게만 보이는 자료라 남길 이유가 없다. 알림이 가리키는 트렌드는
+     * 공유 자료이므로 그대로 둔다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from Notification notification where notification.member.id = :memberId")
+    void deleteAllByMemberId(@Param("memberId") Long memberId);
+
     @Query("""
             select new com.forever102.notification.repository.TrendNotificationTarget(
                     interestKeyword, interestKeyword.member, trend, interestKeyword.keyword.name)

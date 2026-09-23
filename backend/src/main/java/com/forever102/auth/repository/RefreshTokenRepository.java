@@ -81,6 +81,20 @@ public class RefreshTokenRepository {
         ));
     }
 
+    /**
+     * 토큰을 확인하지 않고 이 회원의 세션을 지운다. 탈퇴가 쓴다.
+     *
+     * <p>{@link #deleteIfMatches}와 달리 제시된 토큰과 맞는지 보지 않는다. 탈퇴는 들고 있는
+     * 토큰이 무엇이든 세션을 끊어야 하고, 회원이 사라진 뒤에 남은 키는 되살릴 수도 없다.
+     *
+     * <p>회원당 키가 하나이므로 이 한 번으로 모든 기기의 리프레시 토큰이 사라진다.
+     * 다만 <b>액세스 토큰은 즉시 폐기되지 않는다</b> — 서명과 만료만 보는 JWT라 이미 발급된
+     * 것은 남은 유효 기간 동안 통과한다. 그 요청은 회원을 찾지 못해 실패한다.
+     */
+    public void deleteAll(Long memberId) {
+        redisTemplate.delete(key(memberId));
+    }
+
     private String key(Long memberId) {
         return KEY_PREFIX + memberId;
     }
