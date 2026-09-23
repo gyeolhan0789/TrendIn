@@ -386,6 +386,13 @@ h1 { margin: 0; line-height: 1.25; }
 @media (max-width: 420px) {
   .header-inner { padding-right: 18px; padding-left: 18px; }
   .main-nav { gap: 15px; margin-left: 25px; }
+  /*
+   * 상표·메뉴 세 칸·알림·계정이 다 들어가지 않는 폭입니다. 칸을 빼면 이 헤더를 쓰는 트렌드
+   * 상세에서 갈 곳이 사라지므로, 메뉴 줄만 옆으로 밀어 볼 수 있게 둡니다. min-width 를 0 으로
+   * 풀어야 flex 칸이 제 내용보다 좁아질 수 있습니다.
+   */
+  .main-nav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .main-nav::-webkit-scrollbar { display: none; }
   .category-caption { display: none; }
   .section-heading h2, .section-heading h2 .top-label { font-size: 18px; }
   .trend-card { padding: 17px 15px; }
@@ -408,7 +415,7 @@ h1 { margin: 0; line-height: 1.25; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-.drawer-background { min-height: 100vh; }
+.drawer-background { min-height: 100vh; min-height: 100dvh; }
 /* 뒤에 깔린 화면의 붙박이 머리글(.landing-header, z-index 50)보다 위에 있어야 패널이 가려지지 않습니다. */
 .modal-backdrop { display: flex; position: fixed; inset: 0; z-index: 60; justify-content: flex-end; background: #20222642; backdrop-filter: blur(6px); animation: fade-in .4s cubic-bezier(.22, .8, .22, 1) both; }
 .modal-backdrop.is-closing { pointer-events: none; animation: fade-out .34s cubic-bezier(.4, 0, 1, 1) both; }
@@ -601,7 +608,7 @@ h1 { margin: 0; line-height: 1.25; }
 .interest-add.is-registered { color: var(--amber); }
 
 /* OAuth 콜백: 헤더 내비게이션 없이 한 칸만 보여 주는 화면입니다. */
-.auth-page { display: flex; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 56px 24px; background: #fafbfc; color: #202226; }
+.auth-page { display: flex; min-height: 100vh; min-height: 100dvh; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 56px 24px; background: #fafbfc; color: #202226; }
 .auth-card { width: min(440px, 100%); padding: 40px 40px 36px; border: 1px solid #eceef2; border-radius: 22px; background: #fff; box-shadow: 0 18px 48px rgba(20, 22, 28, .06); }
 .auth-brand { display: inline-block; font-size: 30px; letter-spacing: -2px; }
 .auth-brand .brand-dot { color: var(--amber); }
@@ -662,7 +669,9 @@ h1 { margin: 0; line-height: 1.25; }
   --lp-muted: #6b7280;
   --lp-faint: #9ca3af;
   --lp-line: #e5e7eb;
+  /* 모바일 주소창이 드나들면 100vh 는 실제로 보이는 높이보다 큽니다. dvh 가 그 높이입니다. */
   min-height: 100vh;
+  min-height: 100dvh;
   background: #fff;
   color: var(--lp-ink);
   font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
@@ -910,7 +919,11 @@ h1 { margin: 0; line-height: 1.25; }
  * 쪽 번호 줄. 트렌드 탐색과 저장된 트렌드가 같은 모양을 씁니다.
  * 앞뒤로 넘기는 화살표는 있는 화면과 없는 화면이 있어, 자리가 아니라 is-step 으로 가립니다.
  */
-.trendin-pages { display: flex; align-items: center; gap: 4px; }
+/*
+ * 쪽 번호는 최대 일곱 칸(1 ··· 앞 현재 뒤 ··· 끝)이라 320px 폭에 겨우 들어갑니다. 모두 펼쳐
+ * 보여 주는 자리도 있어, 넘치면 가로로 밀리는 대신 줄을 바꾸게 둡니다.
+ */
+.trendin-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; }
 .trendin-pages button { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 8px; color: var(--lp-muted); font-size: 14px; transition: background .12s; }
 .trendin-pages button:hover:not(:disabled):not(.is-current) { background: #f3f4f6; }
 .trendin-pages button.is-step { border: 1px solid var(--lp-line); color: var(--lp-faint); }
@@ -1630,6 +1643,9 @@ h1 { margin: 0; line-height: 1.25; }
   .mypage-actions .mypage-btn { flex: 1; padding-left: 16px; padding-right: 16px; }
   .mypage-facts, .mypage-exports { grid-template-columns: minmax(0, 1fr); }
   .mypage-danger { flex-wrap: wrap; }
+  /* 88px 짜리 동그라미가 칸의 3분의 1을 차지해, 옆의 설명이 두세 글자씩 끊깁니다. */
+  .mypage-avatar-card { gap: 16px; }
+  .mypage-avatar-card .mypage-avatar { flex-basis: 64px; width: 64px; height: 64px; font-size: 26px; }
   .mypage-stats { grid-template-columns: minmax(0, 1fr); }
 }
 /* 로그인·회원가입 공통 틀 ------------------------------------------------------ */
@@ -2081,7 +2097,7 @@ h1 { margin: 0; line-height: 1.25; }
  * 국가별 트렌드. 지도가 주인공이라 창 높이에 맞춰 한 화면에서 끝납니다.
  * 스크롤은 왼쪽 목록과 오른쪽 요약 안에서만 생기고, 페이지 자체는 움직이지 않습니다.
  */
-.trendin-ui--stage { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #f8f9fb; }
+.trendin-ui--stage { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; background: #f8f9fb; }
 .trendin-ui--stage .landing-header { position: static; flex: 0 0 auto; }
 
 .worldtrend-page { display: block; position: relative; flex: 1; min-height: 0; --panel-left: 300px; --panel-right: 300px; --rail-left: 300px; --rail-right: 300px; --lp-muted: #4b5563; --lp-faint: #6b7280; }
@@ -2425,16 +2441,36 @@ h1 { margin: 0; line-height: 1.25; }
 .worldmap-pin-date { color: #c7cbd4; font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /*
- * 폭이 좁아지면 오른쪽 요약부터 접습니다. 지도와 키워드 목록이 이 화면의 뼈대라
+ * 폭이 좁아지면 오른쪽 요약부터 물러납니다. 지도와 키워드 목록이 이 화면의 뼈대라
  * 마지막까지 남깁니다. 스크롤 없이 한 화면에 담아야 하므로 아래로 쌓지 않습니다.
+ *
+ * 물러난 칸을 지우지는 않습니다. 지우면 좁은 화면에는 지도만 남아, 정작 이 화면이 답하는
+ * 나라별 순위와 요약에 닿을 길이 사라집니다. 대신 지도 위로 겹쳐 세우고 기본은 접어 둡니다.
+ * 접고 펴는 일은 원래 있던 손잡이가 그대로 맡습니다(FoldTab). 처음에 접힌 채로 서는 것은
+ * 화면 쪽에서 맞춥니다 — CSS 는 사용자가 손대 둔 상태를 되돌릴 수 없습니다.
  */
 @media (max-width: 1180px) {
-  /* 칸이 아예 사라지는 폭입니다. 접어 둔 것이 아니라 없으니 확산 경로도 그 자리를 씁니다. */
-  .worldtrend-page { --panel-right: 0px; --rail-right: 0px; }
-  .worldtrend-side, .worldtrend-fold--right { display: none; }
+  /*
+   * 지도는 칸 자리를 비우고 폭을 다 씁니다. 확산 경로도 그만큼 넓게 섭니다.
+   *
+   * .is-country 를 같이 적는 이유: 위의 `.worldtrend-page.is-country { --panel-right: 400px }`
+   * 가 (0,2,0) 이라, 미디어 쿼리 안이어도 (0,1,0) 인 `.worldtrend-page` 로는 눌리지 않습니다.
+   * 빠뜨리면 국가별 탭에서만 지도 오른쪽에 400px 빈 자리가 남습니다.
+   */
+  .worldtrend-page, .worldtrend-page.is-country { --panel-right: 0px; --rail-right: 0px; }
+  /* 자리가 0 이 되었으므로 겹쳐 서는 칸의 폭은 여기서 따로 정합니다. */
+  .worldtrend-side { width: min(400px, 92vw); }
+  /*
+   * 펴 두면 손잡이를 칸의 바깥쪽 모서리로 옮깁니다. 지도 가장자리에 그대로 두면 칸 위에
+   * 얹혀 목록을 가리고, 무엇을 닫는 손잡이인지도 흐려집니다.
+   */
+  .worldtrend-page:not(.is-right-folded) .worldtrend-fold--right { right: min(400px, 92vw); }
 }
 @media (max-width: 860px) {
   .trendin-ui .trendin-page-heading h1 { font-size: 30px; letter-spacing: -1.2px; }
   .worldtrend-page { --panel-left: 0px; --rail-left: 0px; }
-  .worldtrend-list, .worldtrend-fold--left { display: none; }
+  .worldtrend-list { width: min(320px, 86vw); }
+  .worldtrend-page:not(.is-left-folded) .worldtrend-fold--left { left: min(320px, 86vw); }
+  /* 겹쳐 선 칸을 여닫는 유일한 길이라, 손가락으로 짚을 만큼 키웁니다. */
+  .worldtrend-fold--left, .worldtrend-fold--right { width: 24px; height: 72px; margin-top: -36px; }
 }

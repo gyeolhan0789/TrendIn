@@ -129,6 +129,27 @@ const PANEL_LABELS: Record<Panel, string> = {
 };
 
 /*
+ * 칸이 제 자리를 잃고 지도 위로 겹쳐 서는 폭입니다. global.css 의 같은 값과 짝입니다.
+ * 요약이 먼저 물러나고, 더 좁아지면 목록도 따라갑니다.
+ *
+ * 겹쳐 서는 칸은 접힌 채로 시작해야 합니다. 펴진 채로 열리면 지도가 보이기도 전에 덮입니다.
+ * 이 판단은 CSS 로 할 수 없습니다 — 접힘은 사용자가 손대는 상태라 화면이 들고 있습니다.
+ */
+const OVERLAY_AT: Record<Panel, string> = {
+  right: '(max-width: 1180px)',
+  left: '(max-width: 860px)',
+};
+
+function readOverlay(): Record<Panel, boolean> {
+  /* 테스트처럼 matchMedia 가 없는 데서는 넓은 화면으로 봅니다 — 원래 모양 그대로입니다. */
+  if (typeof window === 'undefined' || !window.matchMedia) return { left: false, right: false };
+  return {
+    left: window.matchMedia(OVERLAY_AT.left).matches,
+    right: window.matchMedia(OVERLAY_AT.right).matches,
+  };
+}
+
+/*
  * 지도 가장자리에 붙는 접기 손잡이입니다. 접힌 칸 자리에 두면 접는 순간 손잡이까지 사라져
  * 되돌릴 길이 없어지므로, 접히지 않는 지도 쪽에 붙여 둡니다.
  */
@@ -346,8 +367,10 @@ export function GlobalTrendsPage() {
   const chipsRef = useRef<HTMLDivElement>(null);
   const [tipX, setTipX] = useState(0);
   const [mode, setMode] = useState<MapMode>('globe');
-  /* 지도를 넓게 보고 싶을 때 양옆 칸을 접어 둘 수 있습니다. */
-  const [folded, setFolded] = useState<Record<Panel, boolean>>({ left: false, right: false });
+  /* 지도를 넓게 보고 싶을 때 양옆 칸을 접어 둘 수 있습니다. 좁은 화면에서는 접힌 채로 엽니다. */
+  const [folded, setFolded] = useState<Record<Panel, boolean>>(readOverlay);
+  /* 목록이 지도를 덮고 있는지. 덮고 있을 때만, 고르고 나서 칸을 닫아 줍니다. */
+  const [listOverlaid, setListOverlaid] = useState(() => readOverlay().left);
 
   const isCountryTab = tab === 'country';
   /*
@@ -512,6 +535,39 @@ export function GlobalTrendsPage() {
 
   const toggleFold = (panel: Panel) => setFolded((current) => ({ ...current, [panel]: !current[panel] }));
 
+  /*
+   * 폭을 오갈 때 접힘을 그 폭의 기본값으로 되돌립니다. 손대 둔 값을 들고 넘어가면, 좁아지는
+   * 순간 칸이 지도를 덮은 채 나타나거나 넓어졌는데 빈 자리만 남습니다. 창 크기를 바꾸는 일은
+   * 드물고, 그때 기대하는 것은 '그 폭에 맞는 모양'이지 직전에 눌러 둔 상태가 아닙니다.
+   */
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const stops = (Object.keys(OVERLAY_AT) as Panel[]).map((panel) => {
+      const media = window.matchMedia(OVERLAY_AT[panel]);
+      const apply = (event: MediaQueryListEvent) => {
+        setFolded((current) => ({ ...current, [panel]: event.matches }));
+        if (panel === 'left') setListOverlaid(event.matches);
+      };
+      media.addEventListener('change', apply);
+      return () => media.removeEventListener('change', apply);
+    });
+    return () => stops.forEach((stop) => stop());
+  }, []);
+
+  /*
+   * 겹쳐 뜬 목록에서 골랐을 때의 뒷정리입니다. 목록을 닫고 요약을 엽니다.
+   *
+   * 닫는 이유: 고른 결과는 지도와 요약에 나타나는데 목록이 그 위를 덮고 있어, 그대로 두면
+   * 눌러도 아무 일도 없는 것처럼 보입니다.
+   *
+   * 여는 이유: 여기서 고르는 것은 읽기 위해서입니다. 닫기만 하면 지도에 색만 바뀐 채 남고,
+   * 정작 답인 요약은 반대쪽 모서리 손잡이를 찾아내야 나옵니다. 넓은 화면에서는 하지 않습니다 —
+   * 거기서 접힌 요약은 사용자가 지도를 넓게 보려고 직접 접어 둔 것입니다.
+   */
+  const afterPickOnOverlay = useCallback(() => {
+    if (listOverlaid) setFolded({ left: true, right: false });
+  }, [listOverlaid]);
+
   const listLoading = domainsQuery.isLoading
     || (isCountryTab ? countriesQuery.isLoading : currentQuery.isLoading);
   const listFailed = domainsQuery.isError
@@ -630,7 +686,7 @@ export function GlobalTrendsPage() {
               <button
                 type="button"
                 className={`worldtrend-item ${item.countryCode === country?.countryCode ? 'is-selected' : ''}`}
-                onClick={() => pickCountry(item.countryCode)}
+                onClick={() => { pickCountry(item.countryCode); afterPickOnOverlay(); }}
               >
                 <span className="worldtrend-item-emoji">
                   <CountryFlag code={item.countryCode} className="worldtrend-item-flag" />
@@ -651,7 +707,7 @@ export function GlobalTrendsPage() {
               <button
                 type="button"
                 className={`worldtrend-item ${item.trendId === trendId ? 'is-selected' : ''}`}
-                onClick={() => setSelectedTrendId(item.trendId)}
+                onClick={() => { setSelectedTrendId(item.trendId); afterPickOnOverlay(); }}
               >
                 {/*
                   * 시안의 이모지 자리입니다. 서버가 주지 않는 그림 대신 자리를 세웁니다. 서버가 준
