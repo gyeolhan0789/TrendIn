@@ -197,3 +197,28 @@ def test_local_은_잠정값으로_돈다():
 def test_base_가_실측값을_들고_있다():
     """`recompute_window_days` 는 알고리즘 문턱이 아니라 실측이라 base 에 박혀 있다 ([07 §2])."""
     assert load_config("dev").get("aggregate.recompute_window_days") == 30
+
+
+# --- 행사 덩이의 대표 점유율 (S15P21A102-385) ---------------------------------------
+
+
+def test_대표_점유율은_기본이_10퍼센트다():
+    assert AggregateThresholds.from_config(config()).representative_min_share == 0.1
+
+
+def test_대표_점유율을_설정으로_바꾼다():
+    thresholds = AggregateThresholds.from_config(
+        config(concepts={"representative_min_share": 0.25})
+    )
+    assert thresholds.representative_min_share == 0.25
+
+
+@pytest.mark.parametrize("share", [-0.1, 1.5])
+def test_대표_점유율이_0에서_1_밖이면_거부한다(share):
+    with pytest.raises(ConfigError, match="representative_min_share"):
+        AggregateThresholds.from_config(config(concepts={"representative_min_share": share}))
+
+
+def test_base_가_대표_점유율을_준다():
+    """경험값이라 코드 기본값에만 두지 않고 설정에 드러낸다."""
+    assert load_config("dev").get("aggregate.concepts.representative_min_share") == 0.1

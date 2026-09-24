@@ -116,6 +116,11 @@ class AggregateThresholds:
     fold_concepts: bool = True
     # `countable = false` 인 개념을 순위와 배지에서 뺄지.
     drop_uncountable: bool = True
+    # 연도·시즌만 다른 표기(`Vogue World 2026` ↔ `Vogue World`)를 한 자리로 접을지.
+    fold_editions: bool = True
+    # 최신 회차를 보이는 이름으로 쓰려면 그 회차가 **덩이 전체 언급량**에서 차지해야 하는 몫.
+    # 다음 회차 예고 기사 한 건(`Vogue World 2027`)이 덩이의 이름을 가져가지 못하게 한다.
+    representative_min_share: float = 0.1
 
     @property
     def hourly_history(self) -> bool:
@@ -192,6 +197,8 @@ class AggregateThresholds:
             history_bucket=bucket,
             fold_concepts=bool(concepts.get("fold", True)),
             drop_uncountable=bool(concepts.get("drop_uncountable", True)),
+            fold_editions=bool(concepts.get("fold_editions", True)),
+            representative_min_share=_share(concepts.get("representative_min_share", 0.1)),
         )
 
     def horizon_days(self) -> int:
@@ -215,3 +222,10 @@ def _lookup(section: dict[str, Any], path: str) -> Any:
             return None
         node = node[part]
     return node
+
+
+def _share(value: Any) -> float:
+    share = float(value)
+    if not 0 <= share <= 1:
+        raise ConfigError("aggregate.concepts.representative_min_share 는 0~1 이어야 한다")
+    return share
