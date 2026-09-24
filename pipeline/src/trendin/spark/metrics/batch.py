@@ -37,6 +37,7 @@ from trendin.spark.metrics.growth import MetricRow, assign_ranks, build_row
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.metrics.trends import Evidence
 from trendin.spark.metrics.windows import Window
+from trendin.spark.registry import edition as edition_rules
 
 log = get_logger(__name__)
 
@@ -138,15 +139,24 @@ def load_grouping(
 
     `aggregate.concepts.fold` 가 꺼져 있으면 조회조차 하지 않는다 — 끈 사람이 기대하는 것은
     "표기 단위로 돌던 때 그대로" 이고, 그때 개념 표를 읽을 이유가 없다.
+
+    `aggregate.concepts.fold_editions` 는 연도·시즌만 다른 표기를 접는다 (`concepts.py`
+    머리말). 개념 표와 무관하게 `keywords` 만 읽으므로 개념 Job 을 안 돌린 환경에서도 돈다.
     """
     fold = thresholds is None or thresholds.fold_concepts
     drop = thresholds is None or thresholds.drop_uncountable
-    if not fold and not drop:
+    editions = thresholds is None or thresholds.fold_editions
+    if not fold and not drop and not editions:
         return Grouping(representative={}, silenced=frozenset())
     
     refs = [
-        ConceptRef(keyword_id, concept_id, countable if drop else True)
-        for keyword_id, concept_id, countable in sink.concept_groups()
+        ConceptRef(
+            keyword_id,
+            concept_id,
+            countable if drop else True,
+            category=rest[0] if rest else None,
+        )
+        for keyword_id, concept_id, countable, *rest in sink.concept_groups()
     ]
     # 개념이 아직 없지만 세지 않기로 판정된 표기. 판정 기록을 순위에 반영하는 자리다.
     silenced_keywords = sink.silenced_expressions() if drop else frozenset()
@@ -157,8 +167,30 @@ def load_grouping(
     weights = {
         keyword_id: sum(item.daily.values()) for keyword_id, item in series.items()
     }
+    edition_keys: dict[int, tuple[str, str]] = {}
+    edition_orders: dict[int, tuple[int, ...]] = {}
+    if editions:
+        for keyword_id, normalized in sink.keyword_keys():
+            if keyword_id not in series:
+                continue
+            key = edition_rules.edition_key(normalized)
+            # 도메인이 다르면 같은 이름도 딴 것이다.
+            edition_keys[keyword_id] = (series[keyword_id].domain, key)
+            order = edition_rules.edition_order(normalized)
+            if order is not None:
+                # 같은 회차끼리는 기준형이 짧은 쪽 — `vogue world 2026` 이 `vogue world milano
+                # 2026` 을 이긴다. 언급량보다 앞에 둬 실행마다 대표가 바뀌지 않게 한다.
+                edition_orders[keyword_id] = (*order, -len(key.split()))
     return build_grouping(
-        refs, weights, keywords=set(series), silenced_keywords=silenced_keywords
+        refs,
+        weights,
+        keywords=set(series),
+        silenced_keywords=silenced_keywords,
+        edition_keys=edition_keys or None,
+        edition_orders=edition_orders,
+        representative_min_share=(
+            0.1 if thresholds is None else thresholds.representative_min_share
+        ),
     )
 
 
@@ -452,8 +484,10 @@ def run(
     unranked_series = {**absorbed, **silent}
     if grouping.folded or silent:
         log.info(
-            "개념 접기: 표기 %d개를 대표로 접고 %d개를 순위에서 뺐다 (세는 키워드 %d개)",
+            "개념 접기: 표기 %d개를 대표로 접고(연도·시즌 %d) %d개를 순위에서 뺐다 "
+            "(세는 키워드 %d개)",
             grouping.folded,
+            grouping.edition_folded,
             len(silent),
             len(ranked_series),
         )

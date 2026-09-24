@@ -113,7 +113,61 @@ fashion 3개월(로컬, D=2026-09-18)에서 **표기 832개가 대표로 접히�
 `collection` 이 1.59, `suede` 가 2.72 였다. z 는 "흔한 말인가" 가 아니라 "배경 대비 최근에
 튀었나" 를 재므로, 꾸준한 진짜 브랜드가 먼저 떨어지고 시즌 따라 늘어나는 배경어가 남는다.
 
-**끄는 길** — `aggregate.concepts.fold` 와 `.drop_uncountable` 이다. 사전이 잘못 묶였을 때
+### 연도·시즌만 다른 표기 (2026-09-24, S15P21A102-385)
+
+2026-09-24 24H 인기 순위 1~4위가 한 행사였다 — `Vogue World` · `Vogue World 2026` ·
+`Vogue World Milano 2026` · `Vogue World: Milano`. 사전에 없던 새 이름이 여러 변형으로 한꺼번에
+들어오면 위의 접기가 아무것도 못 한다. 후보 검색도 사전에 **이미 있는** 개념만 찾으므로 새 표기끼리는
+서로 모른다. 문헌에서 NIL clustering(사전 밖 표현끼리 같은 실체를 묶는 일)이라 부르는 자리다.
+
+그중 글자만 보고 확실한 것 — **끝의 연도와 시즌 코드** — 를 `registry/edition.py` 가 뗀다.
+
+| 표기 | 기준형 |
+| --- | --- |
+| `vogue world 2026` · `2026 met gala` · `멧 갈라 2026년` | `vogue world` · `met gala` · `멧 갈라` |
+| `paris fashion week ss27` · `prada menswear ss 2027` | `paris fashion week` · `prada menswear` |
+| `milano 2026` · `gucci ss27` · `paris ss27` | 접지 않는다 — 떼고 한 낱말이 남으면 대개 도시·브랜드·일반어다 |
+| `air max 90` · `louis vuitton 1854` | 접지 않는다 — 2000~2039 밖이거나 연도 꼴이 아니다 |
+| `vogue world milano` → `vogue world`, `vogue` ↔ `vogue world` | 접지 않는다 — 낱말은 떼지 않는다 |
+
+**같은 것이 아니라 같은 집계 단위다.** `Vogue World 2026` 은 시리즈 `Vogue World` 의 한 회차다.
+그래서 표기 병합(`pl_alias`)으로 영구히 붙이지 않고 **순위에서만** 합친다 (`metrics/concepts.
+build_grouping`, `aggregate.concepts.fold_editions`). 키워드가 그대로라 되돌릴 수 있고, 이미 승격된
+키워드에도 걸리며, 기준형 키워드가 없어도 회차끼리 접는다. 층 1 에 같은 규칙을 넣었다가 뺐다 —
+회차 정보가 영구히 사라지기 때문이다.
+
+- **합산과 보이는 이름은 다른 문제다.** 합산은 위 문자열 규칙이고, 최신 회차를 이름으로 내는 것은
+  **행사(`event`) 개념이 확인된 덩이에만** 한다. `Saint Laurent` + `Saint Laurent SS27` 은 합산해도
+  이름이 브랜드여야 하고, 개념이 없는 덩이는 도시인지 행사인지 모른다(사전 분류에 장소가 없다).
+  그런 덩이는 개념 접기처럼 무게로 고른다.
+- **행사 덩이의 대표** — ① 덩이 전체 언급량의 `aggregate.concepts.representative_min_share`(0.1)
+  이상인 회차만 후보다. 예고 기사 한 건(`Vogue World 2027`)이 이름을 가져가지 못한다. ② 연도·시즌이
+  가장 늦은 것(`fw26` < `rs27` < `ss27`). ③ 같으면 기준형이 짧은 것 — `vogue world 2026` 이
+  `vogue world milano 2026` 을 이긴다. ④ 언급량, ⑤ id. ①~③ 이 이름에서 정해지므로 언급량이
+  오르내려도 대표가 흔들리지 않는다. 점유율 경계를 넘는 날 한 번 바뀐다.
+- **부딪칠 때의 차례.** ① 한 덩이가 서로 다른 두 개념에 걸리면 접지 않는다 — 사전이 이긴다.
+  ② 덩이 안에 세지 않는 표기가 있으면 덩이 전체를 뺀다 — `vogue world` 가 제외됐는데
+  `vogue world 2026` 이 순위로 돌아오면 제외 판정을 우회한 것이다. ③ 단 덩이 안에 세는 개념에 붙은
+  표기가 있으면 ② 를 하지 않고 접지도 않는다.
+
+2026-09-24 운영 DB 정리 — 09-23 자동 판정이 Milano 두 표기를 각자 새 개념으로 만들어 두 개념에 걸린
+덩이가 됐다(① 에 걸려 접히지 않는다). 두 개념을 롤백하고 `Vogue World 2026` 개념에 연결해 네 표기가
+한 개념이 됐다. `vogue world` 의 제외 판정은 09-23 에 이미 사람 보류로 풀려 있었다.
+
+⚠️ **알려진 한계** — 두 낱말 장소 + 연도(`Los Angeles 2028`)는 도시에 합산된다. 보이는 이름은 도시
+그대로다. 장소 판별과 트렌드 ID 를 대표에서 떼는 일(`rank_group_id` / `display_keyword_id`)은
+S15P21A102-386 이다.
+
+개념 사전 10,558 표기에 돌려 보니 떨어지는 것은 11개였고 전부 시즌·회차 표기였다
+(`fall winter 2026` → `fall winter`, `miss supranacional 2021` → `miss supranacional`). 브랜드·
+디자이너 이름이 잘린 것은 없었다.
+
+**남은 것** — `Vogue World` ↔ `Vogue World Milano` 처럼 낱말이 더 붙은 관계는 의미 판단이 필요하다.
+미등록끼리 후보 군집을 만들고(이름 겹침·동시 급등·기사 겹침) 군집 단위로 LLM 에 물어 순위에서만
+묶는 단계가 후속이다. 2026-09-24 에 `vogue milano` 를 혼자 물으니 행사 문장에서도 10번 모두 `media`
+로 분류됐다 — 개별 판정보다 군집 판정이 필요한 이유다.
+
+**끄는 길** — `aggregate.concepts.fold` · `.drop_uncountable` · `.fold_editions` 다. 사전이 잘못 묶였을 때
 사전을 고쳐 다시 붙이는 것보다 빠르다. 개념 표가 없는 환경에서는 값과 무관하게 꺼진다.
 
 **분류(`pl_concept.category`)로는 아무 유형도 거르지 않는다.** 2026-09-19 에 `RISING` 에서만

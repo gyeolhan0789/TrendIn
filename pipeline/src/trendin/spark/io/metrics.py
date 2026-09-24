@@ -276,13 +276,20 @@ SELECT c.keyword_id, d.source_id
 #
 # 한 키워드가 여러 개념에 걸리면 **행을 여럿 돌려준다.** 여기서 하나를 고르지 않는 것이
 # 의도다 — 고르는 규칙은 층 1 이 갖고, 지금 그 규칙은 "걸린 것은 접지 않는다" 이다.
+#
+# 분류(`category`)는 **보이는 이름을 고르는 데만** 쓴다 — 최신 회차를 이름으로 내는 것은 행사
+# 개념에만 한다 (`metrics/concepts.py`). 무엇을 세고 접는지는 분류로 가르지 않는다.
 CONCEPT_GROUPS_SQL = f"""
-SELECT k.id, e.concept_id, c.countable
+SELECT k.id, e.concept_id, c.countable, c.category
   FROM {KEYWORDS} k
   JOIN {EXPRESSION} e ON e.normalized = k.normalized_name AND e.status = 'ACTIVE'
   JOIN {CONCEPT} c ON c.id = e.concept_id AND c.status = 'ACTIVE'
- GROUP BY 1, 2, 3
+ GROUP BY 1, 2, 3, 4
 """
+
+# 키워드 → 비교키. 연도·시즌만 다른 표기를 접는 데 쓴다 (`registry/edition.py`,
+# S15P21A102-385). 개념 표와 달리 `keywords` 만 있으면 된다.
+KEYWORD_KEYS_SQL = f"SELECT id, normalized_name FROM {KEYWORDS}"
 
 # --- 적재 -----------------------------------------------------------------
 #
@@ -691,8 +698,15 @@ class MetricSink:
             cur.execute(SILENCED_SQL)
             return frozenset(int(row[0]) for row in cur.fetchall())
 
-    def concept_groups(self) -> tuple[tuple[int, int, bool], ...]:
-        """`(keyword_id, concept_id, countable)` — 개념 층이 붙여 둔 것 ([개념층]).
+    def keyword_keys(self) -> tuple[tuple[int, str], ...]:
+        """`(keyword_id, normalized_name)` — 연도·시즌 덩이를 가를 비교키."""
+        return tuple(
+            (int(keyword_id), str(normalized))
+            for keyword_id, normalized in self._query(KEYWORD_KEYS_SQL, ())
+        )
+
+    def concept_groups(self) -> tuple[tuple[int, int, bool, str], ...]:
+        """`(keyword_id, concept_id, countable, category)` — 개념 층이 붙여 둔 것 ([개념층]).
 
         **개념 표가 없으면 빈 튜플이다.** 개념 Job 을 아직 돌리지 않은 환경에서 집계가 서지
         않으면 안 된다 — 순위를 접는 것은 개선이지 선행 조건이 아니다. 그래서 여기서만
@@ -710,8 +724,8 @@ class MetricSink:
                 return ()
             cur.execute(CONCEPT_GROUPS_SQL)
             return tuple(
-                (int(keyword_id), int(concept_id), bool(countable))
-                for keyword_id, concept_id, countable in cur.fetchall()
+                (int(keyword_id), int(concept_id), bool(countable), str(category))
+                for keyword_id, concept_id, countable, category in cur.fetchall()
             )
 
     # --- 적재 ------------------------------------------------------------

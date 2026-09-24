@@ -83,6 +83,10 @@ class FakeSink:
         """세지 않기로 판정된 표기의 keyword_id. 기본은 비어 있다 — 판정 표 없음."""
         return frozenset(getattr(self, "_silenced", ()))
 
+    def keyword_keys(self):
+        """`(keyword_id, normalized_name)`. 기본은 비어 있다 — 연도·시즌 접기 없음."""
+        return tuple(getattr(self, "_keys", ()))
+
     def write(self, **kwargs):
         self.written = kwargs
         return None
@@ -480,7 +484,7 @@ def test_접기를_꺼도_세지_않을_개념은_빠진다():
     assert staged(sink, 1)[TREND_TYPES] == []
 
 
-def test_둘_다_끄면_개념_표를_읽지도_않는다():
+def test_셋_다_끄면_옛_동작_그대로다():
     """끈 사람이 기대하는 것은 옛 동작 그대로다."""
     sink = FakeSink(
         two_surfaces(),
@@ -489,7 +493,7 @@ def test_둘_다_끄면_개념_표를_읽지도_않는다():
     )
     batch.run(
         sink,
-        thresholds(fold_concepts=False, drop_uncountable=False),
+        thresholds(fold_concepts=False, drop_uncountable=False, fold_editions=False),
         today=TODAY,
         run_id="r1",
     )
@@ -512,3 +516,95 @@ def test_개념이_없어도_세지_않기로_판정된_표기는_순위에서_�
     assert staged(sink, 1)[TREND_TYPES] == []
     # 지표 자체는 남는다 — 세지 않는 개념과 같은 규약이다.
     assert staged(sink, 1)[MENTION_COUNT] == 9
+
+
+# --- 연도·시즌 접기 (S15P21A102-385) -----------------------------------------
+
+
+def vogue_world() -> list[tuple]:
+    """2026-09-24 24H 순위 1~4위와 같은 모양. 그날만 몰렸고 앞의 7일은 하루 1건이다."""
+    today = {1: 69, 2: 66, 3: 66, 4: 33, 5: 29}
+    rows = [daily(keyword_id, D, count) for keyword_id, count in today.items()]
+    rows += [
+        daily(keyword_id, days_before(offset), 1)
+        for keyword_id in today
+        for offset in range(1, 8)
+    ]
+    return rows
+
+
+VOGUE_KEYS = (
+    (1, "vogue world"),
+    (2, "vogue world 2026"),
+    (3, "vogue world milano 2026"),
+    (4, "vogue world milano"),
+    (5, "gigi hadid"),
+)
+
+
+def test_연도만_다른_표기가_한_자리를_쓴다():
+    """개념 사전에 아무것도 없어도 접힌다 — 개념 Job 을 안 돌린 환경에서도 돈다.
+    행사인지 모르므로 이름은 무게로 고른다 — `Vogue World`(69) 가 대표다."""
+    sink = FakeSink(vogue_world(), sources={keyword_id: 3 for keyword_id in range(1, 6)})
+    sink._keys = VOGUE_KEYS
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    # `Vogue World` + `Vogue World 2026` = 69 + 66
+    assert staged(sink, 1)[MENTION_COUNT] == 135
+    assert staged(sink, 1)[MENTION_RANK] == 1
+    # `Vogue World Milano 2026` + `Vogue World: Milano` = 66 + 33
+    assert staged(sink, 3)[MENTION_COUNT] == 99
+    assert staged(sink, 3)[MENTION_RANK] == 2
+    assert staged(sink, 5)[MENTION_RANK] == 3
+    # 흡수된 표기는 자기 숫자를 갖되 순위에 오르지 않는다
+    for absorbed in (2, 4):
+        assert staged(sink, absorbed)[MENTION_RANK] is None
+        assert staged(sink, absorbed)[TREND_TYPES] == []
+    assert staged(sink, 2)[MENTION_COUNT] == 66
+
+
+def test_행사_개념이면_최신_회차가_보이고_넷이_한_자리다():
+    """2026-09-24 운영 DB 와 같은 모양 — `Vogue World 2026` 개념에 Milano 두 표기가 붙어 있다."""
+    sink = FakeSink(
+        vogue_world(),
+        sources={keyword_id: 3 for keyword_id in range(1, 6)},
+        concepts=[(keyword_id, 267300, True, "event") for keyword_id in (2, 3, 4)],
+    )
+    sink._keys = VOGUE_KEYS
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    # 69 + 66 + 66 + 33
+    assert staged(sink, 2)[MENTION_COUNT] == 234
+    assert staged(sink, 2)[MENTION_RANK] == 1
+    assert staged(sink, 5)[MENTION_RANK] == 2
+    for absorbed in (1, 3, 4):
+        assert staged(sink, absorbed)[MENTION_RANK] is None
+
+
+def test_제외된_기준형이면_회차도_순위에서_빠진다():
+    """2026-09-23 판정이 `vogue world` 를 뺐다. 회차가 그 판정을 우회해 1위로 돌아오면 안 된다."""
+    sink = FakeSink(vogue_world(), sources={keyword_id: 3 for keyword_id in range(1, 6)})
+    sink._keys = VOGUE_KEYS
+    sink._silenced = {1}
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    for silenced in (1, 2):
+        assert staged(sink, silenced)[MENTION_RANK] is None
+        assert staged(sink, silenced)[TREND_TYPES] == []
+    assert staged(sink, 3)[MENTION_RANK] == 1
+
+
+def test_연도_접기를_끄면_표기마다_따로_센다():
+    """`aggregate.concepts.fold_editions` — 규칙이 틀렸을 때 되돌리는 길."""
+    sink = FakeSink(vogue_world(), sources={keyword_id: 3 for keyword_id in range(1, 6)})
+    sink._keys = VOGUE_KEYS
+    batch.run(sink, thresholds(fold_editions=False), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_COUNT] == 69
+    assert [staged(sink, keyword_id)[MENTION_RANK] for keyword_id in range(1, 6)] == [
+        1,
+        2,
+        3,
+        4,
+        5,
+    ]
