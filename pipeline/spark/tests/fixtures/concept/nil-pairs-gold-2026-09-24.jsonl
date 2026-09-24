@@ -1,0 +1,608 @@
+{"short": "레드", "long": "레드 드레스", "initial_label": "D", "label": "D"}
+{"short": "레드", "long": "레이스 드레스", "initial_label": "D", "label": "D"}
+{"short": "빅백", "long": "빅 백", "initial_label": "S", "label": "S"}
+{"short": "생로", "long": "생 로랑", "initial_label": "D", "label": "D"}
+{"short": "스키", "long": "스트레이 키즈", "initial_label": "D", "label": "D"}
+{"short": "칼라", "long": "칼 라거펠트", "initial_label": "D", "label": "D"}
+{"short": "스트레이트 진", "long": "하이라이즈 스트레이트 진", "initial_label": "D", "label": "D"}
+{"short": "스트레이트 핏", "long": "스트레이트 핏 데님", "initial_label": "D", "label": "D"}
+{"short": "슬리브리스 톱", "long": "블랙 슬리브리스 톱", "initial_label": "D", "label": "D"}
+{"short": "슬리브리스 톱", "long": "화이트 슬리브리스 톱", "initial_label": "D", "label": "D"}
+{"short": "스트라이프 셔츠", "long": "블루 스트라이프 셔츠", "initial_label": "D", "label": "D"}
+{"short": "화이트 룩", "long": "올 화이트 룩", "initial_label": "D", "label": "D"}
+{"short": "화이트 룩", "long": "블랙 앤 화이트 룩", "initial_label": "D", "label": "D"}
+{"short": "가벼운 소재", "long": "얇고 가벼운 소재", "initial_label": "D", "label": "D"}
+{"short": "바이커 재킷", "long": "레더 바이커 재킷", "initial_label": "D", "label": "D"}
+{"short": "와이드 데님", "long": "와이드 데님 팬츠", "initial_label": "B", "label": "S"}
+{"short": "와이드 레그", "long": "와이드 레그 진", "initial_label": "D", "label": "D"}
+{"short": "와이드 레그", "long": "와이드 레그 팬츠", "initial_label": "D", "label": "D"}
+{"short": "와이드 팬츠", "long": "화이트 와이드 팬츠", "initial_label": "D", "label": "D"}
+{"short": "와이드 팬츠", "long": "블랙 와이드 팬츠", "initial_label": "D", "label": "D"}
+{"short": "캐롤린 베셋", "long": "캐롤린 베셋 케네디", "initial_label": "S", "label": "S"}
+{"short": "트렌치 코트", "long": "롱 트렌치 코트", "initial_label": "D", "label": "D"}
+{"short": "포플린 셔츠", "long": "코튼 포플린 셔츠", "initial_label": "D", "label": "D"}
+{"short": "화이트 골드", "long": "18K 화이트 골드", "initial_label": "D", "label": "D"}
+{"short": "화이트 데님", "long": "화이트 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "화이트 셔츠", "long": "오버사이즈 화이트 셔츠", "initial_label": "D", "label": "D"}
+{"short": "블랙 플랫", "long": "블랙 플랫 슈즈", "initial_label": "S", "label": "S"}
+{"short": "연청 데님", "long": "연청 데님 팬츠", "initial_label": "B", "label": "S"}
+{"short": "옐로 골드", "long": "18K 옐로 골드", "initial_label": "D", "label": "D"}
+{"short": "체크 패턴", "long": "체크 패턴 셔츠", "initial_label": "D", "label": "D"}
+{"short": "카고 팬츠", "long": "와이드 카고 팬츠", "initial_label": "D", "label": "D"}
+{"short": "패션 위크", "long": "파리 패션 위크", "initial_label": "D", "label": "D"}
+{"short": "폴카 도트", "long": "폴카 도트 패턴", "initial_label": "D", "label": "S"}
+{"short": "핑크 골드", "long": "18K 핑크 골드", "initial_label": "D", "label": "D"}
+{"short": "가을 컬렉션", "long": "2026 가을 컬렉션", "initial_label": "E", "label": "E"}
+{"short": "공방 컬렉션", "long": "2026 공방 컬렉션", "initial_label": "E", "label": "E"}
+{"short": "로우 라이즈", "long": "로우 라이즈 진", "initial_label": "D", "label": "D"}
+{"short": "미니 드레스", "long": "화이트 미니 드레스", "initial_label": "D", "label": "D"}
+{"short": "미니 드레스", "long": "블랙 미니 드레스", "initial_label": "D", "label": "D"}
+{"short": "블랙 드레스", "long": "리틀 블랙 드레스", "initial_label": "D", "label": "D"}
+{"short": "여름 컬렉션", "long": "2026 봄-여름 컬렉션", "initial_label": "D", "label": "D"}
+{"short": "코튼 포플린", "long": "코튼 포플린 셔츠", "initial_label": "D", "label": "D"}
+{"short": "하이 주얼리", "long": "하이 주얼리 컬렉션", "initial_label": "D", "label": "D"}
+{"short": "하이 웨이스트", "long": "하이 웨이스트 팬츠", "initial_label": "D", "label": "D"}
+{"short": "블랙 슬리브리스", "long": "블랙 슬리브리스 톱", "initial_label": "B", "label": "S"}
+{"short": "패션 위크", "long": "뉴욕 패션 위크", "initial_label": "D", "label": "D"}
+{"short": "블랙 레더 재킷", "long": "블랙 레더 부츠", "initial_label": "D", "label": "D"}
+{"short": "패턴 셔츠", "long": "체크 패턴 셔츠", "initial_label": "D", "label": "D"}
+{"short": "생 로랑", "long": "이브 생 로랑", "initial_label": "S", "label": "S"}
+{"short": "블랙 앤 화이트", "long": "블랙 앤 화이트 룩", "initial_label": "D", "label": "S"}
+{"short": "르 시티", "long": "르 시티 백", "initial_label": "S", "label": "S"}
+{"short": "올 블랙", "long": "올 블랙 룩", "initial_label": "B", "label": "S"}
+{"short": "롱 슬리브", "long": "롱 슬리브 티셔츠", "initial_label": "D", "label": "D"}
+{"short": "올 화이트", "long": "올 화이트 룩", "initial_label": "B", "label": "S"}
+{"short": "블랙 룩", "long": "올 블랙 룩", "initial_label": "D", "label": "D"}
+{"short": "2026 가을 컬렉션", "long": "2026 가을-겨울 컬렉션", "initial_label": "S", "label": "S"}
+{"short": "가을/겨울 컬렉션", "long": "2026 가을/겨울 컬렉션", "initial_label": "E", "label": "E"}
+{"short": "2026 F/W", "long": "2026 F/W 런웨이", "initial_label": "B", "label": "S"}
+{"short": "2026 F/W", "long": "2026 F/W 컬렉션", "initial_label": "B", "label": "S"}
+{"short": "2026 F/W", "long": "2026 F/W Collection", "initial_label": "B", "label": "S"}
+{"short": "2026 F/W 컬렉션", "long": "2026 F/W 런웨이", "initial_label": "B", "label": "S"}
+{"short": "2026 F/W 컬렉션", "long": "2026 F/W Collection", "initial_label": "S", "label": "S"}
+{"short": "2026 F/W Collection", "long": "2026 F/W 런웨이", "initial_label": "B", "label": "S"}
+{"short": "Met Gala", "long": "2026 Met Gala", "initial_label": "E", "label": "E"}
+{"short": "2026 Met Gala", "long": "MET Gala 2026", "initial_label": "S", "label": "S"}
+{"short": "Venice Film Festival", "long": "2026 Venice Film Festival", "initial_label": "E", "label": "E"}
+{"short": "abiti da sera", "long": "abiti da sposa", "initial_label": "D", "label": "D"}
+{"short": "abito bianco", "long": "mini abito bianco", "initial_label": "D", "label": "D"}
+{"short": "abito da sera", "long": "abito da sposa", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Amelia Gray", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Ariana Grande", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "American Gigolo", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Alta Gioielleria", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "amfAR Gala", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Andrew Garfield", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Ava Gardner", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "avant-garde", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "avant-gardiste", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "avant-gardistes", "initial_label": "D", "label": "D"}
+{"short": "AG", "long": "Ashley Graham", "initial_label": "D", "label": "D"}
+{"short": "AI", "long": "Allen Iverson", "initial_label": "D", "label": "D"}
+{"short": "AI", "long": "artigianalità italiana", "initial_label": "D", "label": "D"}
+{"short": "AI", "long": "Annie's Ibiza", "initial_label": "D", "label": "D"}
+{"short": "A-line skirt", "long": "A-line skirts", "initial_label": "S", "label": "S"}
+{"short": "Amanda Harlech", "long": "Lady Amanda Harlech", "initial_label": "S", "label": "S"}
+{"short": "Amazon Prime", "long": "Amazon Prime Day", "initial_label": "D", "label": "D"}
+{"short": "Prime Day", "long": "Amazon Prime Day", "initial_label": "S", "label": "S"}
+{"short": "anni 90", "long": "stile anni 90", "initial_label": "D", "label": "S"}
+{"short": "anni Novanta", "long": "minimalismo anni Novanta", "initial_label": "D", "label": "D"}
+{"short": "AP", "long": "Ashley Park", "initial_label": "D", "label": "D"}
+{"short": "AP", "long": "Armani Privé", "initial_label": "D", "label": "D"}
+{"short": "AP", "long": "archival pieces", "initial_label": "D", "label": "D"}
+{"short": "a righe", "long": "camicia a righe", "initial_label": "D", "label": "D"}
+{"short": "a righe", "long": "maglia a righe", "initial_label": "D", "label": "D"}
+{"short": "a righe", "long": "polo a righe", "initial_label": "D", "label": "D"}
+{"short": "automne-hiver 2026-2027", "long": "collection automne-hiver 2026-2027", "initial_label": "B", "label": "S"}
+{"short": "automne-hiver 2026-2027", "long": "défilé automne-hiver 2026-2027", "initial_label": "B", "label": "S"}
+{"short": "Autumn/Winter 2026", "long": "Autumn/Winter 2026 collection", "initial_label": "B", "label": "S"}
+{"short": "Autumn/Winter 2026", "long": "autumn/winter 2026 show", "initial_label": "B", "label": "S"}
+{"short": "Autumn/Winter 2026 collection", "long": "autumn/winter 2026 show", "initial_label": "B", "label": "S"}
+{"short": "Autunno Inverno 2026", "long": "collezione Autunno Inverno 2026 2027", "initial_label": "B", "label": "B"}
+{"short": "Ava", "long": "a vita alta", "initial_label": "D", "label": "D"}
+{"short": "a vita alta", "long": "pantaloni a vita alta", "initial_label": "D", "label": "D"}
+{"short": "a vita alta", "long": "jeans a vita alta", "initial_label": "D", "label": "D"}
+{"short": "back to office", "long": "back to school", "initial_label": "D", "label": "D"}
+{"short": "Mary Jane", "long": "ballerine Mary Jane", "initial_label": "D", "label": "D"}
+{"short": "barrel leg", "long": "Barrel-Leg Jeans", "initial_label": "D", "label": "D"}
+{"short": "barrel leg", "long": "barrel-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "Barrel-Leg Jeans", "long": "barrel-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "Ben", "long": "bianco e nero", "initial_label": "D", "label": "D"}
+{"short": "best friend", "long": "my best friend", "initial_label": "D", "label": "D"}
+{"short": "black dress", "long": "little black dress", "initial_label": "D", "label": "D"}
+{"short": "blue jeans", "long": "Classic blue jeans", "initial_label": "D", "label": "S"}
+{"short": "borsa a mano", "long": "borsa a spalla", "initial_label": "D", "label": "D"}
+{"short": "borsa a mano", "long": "borsa a tracolla", "initial_label": "D", "label": "D"}
+{"short": "borsa a spalla", "long": "borsa a tracolla", "initial_label": "D", "label": "D"}
+{"short": "마리아 그라치아 키우", "long": "마리아 그라치아 치우리", "initial_label": "S", "label": "S"}
+{"short": "British fashion", "long": "British Fashion Awards", "initial_label": "D", "label": "D"}
+{"short": "British fashion", "long": "British Fashion Council", "initial_label": "D", "label": "D"}
+{"short": "British Fashion Awards", "long": "British Fashion Council", "initial_label": "D", "label": "D"}
+{"short": "Fashion Awards", "long": "British Fashion Awards", "initial_label": "S", "label": "S"}
+{"short": "BTS", "long": "back to school", "initial_label": "D", "label": "D"}
+{"short": "BTS", "long": "black T-shirt", "initial_label": "D", "label": "D"}
+{"short": "button-down", "long": "white button-down shirt", "initial_label": "D", "label": "D"}
+{"short": "button-down", "long": "White Button-Down", "initial_label": "D", "label": "D"}
+{"short": "button-down", "long": "button-down shirt", "initial_label": "B", "label": "S"}
+{"short": "button-down shirt", "long": "white button-down shirt", "initial_label": "D", "label": "D"}
+{"short": "button-up", "long": "button-up shirts", "initial_label": "B", "label": "S"}
+{"short": "Calvin Klein", "long": "Calvin Klein Collection", "initial_label": "D", "label": "D"}
+{"short": "camicia a quadri", "long": "camicia a maniche corte", "initial_label": "D", "label": "D"}
+{"short": "camicia a righe", "long": "camicia a maniche corte", "initial_label": "D", "label": "D"}
+{"short": "camicia a quadri", "long": "camicia a righe", "initial_label": "D", "label": "D"}
+{"short": "camicia bianca", "long": "camicia bianca maschile", "initial_label": "D", "label": "D"}
+{"short": "camicia bianca", "long": "camicia bianca oversize", "initial_label": "D", "label": "D"}
+{"short": "camicia bianca maschile", "long": "camicia bianca oversize", "initial_label": "D", "label": "D"}
+{"short": "capsule collection", "long": "limited-edition capsule collection", "initial_label": "D", "label": "D"}
+{"short": "Carolyn Bessette", "long": "Carolyn Bessette Kennedy", "initial_label": "S", "label": "S"}
+{"short": "데님 팬츠", "long": "화이트 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "데님 팬츠", "long": "연청 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "데님 팬츠", "long": "블랙 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "Christian Dior", "long": "Christian Dior Couture", "initial_label": "B", "label": "S"}
+{"short": "white tee", "long": "classic white tee", "initial_label": "D", "label": "S"}
+{"short": "classic white tee", "long": "classic white T-shirt", "initial_label": "S", "label": "S"}
+{"short": "clean girl", "long": "clean girl aesthetic", "initial_label": "S", "label": "S"}
+{"short": "레더 부츠", "long": "블랙 레더 부츠", "initial_label": "D", "label": "D"}
+{"short": "Commerce Writer", "long": "Senior Commerce Writer", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Copenhagen Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "Cou Cou", "long": "Cou Cou Intimates", "initial_label": "B", "label": "S"}
+{"short": "white shirt", "long": "crisp white shirt", "initial_label": "D", "label": "S"}
+{"short": "crisp white shirt", "long": "crisp white shirts", "initial_label": "S", "label": "S"}
+{"short": "cropped trench", "long": "cropped trench coat", "initial_label": "S", "label": "S"}
+{"short": "레더 재킷", "long": "블랙 레더 재킷", "initial_label": "D", "label": "D"}
+{"short": "레더 재킷", "long": "브라운 레더 재킷", "initial_label": "D", "label": "D"}
+{"short": "레더 재킷", "long": "오버사이즈 레더 재킷", "initial_label": "D", "label": "D"}
+{"short": "Edgar-Jones", "long": "Daisy Edgar-Jones", "initial_label": "S", "label": "S"}
+{"short": "dark wash", "long": "dark-wash jeans", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "défilé croisière", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Dove Cameron", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "DC Comics", "initial_label": "D", "label": "S"}
+{"short": "DC", "long": "design contemporaneo", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Doja Cat", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "denim chiaro", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "debut collection", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Destiny’s Child", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "dettagli couture", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "dress code", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Deva Cassel", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Disney Channel", "initial_label": "D", "label": "D"}
+{"short": "DC", "long": "Dark chocolate", "initial_label": "D", "label": "D"}
+{"short": "De Beers", "long": "De Beers London", "initial_label": "S", "label": "S"}
+{"short": "De Niro", "long": "Robert De Niro", "initial_label": "S", "label": "S"}
+{"short": "Devil Wears Prada", "long": "The Devil Wears Prada", "initial_label": "S", "label": "S"}
+{"short": "Diane von Furstenberg", "long": "Diane von Fürstenberg", "initial_label": "S", "label": "S"}
+{"short": "Dolce Vita", "long": "La Dolce Vita", "initial_label": "S", "label": "S"}
+{"short": "도트 패턴", "long": "폴카 도트 패턴", "initial_label": "D", "label": "D"}
+{"short": "Senza Tempo", "long": "eleganza senza tempo", "initial_label": "D", "label": "D"}
+{"short": "Emmy Awards", "long": "Emmy Awards 2026", "initial_label": "E", "label": "E"}
+{"short": "Estate 2026", "long": "sfilate primavera estate 2026", "initial_label": "B", "label": "D"}
+{"short": "Estate 2026", "long": "passerelle primavera estate 2026", "initial_label": "B", "label": "D"}
+{"short": "Estate 2026", "long": "Primavera Estate 2026", "initial_label": "B", "label": "D"}
+{"short": "Fall 2026", "long": "pre-fall 2026 collection", "initial_label": "D", "label": "D"}
+{"short": "Fall 2026", "long": "Pre-Fall 2026", "initial_label": "D", "label": "D"}
+{"short": "Fall 2026", "long": "Fall 2026 collection", "initial_label": "B", "label": "S"}
+{"short": "Fall 2026 collection", "long": "pre-fall 2026 collection", "initial_label": "D", "label": "D"}
+{"short": "Fall/Winter 2026", "long": "fall/winter 2026 runways", "initial_label": "B", "label": "S"}
+{"short": "Fashion Awards", "long": "The Fashion Awards", "initial_label": "S", "label": "S"}
+{"short": "Fashion Week", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "London Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week parisienne", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Milano Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "New York Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week milanaise", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week de Londres", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week de Milan", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Fashion Week de Paris", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week", "long": "Paris Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week de Milan", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week de Paris", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week de Londres", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Londres", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week de Londres", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Milan", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Milan", "long": "Fashion Week de Paris", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Milan", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week de Milan", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Milan", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Milan", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week de Milan", "initial_label": "S", "label": "S"}
+{"short": "Fashion Week de Paris", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de New York", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de New York", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de New York", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week de New York", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Paris", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week de Paris", "initial_label": "S", "label": "S"}
+{"short": "Fashion Week de Paris", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week de Paris", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week de Paris", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week printemps-été 2026", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week printemps-été 2027", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week homme printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week parisienne", "long": "Fashion Week milanaise", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week printemps-été 2026", "long": "Fashion Week printemps-été 2027", "initial_label": "E", "label": "E"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week printemps-été 2026", "initial_label": "D", "label": "D"}
+{"short": "Fashion Week milanaise", "long": "Fashion Week printemps-été 2027", "initial_label": "D", "label": "D"}
+{"short": "Festival di Cannes", "long": "Festival di Sanremo", "initial_label": "D", "label": "D"}
+{"short": "Festival di Cannes", "long": "Festival di Venezia 2026", "initial_label": "D", "label": "D"}
+{"short": "Festival di Sanremo", "long": "Festival di Venezia 2026", "initial_label": "D", "label": "D"}
+{"short": "Venezia 2026", "long": "Festival di Venezia 2026", "initial_label": "B", "label": "S"}
+{"short": "World Cup", "long": "FIFA World Cup", "initial_label": "S", "label": "S"}
+{"short": "Francis Kurkdjian", "long": "Maison Francis Kurkdjian", "initial_label": "B", "label": "D"}
+{"short": "French girl", "long": "French-girl style", "initial_label": "B", "label": "S"}
+{"short": "Funnel-Neck", "long": "funnel-neck jacket", "initial_label": "D", "label": "D"}
+{"short": "Funnel-Neck", "long": "funnel neck jackets", "initial_label": "D", "label": "D"}
+{"short": "funnel-neck jacket", "long": "funnel neck jackets", "initial_label": "S", "label": "S"}
+{"short": "Gap", "long": "gonna a pieghe", "initial_label": "D", "label": "D"}
+{"short": "Gap", "long": "gonna a portafoglio", "initial_label": "D", "label": "D"}
+{"short": "Gap", "long": "gonne a pieghe", "initial_label": "D", "label": "D"}
+{"short": "Gap", "long": "gonna a palloncino", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "Geena Davis", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "Gianfranco D'Attis", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "Giles Deacon", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "giacca doppiopetto", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "Granny dress", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "George Daniel", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "gioielli dorati", "initial_label": "D", "label": "D"}
+{"short": "GD", "long": "gonna drappeggiata", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Golden Globes", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "gros-grain", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Gilmore Girls", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Gossip Girl", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Guccio Gucci", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Gina Gershon", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Grace Gummer", "initial_label": "D", "label": "D"}
+{"short": "gg", "long": "Greta Gerwig", "initial_label": "D", "label": "D"}
+{"short": "giacca di jeans", "long": "giacca di pelle", "initial_label": "D", "label": "D"}
+{"short": "gonna a matita", "long": "gonna a pieghe", "initial_label": "D", "label": "D"}
+{"short": "gonna a matita", "long": "gonna a portafoglio", "initial_label": "D", "label": "D"}
+{"short": "gonna a matita", "long": "gonna a ruota", "initial_label": "D", "label": "D"}
+{"short": "gonna a matita", "long": "gonna a tubino", "initial_label": "D", "label": "D"}
+{"short": "gonna a matita", "long": "gonna a palloncino", "initial_label": "D", "label": "D"}
+{"short": "gonna a palloncino", "long": "gonna a pieghe", "initial_label": "D", "label": "D"}
+{"short": "gonna a palloncino", "long": "gonna a portafoglio", "initial_label": "D", "label": "D"}
+{"short": "gonna a palloncino", "long": "gonna a ruota", "initial_label": "D", "label": "D"}
+{"short": "gonna a palloncino", "long": "gonna a tubino", "initial_label": "D", "label": "D"}
+{"short": "gonna a pieghe", "long": "gonna a portafoglio", "initial_label": "D", "label": "D"}
+{"short": "gonna a pieghe", "long": "gonna a ruota", "initial_label": "D", "label": "D"}
+{"short": "gonna a pieghe", "long": "gonna a tubino", "initial_label": "D", "label": "D"}
+{"short": "gonna a portafoglio", "long": "gonna a ruota", "initial_label": "D", "label": "D"}
+{"short": "gonna a portafoglio", "long": "gonna a tubino", "initial_label": "D", "label": "D"}
+{"short": "gonna a ruota", "long": "gonna a tubino", "initial_label": "D", "label": "D"}
+{"short": "gonna bianca", "long": "gonna bianca lunga", "initial_label": "D", "label": "D"}
+{"short": "gonne a matita", "long": "gonne a pieghe", "initial_label": "D", "label": "D"}
+{"short": "Wales Bonner", "long": "Grace Wales Bonner", "initial_label": "B", "label": "D"}
+{"short": "graphic T-shirt", "long": "graphic T-shirts", "initial_label": "D", "label": "S"}
+{"short": "Haute Couture", "long": "Paris Haute Couture Week", "initial_label": "D", "label": "D"}
+{"short": "Haute Couture", "long": "Haute Couture Week", "initial_label": "D", "label": "D"}
+{"short": "Haute Couture Week", "long": "Paris Haute Couture Week", "initial_label": "S", "label": "S"}
+{"short": "레드 카펫", "long": "레드 카펫 룩", "initial_label": "D", "label": "D"}
+{"short": "high-waisted", "long": "High-waisted jeans", "initial_label": "D", "label": "D"}
+{"short": "high-waisted", "long": "high-waisted trousers", "initial_label": "D", "label": "D"}
+{"short": "High-waisted jeans", "long": "high-waisted trousers", "initial_label": "D", "label": "D"}
+{"short": "HM", "long": "HUMAN MADE", "initial_label": "D", "label": "D"}
+{"short": "Ian", "long": "Invito a nozze", "initial_label": "D", "label": "D"}
+{"short": "il", "long": "Italian Leather", "initial_label": "D", "label": "D"}
+{"short": "il", "long": "imprimé léopard", "initial_label": "D", "label": "D"}
+{"short": "il", "long": "Iris Law", "initial_label": "D", "label": "D"}
+{"short": "je", "long": "Jesse Eisenberg", "initial_label": "D", "label": "D"}
+{"short": "Jean Louis", "long": "Jean-Louis Scherrer", "initial_label": "D", "label": "D"}
+{"short": "Jean Paul Gaultier", "long": "Jean-Paul Belmondo", "initial_label": "D", "label": "D"}
+{"short": "jeans a sigaretta", "long": "jeans a vita alta", "initial_label": "D", "label": "D"}
+{"short": "jeans a sigaretta", "long": "jeans a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "jeans a vita alta", "long": "jeans a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "wide leg", "long": "jeans wide leg", "initial_label": "D", "label": "D"}
+{"short": "taille basse", "long": "jean taille basse", "initial_label": "D", "label": "D"}
+{"short": "wide leg", "long": "jean wide leg", "initial_label": "D", "label": "D"}
+{"short": "Jeux Olympiques", "long": "Jeux Olympiques de Paris 2024", "initial_label": "E", "label": "E"}
+{"short": "JFK", "long": "John F. Kennedy", "initial_label": "S", "label": "S"}
+{"short": "JO", "long": "Johanna Ortiz", "initial_label": "D", "label": "D"}
+{"short": "JO", "long": "Josh O'Connor", "initial_label": "D", "label": "D"}
+{"short": "JO", "long": "jojoba oil", "initial_label": "D", "label": "D"}
+{"short": "JO", "long": "Josh O’Connor", "initial_label": "D", "label": "D"}
+{"short": "John F. Kennedy", "long": "John F. Kennedy Jr.", "initial_label": "D", "label": "D"}
+{"short": "John John", "long": "John John Kennedy", "initial_label": "S", "label": "S"}
+{"short": "Jo Malone", "long": "JO MALONE LONDON", "initial_label": "S", "label": "S"}
+{"short": "JR", "long": "Julia Roberts", "initial_label": "D", "label": "D"}
+{"short": "JT", "long": "Jun Takahashi", "initial_label": "D", "label": "D"}
+{"short": "JT", "long": "jupe transparente", "initial_label": "D", "label": "D"}
+{"short": "JT", "long": "Juergen Teller", "initial_label": "D", "label": "D"}
+{"short": "JT", "long": "Justin Timberlake", "initial_label": "D", "label": "D"}
+{"short": "Junya Watanabe", "long": "JUNYA WATANABE MAN", "initial_label": "D", "label": "D"}
+{"short": "Kate Spade", "long": "kate spade new york", "initial_label": "S", "label": "S"}
+{"short": "kitten heel", "long": "Kitten Heel Boots", "initial_label": "D", "label": "D"}
+{"short": "lab-grown diamond", "long": "lab-grown diamonds", "initial_label": "S", "label": "S"}
+{"short": "Lady Diana", "long": "Lady Diana Spencer", "initial_label": "S", "label": "S"}
+{"short": "와이드 레그 진", "long": "와이드 레그 팬츠", "initial_label": "D", "label": "D"}
+{"short": "LBD", "long": "little black dress", "initial_label": "S", "label": "S"}
+{"short": "leather jacket", "long": "oversized leather jacket", "initial_label": "D", "label": "D"}
+{"short": "Le Monde", "long": "Le Monde Beryl", "initial_label": "D", "label": "D"}
+{"short": "Levi Strauss", "long": "Levi Strauss & Co.", "initial_label": "S", "label": "S"}
+{"short": "LFW", "long": "London Fashion Week", "initial_label": "S", "label": "S"}
+{"short": "LGN", "long": "Louis Gabriel Nouchi", "initial_label": "D", "label": "S"}
+{"short": "light wash", "long": "light-wash denim", "initial_label": "D", "label": "D"}
+{"short": "light wash", "long": "light-wash jeans", "initial_label": "D", "label": "D"}
+{"short": "light-wash denim", "long": "light-wash jeans", "initial_label": "D", "label": "D"}
+{"short": "Limited Edition", "long": "limited-edition capsule collection", "initial_label": "D", "label": "D"}
+{"short": "Limited Edition", "long": "limited-edition collection", "initial_label": "D", "label": "D"}
+{"short": "limited-edition collection", "long": "limited-edition capsule collection", "initial_label": "D", "label": "D"}
+{"short": "long sleeve", "long": "long-sleeve tee", "initial_label": "D", "label": "D"}
+{"short": "로즈 골드", "long": "18K 로즈 골드", "initial_label": "D", "label": "D"}
+{"short": "LOULOU DE SAISON", "long": "Loulou de la Falaise", "initial_label": "D", "label": "D"}
+{"short": "low-rise", "long": "low-rise jeans", "initial_label": "D", "label": "D"}
+{"short": "lunettes de soleil", "long": "lunettes de soleil ovales", "initial_label": "D", "label": "D"}
+{"short": "LV", "long": "Luchino Visconti", "initial_label": "D", "label": "D"}
+{"short": "LV", "long": "Lindsey Vonn", "initial_label": "D", "label": "D"}
+{"short": "LV", "long": "Louis Vuitton", "initial_label": "S", "label": "S"}
+{"short": "maniche lunghe", "long": "maglia a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "maglia a righe", "long": "maglia a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "maniche lunghe", "long": "magliette a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "Maison Margiela", "long": "MM6 Maison Margiela", "initial_label": "D", "label": "D"}
+{"short": "make-up", "long": "make-up artist", "initial_label": "D", "label": "D"}
+{"short": "make-up", "long": "Make Up For Ever", "initial_label": "D", "label": "D"}
+{"short": "make-up artist", "long": "Make Up For Ever", "initial_label": "D", "label": "D"}
+{"short": "Malene Birger", "long": "By Malene Birger", "initial_label": "S", "label": "S"}
+{"short": "man", "long": "minimalismo anni Novanta", "initial_label": "D", "label": "D"}
+{"short": "Mary-Kate", "long": "Mary-Kate Olsen", "initial_label": "S", "label": "S"}
+{"short": "Max Mara", "long": "Weekend Max Mara", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Monia Chokri", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "messy chic", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Maison Crivelli", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "mocassini classici", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Miley Cyrus", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "moda contemporanea", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Michaela Coel", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "mode contemporaine", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Mimi Cuttrell", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Michelle Class", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "Maurizio Cattelan", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "mid-century", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "micro cristalli", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "minimal-chic", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "minimalismo chic", "initial_label": "D", "label": "D"}
+{"short": "MC", "long": "menswear collection", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "My daughter", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "metallo dorato", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "method dressing", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "Miles Davis", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "modern day", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "Mr Darcy", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "Mrs. Dalloway", "initial_label": "D", "label": "D"}
+{"short": "MD", "long": "midi dresses", "initial_label": "D", "label": "D"}
+{"short": "me", "long": "my ex", "initial_label": "D", "label": "D"}
+{"short": "me", "long": "Missy Elliott", "initial_label": "D", "label": "D"}
+{"short": "me", "long": "Mike Eckhaus", "initial_label": "D", "label": "D"}
+{"short": "Met Gala", "long": "MET Gala 2026", "initial_label": "E", "label": "E"}
+{"short": "Métiers d’Art", "long": "Métiers d’Art 2026", "initial_label": "E", "label": "E"}
+{"short": "MICHAEL KORS", "long": "Michael Kors Collection", "initial_label": "D", "label": "D"}
+{"short": "MICHAEL KORS", "long": "MICHAEL MICHAEL KORS", "initial_label": "D", "label": "D"}
+{"short": "mini abito", "long": "mini abito bianco", "initial_label": "D", "label": "D"}
+{"short": "MJ", "long": "mom jeans", "initial_label": "D", "label": "D"}
+{"short": "MJ", "long": "Military Jackets", "initial_label": "D", "label": "D"}
+{"short": "mom", "long": "Mandarin Oriental Milan", "initial_label": "D", "label": "D"}
+{"short": "Mostra del Cinema", "long": "Mostra del Cinema di Venezia", "initial_label": "B", "label": "S"}
+{"short": "Mostra del Cinema", "long": "Mostra del Cinema di Venezia 2026", "initial_label": "E", "label": "E"}
+{"short": "Mostra del Cinema di Venezia", "long": "Mostra del Cinema di Venezia 2026", "initial_label": "E", "label": "E"}
+{"short": "Venezia 2026", "long": "Mostra del Cinema di Venezia 2026", "initial_label": "B", "label": "S"}
+{"short": "봄버 재킷", "long": "레더 봄버 재킷", "initial_label": "D", "label": "D"}
+{"short": "MS", "long": "modern style", "initial_label": "D", "label": "D"}
+{"short": "MS", "long": "Martin Short", "initial_label": "D", "label": "D"}
+{"short": "my boyfriend", "long": "Techno Is My Boyfriend", "initial_label": "D", "label": "D"}
+{"short": "New York Knicks", "long": "New York Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "New York premiere", "long": "New York Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "New York Yankees", "long": "New York Fashion Week", "initial_label": "D", "label": "D"}
+{"short": "New York Knicks", "long": "New York premiere", "initial_label": "D", "label": "D"}
+{"short": "New York Knicks", "long": "New York Yankees", "initial_label": "D", "label": "D"}
+{"short": "New York premiere", "long": "New York Yankees", "initial_label": "D", "label": "D"}
+{"short": "Nicola Peltz", "long": "Nicola Peltz Beckham", "initial_label": "S", "label": "S"}
+{"short": "North Face", "long": "The North Face", "initial_label": "S", "label": "S"}
+{"short": "탱크 톱", "long": "화이트 탱크 톱", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole", "long": "occhiali da sole aviator", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole", "long": "occhiali da sole oversize", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole", "long": "occhiali da sole scuri", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole", "long": "occhiali da vista", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole aviator", "long": "occhiali da sole oversize", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole aviator", "long": "occhiali da sole scuri", "initial_label": "D", "label": "D"}
+{"short": "occhiali da vista", "long": "occhiali da sole aviator", "initial_label": "D", "label": "D"}
+{"short": "occhiali da sole oversize", "long": "occhiali da sole scuri", "initial_label": "D", "label": "D"}
+{"short": "occhiali da vista", "long": "occhiali da sole oversize", "initial_label": "D", "label": "D"}
+{"short": "occhiali da vista", "long": "occhiali da sole scuri", "initial_label": "D", "label": "D"}
+{"short": "off-duty", "long": "off-duty style", "initial_label": "D", "label": "D"}
+{"short": "off-duty", "long": "off-duty look", "initial_label": "D", "label": "D"}
+{"short": "off-duty style", "long": "off-duty look", "initial_label": "B", "label": "S"}
+{"short": "OG", "long": "Oli Green", "initial_label": "D", "label": "D"}
+{"short": "OG", "long": "oro giallo", "initial_label": "D", "label": "D"}
+{"short": "OG", "long": "olive green", "initial_label": "D", "label": "D"}
+{"short": "On", "long": "Oscar nominee", "initial_label": "D", "label": "D"}
+{"short": "or", "long": "oro rosa", "initial_label": "D", "label": "D"}
+{"short": "or", "long": "Oura Ring", "initial_label": "D", "label": "D"}
+{"short": "or", "long": "Office Romance", "initial_label": "D", "label": "D"}
+{"short": "oro giallo", "long": "oro giallo 18 carati", "initial_label": "D", "label": "D"}
+{"short": "white shirt", "long": "oversized white shirt", "initial_label": "D", "label": "D"}
+{"short": "pantalon de costume", "long": "pantalon de tailleur", "initial_label": "D", "label": "S"}
+{"short": "pantaloni a palazzo", "long": "pantaloni a sigaretta", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a palazzo", "long": "pantaloni a vita alta", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a palazzo", "long": "pantaloni a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a palazzo", "long": "pantaloni a zampa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a sigaretta", "long": "pantaloni a vita alta", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a sigaretta", "long": "pantaloni a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a sigaretta", "long": "pantaloni a zampa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a vita alta", "long": "pantaloni a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a zampa", "long": "pantaloni a vita alta", "initial_label": "D", "label": "D"}
+{"short": "pantaloni a zampa", "long": "pantaloni a vita bassa", "initial_label": "D", "label": "D"}
+{"short": "pantaloni palazzo", "long": "Pantaloni palazzo beige", "initial_label": "D", "label": "D"}
+{"short": "pantaloni sartoriali", "long": "pantaloni sartoriali neri", "initial_label": "D", "label": "D"}
+{"short": "Primavera-Estate", "long": "passerelle primavera estate 2026", "initial_label": "B", "label": "E"}
+{"short": "Primavera Estate 2026", "long": "passerelle primavera estate 2026", "initial_label": "B", "label": "S"}
+{"short": "Pat McGrath", "long": "Pat McGrath Labs", "initial_label": "B", "label": "D"}
+{"short": "니트 톱", "long": "블랙 니트 톱", "initial_label": "D", "label": "D"}
+{"short": "robe noire", "long": "petite robe noire", "initial_label": "D", "label": "D"}
+{"short": "블랙 데님", "long": "블랙 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "white tee", "long": "plain white tee", "initial_label": "D", "label": "S"}
+{"short": "pointed-toe boots", "long": "pointed-toe heels", "initial_label": "D", "label": "D"}
+{"short": "Polka dot capris", "long": "polka dot nails", "initial_label": "D", "label": "D"}
+{"short": "Pre-Fall", "long": "pre-fall 2026 collection", "initial_label": "B", "label": "E"}
+{"short": "Pre-Fall", "long": "Pre-Fall 2026", "initial_label": "E", "label": "E"}
+{"short": "Pre-Fall 2026", "long": "pre-fall 2026 collection", "initial_label": "B", "label": "S"}
+{"short": "Primavera-Estate", "long": "Primavera Estate 2026", "initial_label": "B", "label": "E"}
+{"short": "Primavera-Estate", "long": "sfilate primavera estate 2026", "initial_label": "B", "label": "E"}
+{"short": "Primavera Estate 2026", "long": "sfilate primavera estate 2026", "initial_label": "B", "label": "S"}
+{"short": "Princess of Wales", "long": "Prince and Princess of Wales", "initial_label": "D", "label": "D"}
+{"short": "Princess of Wales", "long": "The Princess of Wales", "initial_label": "S", "label": "S"}
+{"short": "Priyanka Chopra", "long": "Priyanka Chopra Jonas", "initial_label": "S", "label": "S"}
+{"short": "pussy bow", "long": "pussy-bow blouses", "initial_label": "D", "label": "D"}
+{"short": "Ralph Lauren", "long": "Lauren Ralph Lauren", "initial_label": "D", "label": "D"}
+{"short": "Ralph Lauren", "long": "Ralph Lauren Collection", "initial_label": "D", "label": "D"}
+{"short": "Ralph Lauren", "long": "Polo Ralph Lauren", "initial_label": "D", "label": "D"}
+{"short": "re", "long": "Robert Eggers", "initial_label": "D", "label": "D"}
+{"short": "re", "long": "regina Elisabetta", "initial_label": "D", "label": "D"}
+{"short": "re", "long": "Rupert Everett", "initial_label": "D", "label": "D"}
+{"short": "Ready-to-Wear", "long": "ready-to-wear collection", "initial_label": "D", "label": "D"}
+{"short": "크롭 톱", "long": "화이트 크롭 톱", "initial_label": "D", "label": "D"}
+{"short": "red carpet", "long": "red carpet looks", "initial_label": "D", "label": "D"}
+{"short": "regina Elisabetta", "long": "regina Elisabetta II", "initial_label": "S", "label": "S"}
+{"short": "블랙 레더", "long": "블랙 레더 재킷", "initial_label": "D", "label": "D"}
+{"short": "블랙 레더", "long": "블랙 레더 부츠", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Rooney Mara", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Rupert Murdoch", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Robert Mallory", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Robert Mapplethorpe", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Ryan Murphy", "initial_label": "D", "label": "D"}
+{"short": "RM", "long": "Roland Mouret", "initial_label": "D", "label": "D"}
+{"short": "RN", "long": "robes nuisettes", "initial_label": "D", "label": "D"}
+{"short": "RN", "long": "raso nero", "initial_label": "D", "label": "D"}
+{"short": "RN", "long": "robe noire", "initial_label": "D", "label": "D"}
+{"short": "RN", "long": "robe nuisette", "initial_label": "D", "label": "D"}
+{"short": "robe de mariée", "long": "robe de soirée", "initial_label": "D", "label": "D"}
+{"short": "Rolling Stones", "long": "The Rolling Stones", "initial_label": "S", "label": "S"}
+{"short": "Saint Laurent", "long": "Yves Saint Laurent", "initial_label": "S", "label": "S"}
+{"short": "saldi estivi", "long": "saldi estivi 2026", "initial_label": "E", "label": "E"}
+{"short": "scarpe da barca", "long": "scarpe da ginnastica", "initial_label": "D", "label": "D"}
+{"short": "second-hand", "long": "second-hand clothing", "initial_label": "D", "label": "D"}
+{"short": "second-hand", "long": "second-hand fashion", "initial_label": "D", "label": "D"}
+{"short": "second-hand clothing", "long": "second-hand fashion", "initial_label": "D", "label": "S"}
+{"short": "slim-fit", "long": "slim-fit jeans", "initial_label": "D", "label": "D"}
+{"short": "Spider-Man", "long": "Spider-Man: Brand New Day", "initial_label": "D", "label": "D"}
+{"short": "Spring/Summer 2026", "long": "spring/summer 2026 runways", "initial_label": "B", "label": "S"}
+{"short": "straight-leg", "long": "straight-leg jeans", "initial_label": "D", "label": "D"}
+{"short": "straight-leg", "long": "straight-leg styles", "initial_label": "D", "label": "D"}
+{"short": "straight-leg", "long": "straight-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "straight-leg jeans", "long": "straight-leg styles", "initial_label": "D", "label": "D"}
+{"short": "straight-leg jeans", "long": "straight-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "straight-leg styles", "long": "straight-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "street style", "long": "street style set", "initial_label": "D", "label": "D"}
+{"short": "street style", "long": "street-style stars", "initial_label": "D", "label": "D"}
+{"short": "street style set", "long": "street-style stars", "initial_label": "D", "label": "D"}
+{"short": "tank top", "long": "white tank top", "initial_label": "D", "label": "D"}
+{"short": "Virgin Suicides", "long": "The Virgin Suicides", "initial_label": "S", "label": "S"}
+{"short": "The White Company", "long": "The White Lotus", "initial_label": "D", "label": "D"}
+{"short": "White Lotus", "long": "The White Lotus", "initial_label": "S", "label": "S"}
+{"short": "TIFF", "long": "Toronto International Film Festival", "initial_label": "S", "label": "S"}
+{"short": "화이트 슬리브리스", "long": "화이트 슬리브리스 톱", "initial_label": "B", "label": "S"}
+{"short": "발레 플랫", "long": "블랙 발레 플랫", "initial_label": "D", "label": "D"}
+{"short": "발레 플랫", "long": "발레 플랫 슈즈", "initial_label": "S", "label": "S"}
+{"short": "Top Gun", "long": "Top Gun: Maverick", "initial_label": "D", "label": "D"}
+{"short": "trench coat", "long": "cropped trench coat", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "T-shirt bianca", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "t-shirt bianche", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "t-shirt blanc", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "t-shirt essenziale", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "T-shirt girocollo", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "t-shirt aderente", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "T-shirt bianca", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "t-shirt bianche", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "t-shirt blanc", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "t-shirt essenziale", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "T-shirt girocollo", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "T-shirt oversize", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "T-shirt vintage", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "T-shirt bianca", "long": "t-shirt bianche", "initial_label": "S", "label": "S"}
+{"short": "T-shirt bianca", "long": "t-shirt blanc", "initial_label": "S", "label": "S"}
+{"short": "T-shirt bianca", "long": "t-shirt essenziale", "initial_label": "D", "label": "D"}
+{"short": "T-shirt bianca", "long": "T-shirt girocollo", "initial_label": "D", "label": "D"}
+{"short": "T-shirt bianca", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "T-shirt bianca", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "t-shirt bianche", "long": "t-shirt blanc", "initial_label": "S", "label": "S"}
+{"short": "t-shirt bianche", "long": "t-shirt essenziale", "initial_label": "D", "label": "D"}
+{"short": "t-shirt bianche", "long": "T-shirt girocollo", "initial_label": "D", "label": "D"}
+{"short": "t-shirt bianche", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "t-shirt bianche", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "t-shirt blanc", "long": "t-shirt essenziale", "initial_label": "D", "label": "D"}
+{"short": "t-shirt blanc", "long": "T-shirt girocollo", "initial_label": "D", "label": "D"}
+{"short": "t-shirt blanc", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "t-shirt blanc", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "t-shirt essenziale", "long": "T-shirt girocollo", "initial_label": "D", "label": "D"}
+{"short": "t-shirt essenziale", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "t-shirt essenziale", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "T-shirt girocollo", "long": "T-shirt oversize", "initial_label": "D", "label": "D"}
+{"short": "T-shirt girocollo", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "T-shirt oversize", "long": "T-shirt vintage", "initial_label": "D", "label": "D"}
+{"short": "two-tone", "long": "two-tone shoes", "initial_label": "D", "label": "D"}
+{"short": "Vanity Fair", "long": "Vanity Fair Oscar Party", "initial_label": "D", "label": "D"}
+{"short": "VB", "long": "VANESSA BRUNO", "initial_label": "D", "label": "D"}
+{"short": "VB", "long": "verde bosco", "initial_label": "D", "label": "D"}
+{"short": "VB", "long": "Veronica Beard", "initial_label": "D", "label": "D"}
+{"short": "VB", "long": "Venice Biennale", "initial_label": "D", "label": "D"}
+{"short": "데님 팬츠", "long": "와이드 데님 팬츠", "initial_label": "D", "label": "D"}
+{"short": "abito da cerimonia", "long": "abito da sera", "initial_label": "D", "label": "D"}
+{"short": "abito da cerimonia", "long": "abito da sposa", "initial_label": "D", "label": "D"}
+{"short": "BFC", "long": "British Fashion Council", "initial_label": "S", "label": "S"}
+{"short": "Pat McGrath", "long": "Dame Pat McGrath", "initial_label": "S", "label": "S"}
+{"short": "maniche lunghe", "long": "t-shirt a maniche lunghe", "initial_label": "D", "label": "D"}
+{"short": "US Open", "long": "US Open 2026", "initial_label": "E", "label": "E"}
+{"short": "veste de costume", "long": "veste de tailleur", "initial_label": "D", "label": "D"}
+{"short": "Victoria Beckham", "long": "Victoria Beckham Beauty", "initial_label": "D", "label": "D"}
+{"short": "Vogue World", "long": "Vogue World: Hollywood", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World 2025", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World: Milano", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World 2026: Milano", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World 2026", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World : Milan", "initial_label": "E", "label": "E"}
+{"short": "Vogue World", "long": "Vogue World Milano 2026", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2025", "long": "Vogue World: Hollywood", "initial_label": "S", "label": "S"}
+{"short": "Vogue World 2025", "long": "Vogue World: Milano", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2025", "long": "Vogue World 2026: Milano", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2025", "long": "Vogue World 2026", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2025", "long": "Vogue World : Milan", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2025", "long": "Vogue World Milano 2026", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2026", "long": "Vogue World: Hollywood", "initial_label": "E", "label": "E"}
+{"short": "Vogue World 2026", "long": "Vogue World 2026: Milano", "initial_label": "S", "label": "S"}
+{"short": "Vogue World 2026", "long": "Vogue World : Milan", "initial_label": "S", "label": "S"}
+{"short": "Vogue World 2026", "long": "Vogue World Milano 2026", "initial_label": "S", "label": "S"}
+{"short": "Vogue World: Hollywood", "long": "Vogue World 2026: Milano", "initial_label": "E", "label": "E"}
+{"short": "Vogue World : Milan", "long": "Vogue World: Hollywood", "initial_label": "E", "label": "E"}
+{"short": "Vogue World : Milan", "long": "Vogue World 2026: Milano", "initial_label": "S", "label": "S"}
+{"short": "Vogue World: Milano", "long": "Vogue World: Hollywood", "initial_label": "E", "label": "E"}
+{"short": "Vogue World: Milano", "long": "Vogue World 2026: Milano", "initial_label": "S", "label": "S"}
+{"short": "Vogue World: Milano", "long": "Vogue World 2026", "initial_label": "S", "label": "S"}
+{"short": "Vogue World: Milano", "long": "Vogue World : Milan", "initial_label": "S", "label": "S"}
+{"short": "Vogue World: Milano", "long": "Vogue World Milano 2026", "initial_label": "S", "label": "S"}
+{"short": "Milano 2026", "long": "Vogue World Milano 2026", "initial_label": "D", "label": "S"}
+{"short": "Vogue World: Hollywood", "long": "Vogue World Milano 2026", "initial_label": "E", "label": "E"}
+{"short": "Vogue World Milano 2026", "long": "Vogue World 2026: Milano", "initial_label": "S", "label": "S"}
+{"short": "Vogue World : Milan", "long": "Vogue World Milano 2026", "initial_label": "S", "label": "S"}
+{"short": "wedding guest dress", "long": "wedding guest season", "initial_label": "D", "label": "D"}
+{"short": "wedding guest dress", "long": "wedding guest outfit", "initial_label": "D", "label": "D"}
+{"short": "wedding guest outfit", "long": "wedding guest season", "initial_label": "D", "label": "D"}
+{"short": "White Button-Down", "long": "white button-down shirt", "initial_label": "S", "label": "S"}
+{"short": "white tank", "long": "white tank top", "initial_label": "S", "label": "S"}
+{"short": "white tee", "long": "simple white tee", "initial_label": "D", "label": "S"}
+{"short": "white T-shirt", "long": "classic white T-shirt", "initial_label": "D", "label": "S"}
+{"short": "wide leg", "long": "wide-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "wide leg", "long": "wide-leg jeans", "initial_label": "D", "label": "D"}
+{"short": "wide leg", "long": "Wide Leg Pants", "initial_label": "D", "label": "D"}
+{"short": "wide-leg jeans", "long": "Wide Leg Pants", "initial_label": "D", "label": "D"}
+{"short": "wide-leg jeans", "long": "wide-leg trousers", "initial_label": "D", "label": "D"}
+{"short": "Wide Leg Pants", "long": "wide-leg trousers", "initial_label": "S", "label": "S"}

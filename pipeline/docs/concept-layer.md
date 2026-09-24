@@ -170,6 +170,104 @@ S15P21A102-386 이다.
 **끄는 길** — `aggregate.concepts.fold` · `.drop_uncountable` · `.fold_editions` 다. 사전이 잘못 묶였을 때
 사전을 고쳐 다시 붙이는 것보다 빠르다. 개념 표가 없는 환경에서는 값과 무관하게 꺼진다.
 
+### 개념 테이블에 없는 표기끼리 — 후보와 덩이 (2026-09-24, S15P21A102-386)
+
+위 "남은 것" 의 첫 단계다. `registry/nil_candidates.py` 가 문자열로 후보 쌍을 넓게 뽑고, LLM 에 한
+번에 물을 덩이로 묶는다. **합치지 않는다** — 판정과 순위 반영은 다음 단계다.
+
+| 규칙 | 예 |
+| --- | --- |
+| `contain` — 두 낱말 이상이 이어서 들어 있다 | `vogue world` ⊂ `vogue world milano` |
+| `prefix` — 앞 두 낱말이 같고 둘 다 세 낱말 이상 | `abito da sera` ~ `abito da sposa` |
+| `edition` — 연도·시즌을 떼면 같다 | `met gala` ~ `2026 met gala` |
+| `acronym` — 머리글자가 같고 같은 기사에 함께 나온다. 라틴 문자만 | `lfw` ~ `london fashion week` |
+
+한 낱말만 겹치는 것(`vogue` ↔ `vogue world`)은 후보가 아니다. 앞 두 낱말이 같은 표기가 다섯 이상
+(`gonna a …` · `t shirt …`)이면 형제 품목이라 그 머리로는 잇지 않고, 후보가 여덟을 넘는 흔한 말
+(`fashion week`)은 덩이를 잇지 않고 둘씩 따로 묻는다.
+
+**운영 실측** — 30일 언급이 있는 키워드 8,412 개(개념 없음 6,171)에서 뽑은 문자열 후보 608 쌍을
+사람이 검수했다. 기준은 "순위에서 한 줄로 합쳐도 되나" 다 — 같은 대상(S) · 같은 시리즈의 다른
+회차(E) 는 합치고, 수식어가 붙어 좁아진 것 · 다른 것(D) 은 합치지 않는다. 라벨은
+`spark/tests/fixtures/concept/nil-pairs-gold-2026-09-24.jsonl` 이고, 다음 단계의 LLM 판정을 재는 정답표다.
+
+- 합칠 쌍은 154 (25%, 2026-09-25 재검토 뒤). 나머지 대부분은 `미니 드레스` ↔ `블랙 미니 드레스` 같은
+  수식어 변형이다. 아래 신호·후보 수치는 첫 라벨(합칠 쌍 140) 기준이다.
+- 등장 패턴은 거를 만큼 갈리지 않는다. 같은 기사 2건 이상 — 정밀도 61% · 재현율 27%. 같은 날 급증
+  38% · 30%. 첫 등장 날짜 차이는 구분력이 없고, 날짜별 상관은 새 표기의 날짜가 모자라 69 쌍만
+  계산된다. **거르지 않고 판정에 넘기는 근거로만 쓴다.**
+- 규칙별로 `edition` 은 19 쌍 모두 맞았고, 머리글자는 조건 없이 141 쌍 중 7 쌍만 맞았다(`dc` =
+  `DC Comics` · `Doja Cat` · `dress code` …, 한국어는 `스키` = `스트레이 키즈`).
+- 위 규칙으로 뽑으면 368 쌍 · 204 덩이(대부분 두세 표기)이고, 합칠 140 쌍 중 133 쌍이 같은 덩이에
+  든다. 놓치는 것은 흔한 머리말 무리 안의 번역(`fashion week de paris` ↔ `fashion week parisienne`)·
+  같은 기사가 없는 약어(`jfk`)·띄어쓰기(`빅백` ↔ `빅 백`)다.
+- 24H·7D 상위 300 에 걸리고 한쪽이라도 개념이 없는 쌍만 보면 75 쌍 · 46 덩이다(가장 큰 것은
+  `vogue world` 계열 9 표기). 덩이째 물으면 하루 수십 번이다.
+
+한 표현에서 겹쳐 뽑힌 두 표기(`Vogue World 2026: Milano` 의 `Vogue World`)는 가장 강한 신호로 봤지만
+잴 수 없다 — 추출(`extract/entities._dedupe`)이 겹치는 스팬 중 하나만 남기고 위치도 저장하지 않는다.
+
+### 덩이째 LLM 판정 (2026-09-25, S15P21A102-386)
+
+`concept/cluster_judge.py` 가 덩이를 보여 주고 **후보 쌍마다** 관계를 고르게 한다 — `same` ·
+`series` 만 합치고 `narrower` · `related` · `unrelated` · `unsure` 는 합치지 않는다. 합치는 쌍은
+이어서 묶음을 만든다. 채점은 `scripts/nil-judge-eval.py` 로 위 라벨에 대고 한다.
+
+**라벨** — 초안은 모델이 이름만 보고 달았고 사람이 두 번 검토했다. 초안에서 52 쌍이 바뀌었다
+(정책 미정 41 이 풀림, 초안 `D` → `S` 11). 초안은 합칠 것을 따로 두는 쪽으로 치우쳤다. 파일에
+`initial_label`(초안)과 `label`(최종)이 함께 있다. **이 608 쌍은 개발용으로 고정했다** — 모델 답을
+보며 고쳤고 프롬프트도 이 쌍들을 보며 만들었으므로 여기 점수는 개발 성능이다. 최종 판단은 다른
+시점의 표기로, 모델 답을 보기 전에 사람이 처음부터 단 테스트 라벨로 한다.
+
+**정책** — "순위에서 한 줄로 보여 줘도 되나".
+- 합친다: 철자·복수·번역·약어·정식명, 빠진 보완 명사(`white tank` ↔ `white tank top`,
+  `폴카 도트` ↔ `폴카 도트 패턴`), 뜻을 좁히지 않는 꾸밈말(`white tee` ↔ `classic white tee`),
+  시즌 ↔ 그 시즌의 컬렉션·쇼(`Fall 2026` ↔ `Fall 2026 collection`), 시리즈 ↔ 회차(`Vogue World` ↔
+  `Vogue World 2026`), 문장이 같은 대상을 가리키는 것(`Milano 2026` 의 문장이 전부 Vogue World 다).
+- 합치지 않는다: 색·핏·길이·소재로 좁아진 것(`tank top` ↔ `white tank top`), 도시가 붙은 행사
+  (`Fashion Week` ↔ `London Fashion Week`), 브랜드 ↔ 라인(`Ralph Lauren Collection`), 사람 ↔ 그 이름의
+  브랜드(`Francis Kurkdjian` ↔ `Maison Francis Kurkdjian`), 시즌 범위가 다른 것(`Estate 2026` ↔
+  `Primavera Estate 2026`).
+
+**실측** (최종 라벨, 지시문 예시 쌍은 뺌. 정밀도 · 재현율 · 나쁜 묶음 비율)
+
+| 판정 | 결과 | |
+| --- | --- | --- |
+| "합칠 것끼리 묶어라" · gpt-4o-mini | 43% · 67% | 첫 라벨 기준. 수식어 변형을 마구 묶는다 |
+| 쌍마다 관계 고르기 · gpt-4o-mini | 64% · 64% · 40% | 표기가 든 문장만 실은 뒤 |
+| 〃 · gpt-4.1-mini | 92% · 68% · 13% | |
+| 〃 · gpt-4.1 | 98% · 59% · 4% | 거의 안 틀리지만 40% 를 놓친다 |
+| + 정책 예시 (`v3`) · gpt-4.1-mini | **90% · 76% · 13%** | 채택 |
+| `v3` 를 다섯 덩이씩 묶어 묻기 | 79% · 75% · 21% | 크레딧 45% 절감, 품질이 떨어져 버림 |
+| 판정 단계를 나누고 예시 보강 (`v5`) | 77% · 69% · 23% | 규칙끼리 부딪혀 나빠짐 — 버림 |
+
+- **문맥 거르기가 가장 컸다.** 저장된 문맥 절반은 표기가 들어 있지 않은 기사 제목이었다
+  (`Vogue World` 의 문맥이 `Wunmi Mosaku Is British Vogue's … Cover Star`). 표기가 든 문장만 싣게
+  했다 (`cluster_judge.mentions`). 표기 508 개 중 쓸 문장이 있는 것은 268 개다.
+- **"묶어라" 가 아니라 "골라라" 로 물어야 한다.** 안 되는 쪽(`narrower` · `related`)에 칸이 없으면 모델이
+  되는 쪽으로 기운다.
+- **`v5` 가 나빠진 이유** — "장소가 붙으면 좁아진 것" 이 `Vogue World: Milano` 같은 개최지 회차를
+  시리즈에서 떼어 냈고, "보완 명사는 같다" 가 `레더 재킷` ↔ `블랙 레더 재킷` 까지 합쳤다.
+- **남은 오류는 두 방향이다.** 문자열이 닮으면 너무 합치고(`black dress` ↔ `little black dress`),
+  알아야 풀리는 별칭은 안 합친다(`Cou Cou` ↔ `Cou Cou Intimates`, `De Beers` ↔ `De Beers London`).
+- 같은 조건을 두 번 돌리면 2~4%p 흔들린다. 한 번 돌리는 데 gpt-4.1-mini 로 약 520 크레딧이다
+  (덩이 198. 크레딧으로 역산하면 약 21만 토큰).
+
+지금 기본값(`cluster-v6`)은 `v3` 규칙에 여러 덩이 문구를 쓰고, 개발 라벨과 어긋나는 예시 하나
+(`Milano 2026` 을 올림픽으로 든 것)를 `Los Angeles 2028` 로 바꿨다. 이 문구로는 아직 돌리지 않았다.
+
+**운영 순위로 한 번 돌려 봤다 (2026-09-25 01시, DB 에 쓰지 않음).** 24H · 7D 상위 300 에 걸린 미등록 쌍
+83 · 덩이 48 을 `cluster-v6` 로 판정했다. 합쳐지는 묶음은 13 — `Vogue World` 네 표기, `Met Gala` 세 표기,
+`LFW` → `London Fashion Week`(7D 116 → 144), `NYFW` → `New York Fashion Week`(7D 15위 → 10위),
+`White Lotus` · `Virgin Suicides` 같은 표기 차이다. 애매한 것은 `Barrel-Leg Jeans` + `barrel-leg trousers`
+하나다. `MFW` ↔ `Milano Fashion Week` 는 두 번 물어 `same` 과 `related` 로 갈렸다.
+
+처음 돌렸을 때는 `Fashion Week` 이 `London Fashion Week` 에 합쳐져 7D 2위가 116 → 202 로 부풀었고
+`Fashion Week de Londres` + `de Milan` 이 한 줄이 됐다. 후보와 흔한 머리말을 순위 표기만으로 셌기
+때문이다 — 패션위크 12 표기가 한 덩이로 갔고, 모델은 둘만 물으면 `narrower` 라 하는 쌍을 큰 덩이
+안에서는 `same` 이라 했다. 후보는 전체 키워드로 만들고 흔한 머리말도 전체로 세도록 고쳤고, 덩이
+상한을 12 에서 9 로 내렸다 (`registry/nil_candidates.py`).
+
 **분류(`pl_concept.category`)로는 아무 유형도 거르지 않는다.** 2026-09-19 에 `RISING` 에서만
 소재를 빼는 스위치(`aggregate.thresholds.rising.exclude_categories`)를 두었다 — 24H 다섯 자리를
 `flannel` · `cashmere` · `wool` 이 셋 먹어서였다. 같은 날 서버에서는 목록이 굶어 값을 비웠고,
