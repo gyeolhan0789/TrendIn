@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -187,9 +187,9 @@ class CuratedArticleLoader:
 
 
 def article_window(target: TrendTarget) -> tuple[datetime, datetime]:
-    """선택한 지표 기간과 별개로 완료 구간 끝 이전 30일의 기사를 사용한다."""
+    """선택한 지표의 완료 집계 구간과 동일한 게시 기간을 사용한다."""
 
-    return target.period_end - timedelta(days=30), target.period_end
+    return target.period_start, target.period_end
 
 
 def select_articles(
@@ -244,8 +244,8 @@ def build_analysis_input(target: TrendTarget, articles: tuple[TrendArticle, ...]
         f"직전 기간 언급량: {target.previous_mention_count}",
         f"언급 증가량: {target.growth_amount}",
         f"증가율: {growth_rate}",
-        f"기사 범위: 최근 30일 ({article_window(target)[0].isoformat()} ~ "
-        f"{target.period_end.isoformat()})",
+        f"기사 범위: 지표와 동일한 {target.period} 집계 구간 "
+        f"({article_window(target)[0].isoformat()} ~ {target.period_end.isoformat()})",
         "아래 기사만 근거로 분석한다.",
     ]
     for index, article in enumerate(articles, start=1):

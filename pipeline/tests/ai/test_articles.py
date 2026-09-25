@@ -203,16 +203,16 @@ def test_관련_기사는_지정한_게시_기간_안에서_최신_20건을_조�
     assert ARTICLE_CANDIDATE_LIMIT == 20
 
 
-def test_세_기간_모두_최근_30일_기사를_사용한다():
+def test_세_기간_모두_지표의_집계_구간과_동일한_기사를_사용한다():
     seven_days = trend()
-    assert article_window(seven_days) == (datetime(2026, 8, 16, tzinfo=UTC), seven_days.period_end)
+    assert article_window(seven_days) == (seven_days.period_start, seven_days.period_end)
 
     thirty_days = TrendTarget(
         keyword_id=7,
         keyword="발레코어",
         domain="FASHION",
         period="30D",
-        period_start=datetime(2026, 8, 17, tzinfo=UTC),
+        period_start=datetime(2026, 8, 16, tzinfo=UTC),
         period_end=datetime(2026, 9, 15, tzinfo=UTC),
         mention_rank=1,
     )
@@ -229,7 +229,13 @@ def test_세_기간_모두_최근_30일_기사를_사용한다():
         period_end=datetime(2026, 9, 15, tzinfo=UTC),
         mention_rank=1,
     )
-    assert article_window(day) == (datetime(2026, 8, 16, tzinfo=UTC), day.period_end)
+    assert article_window(day) == (day.period_start, day.period_end)
+    for target in (day, seven_days, thirty_days):
+        prompt = build_analysis_input(target, ())
+        assert (
+            f"기사 범위: 지표와 동일한 {target.period} 집계 구간 "
+            f"({target.period_start.isoformat()} ~ {target.period_end.isoformat()})"
+        ) in prompt
 
 
 def test_중복과_빈_본문을_빼고_최신순으로_고른다():
