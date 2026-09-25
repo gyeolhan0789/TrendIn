@@ -278,7 +278,7 @@ def test_AI_입력에_키워드와_기사의_현재_필드를_담는다():
     assert "리본 슈즈 출시 내용" in prompt
 
 
-def test_fingerprint는_유형과_실제_입력_기사에만_반응한다():
+def test_fingerprint는_유형과_실제_입력_기사에_반응한다():
     from dataclasses import replace
 
     original = trend()
@@ -293,3 +293,13 @@ def test_fingerprint는_유형과_실제_입력_기사에만_반응한다():
     assert input_fingerprint(replace(original, trend_types=("NEW",)), articles) != fingerprint
     assert input_fingerprint(original, (article(1, body="바뀐 본문"),)) != fingerprint
     assert len(fingerprint) == 64
+
+
+def test_fingerprint는_프롬프트_버전_변경에도_반응한다(monkeypatch):
+    original = trend()
+    articles = (article(1),)
+    fingerprint = input_fingerprint(original, articles)
+
+    monkeypatch.setattr("trendin.ai.articles.PROMPT_VERSION", "trend-analysis-test-version")
+
+    assert input_fingerprint(original, articles) != fingerprint

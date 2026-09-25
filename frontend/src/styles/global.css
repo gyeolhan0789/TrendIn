@@ -475,17 +475,16 @@ h1 { margin: 0; line-height: 1.25; }
 .detail-page--drawer .detail-bar-track:focus-visible { outline: 2px solid #1a5ecf; outline-offset: 3px; border-radius: 4px; }
 .detail-page--drawer .chart-axis { display: flex; justify-content: space-between; margin-top: 10px; color: #aaa; font-size: 12px; font-variant-numeric: tabular-nums; }
 .detail-page--drawer .detail-why-now { padding: 32px 28px; margin-top: 48px; border-radius: 14px; background: #f0f4ff; }
-.detail-page--drawer .detail-why-now .detail-card-label { margin-bottom: 20px; color: #1a5ecf; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
-/* 시안은 짧은 수치를 큼직하게 세웁니다. 문장이 길게 와도 넘치지 않도록 폭에 맞춰 줄입니다. */
-/*
- * 시안은 이 자리에 한 문장짜리 제목을 상정하고 42px 볼드를 줬습니다. 그런데 summary 는 자료
- * 여럿을 300자까지 종합해 오는 칸이라, 그 크기로 그리면 대여섯 줄짜리 덩어리가 됩니다. 아래
- * reason 이 15px 평문이어서 위아래 비중까지 뒤집혔습니다.
- *
- * 그래서 본문에 가깝게 낮춥니다. 다만 reason 보다는 한 발 앞에 서야 해서 글자색을 더 짙게 두고
- * 크기와 굵기를 한 단계만 올립니다. 글꼴은 적지 않습니다 — 서랍이 정한 것을 reason 과 똑같이
- * 물려받아야 두 문단이 한 덩어리로 읽힙니다.
- */
+.detail-page--drawer .detail-why-now .detail-card-label { margin-bottom: 4px; color: #1a5ecf; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
+/* AI 문장은 정의·흐름·이유로 나눠 훑어볼 수 있게 세웁니다. */
+.detail-page--drawer .detail-why-lead { margin: 0; color: #0a0a0a; font-size: 17px; font-weight: 700; line-height: 1.55; letter-spacing: -.2px; }
+.detail-page--drawer .detail-why-block { margin-top: 18px; }
+.detail-page--drawer .detail-why-block h3 { margin: 0 0 8px; color: #1a5ecf; font-size: 13px; font-weight: 700; letter-spacing: -.1px; }
+.detail-page--drawer .detail-why-list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; color: #262626; font-size: 15px; line-height: 1.65; }
+.detail-page--drawer .detail-why-list li { position: relative; padding-left: 16px; overflow-wrap: anywhere; }
+.detail-page--drawer .detail-why-list li::before { content: ""; position: absolute; top: .72em; left: 0; width: 5px; height: 5px; border-radius: 50%; background: #1a5ecf; }
+.detail-page--drawer .detail-why-reasons { display: grid; gap: 8px; color: #555; font-size: 15px; line-height: 1.75; }
+.detail-page--drawer .detail-why-reasons p { margin: 0; overflow-wrap: anywhere; }
 .detail-page--drawer .detail-why-summary { margin: 0; color: #0a0a0a; font-size: 17px; font-weight: 600; line-height: 1.75; letter-spacing: -.2px; }
 .detail-page--drawer .detail-why-description { margin: 20px 0 0; color: #555; font-size: 15px; line-height: 1.8; }
 .detail-page--drawer .detail-why-now .skeleton { margin-top: 14px; }

@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from trendin.ai.analyzer import PROMPT_VERSION
+
 if TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
@@ -264,9 +266,13 @@ def build_analysis_input(target: TrendTarget, articles: tuple[TrendArticle, ...]
 
 
 def input_fingerprint(target: TrendTarget, articles: tuple[TrendArticle, ...]) -> str:
-    """유형과 실제 AI 입력 기사만 해시한다. 지표 수치만 변한 경우 재호출하지 않는다."""
+    """프롬프트 버전·유형·실제 AI 입력 기사만 해시한다.
+
+    지표 수치만 변한 경우 재호출하지 않지만, 화면 문장을 바꾸는 프롬프트가 바뀌면 재분석한다.
+    """
 
     payload = {
+        "prompt_version": PROMPT_VERSION,
         "keyword_id": target.keyword_id,
         "period": target.period,
         "trend_types": sorted(set(target.trend_types)),
