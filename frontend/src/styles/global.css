@@ -479,6 +479,7 @@ h1 { margin: 0; line-height: 1.25; }
 /* AI 문장은 정의·흐름·이유로 나눠 훑어볼 수 있게 세웁니다. */
 .detail-page--drawer .detail-why-lead { margin: 0; color: #0a0a0a; font-size: 17px; font-weight: 700; line-height: 1.55; letter-spacing: -.2px; }
 .detail-page--drawer .detail-why-block { margin-top: 18px; }
+.detail-page--drawer .detail-why-block:first-child { margin-top: 0; }
 .detail-page--drawer .detail-why-block h3 { margin: 0 0 8px; color: #1a5ecf; font-size: 13px; font-weight: 700; letter-spacing: -.1px; }
 .detail-page--drawer .detail-why-list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; color: #262626; font-size: 15px; line-height: 1.65; }
 .detail-page--drawer .detail-why-list li { position: relative; padding-left: 16px; overflow-wrap: anywhere; }
