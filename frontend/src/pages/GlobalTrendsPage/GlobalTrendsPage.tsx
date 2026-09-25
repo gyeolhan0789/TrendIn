@@ -578,8 +578,6 @@ export function GlobalTrendsPage() {
     }
   };
 
-  const mappedOut = journey.length - stops.length;
-
   return (
     <div className={`worldtrend-page${isCountryTab ? ' is-country' : ''}${mapMode === 'globe' ? ' is-globe' : ''}${folded.left ? ' is-left-folded' : ''}${folded.right ? ' is-right-folded' : ''}`}>
       <aside className="worldtrend-list">
@@ -856,12 +854,6 @@ export function GlobalTrendsPage() {
                   </li>
                 ))}
               </ol>
-              {/* 지도에 못 올린 나라를 감추면 경로에서 빠진 것을 누락으로 읽습니다. */}
-              {mappedOut > 0 && (
-                <p className="worldtrend-flow-note">
-                  지도에 자리를 모르는 나라 {mappedOut}곳은 오른쪽 목록에만 있습니다.
-                </p>
-              )}
             </div>
           </div>
         )}
