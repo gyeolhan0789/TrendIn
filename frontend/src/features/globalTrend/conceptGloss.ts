@@ -11,3 +11,12 @@ export function conceptGloss(keyword: string, conceptName: string | null | undef
   if (name.toLowerCase() === keyword.trim().toLowerCase()) return null;
   return name;
 }
+
+export function countryTrendLabel(
+  countryCode: string,
+  keyword: string,
+  conceptName: string | null | undefined,
+): string {
+  const gloss = conceptGloss(keyword, conceptName);
+  return countryCode === 'KR' || !gloss ? keyword : gloss;
+}

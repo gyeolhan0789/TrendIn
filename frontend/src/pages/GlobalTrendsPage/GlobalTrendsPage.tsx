@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { FilterSelect } from '../../components/common/FilterSelect';
-import { conceptGloss } from '../../features/globalTrend/conceptGloss';
+import { countryTrendLabel } from '../../features/globalTrend/conceptGloss';
 import { CountryFlag } from '../../features/globalTrend/components/CountryFlag';
 import { WorldMap } from '../../features/globalTrend/components/WorldMap';
 import type { MapMode, MapStop } from '../../features/globalTrend/components/WorldMap';
@@ -236,24 +236,19 @@ function CountrySummary({ country, trends, loading, worldMentionCount }: Country
           <p className="worldtrend-summary-lead">이 기간에 이 나라에서 잡힌 언급이 없습니다.</p>
         )}
         <ol className="worldtrend-focus-list">
-          {trends.map((item) => {
-            const gloss = conceptGloss(item.keyword, item.conceptName);
-            return (
-              <li key={item.keywordId}>
-                {/* 두 자리로 맞춰 적습니다. 한 자리와 두 자리가 섞이면 이름 시작점이 줄마다 어긋납니다. */}
-                <span className="worldtrend-focus-no">{String(item.rank).padStart(2, '0')}</span>
-                {/* 이름 칸이 좁으면 말줄임이 괄호 쪽부터 자르므로 원문이 먼저 남습니다. */}
-                <span className="worldtrend-focus-name">
-                  {item.keyword}
-                  {gloss && <span className="worldtrend-focus-gloss"> ({gloss})</span>}
-                </span>
-                <span className="worldtrend-focus-value">{formatCount(item.mentionCount)}건</span>
-                <span className="worldtrend-focus-bar">
-                  <span style={{ width: `${Math.round((item.mentionCount / top) * 100)}%` }} />
-                </span>
-              </li>
-            );
-          })}
+          {trends.map((item) => (
+            <li key={item.keywordId}>
+              {/* 두 자리로 맞춰 적습니다. 한 자리와 두 자리가 섞이면 이름 시작점이 줄마다 어긋납니다. */}
+              <span className="worldtrend-focus-no">{String(item.rank).padStart(2, '0')}</span>
+              <span className="worldtrend-focus-name">
+                {countryTrendLabel(country.countryCode, item.keyword, item.conceptName)}
+              </span>
+              <span className="worldtrend-focus-value">{formatCount(item.mentionCount)}건</span>
+              <span className="worldtrend-focus-bar">
+                <span style={{ width: `${Math.round((item.mentionCount / top) * 100)}%` }} />
+              </span>
+            </li>
+          ))}
         </ol>
       </section>
     </div>
