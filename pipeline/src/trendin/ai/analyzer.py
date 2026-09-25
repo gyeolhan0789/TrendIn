@@ -14,7 +14,7 @@ from trendin.ai.client import GmsOpenAIClient, GmsOpenAIError
 # 취향이고 `description` 의 255자는 `varchar` 가 강제하는 사실이라, 둘을 같이 다루지 않는다.
 SUMMARY_MAX_CHARS = 300
 REASON_MAX_CHARS = 250
-PROMPT_VERSION = "trend-analysis-v3"
+PROMPT_VERSION = "trend-analysis-v4"
 
 # `trend_analyses.description` 이 `varchar(255)` 다. **프롬프트에 적는 수와 계약이 받는 수가
 # 다르다** — 200 으로 부탁하고 255 까지 받는다. 모델이 조금 넘겨도 버리지 않되, 칸을 넘기면
@@ -30,6 +30,9 @@ JSON에는 description, summary, reason 문자열 필드만 포함한다.
 description은 정의, summary는 최근 기사에서 보이는 양상, reason은 그 배경과 원인을 맡는다.
 세 필드에서 같은 사실이나 표현을 반복하지 않는다.
 서비스 화면에 바로 노출되는 문장으로 작성하고, 분석 과정이나 자료의 한계를 설명하지 않는다.
+모든 필드는 존댓말을 쓰지 않는 간결한 설명체로 작성한다. 문장 끝은 주로 "~다", "~된다",
+"~이어진다", "~보인다"처럼 마무리한다. "~합니다", "~됩니다", "~있습니다", "~했습니다",
+"~합니다." 같은 합니다체 표현을 쓰지 않는다.
 - description: 트렌드가 무엇인지 핵심 특징을 간결한 1문장으로 정의한다. summary나 reason을
   반복하지 않는다. 공백을 포함해 {DESCRIPTION_PROMPT_CHARS}자를 넘기지 않는다.
 - summary: 기사에 공통으로 나타나는 스타일, 아이템, 활용 방식과 흐름을 3~4문장으로 설명한다.

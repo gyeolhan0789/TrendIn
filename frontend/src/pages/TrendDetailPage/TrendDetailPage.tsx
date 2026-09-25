@@ -318,7 +318,6 @@ export function TrendDetailPage() {
           </section>
 
           <section className="detail-why-now">
-            <span className="detail-card-label">지금 뜨는 이유</span>
             {summarySentences.length > 0 && (
               <div className="detail-why-block">
                 <h3>주요 흐름</h3>

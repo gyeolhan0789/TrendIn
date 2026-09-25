@@ -80,6 +80,15 @@ def test_summary의_가독성과_필드별_역할을_안내한다():
     assert "스타일, 아이템, 활용 방식과 흐름" in DEVELOPER_PROMPT
 
 
+def test_모든_필드의_설명체_문체를_안내한다():
+    assert "존댓말을 쓰지 않는 간결한 설명체" in DEVELOPER_PROMPT
+    assert '"~다", "~된다"' in DEVELOPER_PROMPT
+    assert "~이어진다" in DEVELOPER_PROMPT
+    assert "~합니다" in DEVELOPER_PROMPT
+    assert "~됩니다" in DEVELOPER_PROMPT
+    assert "~했습니다" in DEVELOPER_PROMPT
+
+
 def test_reason의_부정적_한계_표현을_금지하고_서비스_문장으로_안내한다():
     assert "서비스 화면에 바로 노출되는 문장" in DEVELOPER_PROMPT
     assert "분석 과정이나 자료의 한계를 설명하지 않는다" in DEVELOPER_PROMPT
