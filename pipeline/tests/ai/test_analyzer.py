@@ -71,10 +71,21 @@ def test_필드별_문장_수와_글자_수_기준을_안내한다():
 
 
 def test_summary의_가독성과_필드별_역할을_안내한다():
-    assert "정형화된 지표 설명으로 시작하지 않는다" in DEVELOPER_PROMPT
+    assert "지표 설명형 도입으로 시작하지 않는다" in DEVELOPER_PROMPT
+    assert "출처 설명형" in DEVELOPER_PROMPT
+    assert "최근 기사들에서" in DEVELOPER_PROMPT
+    assert "첫 문장은 트렌드의 모습이나 대표 아이템으로 바로 시작한다" in DEVELOPER_PROMPT
     assert "짧고 읽기 쉬운 문장으로 나눈다" in DEVELOPER_PROMPT
     assert "세 필드에서 같은 사실이나 표현을 반복하지 않는다" in DEVELOPER_PROMPT
     assert "스타일, 아이템, 활용 방식과 흐름" in DEVELOPER_PROMPT
+
+
+def test_reason의_메타_표현을_줄이고_서비스_문장으로_안내한다():
+    assert "서비스 화면에 바로 노출되는 문장" in DEVELOPER_PROMPT
+    assert "분석 과정이나 자료의 한계를 설명하지 않는다" in DEVELOPER_PROMPT
+    assert "메타 표현을 반복하지 않는다" in DEVELOPER_PROMPT
+    assert "계기로 보인다" in DEVELOPER_PROMPT
+    assert "확인이 어렵다는 문장을 1회" in DEVELOPER_PROMPT
 
 
 def test_유형_이름과_기사_번호를_쓰지_말라고_이른다():

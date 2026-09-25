@@ -59,6 +59,13 @@ function getKeywordStrength(relationScore: number) {
   return relationScore >= STRONG_RELATION_SCORE ? ' is-strong' : '';
 }
 
+function splitAnalysisSentences(value?: string | null) {
+  if (!value) return [];
+  return (value.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g) ?? [])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
 function describeWindow(trend: TrendDetail) {
   const window = trend.analysisWindow;
   if (!window) return undefined;
@@ -127,6 +134,8 @@ export function TrendDetailPage() {
   const interest = useInterestKeywordToggle();
   const trend = detailQuery.data;
   const periodLabel = periodLabels[period];
+  const summarySentences = useMemo(() => splitAnalysisSentences(trend?.summary), [trend?.summary]);
+  const reasonSentences = useMemo(() => splitAnalysisSentences(trend?.reason), [trend?.reason]);
 
   /*
    * 기간은 주소에 적습니다. 새로고침이나 링크 공유에도 보던 기간이 그대로 열립니다.
@@ -255,7 +264,7 @@ export function TrendDetailPage() {
           <header className="detail-hero">
             <span className="detail-category">{trend.domain.name}</span>
             <h1>{trend.keyword}</h1>
-            <p>{trend.description ?? '아직 정리된 설명이 없습니다.'}</p>
+            <p>{trend.description ?? '해당 기간에는 트렌드로 분류되지 않아 설명이 제공되지 않습니다.'}</p>
           </header>
 
           {/* 아래 지표와 차트가 모두 이 기간을 따릅니다. 원본 소스와 연관 키워드는 기간을 타지 않습니다. */}
@@ -310,9 +319,23 @@ export function TrendDetailPage() {
 
           <section className="detail-why-now">
             <span className="detail-card-label">지금 뜨는 이유</span>
-            {trend.summary && <p className="detail-why-summary">{trend.summary}</p>}
-            {trend.reason && <p className="detail-why-description">{trend.reason}</p>}
-            {!trend.summary && !trend.reason && <p className="detail-why-description">아직 정리된 설명이 없습니다.</p>}
+            {summarySentences.length > 0 && (
+              <div className="detail-why-block">
+                <h3>주요 흐름</h3>
+                <ul className="detail-why-list">
+                  {summarySentences.map((sentence) => <li key={sentence}>{sentence}</li>)}
+                </ul>
+              </div>
+            )}
+            {reasonSentences.length > 0 && (
+              <div className="detail-why-block">
+                <h3>주목받는 이유</h3>
+                <div className="detail-why-reasons">
+                  {reasonSentences.map((sentence) => <p key={sentence}>{sentence}</p>)}
+                </div>
+              </div>
+            )}
+            {!trend.summary && !trend.reason && <p className="detail-why-description">해당 기간에는 트렌드로 분류되지 않아 AI 분석이 제공되지 않습니다.</p>}
           </section>
 
           <section className="detail-sources">
