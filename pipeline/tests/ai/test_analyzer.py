@@ -80,12 +80,16 @@ def test_summary의_가독성과_필드별_역할을_안내한다():
     assert "스타일, 아이템, 활용 방식과 흐름" in DEVELOPER_PROMPT
 
 
-def test_reason의_메타_표현을_줄이고_서비스_문장으로_안내한다():
+def test_reason의_부정적_한계_표현을_금지하고_서비스_문장으로_안내한다():
     assert "서비스 화면에 바로 노출되는 문장" in DEVELOPER_PROMPT
     assert "분석 과정이나 자료의 한계를 설명하지 않는다" in DEVELOPER_PROMPT
-    assert "메타 표현을 반복하지 않는다" in DEVELOPER_PROMPT
-    assert "계기로 보인다" in DEVELOPER_PROMPT
-    assert "확인이 어렵다는 문장을 1회" in DEVELOPER_PROMPT
+    assert '"다만", "단", "그러나", "하지만"' in DEVELOPER_PROMPT
+    assert "반박·한계 문장을" in DEVELOPER_PROMPT
+    assert "근거가 부족하다" in DEVELOPER_PROMPT
+    assert "단정하기 어렵다" in DEVELOPER_PROMPT
+    assert "제한적이다" in DEVELOPER_PROMPT
+    assert "원인을 특정할 수 없다는 말을 덧붙이지 않는다" in DEVELOPER_PROMPT
+    assert "확실히 확인된 사건, 제품, 스타일링, 매체 노출만" in DEVELOPER_PROMPT
 
 
 def test_유형_이름과_기사_번호를_쓰지_말라고_이른다():
