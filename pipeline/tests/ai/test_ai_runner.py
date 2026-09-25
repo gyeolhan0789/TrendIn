@@ -117,7 +117,7 @@ def test_기사가_없으면_AI를_호출하지_않고_각_트렌드_실패를_�
     assert [keyword_id for keyword_id, _, _ in store.saved] == [2, 4]
     assert repository.article_queries[0] == (
         1,
-        {"published_from": datetime(2026, 8, 16, tzinfo=UTC), "published_until": END},
+        {"published_from": START, "published_until": END},
     )
 
 

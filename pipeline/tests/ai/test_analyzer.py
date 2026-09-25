@@ -8,6 +8,7 @@ from trendin.ai.analyzer import (
     DESCRIPTION_MAX_CHARS,
     DESCRIPTION_PROMPT_CHARS,
     DEVELOPER_PROMPT,
+    PROMPT_VERSION,
     REASON_MAX_CHARS,
     SUMMARY_MAX_CHARS,
     TrendAnalyzer,
@@ -55,10 +56,11 @@ def test_description_summary_reason_JSON을_파싱한다():
     assert all(kind in prompt for kind in ("NEW", "RISING", "CURRENT"))
     assert "유형이 여러 개면" in prompt
     reason_instruction = prompt.split("- reason:", 1)[1]
-    assert "NEW는 새롭게 등장한 배경" in reason_instruction
-    assert "RISING은 관심이 갑자기 또는 다시 상승한 이유" in reason_instruction
-    assert "CURRENT는 현재 유행하는 배경" in reason_instruction
+    assert "새롭게 등장한 배경" in reason_instruction
+    assert "관심이 갑자기 또는 다시 상승한 이유" in reason_instruction
+    assert "현재 유행하는 배경" in reason_instruction
     assert "모든 관점" in reason_instruction
+    assert PROMPT_VERSION == "trend-analysis-v6"
 
 
 def test_필드별_문장_수와_글자_수_기준을_안내한다():
@@ -74,6 +76,8 @@ def test_summary의_가독성과_필드별_역할을_안내한다():
     assert "지표 설명형 도입으로 시작하지 않는다" in DEVELOPER_PROMPT
     assert "출처 설명형" in DEVELOPER_PROMPT
     assert "최근 기사들에서" in DEVELOPER_PROMPT
+    assert "기사 범위에서" in DEVELOPER_PROMPT
+    assert "입력 자료에서" in DEVELOPER_PROMPT
     assert "첫 문장은 트렌드의 모습이나 대표 아이템으로 바로 시작한다" in DEVELOPER_PROMPT
     assert "짧고 읽기 쉬운 문장으로 나눈다" in DEVELOPER_PROMPT
     assert "세 필드에서 같은 사실이나 표현을 반복하지 않는다" in DEVELOPER_PROMPT
@@ -96,9 +100,42 @@ def test_reason의_부정적_한계_표현을_금지하고_서비스_문장으�
     assert "반박·한계 문장을" in DEVELOPER_PROMPT
     assert "근거가 부족하다" in DEVELOPER_PROMPT
     assert "단정하기 어렵다" in DEVELOPER_PROMPT
+    assert "확정하기 어렵다" in DEVELOPER_PROMPT
+    assert "특정하기 어렵다" in DEVELOPER_PROMPT
     assert "제한적이다" in DEVELOPER_PROMPT
+    assert "확인되지 않는다" in DEVELOPER_PROMPT
+    assert "자료만으로는" in DEVELOPER_PROMPT
+    assert "기사만으로는" in DEVELOPER_PROMPT
     assert "원인을 특정할 수 없다는 말을 덧붙이지 않는다" in DEVELOPER_PROMPT
-    assert "확실히 확인된 사건, 제품, 스타일링, 매체 노출만" in DEVELOPER_PROMPT
+    assert "출시, 착용, 공개, 반복 소개 등 관찰된 사실만 설명한다" in DEVELOPER_PROMPT
+
+
+def test_인과관계와_복수_유형_및_사건_시점의_해석_기준을_안내한다():
+    assert "자연스러운 표현보다 사실성이 우선" in DEVELOPER_PROMPT
+    assert "인과관계를 만들지 않는다" in DEVELOPER_PROMPT
+    assert "단정 또는 완곡한 추측으로 바꾸지 않는다" in DEVELOPER_PROMPT
+    assert "공통 배경을 중심으로 2문장에 통합한다" in DEVELOPER_PROMPT
+    assert "근거 없는 원인을 추가하지 않는다" in DEVELOPER_PROMPT
+    assert "기사 게시일과 기사 속 사건 발생일을 구분한다" in DEVELOPER_PROMPT
+
+
+def test_reason의_리포트식_도입과_내부_라벨_노출을_금지한다():
+    reason_instruction = DEVELOPER_PROMPT.split("- reason:", 1)[1]
+
+    assert '"NEW는", "RISING은", "CURRENT는"' in reason_instruction
+    assert "내부 유형명으로 문장을 시작하지 않는다" in reason_instruction
+    assert "리포트식 도입으로 시작하지 않는다" in reason_instruction
+    assert "지난 N시간/일 동안" in reason_instruction
+    assert "직전 대비" in reason_instruction
+    assert "N건에서 N건으로" in reason_instruction
+
+
+def test_어색한_수동태와_번역체를_피하도록_안내한다():
+    assert "어색한 번역체와 수동태를 피한다" in DEVELOPER_PROMPT
+    assert "끌어올려진다" in DEVELOPER_PROMPT
+    assert "관심을 끌었다" in DEVELOPER_PROMPT
+    assert "주목도를 높였다" in DEVELOPER_PROMPT
+    assert "확산됐다" in DEVELOPER_PROMPT
 
 
 def test_유형_이름과_기사_번호를_쓰지_말라고_이른다():
