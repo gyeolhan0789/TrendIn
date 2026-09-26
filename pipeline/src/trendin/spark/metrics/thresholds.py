@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from trendin.spark.common.config import Config, ConfigError
+from trendin.spark.extract.keys import normalized_key
 from trendin.spark.metrics.windows import HISTORY_BUCKET_DAYS, PERIOD_DAYS
 
 SECTION = "aggregate"
@@ -123,6 +124,9 @@ class AggregateThresholds:
     representative_min_share: float = 0.1
     # 이 분류의 개념에 붙은 키워드를 순위와 배지에서 뺀다 — `countable = false` 와 같은 대접이다.
     hide_categories: frozenset[str] = frozenset()
+    # 이 개념(영어 이름의 비교키)에 붙은 키워드도 순위와 배지에서 뺀다. 분류째 빼기엔 넓고 개념
+    # 하나하나를 골라야 하는 것 — `jeans` · `팬츠` 같은 품목 대분류 (S15P21A102-398).
+    hide_concepts: frozenset[str] = frozenset()
     # 개념 테이블에 아직 없는 표기도 이름 판정의 분류로 뺄지 (`hide_categories` 와 같은 분류).
     hide_judged: bool = True
 
@@ -205,6 +209,11 @@ class AggregateThresholds:
             representative_min_share=_share(concepts.get("representative_min_share", 0.1)),
             hide_categories=frozenset(
                 str(item) for item in (concepts.get("hide_categories") or ())
+            ),
+            hide_concepts=frozenset(
+                key
+                for item in (concepts.get("hide_concepts") or ())
+                if (key := normalized_key(str(item)))
             ),
             hide_judged=bool(concepts.get("hide_judged", True)),
         )

@@ -222,3 +222,18 @@ def test_대표_점유율이_0에서_1_밖이면_거부한다(share):
 def test_base_가_대표_점유율을_준다():
     """경험값이라 코드 기본값에만 두지 않고 설정에 드러낸다."""
     assert load_config("dev").get("aggregate.concepts.representative_min_share") == 0.1
+
+
+def test_숨길_개념은_비교키로_읽는다():
+    """설정에는 개념의 영어 이름을 적는다 — 대소문자 · 하이픈이 달라도 같은 개념이다."""
+    result = AggregateThresholds.from_config(
+        config(concepts={"hide_concepts": ["Jeans", "T-Shirt"]})
+    )
+    assert result.hide_concepts == frozenset({"jeans", "t shirt"})
+
+
+def test_base_가_품목_대분류와_브랜드를_숨긴다():
+    """S15P21A102-398 제품 결정. 되돌릴 때는 이 두 설정만 고친다."""
+    result = AggregateThresholds.from_config(load_config("dev"))
+    assert {"jeans", "pants", "skirt"} <= result.hide_concepts
+    assert {"brand", "designer", "material", "color", "person", "event"} <= result.hide_categories

@@ -46,6 +46,7 @@ REQUIRED = (
 CONFIGURED = (
     "abbreviation.transliteration_floor",
     "variant.max_index_size",
+    "alias.max_group_size",
     "embedding.dim",
     "embedding.batch_size",
 )
@@ -79,6 +80,12 @@ class RegistryThresholds:
     # 색인 쪽(대표 후보) 크기 상한. 넘으면 층 2 변형을 건너뛰고 크게 남긴다 — 조용히
     # 몇 분을 태우는 것보다 낫다. 근거는 `registry/merge.py` 의 비용 주석.
     variant_max_index_size: int
+
+    # --- 해소 — 덩이 크기 상한 (`registry/alias.py`) --------------------
+    # 한 덩이가 이보다 크면 통째로 보류하고 별칭을 만들지 않는다. 정확도를 만드는 규칙이
+    # 아니라 차단기다 — 2026-09-20 운영에서 한 덩이가 6,461개로 불어 브랜드가 `vogue` 로
+    # 사라졌다 (S15P21A102-398).
+    alias_max_group_size: int
 
     # --- 층 5 — 승격 ([05 §5]) ------------------------------------------
     promote_min_documents: int
@@ -122,6 +129,7 @@ class RegistryThresholds:
         plural = section.get("plural") or {}
         abbreviation = section.get("abbreviation") or {}
         variant = section.get("variant") or {}
+        alias = section.get("alias") or {}
         promote = section.get("promote") or {}
         embedding = section.get("embedding") or {}
         review = section.get("review") or {}
@@ -134,6 +142,7 @@ class RegistryThresholds:
             variant_max_edit_distance=int(variant["max_edit_distance"]),
             variant_df_dominance=float(variant["df_dominance"]),
             variant_max_index_size=int(variant["max_index_size"]),
+            alias_max_group_size=int(alias["max_group_size"]),
             promote_min_documents=int(promote["min_documents"]),
             promote_min_observed_days=int(promote["min_observed_days"]),
             promote_min_authors=int(promote["min_authors"]),
@@ -165,6 +174,8 @@ class RegistryThresholds:
             raise ConfigError(f"{SECTION}.variant.df_dominance 는 1 이상이어야 한다")
         if self.variant_max_index_size < 1:
             raise ConfigError(f"{SECTION}.variant.max_index_size 는 1 이상이어야 한다")
+        if self.alias_max_group_size < 2:
+            raise ConfigError(f"{SECTION}.alias.max_group_size 는 2 이상이어야 한다")
         if self.promote_min_documents < 1:
             raise ConfigError(f"{SECTION}.promote.min_documents 는 1 이상이어야 한다")
         if self.promote_min_observed_days < 1:

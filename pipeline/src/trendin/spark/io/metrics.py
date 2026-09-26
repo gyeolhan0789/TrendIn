@@ -280,12 +280,15 @@ SELECT c.keyword_id, d.source_id
 #
 # 분류(`category`)는 **보이는 이름을 고르는 데만** 쓴다 — 최신 회차를 이름으로 내는 것은 행사
 # 개념에만 한다 (`metrics/concepts.py`). 무엇을 세고 접는지는 분류로 가르지 않는다.
+#
+# 개념의 영어 · 한국어 이름도 **보이는 이름을 고르는 데만** 쓴다 — 덩이에 그 이름과 같은 표기가
+# 있으면 그것이 대표다 (`metrics/concepts.py`, S15P21A102-398).
 CONCEPT_GROUPS_SQL = f"""
-SELECT k.id, e.concept_id, c.countable, c.category
+SELECT k.id, e.concept_id, c.countable, c.category, c.canonical_name, c.display_ko
   FROM {KEYWORDS} k
   JOIN {EXPRESSION} e ON e.normalized = k.normalized_name AND e.status = 'ACTIVE'
   JOIN {CONCEPT} c ON c.id = e.concept_id AND c.status = 'ACTIVE'
- GROUP BY 1, 2, 3, 4
+ GROUP BY 1, 2, 3, 4, 5, 6
 """
 
 # 키워드 → 비교키. 연도·시즌만 다른 표기를 접는 데 쓴다 (`registry/edition.py`,
@@ -736,8 +739,9 @@ class MetricSink:
             for keyword_id, normalized in self._query(KEYWORD_KEYS_SQL, ())
         )
 
-    def concept_groups(self) -> tuple[tuple[int, int, bool, str], ...]:
-        """`(keyword_id, concept_id, countable, category)` — 개념 층이 붙여 둔 것 ([개념층]).
+    def concept_groups(self) -> tuple[tuple[int, int, bool, str, str | None, str | None], ...]:
+        """`(keyword_id, concept_id, countable, category, 영어 이름, 한국어 이름)` — 개념 층이
+        붙여 둔 것 ([개념층]).
 
         **개념 표가 없으면 빈 튜플이다.** 개념 Job 을 아직 돌리지 않은 환경에서 집계가 서지
         않으면 안 된다 — 순위를 접는 것은 개선이지 선행 조건이 아니다. 그래서 여기서만
@@ -755,8 +759,8 @@ class MetricSink:
                 return ()
             cur.execute(CONCEPT_GROUPS_SQL)
             return tuple(
-                (int(keyword_id), int(concept_id), bool(countable), str(category))
-                for keyword_id, concept_id, countable, category in cur.fetchall()
+                (int(keyword_id), int(concept_id), bool(countable), str(category), name, name_ko)
+                for keyword_id, concept_id, countable, category, name, name_ko in cur.fetchall()
             )
 
     # --- 적재 ------------------------------------------------------------
