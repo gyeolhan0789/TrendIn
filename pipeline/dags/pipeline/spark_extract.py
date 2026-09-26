@@ -52,7 +52,10 @@ spark_extract = build_spark_dag(
     env={"SPARK_MASTER": "local[2]"},
     one_at_a_time=True,
     retries=0,
-    execution_timeout=timedelta(hours=2),
+    # 2시간이면 레지스트리가 쓰기 전에 잘린다. 2026-09-23 밤부터 매 실행이 오타 변형 탐색
+    # (`registry/merge.variant_pairs`, 운영 후보 21만에서 로컬 측정 42분) 도중 죽어 키워드 승격이
+    # 멈췄고 24H 가 비었다 (S15P21A102-395). 탐색을 줄이면 다시 본다.
+    execution_timeout=timedelta(hours=3),
     outlets=[KEYWORDS],
     doc_md=__doc__,
 )
