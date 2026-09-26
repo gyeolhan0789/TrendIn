@@ -22,6 +22,7 @@ DEFAULTS = dict(
     variant_max_edit_distance=2,
     variant_df_dominance=10.0,
     variant_max_index_size=20000,
+    alias_max_group_size=10,
     promote_min_documents=5,
     promote_min_observed_days=2,
     promote_min_authors=3,

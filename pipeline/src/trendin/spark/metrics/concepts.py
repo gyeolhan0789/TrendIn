@@ -32,7 +32,8 @@
 소재를 빼는 스위치(`rising.exclude_categories`)를 두었다가 2026-09-21 에 배선째 걷어냈다.
 세 유형이 같은 키워드를 두고 다르게 답하면 화면에서 이상하게 보이고, 어차피 서버 코퍼스에서는
 목록이 굶어 값을 비워 두고 있었다. **분류째 모든 유형에서 빼는 것은 한다** —
-`aggregate.concepts.hide_categories` 에 적은 분류(인물 · 행사)는 세지 않는 개념과 똑같이
+`aggregate.concepts.hide_categories` 에 적은 분류(인물 · 행사 · 소재 · 색 · 브랜드 · 디자이너)와
+`hide_concepts` 에 적은 개념(품목 대분류)은 세지 않는 개념과 똑같이
 순위와 배지에서 빠진다 (`batch.load_grouping`). 세 유형이 같은 답을 내므로 위 문제가 없다.
 `셔츠` · `바지` 같은 늘 흔한 말은 분류가 아니라 RISING 조건(증가율 · 증가량 · 언급량 · 소스
 · z)이 막는다 — 후보 59개를 전부 확인했고 하나도 없었다.
@@ -66,15 +67,25 @@ brand) 어느 쪽으로 합쳐도 틀린다. `io/concepts.EXPRESSIONS_SQL` 이 �
 
 1~3 이 이름에서 정해지므로 언급량이 오르내려도 대표가 흔들리지 않는다. 후보가 없으면 무게로 고른다.
 
-**대표 이름은 한글이나 로마자 표기에서 고른다** (`readable`). 무게로만 고르면 일본 매체가 많이 쓴
-표기가 이긴다 — 2026-09-26 운영 7D 급상승에 `Chanel` · `샤넬` · `シャネル` 이 한 줄로 접혀
-`シャネル` 로 떴다. 가나·아랍 문자 표기는 덩이에 한글·로마자 표기가 하나도 없을 때만 대표가 된다.
-늘 개념의 영어 이름을 쓰지 않는 이유는 `팬츠` · `청바지` 같은 한국어 이름이 `pants` · `jeans`
-로 바뀌기 때문이다.
+**대표 이름은 개념 이름과 같은 표기에서 먼저 고른다** (`named`, S15P21A102-398). 개념의 영어
+이름(`canonical_name`)이나 한국어 이름(`display_ko`)과 비교키가 같은 표기가 덩이에 있으면 그중
+무게가 큰 것이다. 로마자라는 것만으로는 모자랐다 — 이탈리아 · 프랑스 매체가 많이 쓴 표기가
+이겨 `leather` 개념이 `pelle`, `bag` 이 `borse`, `ballet flats` 가 `ballerine` 으로 떴다. 영어와
+한국어 이름을 **둘 다** 후보로 두므로 `Chanel` · `샤넬` 이나 `pants` · `팬츠` 중에서는 여전히
+무게로 고르고, 늘 영어 이름으로 바꾸지 않는다. 행사 덩이는 이 규칙을 쓰지 않는다 — 최신 회차가
+이름이다 (위 차례). **디자이너 개념도 쓰지 않는다** (`NAMED_BY_WEIGHT`) — 브랜드 표기가 창업자
+이름 개념에 붙어 있어 로컬 운영 사본에서 `Balenciaga` · `Lemaire` 가 `Cristóbal Balenciaga` ·
+`Christophe Lemaire` 로 바뀌었다.
+
+그런 표기가 없으면 **한글이나 로마자 표기에서 고른다** (`readable`). 무게로만 고르면 일본 매체가
+많이 쓴 표기가 이긴다 — 2026-09-26 운영 7D 급상승에 `Chanel` · `샤넬` · `シャネル` 이 한 줄로
+접혀 `シャネル` 로 떴다. 가나·아랍 문자 표기는 덩이에 한글·로마자 표기가 하나도 없을 때만 대표가
+된다.
 
 개념·판정과 부딪칠 때의 차례 —
 
-1. 한 덩이가 **서로 다른 두 개념**에 걸리면 접지 않는다. 사전이 이긴다 (모호 규약과 같은 이유)
+1. 한 덩이가 **서로 다른 두 개념**에 걸리면 접지 않는다. 사전이 이긴다 (모호 규약과 같은 이유).
+   단 걸린 개념이 전부 세지 않는 것이면 뺀다 — 어느 쪽이든 세지 않으므로 모호할 것이 없다
 2. 덩이 안에 **세지 않는** 표기가 있으면 덩이 전체를 뺀다. `vogue world` 가 제외됐는데
    `vogue world 2026` 이 순위로 돌아오면 제외 판정을 우회한 것이다
 3. 단 덩이 안에 **세는 개념**에 붙은 표기가 있으면 2 를 하지 않고 접지도 않는다 — 사전이
@@ -90,6 +101,9 @@ from dataclasses import dataclass
 
 # 최신 회차를 보이는 이름으로 낼 수 있는 개념 분류 (`concept/seed.CATEGORIES`).
 EVENT = "event"
+# 개념 이름을 대표 이름으로 쓰지 않는 분류 (머리말). 디자이너 개념에는 브랜드 표기가 붙어 있고
+# 기사도 대개 브랜드 이름으로 쓴다 — `Balenciaga` 가 `Cristóbal Balenciaga` 로 바뀌면 안 된다.
+NAMED_BY_WEIGHT = frozenset({"designer"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +158,7 @@ def build_grouping(
     edition_orders: Mapping[int, tuple[int, ...]] | None = None,
     representative_min_share: float = 0.0,
     readable: frozenset[int] | None = None,
+    named: frozenset[int] | None = None,
 ) -> Grouping:
     """개념 행 → 접기 규칙.
 
@@ -160,18 +175,28 @@ def build_grouping(
     `edition_orders` 는 회차인 키워드의 순서 열쇠다 — `(연도, 시즌 순위, -기준형 낱말 수)`.
     대표를 고르는 데만 쓰고, **행사 개념이 있는 덩이에서만** 읽는다 (머리말).
     `readable` 은 이름이 한글이나 로마자인 키워드다. 주면 대표를 그중에서 먼저 고른다 (머리말).
+    `named` 는 비교키가 제 개념의 영어 · 한국어 이름과 같은 키워드다. 행사가 아닌 덩이에서는
+    대표를 그중에서 가장 먼저 고른다 (머리말).
     """
     # 한 표기가 두 개념에 걸리면 어느 쪽으로도 접지 않는다 (머리말의 모호 규약).
     seen: dict[int, set[int]] = {}
     for ref in refs:
         seen.setdefault(ref.keyword_id, set()).add(ref.concept_id)
     ambiguous = {keyword_id for keyword_id, ids in seen.items() if len(ids) > 1}
+    # 모호해도 **걸린 개념이 전부 세지 않는 것**이면 뺀다. 어느 쪽으로 합치든 세지 않으므로 모호할
+    # 것이 없다 — `Dior` 가 브랜드와 디자이너에 함께 걸려 둘 다 숨길 분류면 순위에 남지 않아야 한다.
+    counted_somewhere = {ref.keyword_id for ref in refs if ref.countable}
 
     members: dict[int, list[int]] = {}
     events = {ref.concept_id for ref in refs if ref.category == EVENT}
     # 개념이 아직 없어 `countable` 을 걸 자리가 없는 표기다. 세지 않기로 판정된 것들이라
     # 접을 대상도 아니다 — `Vogue Italia` 를 어디에 접겠는가.
     silenced: set[int] = {keyword_id for keyword_id in silenced_keywords if keyword_id in keywords}
+    silenced |= {
+        keyword_id
+        for keyword_id in ambiguous
+        if keyword_id in keywords and keyword_id not in counted_somewhere
+    }
     for ref in refs:
         if ref.keyword_id in ambiguous or ref.keyword_id not in keywords:
             continue
@@ -207,12 +232,16 @@ def build_grouping(
     for group in groups:
         if len(group) < 2:
             continue
+        event_group = any(keyword_id in event_members for keyword_id in group)
+        candidates = group
+        if readable is not None:
+            candidates = [keyword_id for keyword_id in group if keyword_id in readable] or group
+        if named is not None and not event_group:
+            candidates = [keyword_id for keyword_id in group if keyword_id in named] or candidates
         leader = _leader(
-            [keyword_id for keyword_id in group if keyword_id in readable] or group
-            if readable is not None
-            else group,
+            candidates,
             weights,
-            orders if any(keyword_id in event_members for keyword_id in group) else {},
+            orders if event_group else {},
             min_share=representative_min_share,
         )
         for keyword_id in group:

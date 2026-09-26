@@ -20,6 +20,7 @@ LOCAL_VALUES = {
     "abbreviation": {"min_documents": 3, "transliteration_floor": 0.5},
     "variant": {"min_length": 5, "max_edit_distance": 2, "df_dominance": 10,
                 "max_index_size": 20000},
+    "alias": {"max_group_size": 10},
     "promote": {
         "min_documents": 5,
         "min_observed_days": 2,

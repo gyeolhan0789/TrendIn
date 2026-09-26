@@ -28,11 +28,18 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from trendin.spark.common.logging import get_logger
+from trendin.spark.extract.keys import normalized_key
 from trendin.spark.io.metrics import MetricSink
 from trendin.spark.io.stats import Stat
 from trendin.spark.metrics import trends as trend_rules
 from trendin.spark.metrics import windows as window_rules
-from trendin.spark.metrics.concepts import ConceptRef, Grouping, build_grouping, readable_name
+from trendin.spark.metrics.concepts import (
+    NAMED_BY_WEIGHT,
+    ConceptRef,
+    Grouping,
+    build_grouping,
+    readable_name,
+)
 from trendin.spark.metrics.growth import MetricRow, assign_ranks, build_row
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.metrics.trends import Evidence
@@ -149,18 +156,32 @@ def load_grouping(
     # `aggregate.concepts.hide_categories` — 인물·행사처럼 분류째 순위에 내지 않을 개념. 세지
     # 않는 개념과 똑같이 다룬다: 지표 행은 남고 순위와 배지만 없다.
     hidden = frozenset() if thresholds is None else thresholds.hide_categories
-    if not fold and not drop and not editions and not hidden:
+    # `aggregate.concepts.hide_concepts` — 분류가 아니라 개념 하나하나를 고른 것. 같은 대접이다.
+    hidden_concepts = frozenset() if thresholds is None else thresholds.hide_concepts
+    if not fold and not drop and not editions and not hidden and not hidden_concepts:
         return Grouping(representative={}, silenced=frozenset())
     
+    groups = sink.concept_groups()
     refs = [
         ConceptRef(
             keyword_id,
             concept_id,
-            (countable if drop else True) and (rest[0] if rest else None) not in hidden,
+            (countable if drop else True)
+            and (rest[0] if rest else None) not in hidden
+            and normalized_key(rest[1] if len(rest) > 1 else None) not in hidden_concepts,
             category=rest[0] if rest else None,
         )
-        for keyword_id, concept_id, countable, *rest in sink.concept_groups()
+        for keyword_id, concept_id, countable, *rest in groups
     ]
+    # 개념의 영어 · 한국어 이름의 비교키. 그 키와 같은 표기가 대표 이름 후보가 된다 (`concepts.py`
+    # 머리말) — `pelle` · `leather` · `가죽` 이 접히면 `leather` 나 `가죽` 이 이름이다.
+    concept_names: dict[int, set[str]] = {}
+    for keyword_id, concept_id, countable, *rest in groups:
+        if (rest[0] if rest else None) in NAMED_BY_WEIGHT:
+            continue
+        for name in rest[1:3]:
+            if key := normalized_key(name):
+                concept_names.setdefault(keyword_id, set()).add(key)
     # 개념이 아직 없지만 세지 않기로 판정된 표기. 판정 기록을 순위에 반영하는 자리다.
     silenced_keywords = sink.silenced_expressions() if drop else frozenset()
     if hidden and (thresholds is None or thresholds.hide_judged):
@@ -192,6 +213,15 @@ def load_grouping(
         if fold
         else None
     )
+    named = (
+        frozenset(
+            keyword_id
+            for keyword_id, normalized in keys
+            if keyword_id in series and normalized in concept_names.get(keyword_id, ())
+        )
+        if fold
+        else None
+    )
     if editions:
         for keyword_id, normalized in keys:
             if keyword_id not in series:
@@ -215,6 +245,7 @@ def load_grouping(
             0.1 if thresholds is None else thresholds.representative_min_share
         ),
         readable=readable,
+        named=named,
     )
 
 

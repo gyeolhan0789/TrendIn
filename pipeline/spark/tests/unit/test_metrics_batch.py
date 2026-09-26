@@ -697,3 +697,55 @@ def test_접힌_덩이의_이름은_가나_표기가_아니다():
 
     assert staged(sink, 2)[MENTION_COUNT] == 13
     assert staged(sink, 2)[MENTION_RANK] == 1
+
+
+def test_접힌_덩이의_이름은_개념_이름과_같은_표기다():
+    """`pelle` 이 언급이 더 많아도 `leather` 개념이면 순위에는 `leather` 로 나온다 — 비교키로
+    맞추므로 개념 이름의 대소문자는 상관없다 (S15P21A102-398)."""
+    sink = FakeSink(
+        two_surfaces(),
+        sources={1: 2, 2: 2},
+        concepts=[
+            (1, 112, True, "material", "Leather", "가죽"),
+            (2, 112, True, "material", "Leather", "가죽"),
+        ],
+    )
+    sink._keys = [(1, "pelle"), (2, "leather")]
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    assert staged(sink, 2)[MENTION_COUNT] == 13
+    assert staged(sink, 2)[MENTION_RANK] == 1
+
+
+def test_디자이너_개념은_개념_이름보다_언급량으로_고른다():
+    """브랜드 표기가 창업자 이름 개념에 붙어 있다 — `Balenciaga` 가 `Cristóbal Balenciaga` 로
+    바뀌면 안 된다 (`concepts.NAMED_BY_WEIGHT`)."""
+    name = ("Cristóbal Balenciaga", "크리스토발 발렌시아가")
+    sink = FakeSink(
+        two_surfaces(),
+        sources={1: 2, 2: 2},
+        concepts=[(1, 1916, True, "designer", *name), (2, 1916, True, "designer", *name)],
+    )
+    sink._keys = [(1, "balenciaga"), (2, "cristóbal balenciaga")]
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_COUNT] == 13
+    assert staged(sink, 1)[MENTION_RANK] == 1
+
+
+def test_숨길_개념은_영어_이름으로_골라_순위에서_뺀다():
+    """품목 대분류(`jeans`)는 분류째가 아니라 개념 하나하나를 고른다 (`hide_concepts`).
+    이름은 비교키로 맞춘다 — 설정의 대소문자와 상관없다 (S15P21A102-398)."""
+    sink = FakeSink(
+        two_surfaces(),
+        sources={1: 2, 2: 2},
+        concepts=[
+            (1, 64, True, "apparel", "Jeans", "진"),
+            (2, 104, True, "footwear", "loafers", "로퍼"),
+        ],
+    )
+    batch.run(sink, thresholds(hide_concepts=frozenset({"jeans"})), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] is None
+    assert staged(sink, 1)[MENTION_COUNT] == 9  # 지표 행은 남는다
+    assert staged(sink, 2)[MENTION_RANK] == 1

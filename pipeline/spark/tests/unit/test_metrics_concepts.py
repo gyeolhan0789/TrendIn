@@ -326,3 +326,88 @@ def test_가나_아랍_문자가_있으면_읽을_수_없는_이름이다():
 
     assert readable_name("chanel") and readable_name("샤넬") and readable_name("2027 s/s 컬렉션")
     assert not readable_name("シャネル") and not readable_name("شانيل")
+
+
+# --- 대표 이름은 개념 이름과 같은 표기에서 먼저 (S15P21A102-398) ----------------------
+
+
+def test_개념_이름과_같은_표기가_무게보다_먼저다():
+    """`pelle`(9) · `leather`(4) · `가죽`(2) — 이탈리아 매체가 많이 써도 이름은 `leather` 다.
+    셋 다 로마자·한글이라 `readable` 만으로는 `pelle` 가 이겼다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 112, True), ConceptRef(2, 112, True), ConceptRef(3, 112, True)],
+        {1: 9, 2: 4, 3: 2},
+        keywords={1, 2, 3},
+        readable=frozenset({1, 2, 3}),
+        named=frozenset({2, 3}),
+    )
+    assert grouping.representative == {1: 2, 3: 2}
+
+
+def test_개념_이름이_둘이면_그_사이는_무게로_고른다():
+    """영어 이름으로 늘 바꾸지 않는다 — `팬츠`(9) 가 `pants`(4) 보다 많으면 `팬츠` 다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 50, True), ConceptRef(2, 50, True)],
+        {1: 4, 2: 9},
+        keywords={1, 2},
+        readable=frozenset({1, 2}),
+        named=frozenset({1, 2}),
+    )
+    assert grouping.representative == {1: 2}
+
+
+def test_개념_이름과_같은_표기가_없으면_읽을_수_있는_표기에서_고른다():
+    """`borse`(9) · `bags`(4) · `バッグ`(20) — 개념 이름(`bag` · `가방`) 표기가 승격되지 않았다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 11, True), ConceptRef(2, 11, True), ConceptRef(3, 11, True)],
+        {1: 9, 2: 4, 3: 20},
+        keywords={1, 2, 3},
+        readable=frozenset({1, 2}),
+        named=frozenset(),
+    )
+    assert grouping.representative == {2: 1, 3: 1}
+
+
+def test_행사_덩이는_개념_이름보다_최신_회차가_먼저다():
+    """행사 개념의 영어 이름이 `Vogue World` 여도 보이는 이름은 최신 회차다 (머리말의 차례)."""
+    refs = event(VOGUE_WORLD, VOGUE_WORLD_2026)
+    names = {VOGUE_WORLD: NAMES[VOGUE_WORLD], VOGUE_WORLD_2026: NAMES[VOGUE_WORLD_2026]}
+    keys = {keyword_id: edition_key(name) for keyword_id, name in names.items()}
+    grouping = build_grouping(
+        refs,
+        WEIGHTS,
+        keywords=set(names),
+        edition_keys={keyword_id: ("fashion", key) for keyword_id, key in keys.items()},
+        edition_orders={
+            keyword_id: (*order, -len(keys[keyword_id].split()))
+            for keyword_id, name in names.items()
+            if (order := edition_order(name)) is not None
+        },
+        representative_min_share=SHARE,
+        named=frozenset({VOGUE_WORLD}),
+    )
+    assert grouping.representative == {VOGUE_WORLD: VOGUE_WORLD_2026}
+
+
+# --- 모호한 표기와 숨기기 (S15P21A102-398) ------------------------------------------
+
+
+def test_두_개념에_걸려도_둘_다_세지_않으면_뺀다():
+    """`Dior` 가 브랜드와 디자이너에 함께 걸리고 둘 다 숨길 분류다 — 어느 쪽이든 세지 않는다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 10, False, "brand"), ConceptRef(1, 20, False, "designer")],
+        {1: 9},
+        keywords={1},
+    )
+    assert grouping.silenced == frozenset({1})
+
+
+def test_두_개념_중_하나라도_세면_모호하게_혼자_둔다():
+    """하나는 세고 하나는 안 센다 — 옛 모호 규약대로 접지도 빼지도 않는다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 10, True, "brand"), ConceptRef(1, 20, False, "designer")],
+        {1: 9},
+        keywords={1},
+    )
+    assert grouping.silenced == frozenset()
+    assert grouping.representative == {}

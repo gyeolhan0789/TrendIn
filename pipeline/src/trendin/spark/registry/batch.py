@@ -2,8 +2,9 @@
 
 ```
 1. 관측 읽기        후보별 누적 (문서·일수·소스·저자). 별칭을 접지 않은 원표기 단위
-2. 병합 쌍          층 1 복수형 · 층 2 약어·표기 변형 · 기존 별칭 · 검수 승인
-3. 해소             union-find → 대표 하나. 승격된 것이 얽히면 보류
+2. 병합 쌍          층 1 복수형 · 층 2 약어 · 기존 별칭(변형 제외) · 검수 승인
+                    표기 변형(오타)은 세기만 하고 병합 근거에 넣지 않는다 (아래)
+3. 해소             union-find → 대표 하나. 승격된 것이 얽히거나 덩이가 너무 크면 보류
 4. 별칭 적재        pl_alias · pl_merge_log + 영향받은 날짜 재집계 (한 트랜잭션)
 5. 대표별 관측       별칭을 접은 뒤 다시 읽는다 — 문서 수는 합이 아니라 합집합
 6. 승격 심사        registry/promote.judge. 통과한 것만 keywords 로
@@ -30,6 +31,22 @@
 
 ⚠️ 그 대가 하나 — 같은 회차에 양쪽이 승격되면 그 쌍의 승인은 다음 실행에서 **사후 병합**이
 된다. [05 §7] 이 이미 그 경우를 "큐에 남겨두고 백엔드와 함께 처리" 로 정해 뒀다.
+
+## 표기 변형(오타)은 병합 근거가 아니다 (S15P21A102-398)
+
+편집 거리는 "같다" 를 판정하지 못한다. 쌍 하나하나가 규칙을 지켜도 `bindi → fendi`,
+`ezra watson → emma watson` 처럼 딴 낱말이 흔했고, **오타 관계는 전이적이지 않은데 union-find
+가 전이성을 강제한다.** 2026-09-20 운영에서 `chanel ← camel ← bagel → bague → vogue` 같은
+사슬로 6,461개가 한 덩이가 되어 브랜드가 매체 `vogue` 로 사라졌다. 남는 쌍의 70% 는 흡수되는
+쪽이 문서 1건이라 합쳐서 얻는 것도 거의 없다.
+
+그래서 `merge.variant_pairs` 는 **건수 지표로만** 남고 `_pairs` 가 돌려주는 병합 쌍에 들어가지
+않는다. 같은 이유로 **`rule = variant` 인 기존 별칭은 되먹이지 않는다** — 추론이 저장되었다가
+다음 실행의 증거로 돌아오면, 틀린 추론이 사실처럼 굳는다.
+
+⚠️ 되먹임을 끊어도 이미 적재된 variant 별칭은 `pl_alias` 에 남는다 (**지우지 않는다**,
+`io/keywords.ALIAS_MERGE_SQL`). 그 별칭의 대표가 새 덩이에서 다른 대표로 흡수되면 두 홉
+사슬이 생길 수 있어, 운영의 variant 별칭 정리가 이 변경 뒤에 따라와야 한다.
 
 **pyspark 를 import 하지 않는다** ([09 §4] 층 1).
 """
@@ -58,6 +75,9 @@ MERGE_PAIRS = "merge_pairs"  # 차원: {domain}/{규칙}
 ALIASES = "aliases"  # 적용된 별칭 수 (누적 표의 이번 회차 반영분)
 MERGES_NEW = "merges_new"  # 이번에 새로 기록된 병합 ([05 §8] 의 "적용 시점")
 MERGES_PARKED = "merges_parked"  # 자동 적용하지 않고 큐로 보낸 쌍
+# 크기 상한을 넘어 통째로 보류한 덩이 수. 큐로 가지 않으므로 여기와 로그가 유일한 흔적이다.
+# 0 이 정상이다 — 1 이상이면 병합 규칙 어딘가가 전이성으로 폭주하고 있다.
+MERGES_OVERSIZED = "merges_oversized"
 RECOUNTED_DATES = "recounted_dates"  # 병합 반영으로 다시 센 (domain, stat_date) 수
 PROMOTED = "promoted"  # 이번 회차에 keywords 로 들어간 수 (재승격 포함)
 HELD = "held"  # 차원: {domain}/{사유}. registry/promote 의 HELD_* 상수
@@ -138,10 +158,22 @@ def registry_batch(
     promoted_keys = {item.key for item in observations.values() if item.keyword_id is not None}
 
     pairs, pair_stats = _pairs(registry, domain=domain, df=df, thresholds=thresholds)
-    resolution = alias_rules.resolve(pairs, df=df, promoted=promoted_keys)
+    resolution = alias_rules.resolve(
+        pairs, df=df, max_group_size=thresholds.alias_max_group_size, promoted=promoted_keys
+    )
 
     stats: list[Stat] = [Stat(CANDIDATES, domain, len(observations)), *pair_stats]
     stats.append(Stat(MERGES_PARKED, domain, len(resolution.parked)))
+    stats.append(Stat(MERGES_OVERSIZED, domain, len(resolution.oversized)))
+    if resolution.oversized:
+        log.warning(
+            "[%s] 덩이 %d개가 크기 상한 %d 를 넘어 통째로 보류했다 — 별칭도 검수 큐도 없다. "
+            "큰 순서로 (DF 최대 구성원, 크기): %s",
+            domain,
+            len(resolution.oversized),
+            thresholds.alias_max_group_size,
+            sorted(resolution.oversized, key=lambda item: -item[1])[:10],
+        )
 
     applied = 0
     if resolution.aliases:
@@ -268,6 +300,10 @@ def _pairs(
 
     **기존 별칭과 검수 승인도 쌍으로 넣는다.** 매 실행 전체 닫힘을 다시 계산해야 사슬이
     생기지 않는다 (`io/keywords.ALIAS_MERGE_SQL` 의 주석).
+
+    **표기 변형은 세기만 한다** (모듈 docstring). 탐색은 돌려서 쌍 수와 건너뜀 여부를 지표로
+    남기지만, 그 쌍은 돌려주는 값에 없다 — 계산했다고 병합 후보로 다시 넣지 않는다.
+    기존 별칭 중 `rule = variant` 도 같은 이유로 빠진다.
     """
     plural = normalize_rules.plural_pairs(df, domain=domain, thresholds=thresholds)
     abbreviation = merge_rules.abbreviation_pairs(
@@ -285,6 +321,7 @@ def _pairs(
         df=df,
         thresholds=thresholds,
     )
+    # 지표 전용. 아래 반환값에 `scan.pairs` 를 넣지 않는다 (위 docstring).
     scan = merge_rules.variant_pairs(df, domain=domain, thresholds=thresholds)
     existing = tuple(
         MergePair(
@@ -298,19 +335,21 @@ def _pairs(
             signal=row[5] or signal_of(),
             )
         for row in registry.aliases(domain=domain)
+        if row[3] != merge_rules.RULE_VARIANT
     )
     approved = review_rules.approved_pairs(registry.approved_pairs(domain=domain))
 
     stats = [
         Stat(MERGE_PAIRS, f"{domain}/{merge_rules.RULE_PLURAL}", len(plural)),
         Stat(MERGE_PAIRS, f"{domain}/{merge_rules.RULE_ABBREVIATION}", len(abbreviation)),
+        # 찾은 쌍 수다 — **병합한 수가 아니다** (위 docstring). 키 이름은 옛 실행과 이으려고 둔다.
         Stat(MERGE_PAIRS, f"{domain}/{merge_rules.RULE_VARIANT}", len(scan.pairs)),
         Stat(MERGE_PAIRS, f"{domain}/{review_rules.RULE_REVIEW}", len(approved)),
         # **상한 초과에서만 1 이다.** 쌍이 안 나온 정상 회차에도 1 이면 지표가 정상 상태와
         # 같은 값을 내고, 그러면 "조용히 건너뛴 것을 크게 남긴다" 가 성립하지 않는다.
         Stat(VARIANT_SCAN_SKIPPED, domain, 1 if scan.skipped else 0),
     ]
-    return (*plural, *abbreviation, *scan.pairs, *existing, *approved), stats
+    return (*plural, *abbreviation, *existing, *approved), stats
 
 
 @dataclass(frozen=True, slots=True)

@@ -23,7 +23,7 @@ from registry_support import (
 )
 from registry_support import make_registry_thresholds as registry_thresholds
 
-from trendin.spark.registry import batch, promote
+from trendin.spark.registry import batch, merge, promote, review
 from trendin.spark.registry.merge import signal_of
 
 
@@ -121,6 +121,105 @@ def test_쌍이_안_나온_정상_회차는_0_이다():
     normal = run(registry, None)
 
     assert value_of(normal, batch.VARIANT_SCAN_SKIPPED) == 0
+
+
+# --- 표기 변형은 병합 근거가 아니다 (S15P21A102-398) ----------------------
+
+# 2026-09-20 운영의 사슬과 같은 DF 다. 쌍마다는 오타 규칙(5자 이상 · 거리 2 이하 · 10배)을
+# 통과한다 — `chanel ← camel ← bagel → bague → vogue`.
+VOGUE_CHAIN = {"chanel": 1410, "camel": 28, "bagel": 1, "bague": 11, "vogue": 1515}
+
+
+def test_변형_사슬은_합치지_않는다():
+    registry = FakeRegistry(
+        observations=[observation(key, doc_count=count) for key, count in VOGUE_CHAIN.items()]
+    )
+
+    result = run(registry, None)
+
+    assert registry.applied == []
+    assert value_of(result, batch.ALIASES) == 0
+
+
+def test_변형_쌍_수는_여전히_센다():
+    """병합하지 않아도 탐색은 돈다 — 규칙을 다시 연구할 때 분포가 있어야 한다."""
+    registry = FakeRegistry(
+        observations=[observation(key, doc_count=count) for key, count in VOGUE_CHAIN.items()]
+    )
+
+    result = run(registry, None)
+
+    assert value_of(result, batch.MERGE_PAIRS, f"{DOMAIN}/{merge.RULE_VARIANT}") >= 4
+    assert value_of(result, batch.VARIANT_SCAN_SKIPPED) == 0
+
+
+def existing(alias_key, canonical_key, rule, layer=2):
+    """`pl_alias` 한 행 — `io/keywords.RegistrySink.aliases` 의 모양."""
+    return (alias_key, canonical_key, layer, rule, 1.0, signal_of(rule=rule))
+
+
+def test_기존_변형_별칭은_되먹이지_않고_나머지_규칙은_재사용한다():
+    """추론이 저장됐다가 다음 실행의 증거로 돌아오면 틀린 추론이 사실처럼 굳는다."""
+    counts = {
+        "vogue": 1515,
+        "bague": 11,
+        "boots": 50,
+        "boot": 5,
+        "chanel": 1410,
+        "샤넬": 384,
+        "quiet luxury": 152,
+        "quite luxury": 1,
+    }
+    registry = FakeRegistry(
+        observations=[observation(key, doc_count=count) for key, count in counts.items()],
+        aliases=[
+            existing("bague", "vogue", merge.RULE_VARIANT),
+            existing("boot", "boots", merge.RULE_PLURAL, layer=1),
+            existing("샤넬", "chanel", merge.RULE_ABBREVIATION),
+            existing("quite luxury", "quiet luxury", review.RULE_REVIEW),
+        ],
+    )
+
+    run(registry, None)
+
+    assert sorted((row[1], row[2], row[4]) for row in registry.applied) == [
+        ("boot", "boots", merge.RULE_PLURAL),
+        ("quite luxury", "quiet luxury", review.RULE_REVIEW),
+        ("샤넬", "chanel", merge.RULE_ABBREVIATION),
+    ]
+
+
+def test_상한을_넘은_덩이는_별칭도_큐도_만들지_않고_센다():
+    """오늘 운영의 `vogue` 덩이 모양이다 — 변형이 아닌 규칙으로 기록된 별칭도 수백 개가
+    `vogue` 를 가리킨다 (별칭의 규칙은 직접 이웃과의 쌍에서 온다). 되먹임에서 변형을 빼도
+    그 덩이는 남으므로 차단기가 받는다."""
+    size = 11
+    leaves = [f"brand{index:02d}" for index in range(size - 1)]
+    registry = FakeRegistry(
+        observations=[
+            observation("vogue", doc_count=1515),
+            *(observation(leaf, doc_count=20) for leaf in leaves),
+        ],
+        aliases=[existing(leaf, "vogue", merge.RULE_ABBREVIATION) for leaf in leaves],
+    )
+
+    result = run(registry, None, registry_thresholds(alias_max_group_size=size - 1))
+
+    assert registry.applied == []
+    assert registry.enqueued == []
+    assert value_of(result, batch.MERGES_OVERSIZED) == 1
+
+
+def test_덩이가_상한_안이면_차단기_지표는_0_이다():
+    registry = FakeRegistry(
+        observations=[observation("boots", doc_count=50), observation("boot", doc_count=5)],
+        aliases=[existing("boot", "boots", merge.RULE_PLURAL, layer=1)],
+    )
+
+    result = run(registry, None)
+
+    assert value_of(result, batch.MERGES_OVERSIZED) == 0
+    assert [row[1] for row in registry.applied] == ["boot"]
 
 
 # --- 순서가 정확성 조건인 자리 (`batch.py` 의 표) --------------------------
