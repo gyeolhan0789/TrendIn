@@ -121,12 +121,21 @@ services:
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
+    # **확인 명령이 Airflow CLI 를 새로 띄운다** — 다른 둘은 `curl` 이라 가볍다. 데이터 EC2
+    # (t3.xlarge)의 CPU 크레딧이 떨어지면 steal 이 50% 를 넘고, 2026-09-26 에 이 명령이 26~47초
+    # 걸려 10초 제한을 매번 넘겼다. 프로세스는 살아 있는데 unhealthy 로 떠 배포가 멈췄다
+    # (S15P21A102-397). 제한을 늘리고, 확인끼리 겹치지 않게 간격도 같이 늘린다.
+    environment:
+      <<: *airflow-common-env
+      # DAG 파일을 다시 읽는 간격. 기본 30초면 파일 9개(하나에 4~9초)를 쉬지 않고 읽어 CPU 를
+      # 1코어 넘게 쓴다. DAG 파일은 배포 때만 바뀌고 배포는 이 컨테이너를 새로 띄운다.
+      AIRFLOW__DAG_PROCESSOR__MIN_FILE_PROCESS_INTERVAL: '300'
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
-      interval: 30s
-      timeout: 10s
+      interval: 60s
+      timeout: 60s
       retries: 5
-      start_period: 30s
+      start_period: 60s
     restart: unless-stopped
     depends_on:
       <<: *airflow-common-depends-on
