@@ -15,10 +15,13 @@
 
 ## 표기 변형 탐색의 비용
 
-편집 거리는 쌍 단위라 후보 수의 제곱이다. 실측 규모(선별 3,520행 · 비교키 수천~수만)에서
-그대로 돌리면 몇 분을 태운다. 그래서 **DF 압도 조건에서 색인 쪽을 유도해 좁힌다** — 흡수되는
-쪽의 DF 는 최소 1 이므로, 대표가 되려면 DF 가 `df_dominance` 이상이어야 한다. 그 조건을
-만족하는 비교키는 전체의 일부다 (실측에서 DF 상한이 111 이고 대부분의 후보는 2~5).
+편집 거리는 쌍 단위라 후보 수의 제곱이다. 그래서 **DF 압도 조건에서 색인 쪽을 유도해 좁힌다**
+— 흡수되는 쪽의 DF 는 최소 1 이므로, 대표가 되려면 DF 가 `df_dominance` 이상이어야 한다.
+
+**그것만으로는 모자랐다** (S15P21A102-395). 2026-09-26 운영 fashion 후보 21만(색인 5,467)에서
+흡수 후보 × 색인 전부를 도는 이중 루프가 로컬 42분, 서버에서 1시간 반을 넘겨 추출이 2시간 제한에
+잘렸고 키워드 승격이 사흘 멈췄다. 지금은 색인을 **글자를 지운 형태**로 만들어 거리 안에 들 수
+있는 짝만 잰다 — 같은 입력에서 23초, 결과는 같다 (`variant_pairs`).
 
 그래도 색인이 커지면 **건너뛰고 크게 남긴다** (`variant_max_index_size`). 조용히 몇 분을
 태우는 것이 가장 나쁘다 — 그때는 배치가 죽은 것도 아니라 아무도 모른다. 그래서
@@ -233,18 +236,39 @@ def variant_pairs(
     if not index:
         return VariantScan(pairs=(), index_size=0, skipped=False)
 
+    # **거리 안에 들 수 있는 짝만 찾아서 잰다** (S15P21A102-395). 전에는 흡수 후보 × 색인 전부를
+    # 돌며 쌍마다 자모 분해부터 새로 했다 — 2026-09-26 운영 후보 21만에서 이 함수 하나가 로컬
+    # 42분, 서버에서 1시간 반을 넘겨 추출이 2시간 제한에 잘렸고 키워드 승격이 멈췄다.
+    #
+    # 색인은 자모 문자열에서 **글자를 `max_distance` 개까지 지운 형태**로 만든다(SymSpell).
+    # 거리가 k 이하인 두 문자열은 양쪽에서 k 개까지 지워 같은 문자열을 만들 수 있으므로(바꿈은
+    # 양쪽 한 글자씩 지움) 짝을 하나도 놓치지 않는다. 찾은 짝은 전과 같은 거리 계산으로 다시
+    # 재고, 쌍은 전과 같은 순서(흡수 · 대표 비교키 순)로 돌려준다 — 결과가 같다.
+    phonemes = {key: _phonemes(key) for key in long_enough}
+    by_deletion: dict[str, list[str]] = {}
+    for key in index:
+        for variant in _deletions(phonemes[key], max_distance):
+            by_deletion.setdefault(variant, []).append(key)
+
     pairs: list[MergePair] = []
     for absorbed in sorted(long_enough):
         absorbed_df = long_enough[absorbed]
-        for representative in index:
-            if representative == absorbed:
+        floor = dominance * absorbed_df
+        spelled = phonemes[absorbed]
+        near = {
+            representative
+            for variant in _deletions(spelled, max_distance)
+            for representative in by_deletion.get(variant, ())
+        }
+        found: list[tuple[str, int]] = []
+        for representative in near:
+            if representative == absorbed or long_enough[representative] < floor:
                 continue
+            distance = _bounded_phoneme_distance(spelled, phonemes[representative], max_distance)
+            if distance is not None:
+                found.append((representative, distance))
+        for representative, distance in sorted(found):
             representative_df = long_enough[representative]
-            if representative_df < dominance * absorbed_df:
-                continue
-            distance = bounded_distance(absorbed, representative, max_distance)
-            if distance is None:
-                continue
             pairs.append(
                 MergePair(
                     domain=domain,
@@ -287,7 +311,11 @@ def bounded_distance(left: str, right: str, max_distance: int) -> int | None:
     """
     if left == right:
         return 0
-    left, right = _phonemes(left), _phonemes(right)
+    return _bounded_phoneme_distance(_phonemes(left), _phonemes(right), max_distance)
+
+
+def _bounded_phoneme_distance(left: str, right: str, max_distance: int) -> int | None:
+    """자모로 분해해 둔 두 문자열의 거리. `variant_pairs` 가 분해를 한 번씩만 하려고 따로 부른다."""
     if abs(len(left) - len(right)) > max_distance:
         return None
     previous = list(range(len(right) + 1))
@@ -307,6 +335,16 @@ def bounded_distance(left: str, right: str, max_distance: int) -> int | None:
         previous = current
     distance = previous[-1]
     return distance if distance <= max_distance else None
+
+
+def _deletions(text: str, depth: int) -> set[str]:
+    """글자를 `depth` 개까지 지운 형태 전부 (지우지 않은 것 포함)."""
+    out = {text}
+    frontier = {text}
+    for _ in range(depth):
+        frontier = {word[:i] + word[i + 1 :] for word in frontier for i in range(len(word))}
+        out |= frontier
+    return out
 
 
 def _phonemes(text: str) -> str:

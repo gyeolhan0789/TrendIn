@@ -139,6 +139,11 @@ pipeline:verify:
 pipeline:verify-spark:
   stage: verify
   extends: .pipeline-rules
+  # 백엔드 EC2(J15A102)의 러너에서 돈다. 데이터 EC2 는 CPU 4개에 운영 Spark Job 이 겹쳐 부하가
+  # 20 을 넘기고, 이 잡이 20분 넘게 걸리며 운영 추출까지 늦췄다 (S15P21A102-395). 러너 쪽에서
+  # 잡 컨테이너를 CPU 2 · 메모리 3GB 로 묶어 백엔드 몫을 남긴다.
+  tags:
+    - backend-ec2
   image: python:3.12-slim-bookworm
   variables:
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -160,7 +165,7 @@ pipeline:verify-spark:
     - echo "pyspark ${SPARK_VERSION}"
     # 전체 프로젝트 대신 Spark 테스트에 필요한 의존성만 설치한다.
     # 이 줄은 사본이다 — spark/tests에 새 import를 넣으면 여기도 고친다. pyyaml은 pyproject.toml에 없다.
-    - pip install pytest pyyaml boto3 httpx pydantic kiwipiepy "pyspark==${SPARK_VERSION}"
+    - pip install pytest pyyaml boto3 httpx pydantic "kiwipiepy==0.23.2" "pyspark==${SPARK_VERSION}"
   script:
     - pytest spark/tests
 

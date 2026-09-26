@@ -22,7 +22,9 @@ dependencies = [
   # 한국어 형태소 분석기 (spark/docs/04 §2, src/trendin/spark/extract/morphology.py).
   # C++ 확장이라 JVM·torch 가 없고 Windows·Linux 휠이 둘 다 있다 — 호스트 층 1 테스트와
   # 컨테이너 Job 이 같은 코드로 돈다. 모델이 약 110 MB 라 이미지가 그만큼 커진다.
-  "kiwipiepy",
+  # 버전을 고정한다 — 0.24.0 이 이름을 자르는 자리를 바꿔(`임애` → `임애지`) 추출 스냅샷이
+  # 깨졌다 (2026-09-26). 운영 이미지와 스냅샷이 0.23.2 다. 올릴 때는 스냅샷을 함께 갱신한다.
+  "kiwipiepy==0.23.2",
   # 기사 페이지 본문 추출 (web-collect.md 확정 2, S15P21A102-285). Airflow constraints 에 없어
   # 여기서 고정한다 — 추출 결과가 버전마다 달라지고, 소스 실측(2026-09-16)이 2.2.0 으로 쟀다.
   "trafilatura==2.2.0",

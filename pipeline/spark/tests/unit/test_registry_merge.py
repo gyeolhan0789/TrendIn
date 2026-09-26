@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import json
+
 from registry_support import make_registry_thresholds as thresholds
 
 from trendin.spark.registry import merge, normalize
@@ -251,3 +253,56 @@ def test_관측이_있는_쪽끼리는_그대로_병합된다():
     assert [(pair.representative, pair.absorbed) for pair in scan.pairs] == [
         ("kubernetes", "kubernets")
     ]
+
+
+def _brute_force_variants(df, th):
+    """고치기 전의 이중 루프 그대로 — 새 탐색이 이것과 같은 쌍을 같은 순서로 내야 한다."""
+    long_enough = {k: n for k, n in merge.observed(df).items() if len(k) >= th.variant_min_length}
+    index = sorted(k for k, n in long_enough.items() if n >= th.variant_df_dominance)
+    out = []
+    for absorbed in sorted(long_enough):
+        for representative in index:
+            if representative == absorbed:
+                continue
+            if long_enough[representative] < th.variant_df_dominance * long_enough[absorbed]:
+                continue
+            distance = bounded_distance(absorbed, representative, th.variant_max_edit_distance)
+            if distance is not None:
+                out.append((representative, absorbed, distance))
+    return out
+
+
+def test_변형_탐색은_전수_비교와_같은_쌍을_같은_순서로_낸다():
+    """S15P21A102-395 — 길이별 색인 · DF 순 조기 종료가 결과를 바꾸지 않는다."""
+    th = thresholds(variant_min_length=5, variant_max_edit_distance=2, variant_df_dominance=10)
+    # 대표 넷(DF 90~300)과 오타 · 복수 · 딴 낱말(DF 1~40). 딴 낱말(`denim skirt` · `데님 팬츠`)은
+    # 거리가 가깝거나 압도가 모자라 빠져야 한다.
+    df = {
+        "denim shirt": 300,
+        "denim shirts": 12,
+        "denim skirt": 40,
+        "demin shirt": 3,
+        "denim shrit": 1,
+        "leather jacket": 250,
+        "lether jacket": 2,
+        "leather jackets": 30,
+        "leathr jacket": 1,
+        "데님 셔츠": 200,
+        "데님 셔즈": 4,
+        "데님 팬츠": 5,
+        "플랫 슈즈": 120,
+        "플렛 슈즈": 2,
+        "플랫 슈즈즈": 1,
+        "cardigan": 90,
+        "cardigans": 9,
+        "cardgan": 1,
+        "carddigan": 0,
+        "knitwear": 15,
+        "knit wear": 1,
+    }
+    scan = merge.variant_pairs(df, domain=DOMAIN, thresholds=th)
+    found = [
+        (p.representative, p.absorbed, json.loads(p.signal)["edit_distance"]) for p in scan.pairs
+    ]
+    assert found == _brute_force_variants(df, th)
+    assert found  # 비교할 쌍이 실제로 있어야 시험이 뜻을 갖는다
