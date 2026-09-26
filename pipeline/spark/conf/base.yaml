@@ -479,6 +479,19 @@ concept:
     # 벡터가 메우려는 것은 문자·음가가 놓치는 자리다. `vintage t-shirt` 로는 사전의 `t-shirt`
     # 가 후보로 나오지 않아 (2026-09-22 표본에서 후보 0건) 이미 있는 개념이 새로 만들어졌다.
     vector_enabled: true
+  # 미등록 표기를 덩이째 판정해 기존 개념에 잇는다 (`concept/nil_grouping.py`, S15P21A102-394).
+  # `LFW` → `London Fashion Week` 처럼 개념 테이블에 없는 변형을 그 개념의 표현으로 넣는다.
+  # 모델과 지시문은 `concept/cluster_judge.py` 가 정한다 (gpt-4.1-mini · `cluster-v8`).
+  nil_grouping:
+    # **아직 끈 채로 둔다.** 켜면 개념 Job 이 돌 때마다(약 90분) 새 덩이를 LLM 에 묻는다.
+    # 한 번 판정한 덩이는 구성원과 쌍이 같으면 다시 묻지 않는다 (`pl_concept_judgement_cache`).
+    enabled: false
+    # 판정을 사전에 넣을지. 끄면 판정만 하고 이을 것을 로그로 남긴다. 넣은 것은 자동 연결과 같은
+    # 원장에 회차 번호로 남아 `scripts/concept-review.py rollback --run` 으로 되돌린다.
+    apply: false
+    # 한 회차에 부르는 횟수의 상한 (다시 물은 것 포함). 2026-09-25 운영 순위 상위 300 주변 덩이가
+    # 48 개였다. 덩이 하나가 약 2.6 크레딧이다 (사람 검수 198 덩이 1회 ≈ 520).
+    max_calls: 60
   retrieval:
     # LLM 판정에 전달할 통합 후보 수와, 자동 후보로 인정할 최종 점수 하한.
     top_k: 5

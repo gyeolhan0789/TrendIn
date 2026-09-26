@@ -6,6 +6,8 @@ import json
 
 from trendin.spark.concept.cluster_judge import (
     CONTEXTS_PER_MEMBER,
+    SINGLE_PROMPT,
+    SYSTEM_PROMPT,
     Cluster,
     Judgement,
     Member,
@@ -43,9 +45,9 @@ def prompt(clusters: list[Cluster]) -> dict:
 # --- 프롬프트 -------------------------------------------------------------
 
 
-def test_덩이마다_번호를_달고_표기와_쌍을_싣는다():
-    (cluster,) = prompt([VOGUE])["clusters"]
-    assert cluster["n"] == 1
+def test_덩이_하나는_번호_없이_표기와_쌍을_싣는다():
+    cluster = prompt([VOGUE])
+    assert "n" not in cluster
     assert cluster["items"][0] == {
         "i": 1,
         "w": "Vogue World",
@@ -70,13 +72,13 @@ def test_표기가_들어_있지_않은_문장은_싣지_않는다():
         None,
         ("Wunmi Mosaku Is British Vogue's October Cover Star", "Vogue World", "At Vogue World: 1"),
     )
-    (item,) = prompt([Cluster((member,), ())])["clusters"][0]["items"]
+    (item,) = prompt([Cluster((member,), ())])["items"]
     assert item["c"] == ["At Vogue World: 1"]
 
 
 def test_문장은_표기당_상한까지만_싣는다():
     member = Member("lfw", "LFW", None, tuple(f"LFW day {n}" for n in range(5)))
-    (item,) = prompt([Cluster((member,), ())])["clusters"][0]["items"]
+    (item,) = prompt([Cluster((member,), ())])["items"]
     assert len(item["c"]) == CONTEXTS_PER_MEMBER
 
 
@@ -90,11 +92,27 @@ def test_지시문이_먼저_온다():
     assert first["role"] == "system" and second["role"] == "user"
 
 
+def test_덩이_수에_맞는_지시문을_쓴다():
+    """여러 덩이 문구를 한 덩이에 쓰면 정밀도가 떨어졌다 (`cluster_judge.SINGLE_PROMPT`)."""
+    assert messages([VOGUE])[0]["content"] == SINGLE_PROMPT
+    assert messages([VOGUE, DRESS])[0]["content"] == SYSTEM_PROMPT
+
+
 def test_정해진_크기로_나눈다():
     assert [len(b) for b in batches([VOGUE] * 7, size=5)] == [5, 2]
 
 
 # --- 답 읽기 --------------------------------------------------------------
+
+
+def test_덩이_하나의_답은_번호가_없어도_읽는다():
+    content = json.dumps({"r": [{"p": 1, "rel": "series"}, {"p": 2, "rel": "same"}]})
+    (vogue,), problems = parse(content, [VOGUE])
+    assert problems == []
+    assert vogue.relations == {
+        ("vogue world", "vogue world 2026"): "series",
+        ("vogue world", "vogue world milano"): "same",
+    }
 
 
 def test_쌍마다_관계를_읽는다():

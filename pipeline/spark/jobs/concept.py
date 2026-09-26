@@ -43,6 +43,7 @@ from trendin.spark.common.cli import main
 from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.exit_codes import NOTHING_NEW
 from trendin.spark.common.logging import get_logger
+from trendin.spark.concept import nil_grouping
 from trendin.spark.concept.mapping import map_article
 from trendin.spark.concept.seed import apply_seed, apply_seed_in_memory, load_seed_dir
 from trendin.spark.concept.thresholds import ConceptThresholds
@@ -122,6 +123,11 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
         raise ConfigError("--seed-dir 는 --dry-run 과 함께만 쓴다 — 적재는 커밋된 사전만 한다")
     thresholds = ConceptThresholds.from_config(config)
     automation = AutomationPolicy.from_config(config)
+    # DB 를 건드리기 전에 읽는다 — 잘못 적은 값으로 반쯤 돌지 않게.
+    try:
+        grouping = nil_grouping.Policy.from_mapping(config.section("concept.nil_grouping"))
+    except ValueError as error:
+        raise ConfigError(str(error)) from None
     window_days = args.window_days or thresholds.window_days
     if window_days < 1:
         raise ConfigError("--window-days 는 1 이상이어야 한다")
@@ -255,6 +261,17 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
             dictionary_version=version,
             domain=args.domain,
             window_days=window_days,
+        )
+    # 덩이 판정은 자동 연결과 따로 켠다 (`concept.nil_grouping`). 자동 연결이 방금 넣은 표현을
+    # 보려고 뒤에 둔다 — 그 표현도 덩이의 "기존 개념" 이 될 수 있다.
+    if grouping.enabled and unmapped:
+        _run_nil_grouping(
+            config=config,
+            sink=sink,
+            policy=grouping,
+            thresholds=thresholds,
+            grouped=grouped,
+            unmapped=unmapped,
         )
     return None
 
@@ -558,7 +575,13 @@ def _run_automatic_linking(
     )
     if not applied:
         return
+    _rewrite_after_links(
+        sink, grouped=grouped, unmapped=unmapped, applied=applied, thresholds=thresholds
+    )
 
+
+def _rewrite_after_links(sink, *, grouped, unmapped, applied, thresholds) -> None:
+    """방금 넣은 표현으로 창 안 기사를 다시 붙이고 쓴다. 새로 붙은 쌍에 `AUTO_LLM` 을 단다."""
     # Newly inserted aliases must affect article_concept in this same run, not thirty minutes later.
     refreshed = sink.load_dictionary()
     new_version = sink.current_version()
@@ -587,6 +610,123 @@ def _run_automatic_linking(
         dictionary_version=new_version,
         context_samples=thresholds.context_samples,
     )
+
+
+def _run_nil_grouping(
+    *, config: Config, sink: ConceptSink, policy: nil_grouping.Policy,
+    thresholds: ConceptThresholds, grouped, unmapped,
+) -> None:
+    """미등록 표기가 든 덩이를 판정해 기존 개념에 잇는다 (`concept/nil_grouping.py`).
+
+    **실패가 이번 회차를 죽이지 않는다.** 여기까지 오면 사전 매핑 결과는 이미 적혔다. LLM 이나
+    적재가 실패하면 이번 회차의 덩이 잇기만 빠진다 — 순위는 지금 사전으로 그대로 센다.
+    """
+    from trendin.spark.concept import cluster_judge
+    from trendin.spark.concept.auto_link import Link, apply_links
+    from trendin.spark.concept.judge import Verdict
+    from trendin.spark.io.concepts import new_run_id
+    from trendin.spark.io.llm import GmsClient
+
+    dictionary = sink.load_dictionary()
+    sentences: dict[tuple[str, str], list[str]] = {}
+    for item in unmapped:
+        if item.context:
+            sentences.setdefault(item.key, []).append(item.context)
+    observed = nil_grouping.observe(grouped, dictionary, sentences)
+    targets = nil_grouping.select_clusters(observed, min_articles=thresholds.min_articles)
+    if not targets:
+        log.info("덩이 판정: 잇기에 쓸 덩이가 없다")
+        return
+
+    model, version = cluster_judge.MODEL, cluster_judge.PROMPT_VERSION
+    client = None
+    calls = asked = reused = failed = 0
+    judgements = []
+    for cluster in targets:
+        normalized, digest = nil_grouping.cache_key(cluster)
+        lookup = {
+            "model": model,
+            "prompt_version": version,
+            "lang": nil_grouping.CACHE_LANG,
+            "normalized": normalized,
+            "candidate_hash": digest,
+        }
+        try:
+            cached = nil_grouping.from_payload(sink.cached_judgement(**lookup))
+        except Exception:
+            log.exception("덩이 판정 캐시를 읽지 못했다 — 이 덩이는 새로 묻는다")
+            cached = None
+        if cached is not None:
+            judgements.append(cached)
+            reused += 1
+            continue
+        if calls >= policy.max_calls:
+            continue
+        try:
+            client = client or GmsClient(model=model)
+            judgement, problems, used = nil_grouping.ask(client, cluster)
+        except Exception:
+            log.exception("덩이 판정 호출 실패 — 이번 회차는 더 묻지 않는다")
+            break
+        calls += used
+        asked += 1
+        if judgement is None:
+            failed += 1
+            log.warning("덩이 판정을 읽지 못했다: %s — %s", normalized, problems[:3])
+            continue
+        judgements.append(judgement)
+        try:
+            sink.cache_judgement(**lookup, verdict=nil_grouping.to_payload(judgement))
+        except Exception:
+            log.exception("덩이 판정 캐시를 쓰지 못했다: %s", normalized)
+
+    planned, skipped = nil_grouping.plan_all(judgements, observed)
+    log.info(
+        "덩이 판정: 덩이 %d (캐시 %d · 물음 %d · 실패 %d · 호출 %d/%d) · 이을 표기 %d · "
+        "건너뛴 묶음 %d",
+        len(targets), reused, asked, failed, calls, policy.max_calls, len(planned), len(skipped),
+    )
+    for link in planned[:30]:
+        log.info(
+            "  잇기 [%s] %s → 개념 %d %s", link.relation, link.surface, link.concept_id,
+            dictionary.concept(link.concept_id).canonical_name,
+        )
+    for keys, reason in skipped[:20]:
+        log.info("  건너뜀 %s: %s", reason, " + ".join(keys))
+    if not planned:
+        return
+    if not policy.apply:
+        log.info("concept.nil_grouping.apply 가 꺼져 있다 — 사전에 넣지 않는다")
+        return
+
+    links = []
+    for link in planned:
+        concept = dictionary.concept(link.concept_id)
+        links.append(
+            Link(
+                Verdict(link.lang, link.normalized, concept.canonical_name, concept.category),
+                link.concept_id,
+                retrieval="nil_grouping",
+                evidence={"relation": link.relation, "group": list(link.group)},
+            )
+        )
+    run_id = new_run_id()
+    try:
+        applied = apply_links(
+            config, tuple(links), model=model, prompt_version=version, run_id=run_id
+        )
+    except Exception:
+        log.exception("덩이 잇기 적재 실패 — 이번 회차 잇기는 하나도 들어가지 않았다")
+        return
+    log.info(
+        "덩이 잇기 회차 %s: %d/%d 건 — 되돌리려면 "
+        "scripts/concept-review.py rollback --run %s --by human:<이름>",
+        run_id, len(applied), len(links), run_id,
+    )
+    if applied:
+        _rewrite_after_links(
+            sink, grouped=grouped, unmapped=unmapped, applied=applied, thresholds=thresholds
+        )
 
 
 def _dump(
