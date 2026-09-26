@@ -66,6 +66,12 @@ brand) 어느 쪽으로 합쳐도 틀린다. `io/concepts.EXPRESSIONS_SQL` 이 �
 
 1~3 이 이름에서 정해지므로 언급량이 오르내려도 대표가 흔들리지 않는다. 후보가 없으면 무게로 고른다.
 
+**대표 이름은 한글이나 로마자 표기에서 고른다** (`readable`). 무게로만 고르면 일본 매체가 많이 쓴
+표기가 이긴다 — 2026-09-26 운영 7D 급상승에 `Chanel` · `샤넬` · `シャネル` 이 한 줄로 접혀
+`シャネル` 로 떴다. 가나·아랍 문자 표기는 덩이에 한글·로마자 표기가 하나도 없을 때만 대표가 된다.
+늘 개념의 영어 이름을 쓰지 않는 이유는 `팬츠` · `청바지` 같은 한국어 이름이 `pants` · `jeans`
+로 바뀌기 때문이다.
+
 개념·판정과 부딪칠 때의 차례 —
 
 1. 한 덩이가 **서로 다른 두 개념**에 걸리면 접지 않는다. 사전이 이긴다 (모호 규약과 같은 이유)
@@ -137,6 +143,7 @@ def build_grouping(
     edition_keys: Mapping[int, Hashable] | None = None,
     edition_orders: Mapping[int, tuple[int, ...]] | None = None,
     representative_min_share: float = 0.0,
+    readable: frozenset[int] | None = None,
 ) -> Grouping:
     """개념 행 → 접기 규칙.
 
@@ -152,6 +159,7 @@ def build_grouping(
     를 도메인과 묶은 값). 열쇠가 같은 키워드가 한 덩이다. 비우면 개념으로만 접는다.
     `edition_orders` 는 회차인 키워드의 순서 열쇠다 — `(연도, 시즌 순위, -기준형 낱말 수)`.
     대표를 고르는 데만 쓰고, **행사 개념이 있는 덩이에서만** 읽는다 (머리말).
+    `readable` 은 이름이 한글이나 로마자인 키워드다. 주면 대표를 그중에서 먼저 고른다 (머리말).
     """
     # 한 표기가 두 개념에 걸리면 어느 쪽으로도 접지 않는다 (머리말의 모호 규약).
     seen: dict[int, set[int]] = {}
@@ -200,7 +208,9 @@ def build_grouping(
         if len(group) < 2:
             continue
         leader = _leader(
-            group,
+            [keyword_id for keyword_id in group if keyword_id in readable] or group
+            if readable is not None
+            else group,
             weights,
             orders if any(keyword_id in event_members for keyword_id in group) else {},
             min_share=representative_min_share,
@@ -307,3 +317,13 @@ def _join_editions(
     total_folded = sum(len(group) - 1 for group in joined.values() if len(group) > 1)
     return list(joined.values()), total_folded - concept_folded, extra_silenced
 
+
+
+def readable_name(name: str) -> bool:
+    """이름에 가나 · 아랍 문자가 없나. 대표 이름 후보를 가른다 (머리말).
+
+    `2027 S/S 컬렉션` 처럼 한글과 로마자가 섞인 것도 읽을 수 있는 이름이다.
+    """
+    from trendin.spark.concept.normalize import ARABIC, KANA, script_of
+
+    return not any(script_of(ch) in (KANA, ARABIC) for ch in name if ch.isalpha())

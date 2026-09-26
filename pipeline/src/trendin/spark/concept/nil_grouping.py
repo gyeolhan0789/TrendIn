@@ -10,13 +10,17 @@
 따로 있어야 한다. 표현으로 넣으면 aggregate 의 개념 접기(`metrics/concepts.build_grouping`)가
 그대로 합치고, 되돌리기는 자동 연결과 같은 원장(`pl_concept_change`)을 쓴다.
 
-**개념이 없는 묶음은 건너뛴다.** `White Lotus` ↔ `The White Lotus` 처럼 둘 다 미등록이면 새
-개념을 만들어야 하는데, 분류(category)를 정할 근거가 판정에 없다. 개념이 둘 이상 걸린 묶음도
-건너뛴다 — 판정이 두 개념을 하나라고 했다는 뜻이라 사람이 볼 일이다.
+**개념이 없는 묶음은 새 개념으로 모은다 (S15P21A102-396, 기본 꺼짐).** `White Lotus` ↔
+`The White Lotus` 처럼 전부 미등록이면 잇을 개념이 없다. 덩이 판정은 영어 이름과 분류를 주지
+않으므로, 묶음에서 기사가 가장 많은 표기 하나를 대표로 골라 **표기 판정(`concept/judge.py`)에
+이름과 분류를 묻고**, 자동 연결의 새 개념 만들기와 같은 문턱(`concept/minting.select`)을 거쳐
+개념을 만든 뒤 나머지 표기를 거기 잇는다 (`plan_new`). 개념이 둘 이상 걸린 묶음은 건너뛴다 —
+판정이 두 개념을 하나라고 했다는 뜻이라 사람이 볼 일이다.
 
-**묻는 덩이를 줄인다.** 잇기에 쓸 수 있는 덩이만 묻는다 — 기존 개념 표기가 하나 이상, 기사
-문턱을 넘는 미등록 표기가 하나 이상. 운영 30일 창에서 덩이는 수백 개지만 잇기에 쓸 수 있는 것은
-그중 일부다. 한 번 판정한 덩이는 구성원과 쌍이 같으면 다시 묻지 않는다 (`cache_key`).
+**묻는 덩이를 줄인다.** 잇기에 쓸 수 있는 덩이만 묻는다 — 기존 개념 표기가 하나 이상,
+기사 문턱을 넘는 미등록 표기가 하나 이상. 새 개념을 만들 때는 앞 조건을 뺀다. 운영 30일
+창에서 덩이는 수백 개지만 잇기에 쓸 수 있는 것은 그중 일부다. 한 번 판정한 덩이는 구성원과
+쌍이 같으면 다시 묻지 않는다 (`cache_key`).
 
 **pyspark 를 import 하지 않는다** (층 1).
 """
@@ -25,12 +29,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Protocol
 
 from trendin.spark.concept.cluster_judge import (
     CONTEXTS_PER_MEMBER,
+    RELATION_SAME,
     Cluster,
     Judgement,
     Member,
@@ -106,8 +112,11 @@ class Policy:
     # 판정을 사전에 넣을지. 끄면 판정만 하고 이을 것을 로그로 남긴다 — 자동 연결의 `apply_links`
     # 와 같은 잠금이다.
     apply: bool = False
-    # 한 회차에 LLM 에 묻는 덩이 수의 상한. 다시 물은 것도 센다.
+    # 한 회차에 LLM 에 묻는 덩이 수의 상한. 다시 물은 것도 센다. 새 개념의 이름 판정도 여기서 센다.
     max_calls: int = 60
+    # 전부 미등록인 묶음에 새 개념을 만들지 (S15P21A102-396). 켜면 기존 개념이 없는 덩이도 묻는다.
+    # 넣는 것은 여전히 `apply` 가 잠근다 — `apply` 가 꺼져 있으면 만들 것을 로그로만 남긴다.
+    create_concepts: bool = False
 
     @classmethod
     def from_mapping(cls, section: Mapping[str, object]) -> "Policy":
@@ -115,6 +124,7 @@ class Policy:
             enabled=bool(section.get("enabled", False)),
             apply=bool(section.get("apply", False)),
             max_calls=int(section.get("max_calls", 60)),  # type: ignore[arg-type]
+            create_concepts=bool(section.get("create_concepts", False)),
         )
         if policy.max_calls < 1:
             raise ValueError("concept.nil_grouping.max_calls 는 1 이상이어야 한다")
@@ -164,12 +174,15 @@ def observe(
     return out
 
 
-def select_clusters(observed: Mapping[str, Observed], *, min_articles: int) -> list[Cluster]:
+def select_clusters(
+    observed: Mapping[str, Observed], *, min_articles: int, include_new: bool = False
+) -> list[Cluster]:
     """잇기에 쓸 수 있는 덩이만 고른다.
 
     후보 쌍은 **창 안의 모든 표기로** 만든다 — 흔한 머리말(`fashion week`)과 형제 품목 무리는
     전체에서 세야 한다 (`registry/nil_candidates` 머리말). 그중 한쪽이 기사 문턱을 넘는 미등록
-    표기인 쌍만 남기고, 덩이에 기존 개념 표기가 하나도 없으면 묻지 않는다.
+    표기인 쌍만 남기고, 덩이에 기존 개념 표기가 하나도 없으면 묻지 않는다 — `include_new` 면
+    묻는다 (새 개념을 만들 덩이다).
     """
     terms = [Term(key, frozenset(str(doc) for doc in item.docs)) for key, item in observed.items()]
     everything = candidate_pairs(terms)
@@ -186,7 +199,10 @@ def select_clusters(observed: Mapping[str, Observed], *, min_articles: int) -> l
     out: list[Cluster] = []
     for keys in clusters(chosen, degree):
         if not any(observed[key].concept_id is not None for key in keys):
-            continue
+            # 새 개념 덩이는 이을 표기가 둘 이상이어야 한다 — `Fashion Week` 같은 흔한 머리말과
+            # 한 표기의 쌍은 판정이 어떻든 모을 것이 없다 (`plan_new`).
+            if not include_new or sum(observed[key].linkable for key in keys) < 2:
+                continue
         members = tuple(
             Member(key, observed[key].surface, None, _contexts(observed[key])) for key in keys
         )
@@ -204,6 +220,11 @@ def _contexts(item: Observed) -> tuple[str, ...]:
     """표기가 실제로 든 문장을 앞에 둔다. 판정이 앞에서부터 `CONTEXTS_PER_MEMBER` 개만 싣는다."""
     found = [text for text in item.contexts if mentions(text, item.surface)]
     return tuple(dict.fromkeys(found))[: CONTEXTS_PER_MEMBER * 2]
+
+
+def first_context(item: Observed) -> str | None:
+    """표기 판정(`concept/judge.py`)에 실을 문장 하나 — 표기가 실제로 든 첫 문장."""
+    return next(iter(_contexts(item)), None)
 
 
 def cache_key(cluster: Cluster) -> tuple[str, str]:
@@ -312,3 +333,73 @@ def plan_all(
         if targets[key]:
             out.setdefault(key, link)
     return list(out.values()), skipped
+
+
+@dataclass(frozen=True, slots=True)
+class NewGroup:
+    """전부 미등록인 묶음 하나. 대표 표기로 새 개념을 만들고 나머지를 거기 잇는다."""
+
+    representative: Observed
+    others: tuple[Observed, ...]
+    relation: str
+    group: tuple[str, ...]
+
+
+def representative(items: Sequence[Observed]) -> Observed:
+    """기사가 가장 많은 표기. 같으면 짧은 쪽, 그다음 비교키 순 — 회차마다 같은 답이 나오게."""
+    return min(items, key=lambda item: (-len(item.docs), len(item.key), item.key))
+
+
+def plan_new(
+    judgements: Iterable[Judgement],
+    observed: Mapping[str, Observed],
+    linked: Iterable[tuple[str, str]] = (),
+) -> tuple[list[NewGroup], list[tuple[tuple[str, ...], str]]]:
+    """판정 → 새 개념을 만들 묶음. 기존 개념이 하나도 없는 묶음만 본다 (`plan_links` 의 NO_CONCEPT).
+
+    **`same` 묶음만 만든다.** `series` 는 회차가 섞인 묶음이라 대표 표기의 연도가 개념 이름이
+    된다 — 2026-09-26 운영 덤프에서 `2027 S/S 컬렉션` 이 2021 · 2026 회차까지 안은 채
+    `2027 spring/summer collection` 이 될 뻔했다. 회차 묶음은 순위의 연도·시즌 접기
+    (`registry/edition.py`)가 개념 없이 합친다.
+
+    **다른 덩이가 기존 개념에 이은 표기가 끼면 건너뛴다** (`linked`). 그 표기가 개념 둘에 걸린다.
+    **한 표기가 새 묶음 둘에 들면 앞 묶음만 쓴다** — 흔한 머리말은 이미 잇기에서 빠진다.
+    """
+    taken = set(linked)
+    out: list[NewGroup] = []
+    skipped: list[tuple[tuple[str, ...], str]] = []
+    for judgement in judgements:
+        for keys, relation in merged_groups(judgement):
+            items = [observed[key] for key in keys if key in observed]
+            if any(item.ambiguous or item.concept_id is not None for item in items):
+                continue  # `plan_links` 가 맡는다
+            members = [item for item in items if item.linkable]
+            if len(members) < 2:
+                continue
+            if relation != RELATION_SAME:
+                skipped.append((keys, "SERIES"))
+                continue
+            if any((item.lang, item.key) in taken for item in members):
+                skipped.append((keys, "CONFLICT"))
+                continue
+            taken.update((item.lang, item.key) for item in members)
+            head = representative(members)
+            out.append(
+                NewGroup(head, tuple(item for item in members if item is not head), relation, keys)
+            )
+    return out, skipped
+
+
+_YEAR = re.compile(r"^(19|20)\d{2}$")
+
+
+def broad_name(name: str) -> bool:
+    """`Milano 2026` 처럼 **연도를 빼면 한 낱말만 남는 이름**. 새 개념 이름으로 쓰지 않는다.
+
+    도시 + 연도는 그해 그 도시의 행사 전부(패션위크 · 올림픽 · 디자인 위크)를 가리킬 수 있다.
+    덩이 판정이 `Milano 2026` 과 `Milano Fashion Week 2026` 을 한 묶음으로 두면 대표 표기가
+    넓은 쪽이 되기 쉽다. `Vogue World 2026` 처럼 낱말이 둘 남으면 막지 않는다.
+    """
+    words = [word for word in re.split(r"[\s:·,/-]+", name.strip()) if word]
+    rest = [word for word in words if not _YEAR.match(word)]
+    return len(rest) < len(words) and len(rest) <= 1

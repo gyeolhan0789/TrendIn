@@ -190,47 +190,16 @@ def run_workflow(
         question.key for question in _unique_questions(questions) if question.key in already
     )
     unique = [item for item in _unique_questions(questions) if item.key not in already]
-    calls = 0
-    verdicts: list[tuple[Question, Verdict]] = []
     deferred: list[DeferredDecision] = []
     decisions: list[RecordedDecision] = []
 
-    for group in judge.batches(unique, policy.batch_size):
-        pending: list[Question] = []
-        for question in group:
-            cached = cache.cached_judgement(
-                model=policy.model,
-                prompt_version=judge.PROMPT_VERSION,
-                lang=question.lang,
-                normalized=question.normalized,
-                candidate_hash=NAME_CANDIDATE_HASH,
-            )
-            verdict = _cached_name(question, cached)
-            if verdict is None:
-                pending.append(question)
-            else:
-                verdicts.append((question, verdict))
-        if not pending:
-            continue
-        parsed, used, problems = _classify_with_isolation(
-            pending, client=client, available=policy.max_calls - calls
-        )
-        calls += used
-        by_key = {(item.lang, item.normalized): item for item in parsed}
-        for question in pending:
-            verdict = by_key.get((question.lang, question.normalized))
-            if verdict is None:
-                deferred.append(_defer(question, "NAME_FAILED", errors=problems))
-                continue
-            cache.cache_judgement(
-                model=policy.model,
-                prompt_version=judge.PROMPT_VERSION,
-                lang=question.lang,
-                normalized=question.normalized,
-                candidate_hash=NAME_CANDIDATE_HASH,
-                verdict={"english_name": verdict.english_name, "category": verdict.category},
-            )
-            verdicts.append((question, verdict))
+    verdicts, failures, calls = name_expressions(
+        unique, client=client, cache=cache, model=policy.model,
+        batch_size=policy.batch_size, max_calls=policy.max_calls,
+    )
+    deferred += [
+        _defer(question, "NAME_FAILED", errors=problems) for question, problems in failures
+    ]
 
     links: list[Link] = []
     for question, verdict in verdicts:
@@ -365,6 +334,58 @@ def run_workflow(
             _decision(question, LINK, accepted, {**evidence, "choice": accepted})
         )
     return WorkflowResult(tuple(links), tuple(deferred), calls, tuple(decisions), reused)
+
+
+def name_expressions(
+    questions: Sequence[Question], *, client: LlmClient, cache: JudgementCache, model: str,
+    batch_size: int, max_calls: int,
+) -> tuple[list[tuple[Question, Verdict]], list[tuple[Question, list[str]]], int]:
+    """표기마다 영어 이름과 분류를 받는다 — 캐시에 있으면 묻지 않는다.
+
+    판정 · 이름을 못 받은 표기(문제 목록과 함께) · 부른 횟수. 자동 연결과 덩이 판정의 새 개념
+    만들기(`nil_grouping`)가 같은 캐시 열쇠로 이 함수를 쓴다 — 한쪽이 받은 이름을 다른 쪽이
+    다시 묻지 않는다.
+    """
+    calls = 0
+    verdicts: list[tuple[Question, Verdict]] = []
+    failures: list[tuple[Question, list[str]]] = []
+    for group in judge.batches(list(questions), batch_size):
+        pending: list[Question] = []
+        for question in group:
+            cached = cache.cached_judgement(
+                model=model,
+                prompt_version=judge.PROMPT_VERSION,
+                lang=question.lang,
+                normalized=question.normalized,
+                candidate_hash=NAME_CANDIDATE_HASH,
+            )
+            verdict = _cached_name(question, cached)
+            if verdict is None:
+                pending.append(question)
+            else:
+                verdicts.append((question, verdict))
+        if not pending:
+            continue
+        parsed, used, problems = _classify_with_isolation(
+            pending, client=client, available=max_calls - calls
+        )
+        calls += used
+        by_key = {(item.lang, item.normalized): item for item in parsed}
+        for question in pending:
+            verdict = by_key.get((question.lang, question.normalized))
+            if verdict is None:
+                failures.append((question, problems))
+                continue
+            cache.cache_judgement(
+                model=model,
+                prompt_version=judge.PROMPT_VERSION,
+                lang=question.lang,
+                normalized=question.normalized,
+                candidate_hash=NAME_CANDIDATE_HASH,
+                verdict={"english_name": verdict.english_name, "category": verdict.category},
+            )
+            verdicts.append((question, verdict))
+    return verdicts, failures, calls
 
 
 def _classify_with_isolation(

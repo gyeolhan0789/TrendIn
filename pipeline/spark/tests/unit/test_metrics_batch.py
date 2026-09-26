@@ -687,3 +687,13 @@ def test_hide_judged_를_끄면_이름_판정으로는_빼지_않는다():
     )
 
     assert staged(sink, 1)[MENTION_RANK] == 1
+
+
+def test_접힌_덩이의_이름은_가나_표기가_아니다():
+    """`シャネル` 이 언급이 더 많아도 순위에는 `Chanel` 로 나온다."""
+    sink = FakeSink(two_surfaces(), sources={1: 2, 2: 2}, concepts=[(1, 100, True), (2, 100, True)])
+    sink._keys = [(1, "シャネル"), (2, "chanel")]
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    assert staged(sink, 2)[MENTION_COUNT] == 13
+    assert staged(sink, 2)[MENTION_RANK] == 1
