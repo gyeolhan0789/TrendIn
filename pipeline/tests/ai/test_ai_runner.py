@@ -31,6 +31,7 @@ def reference(keyword_id):
 class StubRepository:
     def __init__(self):
         self.article_queries = []
+        self.fallback_queries = []
         self.targets = (
             target(1, "기사없음", 1),
             target(2, "분석성공", 2),
@@ -45,6 +46,10 @@ class StubRepository:
     def related_articles(self, keyword_id, **kwargs):
         self.article_queries.append((keyword_id, kwargs))
         return () if keyword_id == 1 else (reference(keyword_id),)
+
+    def counted_articles(self, keyword_id, **kwargs):
+        self.fallback_queries.append((keyword_id, kwargs))
+        return ()
 
 
 class StubLoader:
@@ -119,6 +124,51 @@ def test_기사가_없으면_AI를_호출하지_않고_각_트렌드_실패를_�
         1,
         {"published_from": START, "published_until": END},
     )
+    assert [keyword_id for keyword_id, _ in repository.fallback_queries] == [1]
+
+
+def test_기존_기사에_사용할_본문이_없을_때만_집계_문서로_분석한다():
+    repository = StubRepository()
+    repository.targets = (target(1, "대체기사", 1), target(2, "기존기사", 2))
+
+    def counted_articles(keyword_id, **kwargs):
+        repository.fallback_queries.append((keyword_id, kwargs))
+        return (reference(keyword_id),)
+
+    repository.counted_articles = counted_articles
+    analyzer = StubAnalyzer()
+    store = StubStore()
+    outcomes = TopTrendAnalysisRunner(repository, StubLoader(), analyzer, store).run(
+        domain="FASHION", period="7D", period_start=START, period_end=END
+    )
+
+    assert [outcome.article_count for outcome in outcomes] == [1, 1]
+    assert [keyword_id for keyword_id, _, _ in store.saved] == [1, 2]
+    assert repository.fallback_queries == [
+        (1, {"published_from": START, "published_until": END})
+    ]
+
+
+def test_연결된_기사가_있어도_본문이_비면_집계_문서로_전환한다():
+    repository = StubRepository()
+    repository.targets = (target(2, "대체기사", 1),)
+    repository.counted_articles = lambda keyword_id, **kwargs: (reference(3),)
+
+    class EmptyOriginalBody(StubLoader):
+        def load(self, references):
+            return tuple(
+                replace(item, body=" " if item.content_id == 2 else "실제 본문")
+                for item in super().load(references)
+            )
+
+    analyzer = StubAnalyzer()
+    outcome = TopTrendAnalysisRunner(
+        repository, EmptyOriginalBody(), analyzer, StubStore()
+    ).run(domain="FASHION", period="7D", period_start=START, period_end=END)[0]
+
+    assert outcome.article_count == 1
+    assert "실제 본문" in analyzer.inputs[0]
+    assert "기사 2" not in analyzer.inputs[0]
 
 
 class FailingArticleRepository(StubRepository):
@@ -138,15 +188,17 @@ def test_기사_조회_실패도_해당_트렌드에만_남긴다():
 
 
 def test_저장_실패도_해당_트렌드에만_남기고_다음_결과를_저장한다():
+    repository = StubRepository()
     store = StubStore(fail_keyword_id=2)
     outcomes = TopTrendAnalysisRunner(
-        StubRepository(), StubLoader(), StubAnalyzer(), store=store
+        repository, StubLoader(), StubAnalyzer(), store=store
     ).run(domain="FASHION", period="7D", period_start=START, period_end=END)
 
     assert outcomes[1].analysis is None
     assert outcomes[1].error == "RuntimeError: DB 저장 실패"
     assert outcomes[3].analysis is not None
     assert [keyword_id for keyword_id, _, _ in store.saved] == [4]
+    assert [keyword_id for keyword_id, _ in repository.fallback_queries] == [1]
 
 
 def test_같은_유형과_기사면_재호출하지_않고_수치만_변해도_재사용한다():

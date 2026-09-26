@@ -36,6 +36,14 @@ class ArticleRepository(Protocol):
         published_until: datetime,
     ) -> tuple[ArticleReference, ...]: ...
 
+    def counted_articles(
+        self,
+        keyword_id: int,
+        *,
+        published_from: datetime,
+        published_until: datetime,
+    ) -> tuple[ArticleReference, ...]: ...
+
 
 class ArticleLoader(Protocol):
     def load(self, references: tuple[ArticleReference, ...]) -> tuple[TrendArticle, ...]: ...
@@ -101,6 +109,13 @@ class TopTrendAnalysisRunner:
                     published_until=published_until,
                 )
                 articles = select_articles(self._loader.load(references))
+                if not articles:
+                    fallback = self._repository.counted_articles(
+                        target.keyword_id,
+                        published_from=published_from,
+                        published_until=published_until,
+                    )
+                    articles = select_articles(self._loader.load(fallback))
                 if not articles:
                     outcomes.append(
                         TrendAnalysisOutcome(target=target, analysis=None, article_count=0)
