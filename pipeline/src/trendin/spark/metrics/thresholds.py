@@ -121,6 +121,10 @@ class AggregateThresholds:
     # 최신 회차를 보이는 이름으로 쓰려면 그 회차가 **덩이 전체 언급량**에서 차지해야 하는 몫.
     # 다음 회차 예고 기사 한 건(`Vogue World 2027`)이 덩이의 이름을 가져가지 못하게 한다.
     representative_min_share: float = 0.1
+    # 이 분류의 개념에 붙은 키워드를 순위와 배지에서 뺀다 — `countable = false` 와 같은 대접이다.
+    hide_categories: frozenset[str] = frozenset()
+    # 개념 테이블에 아직 없는 표기도 이름 판정의 분류로 뺄지 (`hide_categories` 와 같은 분류).
+    hide_judged: bool = True
 
     @property
     def hourly_history(self) -> bool:
@@ -199,6 +203,10 @@ class AggregateThresholds:
             drop_uncountable=bool(concepts.get("drop_uncountable", True)),
             fold_editions=bool(concepts.get("fold_editions", True)),
             representative_min_share=_share(concepts.get("representative_min_share", 0.1)),
+            hide_categories=frozenset(
+                str(item) for item in (concepts.get("hide_categories") or ())
+            ),
+            hide_judged=bool(concepts.get("hide_judged", True)),
         )
 
     def horizon_days(self) -> int:

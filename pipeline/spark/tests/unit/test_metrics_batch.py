@@ -83,6 +83,11 @@ class FakeSink:
         """세지 않기로 판정된 표기의 keyword_id. 기본은 비어 있다 — 판정 표 없음."""
         return frozenset(getattr(self, "_silenced", ()))
 
+    def judged_keywords(self, categories):
+        """이름 판정이 그 분류라고 한 keyword_id. `_judged` 는 `{keyword_id: 분류}`."""
+        judged = getattr(self, "_judged", {})
+        return frozenset(k for k, category in judged.items() if category in set(categories))
+
     def keyword_keys(self):
         """`(keyword_id, normalized_name)`. 기본은 비어 있다 — 연도·시즌 접기 없음."""
         return tuple(getattr(self, "_keys", ()))
@@ -608,3 +613,77 @@ def test_연도_접기를_끄면_표기마다_따로_센다():
         4,
         5,
     ]
+
+
+def test_숨길_분류의_개념은_순위에서_빠진다():
+    """인물·행사는 순위에 내지 않는다 (`aggregate.concepts.hide_categories`)."""
+    sink = FakeSink(
+        two_surfaces(),
+        sources={1: 2, 2: 2},
+        concepts=[(1, 100, True, "event"), (2, 200, True, "brand")],
+    )
+    batch.run(sink, thresholds(hide_categories=frozenset({"person", "event"})), today=TODAY,
+              run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] is None
+    assert staged(sink, 1)[MENTION_COUNT] == 9  # 지표 행은 남는다
+    assert staged(sink, 2)[MENTION_RANK] == 1
+
+
+def test_숨길_분류가_비면_분류로_거르지_않는다():
+    sink = FakeSink(
+        two_surfaces(), sources={1: 2, 2: 2}, concepts=[(1, 100, True, "event")]
+    )
+    batch.run(sink, thresholds(), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] == 1
+
+
+def test_접기를_다_꺼도_숨길_분류는_빠진다():
+    sink = FakeSink(
+        two_surfaces(), sources={1: 2, 2: 2}, concepts=[(1, 100, True, "person")]
+    )
+    batch.run(
+        sink,
+        thresholds(
+            fold_concepts=False, drop_uncountable=False, fold_editions=False,
+            hide_categories=frozenset({"person"}),
+        ),
+        today=TODAY,
+        run_id="r1",
+    )
+
+    assert staged(sink, 1)[MENTION_RANK] is None
+    assert staged(sink, 2)[MENTION_RANK] == 1
+
+
+def test_개념에_없어도_이름_판정이_인물이면_빠진다():
+    """`Zendaya` 는 개념에 `젠데이아` 만 있다 — 이름 판정 캐시의 분류로 뺀다."""
+    sink = FakeSink(two_surfaces(), sources={1: 2, 2: 2})
+    sink._judged = {1: "person", 2: "brand"}
+    batch.run(sink, thresholds(hide_categories=frozenset({"person"})), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] is None
+    assert staged(sink, 2)[MENTION_RANK] == 1
+
+
+def test_개념에_이어진_표기는_이름_판정보다_개념을_따른다():
+    """`Tom Ford` 가 브랜드 개념에 붙어 있으면 판정이 인물이라 해도 센다."""
+    sink = FakeSink(two_surfaces(), sources={1: 2, 2: 2}, concepts=[(1, 100, True, "brand")])
+    sink._judged = {1: "person"}
+    batch.run(sink, thresholds(hide_categories=frozenset({"person"})), today=TODAY, run_id="r1")
+
+    assert staged(sink, 1)[MENTION_RANK] == 1
+
+
+def test_hide_judged_를_끄면_이름_판정으로는_빼지_않는다():
+    sink = FakeSink(two_surfaces(), sources={1: 2, 2: 2})
+    sink._judged = {1: "person"}
+    batch.run(
+        sink,
+        thresholds(hide_categories=frozenset({"person"}), hide_judged=False),
+        today=TODAY,
+        run_id="r1",
+    )
+
+    assert staged(sink, 1)[MENTION_RANK] == 1

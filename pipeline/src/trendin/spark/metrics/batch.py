@@ -146,20 +146,31 @@ def load_grouping(
     fold = thresholds is None or thresholds.fold_concepts
     drop = thresholds is None or thresholds.drop_uncountable
     editions = thresholds is None or thresholds.fold_editions
-    if not fold and not drop and not editions:
+    # `aggregate.concepts.hide_categories` — 인물·행사처럼 분류째 순위에 내지 않을 개념. 세지
+    # 않는 개념과 똑같이 다룬다: 지표 행은 남고 순위와 배지만 없다.
+    hidden = frozenset() if thresholds is None else thresholds.hide_categories
+    if not fold and not drop and not editions and not hidden:
         return Grouping(representative={}, silenced=frozenset())
     
     refs = [
         ConceptRef(
             keyword_id,
             concept_id,
-            countable if drop else True,
+            (countable if drop else True) and (rest[0] if rest else None) not in hidden,
             category=rest[0] if rest else None,
         )
         for keyword_id, concept_id, countable, *rest in sink.concept_groups()
     ]
     # 개념이 아직 없지만 세지 않기로 판정된 표기. 판정 기록을 순위에 반영하는 자리다.
     silenced_keywords = sink.silenced_expressions() if drop else frozenset()
+    if hidden and (thresholds is None or thresholds.hide_judged):
+        # 개념 테이블에 아직 안 이어진 인물·행사 — 이름 판정이 그 분류라고 한 표기다
+        # (`Zendaya` 는 개념에 `젠데이아` 만 있다). **개념에 이어진 표기는 개념 테이블을 따른다**
+        # — `Tom Ford` 가 브랜드 개념에 붙어 있으면 판정이 인물이라 해도 센다.
+        mapped = {ref.keyword_id for ref in refs}
+        silenced_keywords = silenced_keywords | frozenset(
+            keyword_id for keyword_id in sink.judged_keywords(hidden) if keyword_id not in mapped
+        )
     if not fold:
         # 세지 않을 개념만 가려내고 접지는 않는다. 같은 개념의 두 표기를 서로 다른 개념
         # 번호로 흩어 놓으면 `build_grouping` 이 묶을 짝을 못 찾는다.

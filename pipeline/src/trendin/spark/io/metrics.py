@@ -69,6 +69,7 @@ CONTENTS = "contents"
 CONCEPT = "pl_concept"
 EXPRESSION = "pl_concept_expression"
 DECISION = "pl_mapping_decision"
+JUDGEMENT_CACHE = "pl_concept_judgement_cache"
 # 개념을 키워드에 잇는 자리. 표기(`normalized_name`)가 유일한 접점이다 — 승격된 키워드에는
 # 개념 번호를 담는 칸이 없고, 그 칸을 더하는 것은 서비스 표를 고치는 일이라 우리 몫이 아니다.
 KEYWORDS = "keywords"
@@ -386,6 +387,18 @@ SELECT k.id FROM {KEYWORDS} k JOIN latest ON latest.normalized = k.normalized_na
 
 DECISION_TABLE_SQL = f"SELECT to_regclass('{DECISION}') IS NOT NULL"
 
+# 개념 테이블에 아직 안 이어진 표기 중 이름 판정(`concept/judge.py`)이 그 분류라고 한 것.
+# 이름 판정 캐시의 열쇠는 `candidate_hash = 'none'` 이다 (`concept/workflow.NAME_CANDIDATE_HASH`).
+JUDGED_CATEGORY_SQL = f"""
+SELECT DISTINCT k.id
+  FROM {KEYWORDS} k
+  JOIN {JUDGEMENT_CACHE} j ON j.normalized = k.normalized_name
+ WHERE j.candidate_hash = 'none' AND j.prompt_version = %s
+   AND j.verdict ->> 'category' = ANY(%s)
+"""
+
+JUDGEMENT_CACHE_TABLE_SQL = f"SELECT to_regclass('{JUDGEMENT_CACHE}') IS NOT NULL"
+
 CONCEPT_TABLES_SQL = (
     f"SELECT to_regclass('{CONCEPT}') IS NOT NULL"
     f" AND to_regclass('{EXPRESSION}') IS NOT NULL"
@@ -696,6 +709,24 @@ class MetricSink:
             if not bool(cur.fetchone()[0]):
                 return frozenset()
             cur.execute(SILENCED_SQL)
+            return frozenset(int(row[0]) for row in cur.fetchall())
+
+    def judged_keywords(self, categories: Iterable[str]) -> frozenset[int]:
+        """이름 판정이 `categories` 중 하나라고 한 표기의 `keywords.id`.
+
+        개념 테이블에 아직 안 이어진 인물·행사를 순위에서 빼는 데 쓴다 (`batch.load_grouping`).
+        **캐시 표가 없으면 빈 집합이다** — `silenced_expressions` 와 같은 규약이다.
+        """
+        from trendin.spark.concept.judge import PROMPT_VERSION
+
+        wanted = sorted(set(categories))
+        if not wanted:
+            return frozenset()
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(JUDGEMENT_CACHE_TABLE_SQL)
+            if not bool(cur.fetchone()[0]):
+                return frozenset()
+            cur.execute(JUDGED_CATEGORY_SQL, (PROMPT_VERSION, wanted))
             return frozenset(int(row[0]) for row in cur.fetchall())
 
     def keyword_keys(self) -> tuple[tuple[int, str], ...]:
