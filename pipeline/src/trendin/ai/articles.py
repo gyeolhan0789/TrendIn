@@ -54,6 +54,27 @@ SELECT c.id, c.title, c.source, c.url, c.published_at, c.body_object_key
 """
 
 
+# 일별 언급량은 selected 여부와 무관하게 중복 제외 문서 후보를 센다. 평소 기사 연결이
+# 비었을 때만 그 집계 원본에서 본문이 있는 문서를 찾는다.
+COUNTED_ARTICLES_SQL = """
+SELECT DISTINCT ct.id, ct.title, ct.source, ct.url, ct.published_at, ct.body_object_key
+  FROM pl_document_candidate d
+  JOIN pl_candidate candidate
+    ON candidate.domain = d.domain AND candidate.normalized_key = d.normalized_key
+  JOIN pl_content_id_map map ON map.url_hash = d.url_hash
+  JOIN contents ct ON ct.id = map.content_id
+ WHERE candidate.keyword_id = %s
+   AND NOT d.is_dup
+   AND d.stat_date >= (%s::timestamptz AT TIME ZONE 'Asia/Seoul')::date
+   AND d.stat_date < (%s::timestamptz AT TIME ZONE 'Asia/Seoul')::date
+   AND ct.body_object_key IS NOT NULL
+   AND ct.published_at >= %s
+   AND ct.published_at < %s
+ ORDER BY ct.published_at DESC, ct.id
+ LIMIT %s
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class TrendTarget:
     keyword_id: int
@@ -127,6 +148,31 @@ class TrendArticleRepository:
             cur.execute(
                 RELATED_ARTICLES_SQL,
                 (keyword_id, published_from, published_until, ARTICLE_CANDIDATE_LIMIT),
+            )
+            rows = cur.fetchall()
+        return tuple(ArticleReference(*row) for row in rows)
+
+    def counted_articles(
+        self,
+        keyword_id: int,
+        *,
+        published_from: datetime,
+        published_until: datetime,
+    ) -> tuple[ArticleReference, ...]:
+        """기존 기사 연결이 비었을 때 집계에 쓰인 문서 후보를 조회한다."""
+        from trendin.spark.io import jdbc
+
+        with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(
+                COUNTED_ARTICLES_SQL,
+                (
+                    keyword_id,
+                    published_from,
+                    published_until,
+                    published_from,
+                    published_until,
+                    ARTICLE_CANDIDATE_LIMIT,
+                ),
             )
             rows = cur.fetchall()
         return tuple(ArticleReference(*row) for row in rows)

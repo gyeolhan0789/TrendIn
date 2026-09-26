@@ -7,6 +7,7 @@ from types import ModuleType, SimpleNamespace
 
 from trendin.ai.articles import (
     ARTICLE_CANDIDATE_LIMIT,
+    COUNTED_ARTICLES_SQL,
     MAX_ARTICLE_BODY_CHARS,
     MAX_ARTICLES,
     MAX_TOTAL_BODY_CHARS,
@@ -201,6 +202,19 @@ def test_관련_기사는_지정한_게시_기간_안에서_최신_20건을_조�
     assert "ORDER BY c.published_at DESC, c.id" in normalized
     assert "LIMIT %s" in normalized
     assert ARTICLE_CANDIDATE_LIMIT == 20
+
+
+def test_대체_기사는_같은_키워드의_중복_제외_집계_문서에서_찾는다():
+    normalized = " ".join(COUNTED_ARTICLES_SQL.split())
+    assert "candidate.keyword_id = %s" in normalized
+    assert "NOT d.is_dup" in normalized
+    assert "d.stat_date >= " in normalized
+    assert "d.stat_date < " in normalized
+    assert "ct.published_at >= %s" in normalized
+    assert "ct.published_at < %s" in normalized
+    assert "ct.body_object_key IS NOT NULL" in normalized
+    assert "d.selected" not in normalized
+    assert "pl_content_id_map map ON map.url_hash = d.url_hash" in normalized
 
 
 def test_세_기간_모두_지표의_집계_구간과_동일한_기사를_사용한다():

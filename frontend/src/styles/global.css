@@ -487,7 +487,7 @@ h1 { margin: 0; line-height: 1.25; }
 .detail-page--drawer .detail-why-reasons { display: grid; gap: 8px; color: #555; font-size: 15px; line-height: 1.75; }
 .detail-page--drawer .detail-why-reasons p { margin: 0; overflow-wrap: anywhere; }
 .detail-page--drawer .detail-why-summary { margin: 0; color: #0a0a0a; font-size: 17px; font-weight: 600; line-height: 1.75; letter-spacing: -.2px; }
-.detail-page--drawer .detail-why-description { margin: 20px 0 0; color: #555; font-size: 15px; line-height: 1.8; }
+.detail-page--drawer .detail-why-description { margin: 10px 0; color: #555; font-size: 15px; line-height: 1.8; }
 .detail-page--drawer .detail-why-now .skeleton { margin-top: 14px; }
 .detail-page--drawer .detail-sources, .detail-page--drawer .detail-related, .detail-page--drawer .detail-timeline { padding: 52px 0 0; margin-top: 0; border: 0; }
 .detail-page--drawer .detail-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
