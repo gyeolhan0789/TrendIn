@@ -49,7 +49,7 @@ from dataclasses import dataclass
 from trendin.spark.concept.judge import _strip_fence
 
 # 올리면 이전 판정을 재사용하지 않는다.
-PROMPT_VERSION = "cluster-v6"
+PROMPT_VERSION = "cluster-v8"
 
 # 이 판정에 쓰는 모델. 표기 판정(`judge.py`)의 `gpt-4o-mini` 와 다르다 — 2026-09-24 사람 검수
 # 608 쌍에서 `cluster-v2` 가 gpt-4o-mini 정밀도 60% · 재현율 64%, gpt-4.1-mini 88% · 71% 였다.
@@ -96,6 +96,46 @@ New York Knicks / New York Yankees.
 - "unsure": the sentences do not tell you.
 Adding a modifier is "narrower", never "same". Judge by the sentences when given.
 Reply with JSON only, no prose: {"r":[{"n":1,"p":1,"rel":"narrower"}]}. One object per pair."""
+
+# 덩이 하나만 물을 때의 지시문 (`DEFAULT_BATCH_SIZE` 가 1 이라 운영은 늘 이쪽이다). `cluster-v3` 의
+# 문구 그대로다 — 위와 다른 것은 덩이 수를 말하는 문구, 답 형식, `unrelated` 의 첫 예시다.
+#
+# 2026-09-25 사람 검수 608 쌍 (gpt-4.1-mini, 정밀도 · 재현율 · 나쁜 묶음)
+#
+# | 문구 | 결과 |
+# | --- | --- |
+# | 이것 (`cluster-v3` 09-24 · 09-25 다시) | 90% · 76% · 13% / 87% · 74% · 15% |
+# | 한 덩이 문구 + `Los Angeles 2028` 예시 (`cluster-v7`) | 87% · 66% · 12% |
+# | 위의 여러 덩이 문구 (`cluster-v6`) | 84% · 66% · 17% |
+#
+# 여러 덩이 문구는 정밀도를 깎았다 — 묶어 묻기(`cluster-v4`)를 위해 넣은 것이고 그 방식은 버렸다.
+# `Milano 2026` 예시를 `Los Angeles 2028` 로 바꾸면 재현율이 8%p 떨어졌다. 두 번 재도 같은 쪽이라
+# 흔들림(2~4%p)이 아니다. 왜인지는 모른다. 개발 라벨은 이 쌍을 `S` 로 적었지만(운영 문맥이 전부
+# `Vogue World: Milano 2026` 의 조각이었다) 도시 + 연도는 다른 행사일 수 있어 예시를 그대로 둔다.
+SINGLE_PROMPT = """You compare keyword variants from fashion media for a trend ranking.
+You get one cluster of look-alike keywords. Each member has "i" (id), "w" (the keyword), \
+optional "k" (a rough entity label from an extractor, often wrong) and optional "c" \
+(sentences where it actually appeared). "p" lists candidate pairs [pair id, id, id, n] where \
+n articles mention both.
+For EVERY pair choose one relation:
+- "same": the same thing under another name - spelling, plural, translation, abbreviation, \
+full vs short name, or the short form that drops an obvious noun. Saint Laurent / \
+Yves Saint Laurent, LFW / London Fashion Week, white tank / white tank top, button-down / \
+button-down shirt, black flats / black flat shoes. A season and its collection, show or \
+runways are "same": Fall 2026 / Fall 2026 collection, SS26 / SS26 runway.
+- "series": editions of one recurring event or season - a year, host city or edition name \
+added. Vogue World / Vogue World 2026 / Vogue World: Milano, Met Gala / 2026 Met Gala.
+- "narrower": one is a more specific kind made by adding a modifier - color, fit, length, \
+material, style word. mini dress / black mini dress, trench coat / cropped trench coat, \
+wide pants / black wide pants, white gold / 18K white gold.
+- "related": connected but a different thing. Fashion Week / Paris Fashion Week, \
+Paris Fashion Week / London Fashion Week, Ralph Lauren / Ralph Lauren Collection, \
+a designer / the brand named after them.
+- "unrelated": they only share words. Milano 2026 (Winter Olympics) / Vogue World Milano 2026, \
+New York Knicks / New York Yankees.
+- "unsure": the sentences do not tell you.
+Adding a modifier is "narrower", never "same". Judge by the sentences when given.
+Reply with JSON only, no prose: {"r":[{"p":1,"rel":"narrower"}]}. One object per pair id."""
 
 # 지시문에 예로 든 쌍. 개발 라벨(`nil-pairs-gold-*.jsonl`)에도 들어 있는 것은 채점에서 뺀다 —
 # 답을 보여 주고 채점하는 셈이라서다 (`scripts/nil-judge-eval.py`).
@@ -182,14 +222,22 @@ def _cluster_payload(number: int, cluster: Cluster) -> dict[str, object]:
 
 
 def user_prompt(clusters: list[Cluster]) -> str:
-    """요청 하나의 사용자 메시지. 덩이 번호도 1 부터, 이 요청 안에서만 쓴다."""
-    payload = {"clusters": [_cluster_payload(n, c) for n, c in enumerate(clusters, start=1)]}
+    """요청 하나의 사용자 메시지. 덩이 번호도 1 부터, 이 요청 안에서만 쓴다.
+
+    덩이가 하나면 번호 없이 덩이만 보낸다 (`SINGLE_PROMPT`).
+    """
+    if len(clusters) == 1:
+        payload: dict[str, object] = _cluster_payload(1, clusters[0])
+        del payload["n"]
+    else:
+        payload = {"clusters": [_cluster_payload(n, c) for n, c in enumerate(clusters, start=1)]}
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
 def messages(clusters: list[Cluster]) -> list[dict[str, str]]:
+    system = SINGLE_PROMPT if len(clusters) == 1 else SYSTEM_PROMPT
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system},
         {"role": "user", "content": user_prompt(clusters)},
     ]
 
@@ -221,6 +269,9 @@ def parse(content: str, clusters: list[Cluster]) -> tuple[list[Judgement | None]
     broken: set[int] = set()
     relations: dict[int, dict[tuple[str, str], str]] = {n: {} for n in range(1, len(clusters) + 1)}
     for row in rows:
+        # 덩이 하나만 물으면 답에 덩이 번호가 없다 (`SINGLE_PROMPT`).
+        if isinstance(row, dict) and len(clusters) == 1 and "n" not in row:
+            row = {**row, "n": 1}
         if not isinstance(row, dict) or (row.get("n"), row.get("p")) not in by_id:
             problems.append(f"모르는 쌍: {row!r}")
             if isinstance(row, dict) and row.get("n") in relations:
