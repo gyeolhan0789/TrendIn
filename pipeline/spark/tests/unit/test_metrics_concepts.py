@@ -295,3 +295,34 @@ def test_회차가_없는_개념_덩이는_무게로_고른다():
     )
 
     assert grouping.representative == {41: 40}
+
+
+# --- 대표 이름은 한글·로마자에서 --------------------------------------------------
+
+
+def test_가나_표기가_더_많아도_로마자_표기가_대표다():
+    """`シャネル`(9) · `Chanel`(4) · `샤넬`(2) — 일본 매체가 많이 써도 이름은 `Chanel` 이다."""
+    grouping = build_grouping(
+        [ConceptRef(1, 100, True), ConceptRef(2, 100, True), ConceptRef(3, 100, True)],
+        {1: 9, 2: 4, 3: 2},
+        keywords={1, 2, 3},
+        readable=frozenset({2, 3}),
+    )
+    assert grouping.representative == {1: 2, 3: 2}
+
+
+def test_읽을_수_있는_표기가_없으면_무게로_고른다():
+    grouping = build_grouping(
+        [ConceptRef(1, 100, True), ConceptRef(2, 100, True)],
+        {1: 9, 2: 4},
+        keywords={1, 2},
+        readable=frozenset(),
+    )
+    assert grouping.representative == {2: 1}
+
+
+def test_가나_아랍_문자가_있으면_읽을_수_없는_이름이다():
+    from trendin.spark.metrics.concepts import readable_name
+
+    assert readable_name("chanel") and readable_name("샤넬") and readable_name("2027 s/s 컬렉션")
+    assert not readable_name("シャネル") and not readable_name("شانيل")

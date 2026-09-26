@@ -32,7 +32,7 @@ from trendin.spark.io.metrics import MetricSink
 from trendin.spark.io.stats import Stat
 from trendin.spark.metrics import trends as trend_rules
 from trendin.spark.metrics import windows as window_rules
-from trendin.spark.metrics.concepts import ConceptRef, Grouping, build_grouping
+from trendin.spark.metrics.concepts import ConceptRef, Grouping, build_grouping, readable_name
 from trendin.spark.metrics.growth import MetricRow, assign_ranks, build_row
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.metrics.trends import Evidence
@@ -180,8 +180,20 @@ def load_grouping(
     }
     edition_keys: dict[int, tuple[str, str]] = {}
     edition_orders: dict[int, tuple[int, ...]] = {}
+    keys = sink.keyword_keys() if (editions or fold) else ()
+    # 대표 이름을 한글·로마자 표기에서 고른다 (`concepts.py` 머리말) — `シャネル` 이 `Chanel` 을
+    # 제치고 이름이 되지 않게.
+    readable = (
+        frozenset(
+            keyword_id
+            for keyword_id, normalized in keys
+            if keyword_id in series and readable_name(normalized)
+        )
+        if fold
+        else None
+    )
     if editions:
-        for keyword_id, normalized in sink.keyword_keys():
+        for keyword_id, normalized in keys:
             if keyword_id not in series:
                 continue
             key = edition_rules.edition_key(normalized)
@@ -202,6 +214,7 @@ def load_grouping(
         representative_min_share=(
             0.1 if thresholds is None else thresholds.representative_min_share
         ),
+        readable=readable,
     )
 
 

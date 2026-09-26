@@ -272,6 +272,9 @@ def run(spark: SparkSession | None, config: Config, args: argparse.Namespace) ->
             thresholds=thresholds,
             grouped=grouped,
             unmapped=unmapped,
+            automation=automation,
+            domain=args.domain,
+            window_days=window_days,
         )
     return None
 
@@ -614,14 +617,19 @@ def _rewrite_after_links(sink, *, grouped, unmapped, applied, thresholds) -> Non
 
 def _run_nil_grouping(
     *, config: Config, sink: ConceptSink, policy: nil_grouping.Policy,
-    thresholds: ConceptThresholds, grouped, unmapped,
+    thresholds: ConceptThresholds, grouped, unmapped, automation: AutomationPolicy,
+    domain: str, window_days: int,
 ) -> None:
     """미등록 표기가 든 덩이를 판정해 기존 개념에 잇는다 (`concept/nil_grouping.py`).
+
+    `create_concepts` 가 켜져 있으면 전부 미등록인 묶음에 새 개념을 만들고 나머지 표기를 거기
+    잇는다 (`_plan_nil_mints`, S15P21A102-396). 새 개념과 잇기는 **한 회차 번호**로 원장에 남아
+    `concept-review.py rollback --run` 한 번에 되돌린다.
 
     **실패가 이번 회차를 죽이지 않는다.** 여기까지 오면 사전 매핑 결과는 이미 적혔다. LLM 이나
     적재가 실패하면 이번 회차의 덩이 잇기만 빠진다 — 순위는 지금 사전으로 그대로 센다.
     """
-    from trendin.spark.concept import cluster_judge
+    from trendin.spark.concept import cluster_judge, minting
     from trendin.spark.concept.auto_link import Link, apply_links
     from trendin.spark.concept.judge import Verdict
     from trendin.spark.io.concepts import new_run_id
@@ -633,7 +641,9 @@ def _run_nil_grouping(
         if item.context:
             sentences.setdefault(item.key, []).append(item.context)
     observed = nil_grouping.observe(grouped, dictionary, sentences)
-    targets = nil_grouping.select_clusters(observed, min_articles=thresholds.min_articles)
+    targets = nil_grouping.select_clusters(
+        observed, min_articles=thresholds.min_articles, include_new=policy.create_concepts
+    )
     if not targets:
         log.info("덩이 판정: 잇기에 쓸 덩이가 없다")
         return
@@ -681,23 +691,55 @@ def _run_nil_grouping(
             log.exception("덩이 판정 캐시를 쓰지 못했다: %s", normalized)
 
     planned, skipped = nil_grouping.plan_all(judgements, observed)
+    mints: tuple = ()
+    new_groups: dict[str, nil_grouping.NewGroup] = {}
+    if policy.create_concepts:
+        mints, new_groups, used = _plan_nil_mints(
+            sink=sink, automation=automation, judgements=judgements, observed=observed,
+            planned=planned, dictionary=dictionary, domain=domain, window_days=window_days,
+            available=policy.max_calls - calls,
+        )
+        calls += used
+        # NO_CONCEPT 은 새 개념 쪽이 맡았다 — 건너뛴 묶음 로그에서 뺀다.
+        skipped = [(keys, reason) for keys, reason in skipped if reason != "NO_CONCEPT"]
     log.info(
         "덩이 판정: 덩이 %d (캐시 %d · 물음 %d · 실패 %d · 호출 %d/%d) · 이을 표기 %d · "
-        "건너뛴 묶음 %d",
-        len(targets), reused, asked, failed, calls, policy.max_calls, len(planned), len(skipped),
+        "새 개념 %d · 건너뛴 묶음 %d",
+        len(targets), reused, asked, failed, calls, policy.max_calls, len(planned), len(mints),
+        len(skipped),
     )
     for link in planned[:30]:
         log.info(
             "  잇기 [%s] %s → 개념 %d %s", link.relation, link.surface, link.concept_id,
             dictionary.concept(link.concept_id).canonical_name,
         )
+    for mint in mints[:30]:
+        group = new_groups[mint.normalized]
+        log.info(
+            "  새 개념 [%s] %s (%s · 기사 %d · 매체 %d) ← %s", group.relation, mint.canonical_name,
+            mint.category, mint.articles, mint.sources,
+            " + ".join(item.surface for item in (group.representative, *group.others)),
+        )
     for keys, reason in skipped[:20]:
         log.info("  건너뜀 %s: %s", reason, " + ".join(keys))
-    if not planned:
+    if not planned and not mints:
         return
     if not policy.apply:
         log.info("concept.nil_grouping.apply 가 꺼져 있다 — 사전에 넣지 않는다")
         return
+
+    run_id = new_run_id()
+    made = 0
+    if mints:
+        try:
+            made = sink.mint_concepts(
+                mints, decided_by=minting.AUTO_SOURCE, run_id=run_id,
+                uncounted=automation.mint_uncounted,
+            )
+        except Exception:
+            log.exception("덩이 새 개념 적재 실패 — 새 개념은 하나도 들어가지 않았다")
+        else:
+            dictionary = sink.load_dictionary()
 
     links = []
     for link in planned:
@@ -710,23 +752,139 @@ def _run_nil_grouping(
                 evidence={"relation": link.relation, "group": list(link.group)},
             )
         )
-    run_id = new_run_id()
-    try:
-        applied = apply_links(
-            config, tuple(links), model=model, prompt_version=version, run_id=run_id
-        )
-    except Exception:
-        log.exception("덩이 잇기 적재 실패 — 이번 회차 잇기는 하나도 들어가지 않았다")
-        return
+    for mint in mints if made else ():
+        # 이름이 겹쳐 만들지 못한 개념(`ON CONFLICT DO NOTHING`)은 대표 표기가 사전에 없다.
+        hits = dictionary.lookup(mint.lang, mint.normalized)
+        if len(hits) != 1:
+            continue
+        concept = hits[0].concept
+        group = new_groups[mint.normalized]
+        links += [
+            Link(
+                Verdict(item.lang, item.key, concept.canonical_name, concept.category),
+                concept.concept_id,
+                retrieval="nil_grouping",
+                evidence={
+                    "relation": group.relation,
+                    "group": list(group.group),
+                    "minted_from": mint.normalized,
+                },
+            )
+            for item in group.others
+        ]
+    applied: tuple = ()
+    if links:
+        try:
+            applied = apply_links(
+                config, tuple(links), model=model, prompt_version=version, run_id=run_id
+            )
+        except Exception:
+            log.exception("덩이 잇기 적재 실패 — 이번 회차 잇기는 하나도 들어가지 않았다")
     log.info(
-        "덩이 잇기 회차 %s: %d/%d 건 — 되돌리려면 "
+        "덩이 잇기 회차 %s: 잇기 %d/%d 건 · 새 개념 %d/%d 건 — 되돌리려면 "
         "scripts/concept-review.py rollback --run %s --by human:<이름>",
-        run_id, len(applied), len(links), run_id,
+        run_id, len(applied), len(links), made, len(mints), run_id,
     )
-    if applied:
+    if applied or made:
         _rewrite_after_links(
             sink, grouped=grouped, unmapped=unmapped, applied=applied, thresholds=thresholds
         )
+
+
+def _plan_nil_mints(
+    *, sink, automation: AutomationPolicy, judgements, observed, planned, dictionary,
+    domain: str, window_days: int, available: int,
+) -> tuple[tuple, dict, int]:
+    """전부 미등록인 묶음 → 만들 새 개념 · 대표 표기의 비교키별 묶음 · 이름 판정 호출 수.
+
+    대표 표기(기사가 가장 많은 표기)를 **표기 판정으로 이름 짓는다** — 자동 연결과 같은 모델 ·
+    지시문 · 캐시 열쇠라, 자동 연결이 이미 이름 지은 표기는 다시 묻지 않는다. 거르는 것은
+    `minting.select` 와 같고(세지 않는 분류 · 이미 있는 이름 · 기사 · 매체 수), 연도를 빼면 한
+    낱말만 남는 넓은 이름(`nil_grouping.broad_name`)을 더 거른다.
+    """
+    from trendin.spark.concept import minting, workflow
+    from trendin.spark.concept.judge import Question
+    from trendin.spark.io.llm import GmsClient
+
+    groups, conflicts = nil_grouping.plan_new(
+        judgements, observed, linked={(link.lang, link.normalized) for link in planned}
+    )
+    for keys, reason in conflicts[:20]:
+        log.info("  새 개념 건너뜀 %s: %s", reason, " + ".join(keys))
+    if not groups:
+        return (), {}, 0
+    by_key = {group.representative.key: group for group in groups}
+    questions = [
+        Question(
+            i,
+            group.representative.lang,
+            group.representative.key,
+            len(group.representative.docs),
+            nil_grouping.first_context(group.representative),
+            group.representative.surface,
+        )
+        for i, group in enumerate(groups, start=1)
+    ]
+
+    class _Lazy:
+        """캐시로 다 풀리면 LLM 클라이언트를 만들지 않는다."""
+
+        client = None
+
+        def chat(self, messages, *, max_tokens: int = 1200) -> str:
+            self.client = self.client or GmsClient(model=automation.model)
+            return self.client.chat(messages, max_tokens=max_tokens)
+
+    try:
+        verdicts, failures, calls = workflow.name_expressions(
+            questions, client=_Lazy(), cache=sink, model=automation.model,
+            batch_size=automation.batch_size, max_calls=max(available, 0),
+        )
+    except Exception:
+        log.exception("새 개념 이름 판정 실패 — 새 개념을 만들지 않는다")
+        return (), {}, 0
+    for question, problems in failures[:10]:
+        log.info("  새 개념 이름 못 받음: %s — %s", question.normalized, problems[:2])
+    proposals = []
+    for question, verdict in verdicts:
+        if nil_grouping.broad_name(verdict.english_name):
+            log.info(
+                "  새 개념 건너뜀 BROAD_NAME: %s → %s", question.normalized, verdict.english_name
+            )
+            continue
+        proposals.append(
+            (
+                question.lang,
+                question.normalized,
+                question.surface or question.normalized,
+                verdict.english_name,
+                verdict.category,
+            )
+        )
+    if not proposals:
+        return (), by_key, calls
+    try:
+        evidence = {
+            key: minting.Evidence(articles, sources)
+            for key, (articles, sources) in sink.expression_evidence(
+                domain=domain, window_days=window_days
+            ).items()
+        }
+    except Exception:
+        log.exception("근거를 읽지 못했다 — 새 개념을 만들지 않는다")
+        return (), by_key, calls
+    mints = minting.select(
+        proposals,
+        evidence,
+        [concept.canonical_name for concept in dictionary.concepts()],
+        minting.MintPolicy(automation.min_create_articles, automation.min_create_sources),
+    )
+    if len(mints) < len(proposals):
+        log.info(
+            "  새 개념 후보 %d 건 중 %d 건은 거른다 (세지 않는 분류 · 이미 있는 이름 · 근거 부족)",
+            len(proposals), len(proposals) - len(mints),
+        )
+    return mints, by_key, calls
 
 
 def _dump(
