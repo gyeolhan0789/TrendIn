@@ -9,7 +9,7 @@ import type { MapMode, MapStop } from '../../features/globalTrend/components/Wor
 import { countryGeoOf } from '../../features/globalTrend/data/countryGeo';
 import { useCountryTrends } from '../../features/globalTrend/hooks/useCountryTrends';
 import { useRegionCountries } from '../../features/globalTrend/hooks/useRegionCountries';
-import { PICK_ZOOM, useSpreadTour } from '../../features/globalTrend/hooks/useSpreadTour';
+import { useSpreadTour } from '../../features/globalTrend/hooks/useSpreadTour';
 import { useTrendRegionJourney } from '../../features/globalTrend/hooks/useTrendRegionJourney';
 import { useTrendRegions } from '../../features/globalTrend/hooks/useTrendRegions';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
@@ -508,14 +508,14 @@ export function GlobalTrendsPage() {
    *
    * 예전에는 고르는 것과 들여다보는 것을 갈라 '선택 국가 확대' 단추를 따로 두었습니다. 그런데
    * 고른 나라가 지도 어디쯤인지 찾으려고 단추를 한 번 더 눌러야 해 손이 두 번 갔습니다.
-   * PICK_ZOOM 은 나라 하나만 남기지 않을 만큼만 다가가 이웃 나라와의 견줌은 남습니다.
+   * 배율은 보던 그대로라 세계 안에서 그 나라의 자리와 이웃 나라와의 견줌이 함께 남습니다.
    * 지도에 자리가 없는 나라는 고르기만 하고 지도는 그대로 둡니다.
    */
   const pickCountry = useCallback((code: string | undefined) => {
     if (!code) return;
     setSelectedCountryCode(code);
     const index = stops.findIndex((stop) => stop.country.code === code);
-    if (index >= 0) flyTo(index, PICK_ZOOM);
+    if (index >= 0) flyTo(index);
   }, [stops, flyTo]);
 
   /*

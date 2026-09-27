@@ -25,8 +25,6 @@ export interface TourStop {
 
 /** 나라 하나를 들여다볼 때의 배율. 나라 모양이 또렷하게 보이는 정도입니다. */
 const FOCUS_ZOOM = 3.6;
-/** 나라를 고를 때 다가가는 정도. 고른 나라가 커지되 이웃 나라가 함께 보이는 만큼입니다. */
-export const PICK_ZOOM = 2;
 const WORLD_ZOOM = 1;
 /*
  * 나라와 나라 사이를 건널 때 물러설 수 있는 가장 먼 배율입니다. 세계 전체(1)까지 물러서면
@@ -95,8 +93,11 @@ export interface SpreadTour {
   /**
    * 누른 나라로 카메라를 옮깁니다. `goTo` 와 달리 평면 지도에서도 움직입니다 — 따라가기를 끈
    * 것은 흐름보기에서 비행기만 건너게 하려던 것이고, 사람이 나라를 콕 집은 때는 그리 가는 게 맞습니다.
+   *
+   * **배율은 보던 그대로 둡니다.** 옮길 때마다 당기면 어디로 갔는지와 얼마나 당겼는지가 한꺼번에
+   * 바뀌어 눈이 따라가지 못합니다. 더 보고 싶으면 사람이 직접 당깁니다.
    */
-  flyTo: (index: number, zoom?: number) => void;
+  flyTo: (index: number) => void;
   showWorld: () => void;
   /** 손으로 지도를 움직일 때. 따라가던 움직임을 멈추고 조작을 넘겨받습니다. */
   steer: (update: (view: MapView) => MapView) => void;
@@ -180,7 +181,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     moveToStop(index, zoom);
   }, [moveToStop]);
 
-  const flyTo = useCallback((index: number, zoom = FOCUS_ZOOM) => {
+  const flyTo = useCallback((index: number) => {
     const stop = stopsRef.current[index];
     if (!stop) return;
     setPlaying(false);
@@ -190,7 +191,9 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     setFocusIndex(index);
     // 경로를 타는 것이 아니라 한 나라로 가는 것이라 비행기는 태우지 않습니다.
     setLegProgress(null);
-    startMotion({ lon: stop.lon, lat: stop.lat, zoom }, angularDistance(viewRef.current, stop));
+    const current = viewRef.current;
+    // steady — 멀리 갈 때 물러섰다 다가오는 움직임도 없앱니다. 배율을 지킨다는 뜻과 맞춥니다.
+    startMotion({ lon: stop.lon, lat: stop.lat, zoom: current.zoom }, angularDistance(current, stop), true);
   }, [startMotion]);
 
   const showWorld = useCallback(() => {
