@@ -182,6 +182,18 @@ export function TrendDetailPage() {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
   }, []);
 
+  /*
+   * 닫히는 도중에 다른 트렌드를 열면 이 패널이 그대로 다시 쓰입니다(같은 자리의 같은 화면).
+   * 닫기 예약과 닫히는 중 표시를 걷어내지 않으면 새 트렌드가 사라지는 모양으로 뜨고, 예약된
+   * 뒤로 가기가 방금 연 상세까지 닫아 버립니다. 이력 칸이 바뀔 때마다 새로 연 패널로 되돌립니다.
+   */
+  useEffect(() => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+    isClosingRef.current = false;
+    setIsClosing(false);
+  }, [location.key]);
+
   const [sourcePage, setSourcePage] = useState(0);
   const [keywordPage, setKeywordPage] = useState(0);
 
