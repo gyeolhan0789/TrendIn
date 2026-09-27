@@ -175,7 +175,7 @@ provider_user_id)` 는 **재로그인이 같은 회원을 찾게** 하고,
 
 ⚠️ 선두 칼럼이 `content_id` 라 **`keyword_id` 단독 조회는 이 PK 를 타지 못한다.**
 `GET /trends/{id}/contents` 가 그 조회이고, 부하테스트에서 이 엔드포인트가 무너진 자리다
-([부하테스트 리포트](../../load-test/k6/results/report/성능개선-전-2026-09-21.md)).
+([부하테스트 리포트](../load-test/k6/results/report/성능개선-전-2026-09-21.md)).
 
 ---
 
@@ -344,7 +344,7 @@ idx_notifications_member_unread   (member_id) WHERE is_read = false
 앞의 것은 **정렬 순서까지 맞춰** 목록이 인덱스를 20행만 걷고 멈추게 한다. 뒤의 것은 부분
 인덱스로, 안 읽은 개수 세기가 인덱스만 읽고 끝난다. 실측으로 목록 p95 900.5ms → 7.3ms,
 안 읽은 개수 608.1ms → 4.4ms 가 됐다
-([리포트](../../load-test/k6/results/report/성능개선-후-2026-09-22.md)).
+([리포트](../load-test/k6/results/report/성능개선-후-2026-09-22.md)).
 
 ---
 

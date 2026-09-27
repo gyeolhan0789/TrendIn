@@ -16,7 +16,7 @@
 ```
 
 부하 시나리오와 더미 데이터는 다음 단계(Phase 2 이후)이고, 이 문서는 그 밑작업까지만 다룬다.
-운영 절차는 [`load-test/README.md`](../load-test/README.md) 에 따로 있다.
+운영 절차는 [`load-test/README.md`](load-test/README.md) 에 따로 있다.
 
 ## 왜 계측이 먼저인가
 
@@ -193,7 +193,7 @@ docker compose --env-file .env -f compose.yaml exec -T postgres sh -c \
    | PGPASSWORD=$POSTGRES_PASSWORD psql -U ssafy -d trendin_test'
 
 # 스택
-cd ../load-test && ./up.sh
+cd ../docs/load-test && ./up.sh
 ```
 
 **빈 DB 에 Flyway 로 만들지 않고 운영에서 떠 왔다.** 마이그레이션에 없는 파이프라인 테이블이
@@ -245,7 +245,7 @@ BACKEND_IMAGE="$RELEASE_IMAGE" docker compose ... up --detach ... backend
 코드를 재게 된다. **"운영과 같은 이미지를 잰다"는 전제가 조용히 깨진다.** 스키마는 운영에서
 떠오는데 코드만 과거라 기동에 실패해서야 드러났다.
 
-[`load-test/up.sh`](../load-test/up.sh) 가 운영 컨테이너를 `docker inspect` 해서 실제
+[`load-test/up.sh`](load-test/up.sh) 가 운영 컨테이너를 `docker inspect` 해서 실제
 이미지를 읽어 넘긴다. 변수 이름도 `LOADTEST_BACKEND_IMAGE` 로 갈랐다. `BACKEND_IMAGE` 는
 `.env` 가 항상 값을 주므로 `:?` 가드가 걸리지 않아, 직접 `docker compose` 를 부르면 낡은
 이미지로 **조용히** 뜬다. 이름을 나누면 그 호출이 에러로 멈춘다.

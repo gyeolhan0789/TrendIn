@@ -170,8 +170,8 @@ S15P21A102/
 │       └── ai/               LLM 프롬프트와 응답 계약
 ├── datastore/                MinIO — raw-data(원문) · curated(정제 결과)
 ├── infra/                    Nginx, Compose, Jenkins 파이프라인, Prometheus/Grafana
-├── load-test/                k6 부하테스트 시나리오와 결과 리포트
 └── docs/                     요구사항 명세, API 설계, ERD, 배포·부하테스트 가이드
+    └── load-test/            k6 부하테스트 시나리오와 결과 리포트
 ```
 
 주요 문서는 다음과 같습니다.
