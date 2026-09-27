@@ -61,9 +61,21 @@ function getKeywordStrength(relationScore: number) {
 
 function splitAnalysisSentences(value?: string | null) {
   if (!value) return [];
-  return (value.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g) ?? [])
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+  const sentences: string[] = [];
+  let start = 0;
+
+  for (const match of value.matchAll(/[.!?。！？]+(?=\s|$)/g)) {
+    const end = match.index + match[0].length;
+    // J. Crew 같은 영문 이니셜의 마침표는 문장 끝이 아니다.
+    if (match[0] === '.' && /\b[A-Za-z]$/.test(value.slice(0, match.index))) continue;
+    const sentence = value.slice(start, end).trim();
+    if (sentence) sentences.push(sentence);
+    start = end;
+  }
+
+  const remainder = value.slice(start).trim();
+  if (remainder) sentences.push(remainder);
+  return sentences;
 }
 
 function describeWindow(trend: TrendDetail) {
