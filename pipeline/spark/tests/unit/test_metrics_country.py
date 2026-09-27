@@ -19,7 +19,13 @@ import pytest
 
 from trendin.spark.common.config import Config
 from trendin.spark.io import jdbc
-from trendin.spark.io.metrics import COUNTRY_METRICS, COUNTRY_SQL, MetricSink
+from trendin.spark.io.metrics import (
+    COUNTRY_FOLD_TABLE_SQL,
+    COUNTRY_METRICS,
+    COUNTRY_SQL,
+    MetricSink,
+    country_fold_rows,
+)
 
 
 @pytest.fixture
@@ -94,7 +100,7 @@ def test_원자료의_국가_칸을_읽고_설정값을_쓰지_않는다():
     sql = " ".join(COUNTRY_SQL.split())
     assert "source_country AS country_code" in sql
     assert "%(country)s" not in sql
-    assert "GROUP BY keyword_id, source_country, stat_date" in sql
+    assert "GROUP BY coalesce(f.leader, s.keyword_id), s.source_country, s.stat_date" in sql
 
 
 def test_창_안에서만_갈아_쓴다():
@@ -119,4 +125,42 @@ def test_창_안에서만_갈아_쓴다():
 
 def test_승격된_키워드만_국가_축에_싣는다():
     """서비스 표가 `keywords` 를 참조하므로 후보는 걸 대상이 없다."""
-    assert "WHERE keyword_id IS NOT NULL" in " ".join(COUNTRY_SQL.split())
+    assert "WHERE s.keyword_id IS NOT NULL" in " ".join(COUNTRY_SQL.split())
+
+
+def test_묶인_표기는_대표_줄로_합치고_뺀_키워드는_싣지_않는다():
+    """순위와 같은 기준이어야 트렌드의 전체 언급량과 나라별 언급량이 같은 표기들을 센다.
+
+    전에는 `ballet flats` 가 212건인데 나라별은 그 표기 하나의 72건만 보였다.
+    """
+    sql = " ".join(COUNTRY_SQL.split())
+    assert "coalesce(f.leader, s.keyword_id) AS keyword_id" in sql
+    assert "LEFT JOIN _country_fold f ON f.keyword_id = s.keyword_id" in sql
+    assert "NOT coalesce(f.silenced, false)" in sql
+
+
+def test_접기_표를_먼저_만들고_적재한다(recorded):
+    """`_country_fold` 가 없으면 `COUNTRY_SQL` 의 조인이 실패한다. 빈 규칙이어도 만든다."""
+    sink().rebuild_country_metrics(window_start=date(2026, 8, 20), window_end=date(2026, 9, 19))
+    statements = [statement for statement, _ in recorded]
+    assert statements.index(COUNTRY_FOLD_TABLE_SQL) < statements.index(COUNTRY_SQL)
+
+
+def test_접기_행은_대표가_빠졌는지로_뺄지를_정한다():
+    """`batch.run` 과 같은 차례 — 먼저 접고, 대표가 순위에서 빠졌는지 본다.
+
+    11 → 10 으로 접힘(대표 10 은 셈). 21 → 20 으로 접힘(대표 20 이 빠짐).
+    30 은 접히지 않고 빠짐. 11 이 따로 빠지기로 되어 있어도 대표 10 을 따라 세어진다.
+    """
+    rows = country_fold_rows({11: 10, 21: 20}, silenced={20, 30, 11})
+    assert rows == [
+        (11, 10, False),
+        (20, None, True),
+        (21, 20, True),
+        (30, None, True),
+    ]
+
+
+def test_규칙이_비면_접기_행도_없다():
+    """개념 층이 없는 환경 — 표기마다 그대로 싣는 옛 동작이다."""
+    assert country_fold_rows({}, silenced=()) == []

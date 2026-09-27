@@ -42,7 +42,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from trendin.spark.common.config import Config
 from trendin.spark.common.logging import get_logger
@@ -425,16 +425,34 @@ CONCEPT_TABLES_SQL = (
 # 마지막 `DELETE` 가 있어야 소스가 빠졌거나 병합으로 사라진 `(키워드, 날짜, 나라)` 행이
 # 실제로 없어진다. 창 밖은 건드리지 않는다 — 원자료 지평 밖의 옛 행을 이 회차가 0 으로
 # 덮어쓰거나 지우면, 화면의 옛 구간이 이유 없이 비어 버린다.
+#
+# **순위와 같은 기준으로 접고 거른다** (`_country_fold`, `country_fold_rows`). 전에는 표기마다
+# 따로 실어서, 순위가 `ballet flats` 에 `Ballerine` · `발레 플랫` 을 합친 212건을 내는 동안
+# 나라별 언급량은 `ballet flats` 표기 하나의 72건(3개국)만 보였다 — 이탈리아어·한국어 기사가
+# 통째로 빠졌다. 백엔드는 트렌드의 대표 키워드로만 이 표를 찾으므로, 묶인 표기의 언급량을 대표
+# 줄로 합쳐 넣어야 두 숫자가 맞는다. 순위에서 뺀 키워드(브랜드·소재 등)는 싣지 않는다 —
+# 국가별 트렌드 탭이 이 표로 순위를 매기므로, 실으면 그 탭에만 브랜드가 뜬다.
+COUNTRY_FOLD_COLUMNS = ("keyword_id", "leader", "silenced")
+COUNTRY_FOLD_TABLE_SQL = """
+CREATE TEMP TABLE _country_fold (
+    keyword_id bigint PRIMARY KEY,
+    leader     bigint,
+    silenced   boolean NOT NULL
+) ON COMMIT DROP
+"""
+
 COUNTRY_SQL = f"""
 CREATE TEMP TABLE _country_stat ON COMMIT DROP AS
-SELECT keyword_id,
-       source_country       AS country_code,
-       stat_date            AS metric_date,
-       sum(doc_count)::bigint AS mention_count
-  FROM {DAILY_STAT}
- WHERE keyword_id IS NOT NULL
-   AND stat_date >= %(window_start)s AND stat_date < %(window_end)s
- GROUP BY keyword_id, source_country, stat_date;
+SELECT coalesce(f.leader, s.keyword_id) AS keyword_id,
+       s.source_country     AS country_code,
+       s.stat_date          AS metric_date,
+       sum(s.doc_count)::bigint AS mention_count
+  FROM {DAILY_STAT} s
+  LEFT JOIN _country_fold f ON f.keyword_id = s.keyword_id
+ WHERE s.keyword_id IS NOT NULL
+   AND NOT coalesce(f.silenced, false)
+   AND s.stat_date >= %(window_start)s AND s.stat_date < %(window_end)s
+ GROUP BY coalesce(f.leader, s.keyword_id), s.source_country, s.stat_date;
 
 UPDATE {COUNTRY_METRICS} m
    SET mention_count = s.mention_count
@@ -635,16 +653,30 @@ class MetricSink:
             cur.execute(COUNTRY_TABLE_SQL)
             return bool(cur.fetchone()[0])
 
-    def rebuild_country_metrics(self, *, window_start: date, window_end: date) -> int:
+    def rebuild_country_metrics(
+        self,
+        *,
+        window_start: date,
+        window_end: date,
+        fold: Iterable[tuple[int, int | None, bool]] = (),
+    ) -> int:
         """`pl_keyword_daily_stat` → `keyword_country_daily_metrics`. 창 안에 쓴 행 수.
 
         **창 안에서만 갈아 쓴다** (`COUNTRY_SQL` 의 주석). 전에는 전 기간을 지우고 다시
         넣었는데, 그러면 원자료 지평 밖의 옛 행이 회차마다 사라진다.
 
+        `fold` 는 `country_fold_rows` 가 만든 `(keyword_id, 대표, 뺄지)` 다. 비어 있으면 표기마다
+        그대로 싣는다 — 개념 층이 없는 환경의 옛 동작이다.
+
         한 트랜잭션 안에서 한다 — 조회가 빈 표를 보지 않는다. 임시 테이블이
         `ON COMMIT DROP` 이라 행 수를 커밋 **전에** 센다.
         """
+        from psycopg2.extras import execute_values
+
+        page = int(self._config.get("jdbc.batch_size", jdbc.DEFAULT_BATCH_SIZE))
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
+            cur.execute(COUNTRY_FOLD_TABLE_SQL)
+            _insert(cur, execute_values, "_country_fold", COUNTRY_FOLD_COLUMNS, fold, page)
             cur.execute(COUNTRY_SQL, {"window_start": window_start, "window_end": window_end})
             cur.execute(COUNTRY_STAT_COUNT_SQL)
             written = int(cur.fetchone()[0])
@@ -834,6 +866,24 @@ class MetricSink:
         with jdbc.connection(self._config) as conn, conn.cursor() as cur:
             cur.execute(statement, params)
             return tuple(cur.fetchall())
+
+
+def country_fold_rows(
+    representative: Mapping[int, int], silenced: Iterable[int]
+) -> list[tuple[int, int | None, bool]]:
+    """순위의 접기·거르기 규칙(`Grouping`)을 나라별 적재가 읽는 행으로 바꾼다.
+
+    `metrics/batch.run` 과 같은 차례를 따른다 — 먼저 접고, 그다음 **대표**가 순위에서 빠졌는지
+    본다. 접혀 들어간 표기가 따로 빠지기로 되어 있어도 대표가 세어지면 함께 세어진다.
+    """
+    muted = frozenset(silenced)
+    rows = {
+        keyword_id: (keyword_id, leader, leader in muted)
+        for keyword_id, leader in representative.items()
+    }
+    for keyword_id in muted:
+        rows.setdefault(keyword_id, (keyword_id, None, True))
+    return sorted(rows.values())
 
 
 def _insert(
