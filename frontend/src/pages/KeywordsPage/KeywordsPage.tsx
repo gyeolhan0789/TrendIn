@@ -20,9 +20,14 @@ const ALL_DOMAINS = '전체';
  */
 const PAGE_SIZE = 8;
 
-/* 서버는 등록한 순서대로 주고 지표는 주지 않습니다. 그래서 고를 수 있는 기준이 이 둘뿐입니다. */
+/*
+ * 서버는 등록한 순서대로 주고 지표는 주지 않습니다. 그래서 고를 수 있는 기준이 이 둘뿐입니다.
+ *
+ * 최신순은 서버 순서를 뒤집습니다. 서버는 먼저 등록한 것부터 주는데 그대로 두면 방금 담은
+ * 키워드가 마지막 쪽 끝에 붙어, 담고 와서 보면 안 담긴 것처럼 보였습니다.
+ */
 const sorts = [
-  { value: 'recent', label: '등록순' },
+  { value: 'recent', label: '최신순' },
   { value: 'name', label: '가나다순' },
 ];
 
@@ -92,7 +97,7 @@ export function KeywordsPage() {
     const filtered = activeDomain === ALL_DOMAINS
       ? keywords
       : keywords.filter((keyword) => keyword.domain === activeDomain);
-    if (sort !== 'name') return filtered;
+    if (sort !== 'name') return [...filtered].reverse();
     return [...filtered].sort((a, b) => a.keyword.localeCompare(b.keyword, 'ko'));
   }, [activeDomain, keywords, sort]);
 
