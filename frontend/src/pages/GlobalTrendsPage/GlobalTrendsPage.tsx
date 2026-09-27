@@ -104,15 +104,6 @@ function WorldIcon() {
   );
 }
 
-function ZoomIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m21 21-4.35-4.35M11 8v6M8 11h6" />
-    </svg>
-  );
-}
-
 function FlowIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -497,7 +488,7 @@ export function GlobalTrendsPage() {
   /* 따라가기는 흐름보기에서만 저절로 시작합니다. 나머지 화면에서는 지도가 가만히 있어야 읽힙니다. */
   /* 평면 지도에서는 세계를 통째로 둔 채 비행기만 건넙니다. 지구본은 뒤쪽이 가려져 따라 돕니다. */
   const tour = useSpreadTour(route, flowing ? `flow-${trendId}` : null, mapMode === 'globe');
-  const { goTo, showWorld } = tour;
+  const { goTo, flyTo, showWorld } = tour;
 
   // 고른 것이 밀려났으면 지금 보고 있는 것으로 상태를 맞춰 둡니다.
   useEffect(() => {
@@ -513,27 +504,23 @@ export function GlobalTrendsPage() {
    * 뜨거운가'이고, 앞 탭에서 들여다보던 배율이 남아 있으면 지도에 한 나라만 남습니다.
    */
   /*
-   * 나라를 고르는 것과 지도를 들여다보는 것을 갈라 둡니다.
+   * 나라를 고르면 지도도 그 나라로 갑니다.
    *
-   * 고르면 지도는 그 자리에 그대로 있고 그 나라만 도드라집니다. 눌렀다고 지도가 확 당겨지면
-   * 세계 안에서 그 나라가 어디쯤인지, 다른 나라와 견주어 얼마나 뜨거운지가 함께 사라집니다.
-   * 고른 뒤 정작 답이 바뀌는 곳은 오른쪽 칸인데 눈은 지도 움직임을 좇게 됩니다.
-   *
-   * 크게 보고 싶은 사람은 따로 있으므로, 그 일은 '선택 국가 확대' 단추로 옮겼습니다.
+   * 예전에는 고르는 것과 들여다보는 것을 갈라 '선택 국가 확대' 단추를 따로 두었습니다. 그런데
+   * 고른 나라가 지도 어디쯤인지 찾으려고 단추를 한 번 더 눌러야 해 손이 두 번 갔습니다.
+   * PICK_ZOOM 은 나라 하나만 남기지 않을 만큼만 다가가 이웃 나라와의 견줌은 남습니다.
+   * 지도에 자리가 없는 나라는 고르기만 하고 지도는 그대로 둡니다.
    */
   const pickCountry = useCallback((code: string | undefined) => {
     if (!code) return;
     setSelectedCountryCode(code);
-  }, []);
-
-  const zoomToCountry = useCallback(() => {
-    const index = stops.findIndex((stop) => stop.country.code === country?.countryCode);
-    if (index >= 0) goTo(index, PICK_ZOOM);
-  }, [stops, country?.countryCode, goTo]);
+    const index = stops.findIndex((stop) => stop.country.code === code);
+    if (index >= 0) flyTo(index, PICK_ZOOM);
+  }, [stops, flyTo]);
 
   /*
-   * 트렌드별 탭 오른쪽 목록에서 나라를 누르면 지도가 그 나라로 갑니다. 지도의 핀을 누른 것과
-   * 같은 움직임입니다(`onPickStop`). 국가별 탭과 달리 이 화면은 지도가 주인공이라 다가가도 됩니다.
+   * 트렌드별 탭 오른쪽 목록에서 나라를 누르면 지도가 그 나라로 갑니다. 2D 에서도 갑니다 — 목록은
+   * 지도 밖에 있어서, 지도가 가만히 있으면 누른 나라가 어디인지 눈으로 찾아야 합니다.
    */
   const canPickStop = useCallback(
     (code: string) => stops.some((stop) => stop.country.code === code),
@@ -541,8 +528,8 @@ export function GlobalTrendsPage() {
   );
   const goToCountry = useCallback((code: string) => {
     const index = stops.findIndex((stop) => stop.country.code === code);
-    if (index >= 0) goTo(index);
-  }, [stops, goTo]);
+    if (index >= 0) flyTo(index);
+  }, [stops, flyTo]);
 
   const switchTab = useCallback((next: Tab) => {
     setTab(next);
@@ -787,11 +774,7 @@ export function GlobalTrendsPage() {
             stopIndex={tour.stopIndex}
             legProgress={tour.legProgress}
             onPickStop={(index) => {
-              /*
-               * 국가별 탭에서는 지도를 눌러도 나라를 고른 것입니다. 목록과 지도가 따로 놀면 안 됩니다.
-               * 지도를 그 나라로 끌어당기지는 않습니다. 이 화면이 먼저 답할 것은 전체 지도에서
-               * 어디가 진한가이고, 한 나라로 다가가면 그 답이 화면 밖으로 나갑니다.
-               */
+              /* 국가별 탭에서는 지도를 눌러도 나라를 고른 것입니다. 목록과 지도가 따로 놀면 안 됩니다. */
               if (isCountryTab) pickCountry(stops[index]?.country.code);
               else goTo(index);
             }}
@@ -844,16 +827,6 @@ export function GlobalTrendsPage() {
                   3D
                 </button>
               </div>
-              )}
-
-              {/* 고르는 것과 들여다보는 것을 가른 뒤, 들여다보는 쪽을 맡는 단추입니다. */}
-              {isCountryTab && country && (
-                <div className="worldtrend-tourbtns">
-                  <button type="button" onClick={zoomToCountry}>
-                    <ZoomIcon />
-                    선택 국가 확대
-                  </button>
-                </div>
               )}
 
               {flowing && (

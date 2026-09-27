@@ -92,6 +92,11 @@ export interface SpreadTour {
   pause: () => void;
   /** 자리 하나로 다가갑니다. zoom 을 주면 그만큼만 다가가, 나라 하나만 남기지 않을 수 있습니다. */
   goTo: (index: number, zoom?: number) => void;
+  /**
+   * 누른 나라로 카메라를 옮깁니다. `goTo` 와 달리 평면 지도에서도 움직입니다 — 따라가기를 끈
+   * 것은 흐름보기에서 비행기만 건너게 하려던 것이고, 사람이 나라를 콕 집은 때는 그리 가는 게 맞습니다.
+   */
+  flyTo: (index: number, zoom?: number) => void;
   showWorld: () => void;
   /** 손으로 지도를 움직일 때. 따라가던 움직임을 멈추고 조작을 넘겨받습니다. */
   steer: (update: (view: MapView) => MapView) => void;
@@ -174,6 +179,19 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     setStopIndex(-1);
     moveToStop(index, zoom);
   }, [moveToStop]);
+
+  const flyTo = useCallback((index: number, zoom = FOCUS_ZOOM) => {
+    const stop = stopsRef.current[index];
+    if (!stop) return;
+    setPlaying(false);
+    playingRef.current = false;
+    setStopIndex(-1);
+    targetRef.current = index;
+    setFocusIndex(index);
+    // 경로를 타는 것이 아니라 한 나라로 가는 것이라 비행기는 태우지 않습니다.
+    setLegProgress(null);
+    startMotion({ lon: stop.lon, lat: stop.lat, zoom }, angularDistance(viewRef.current, stop));
+  }, [startMotion]);
 
   const showWorld = useCallback(() => {
     setPlaying(false);
@@ -298,5 +316,5 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     return () => cancelAnimationFrame(frame);
   }, [moveToStop, awake]);
 
-  return { view, stopIndex, focusIndex, legProgress, playing, play, pause, goTo, showWorld, steer };
+  return { view, stopIndex, focusIndex, legProgress, playing, play, pause, goTo, flyTo, showWorld, steer };
 }
