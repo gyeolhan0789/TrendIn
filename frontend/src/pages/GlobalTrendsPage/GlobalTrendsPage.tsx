@@ -171,16 +171,19 @@ function FoldTab({ side, folded, onToggle }: { side: Panel; folded: boolean; onT
 }
 
 /** 순위 한 줄. 나라 순위와 트렌드 순위가 같은 모양이라 한곳에 둡니다. */
-function RankRow({ rank, icon, name, value, share }: {
+function RankRow({ rank, icon, name, value, share, onPick, selected = false }: {
   rank: number;
   /** 나라면 국기 그림, 트렌드면 표 하나. 자리를 늘 채워야 이름 시작점이 줄마다 맞습니다. */
   icon: ReactNode;
   name: string;
   value: string;
   share: number;
+  /** 있으면 줄을 누를 수 있습니다. 지도에 자리가 없는 나라처럼 갈 곳이 없으면 비워 둡니다. */
+  onPick?: () => void;
+  selected?: boolean;
 }) {
-  return (
-    <li>
+  const body = (
+    <>
       <div className="worldtrend-rank-row">
         <span className={`worldtrend-rank-no ${rank <= 3 ? 'is-top' : ''}`}>{rank}</span>
         {icon}
@@ -190,6 +193,22 @@ function RankRow({ rank, icon, name, value, share }: {
       <div className="worldtrend-rank-bar">
         <span style={{ width: `${share}%` }} />
       </div>
+    </>
+  );
+
+  return (
+    <li>
+      {onPick ? (
+        <button
+          type="button"
+          className={`worldtrend-rank-pick ${selected ? 'is-selected' : ''}`}
+          aria-pressed={selected}
+          aria-label={`${name} ${value}, 지도에서 보기`}
+          onClick={onPick}
+        >
+          {body}
+        </button>
+      ) : body}
     </li>
   );
 }
@@ -262,6 +281,11 @@ interface TrendSummaryProps {
   regionsLoading: boolean;
   journey: TrendJourneyStop[];
   journeyRange?: { startDate: string; endDate: string };
+  /** 지도가 지금 비추는 나라. 목록에서 같은 줄을 도드라지게 합니다. */
+  focusedCode?: string;
+  /** 줄을 누르면 지도가 그 나라로 갑니다. 지도에 자리가 없는 나라면 `false` 를 돌려줍니다. */
+  canPick: (code: string) => boolean;
+  onPickCountry: (code: string) => void;
 }
 
 /**
@@ -270,7 +294,9 @@ interface TrendSummaryProps {
  * 시간에 따른 언급량 그래프는 두지 않습니다. 그 값은 나라를 도로 합친 전 세계 합계라, 나라별로
  * 갈라 보려고 들어온 이 화면에서 혼자 축이 다릅니다. 시간 흐름은 트렌드 상세가 답할 몫입니다.
  */
-function TrendSummary({ trend, period, regions, regionsLoading, journey, journeyRange }: TrendSummaryProps) {
+function TrendSummary({
+  trend, period, regions, regionsLoading, journey, journeyRange, focusedCode, canPick, onPickCountry,
+}: TrendSummaryProps) {
   const top = Math.max(...regions.map((region) => region.mentionCount), 1);
   const firstStop = journey[0];
 
@@ -325,6 +351,9 @@ function TrendSummary({ trend, period, regions, regionsLoading, journey, journey
               name={region.countryName}
               value={`${formatCount(region.mentionCount)}건`}
               share={Math.round((region.mentionCount / top) * 100)}
+              /* 지도의 핀을 누른 것과 같습니다. 목록과 지도가 따로 놀면 안 됩니다. */
+              onPick={canPick(region.countryCode) ? () => onPickCountry(region.countryCode) : undefined}
+              selected={region.countryCode === focusedCode}
             />
           ))}
         </ol>
@@ -501,6 +530,19 @@ export function GlobalTrendsPage() {
     const index = stops.findIndex((stop) => stop.country.code === country?.countryCode);
     if (index >= 0) goTo(index, PICK_ZOOM);
   }, [stops, country?.countryCode, goTo]);
+
+  /*
+   * 트렌드별 탭 오른쪽 목록에서 나라를 누르면 지도가 그 나라로 갑니다. 지도의 핀을 누른 것과
+   * 같은 움직임입니다(`onPickStop`). 국가별 탭과 달리 이 화면은 지도가 주인공이라 다가가도 됩니다.
+   */
+  const canPickStop = useCallback(
+    (code: string) => stops.some((stop) => stop.country.code === code),
+    [stops],
+  );
+  const goToCountry = useCallback((code: string) => {
+    const index = stops.findIndex((stop) => stop.country.code === code);
+    if (index >= 0) goTo(index);
+  }, [stops, goTo]);
 
   const switchTab = useCallback((next: Tab) => {
     setTab(next);
@@ -876,6 +918,9 @@ export function GlobalTrendsPage() {
             regionsLoading={regionsQuery.isLoading}
             journey={journey}
             journeyRange={journeyQuery.data}
+            focusedCode={stops[tour.focusIndex]?.country.code}
+            canPick={canPickStop}
+            onPickCountry={goToCountry}
           />
         )}
         {((isCountryTab && !country) || (!isCountryTab && !trend)) && (

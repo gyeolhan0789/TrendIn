@@ -2310,6 +2310,11 @@ h1 { margin: 0; line-height: 1.25; }
 
 .worldtrend-rank { margin: 0; padding: 0; list-style: none; }
 .worldtrend-rank-row { display: flex; align-items: center; gap: 8px; padding: 5px 0 4px; }
+/* 누를 수 있는 순위 줄. 모양은 그대로 두고 누를 수 있다는 것만 알립니다. */
+.worldtrend-rank-pick { display: block; width: 100%; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; box-sizing: content-box; }
+.worldtrend-rank-pick:hover { background: rgba(17, 24, 39, .04); }
+.worldtrend-rank-pick:focus-visible { outline: 2px solid var(--lp-indigo); outline-offset: 1px; }
+.worldtrend-rank-pick.is-selected .worldtrend-rank-name { color: var(--lp-indigo); font-weight: 700; }
 .worldtrend-rank-no { display: grid; flex: 0 0 19px; width: 19px; height: 19px; place-items: center; border-radius: 50%; background: rgba(17, 24, 39, .08); color: var(--lp-muted); font-size: 11px; font-weight: 700; }
 .worldtrend-rank-no.is-top { background: var(--lp-indigo); color: #fff; }
 /*
