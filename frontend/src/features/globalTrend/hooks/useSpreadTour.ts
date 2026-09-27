@@ -21,6 +21,8 @@ export interface MapView {
 export interface TourStop {
   lon: number;
   lat: number;
+  /** 이 자리에서 멈출 배율. 없으면 나라 하나를 들여다보는 배율(FOCUS_ZOOM)입니다. */
+  zoom?: number;
 }
 
 /** 나라 하나를 들여다볼 때의 배율. 나라 모양이 또렷하게 보이는 정도입니다. */
@@ -72,6 +74,26 @@ function angularDistance(from: TourStop, to: TourStop) {
   return Math.hypot(lonGap, to.lat - from.lat);
 }
 
+const DEG = 180 / Math.PI;
+
+/**
+ * 여러 나라를 한꺼번에 비출 자리. 같은 날 잡힌 나라들(흐름보기의 한 묶음)이 모두 들어오게
+ * 가운데를 잡고, 퍼진 만큼 물러섭니다. 나라가 하나면 그 나라 그대로 둡니다 — 흐름보기가 아닌
+ * 화면은 나라 하나가 한 묶음이라 예전과 똑같이 움직입니다.
+ */
+export function groupCenter(points: TourStop[], maxZoom = FOCUS_ZOOM): TourStop {
+  if (points.length <= 1) return maxZoom < FOCUS_ZOOM ? { ...points[0], zoom: maxZoom } : points[0];
+  // 경도는 ±180 에서 끊기므로 평균을 벡터로 냅니다. 서울과 시애틀의 가운데가 대서양이 되지 않게.
+  const x = points.reduce((sum, point) => sum + Math.cos(point.lon / DEG), 0);
+  const y = points.reduce((sum, point) => sum + Math.sin(point.lon / DEG), 0);
+  const center = {
+    lon: Math.atan2(y, x) * DEG,
+    lat: points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+  };
+  const spread = Math.max(...points.map((point) => angularDistance(center, point)));
+  return { ...center, zoom: Math.max(WORLD_ZOOM, Math.min(maxZoom, FOCUS_ZOOM - spread / 25)) };
+}
+
 export interface SpreadTour {
   view: MapView;
   /** 지금 머무르고 있는 자리. 아직 첫 자리에 닿기 전이거나 전체 보기면 -1 입니다. */
@@ -86,6 +108,11 @@ export interface SpreadTour {
    */
   legProgress: number | null;
   playing: boolean;
+  /**
+   * 비행기를 띄울 때인가. 경로를 따라가는(자동으로 이어 가는) 동안만 참입니다. 나라를 콕 집어
+   * 옮겨 갈 때는 거짓이라, 앞 나라들에서 비행기가 한꺼번에 날아오르지 않습니다.
+   */
+  riding: boolean;
   play: () => void;
   pause: () => void;
   /** 자리 하나로 다가갑니다. zoom 을 주면 그만큼만 다가가, 나라 하나만 남기지 않을 수 있습니다. */
@@ -97,7 +124,7 @@ export interface SpreadTour {
    * **배율은 보던 그대로 둡니다.** 옮길 때마다 당기면 어디로 갔는지와 얼마나 당겼는지가 한꺼번에
    * 바뀌어 눈이 따라가지 못합니다. 더 보고 싶으면 사람이 직접 당깁니다.
    */
-  flyTo: (index: number) => void;
+  flyTo: (index: number, at?: TourStop) => void;
   showWorld: () => void;
   /** 손으로 지도를 움직일 때. 따라가던 움직임을 멈추고 조작을 넘겨받습니다. */
   steer: (update: (view: MapView) => MapView) => void;
@@ -125,6 +152,12 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
   const holdUntilRef = useRef(0);
   const stopsRef = useRef(stops);
   const playingRef = useRef(false);
+  const [riding, setRiding] = useState(false);
+  const ridingRef = useRef(false);
+  const ride = useCallback((on: boolean) => {
+    ridingRef.current = on;
+    setRiding(on);
+  }, []);
   const targetRef = useRef(-1);
 
   stopsRef.current = stops;
@@ -147,9 +180,10 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     };
   }, []);
 
-  const moveToStop = useCallback((index: number, zoom = FOCUS_ZOOM) => {
+  const moveToStop = useCallback((index: number, pickedZoom?: number) => {
     const stop = stopsRef.current[index];
     if (!stop) return;
+    const zoom = pickedZoom ?? stop.zoom ?? FOCUS_ZOOM;
     const current = viewRef.current;
     targetRef.current = index;
     setFocusIndex(index);
@@ -160,7 +194,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
      */
     if (!followRef.current) {
       const previous = stopsRef.current[index - 1] ?? stop;
-      if (index >= 1) setLegProgress(0);
+      if (index >= 1 && ridingRef.current) setLegProgress(0);
       startMotion(current, angularDistance(previous, stop), true);
       return;
     }
@@ -177,12 +211,16 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
   const goTo = useCallback((index: number, zoom?: number) => {
     setPlaying(false);
     playingRef.current = false;
+    // 콕 집어 옮겨 가는 것이라 비행기는 태우지 않습니다. 앞 구간에 서 있던 비행기도 내려놓습니다.
+    ride(false);
+    setLegProgress(null);
     setStopIndex(-1);
     moveToStop(index, zoom);
-  }, [moveToStop]);
+  }, [moveToStop, ride]);
 
-  const flyTo = useCallback((index: number) => {
-    const stop = stopsRef.current[index];
+  const flyTo = useCallback((index: number, at?: TourStop) => {
+    // 묶음 안의 한 나라를 콕 집었으면 묶음 가운데가 아니라 그 나라로 갑니다.
+    const stop = at ?? stopsRef.current[index];
     if (!stop) return;
     setPlaying(false);
     playingRef.current = false;
@@ -190,11 +228,12 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     targetRef.current = index;
     setFocusIndex(index);
     // 경로를 타는 것이 아니라 한 나라로 가는 것이라 비행기는 태우지 않습니다.
+    ride(false);
     setLegProgress(null);
     const current = viewRef.current;
     // steady — 멀리 갈 때 물러섰다 다가오는 움직임도 없앱니다. 배율을 지킨다는 뜻과 맞춥니다.
     startMotion({ lon: stop.lon, lat: stop.lat, zoom: current.zoom }, angularDistance(current, stop), true);
-  }, [startMotion]);
+  }, [startMotion, ride]);
 
   const showWorld = useCallback(() => {
     setPlaying(false);
@@ -203,19 +242,21 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     targetRef.current = -1;
     setFocusIndex(-1);
     // 전체 보기는 경로를 통째로 걷어내는 자리라, 그 위에 서 있던 비행기도 함께 내려놓습니다.
+    ride(false);
     setLegProgress(null);
     startMotion({ lon: 20, lat: 18, zoom: WORLD_ZOOM }, 40);
-  }, [startMotion]);
+  }, [startMotion, ride]);
 
   const play = useCallback(() => {
     if (stopsRef.current.length === 0) return;
     setPlaying(true);
     playingRef.current = true;
+    ride(true);
     // 마지막 자리까지 본 뒤 다시 누르면 처음부터 돕니다.
     const next = targetRef.current + 1 >= stopsRef.current.length ? 0 : targetRef.current + 1;
     setStopIndex(-1);
     moveToStop(next);
-  }, [moveToStop]);
+  }, [moveToStop, ride]);
 
   /*
    * 휠과 끌기가 들어오는 자리입니다. 따라가는 중이었다면 그 자리에서 멈춥니다. 손으로 움직이는
@@ -251,9 +292,13 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     setFocusIndex(-1);
     setStopIndex(-1);
     setLegProgress(null);
-    if (autoPlayKey === null || stops.length === 0) return;
+    if (autoPlayKey === null || stops.length === 0) {
+      ride(false);
+      return;
+    }
     setPlaying(true);
     playingRef.current = true;
+    ride(true);
     holdUntilRef.current = 0;
     moveToStop(0);
     // 키워드가 바뀔 때만 다시 시작합니다. stops 배열은 같은 키워드에서도 새로 만들어질 수 있습니다.
@@ -292,7 +337,7 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
         viewRef.current = next;
         setView(next);
         /* 비행기는 카메라와 같은 진행도를 탑니다. 태울 구간이 있을 때만 자리를 옮깁니다. */
-        if (targetRef.current >= 1) setLegProgress(eased);
+        if (targetRef.current >= 1 && ridingRef.current) setLegProgress(eased);
 
         if (ratio >= 1) {
           motionRef.current = null;
@@ -319,5 +364,5 @@ export function useSpreadTour(stops: TourStop[], autoPlayKey: string | null, fol
     return () => cancelAnimationFrame(frame);
   }, [moveToStop, awake]);
 
-  return { view, stopIndex, focusIndex, legProgress, playing, play, pause, goTo, flyTo, showWorld, steer };
+  return { view, stopIndex, focusIndex, legProgress, playing, riding, play, pause, goTo, flyTo, showWorld, steer };
 }

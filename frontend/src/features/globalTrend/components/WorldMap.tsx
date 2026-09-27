@@ -106,13 +106,20 @@ interface WorldMapProps {
   trail: boolean;
   /** 전체보기에서 도드라지게 둘 나라. 경로를 따라갈 때는 머무르는 나라가 그 자리를 대신합니다. */
   selectedCode?: string | null;
-  /** 지금 향하고 있는 자리. 여기까지의 경로만 선으로 잇습니다. */
+  /**
+   * 경로의 묶음. 같은 날 처음 잡힌 나라들이 한 묶음이고, 비행기는 묶음에서 묶음으로 한꺼번에
+   * 건넙니다. 안의 값은 `stops` 의 자리입니다. 없으면 나라 하나가 한 묶음입니다.
+   */
+  waves?: number[][];
+  /** 지금 향하고 있는 묶음. 여기까지의 경로만 선으로 잇습니다. */
   focusIndex: number;
-  /** 이미 닿아서 머무르고 있는 자리. 이름표를 펼쳐 보여 줍니다. */
+  /** 이미 닿아서 머무르고 있는 묶음. 이름표를 펼쳐 보여 줍니다. */
   stopIndex: number;
   onPickStop: (index: number) => void;
   /** 비행기가 구간을 얼마나 지났는지(0~1). null 이면 띄우지 않습니다. */
   legProgress: number | null;
+  /** 비행기를 띄울지. 경로를 따라가는 동안만 켭니다 — 나라를 콕 집어 옮겨 갈 때는 선만 남깁니다. */
+  showPlanes?: boolean;
   /** 휠·끌기로 보는 자리를 손수 바꿀 때 부릅니다. 없으면 지도는 따라가기만 합니다. */
   onSteer?: (update: (view: MapView) => MapView) => void;
 }
@@ -280,9 +287,43 @@ function markerClass(here: boolean, passed: boolean, flip: boolean) {
   return `worldmap-pin${flipped}`;
 }
 
+/**
+ * 묶음에서 다음 묶음으로 건널 짝. 떠 있던 비행기는 모두 가장 가까운 다음 나라로 떠나고,
+ * 아무도 가지 않는 나라에는 가장 가까운 출발지에서 한 대가 더 갑니다. 세 곳에서 한 곳으로 가면
+ * 세 대가 모이고, 한 곳에서 두 곳으로 가면 갈라집니다.
+ */
+function wavePairs(from: number[], to: number[], stops: MapStop[]): [number, number][] {
+  const gap = (a: number, b: number) => {
+    const left = stops[a].country;
+    const right = stops[b].country;
+    const lon = Math.abs(((((right.lon - left.lon) % 360) + 540) % 360) - 180);
+    return Math.hypot(lon, right.lat - left.lat);
+  };
+  const nearest = (index: number, among: number[]) =>
+    among.reduce((best, other) => (gap(index, other) < gap(index, best) ? other : best));
+  const pairs = new Map<string, [number, number]>();
+  for (const origin of from) {
+    const target = nearest(origin, to);
+    pairs.set(`${origin}-${target}`, [origin, target]);
+  }
+  for (const target of to) {
+    if ([...pairs.values()].some(([, reached]) => reached === target)) continue;
+    const origin = nearest(target, from);
+    pairs.set(`${origin}-${target}`, [origin, target]);
+  }
+  return [...pairs.values()];
+}
+
 export function WorldMap({
-  mode, view, stops, trail, selectedCode, focusIndex, stopIndex, legProgress, onPickStop, onSteer,
+  mode, view, stops, waves: givenWaves, trail, selectedCode, focusIndex, stopIndex, legProgress, showPlanes = true,
+  onPickStop, onSteer,
 }: WorldMapProps) {
+  const waves = useMemo(() => givenWaves ?? stops.map((_, index) => [index]), [givenWaves, stops]);
+  const waveOf = useMemo(() => {
+    const found: number[] = [];
+    waves.forEach((wave, waveIndex) => wave.forEach((index) => { found[index] = waveIndex; }));
+    return found;
+  }, [waves]);
   const [ref, size] = useElementSize();
   const { width, height } = size;
   const ready = width > 0 && height > 0;
@@ -431,16 +472,39 @@ export function WorldMap({
   /* 지나온 길입니다. 아직 닿지 않은 구간은 그리지 않아, 선이 늘어나며 따라오는 것처럼 보입니다. */
   const legs = useMemo(() => {
     const drawn: { key: string; path: string; active: boolean }[] = [];
+    const planes: Plane[] = [];
     /* 전체보기에는 건너간 차례가 없습니다. 선을 그으면 없는 순서를 지도가 지어냅니다. */
-    if (!trail) return { drawn, plane: null as Plane | null };
-    /* 비행기는 지금 건너고 있는 한 구간에만 띄웁니다. */
-    let plane: Plane | null = null;
-    const last = Math.min(focusIndex, stops.length - 1);
-    for (let index = 1; index <= last; index += 1) {
-      const from = stops[index - 1].country;
-      const to = stops[index].country;
+    if (!trail) return { drawn, planes };
+
+    /*
+     * 첫 묶음에 닿았으면 그 나라들마다 비행기를 세워 둡니다. 같은 날 여러 나라에서 잡혔으면
+     * 여러 대가 떠 있다가 다음 묶음으로 한꺼번에 떠납니다.
+     */
+    if (showPlanes && focusIndex === 0 && stopIndex === 0) {
+      for (const index of waves[0] ?? []) {
+        const country = stops[index].country;
+        if (mode === 'globe' && globe) {
+          const screen = projectGlobe(globe.frame, country.lon, country.lat);
+          if (screen.front) planes.push({ x: screen.x, y: screen.y, angle: -90 });
+        } else if (flat) {
+          const point = projectFlat(country.lon, country.lat, flat.worldWidth);
+          planes.push({ x: flat.offsetX + point.x, y: flat.offsetY + point.y, angle: -90 });
+        }
+      }
+    }
+
+    const legsToDraw: { from: number; to: number; active: boolean }[] = [];
+    const lastWave = Math.min(focusIndex, waves.length - 1);
+    for (let wave = 1; wave <= lastWave; wave += 1) {
+      for (const [from, to] of wavePairs(waves[wave - 1], waves[wave], stops)) {
+        legsToDraw.push({ from, to, active: wave === focusIndex });
+      }
+    }
+    for (const leg of legsToDraw) {
+      const from = stops[leg.from].country;
+      const to = stops[leg.to].country;
       const key = `${from.code}-${to.code}`;
-      const active = index === focusIndex;
+      const { active } = leg;
       /* 비행기를 태울 구간이면 진행도, 아니면 null 입니다. 진행도 0도 값이라 null 로만 가릅니다. */
       const riding = active ? legProgress : null;
 
@@ -457,7 +521,10 @@ export function WorldMap({
           open = true;
         }
         if (path) drawn.push({ key, path, active });
-        if (riding !== null) plane = globePlane(globe.frame, from, to, riding);
+        if (riding !== null) {
+          const plane = globePlane(globe.frame, from, to, riding);
+          if (plane) planes.push(plane);
+        }
         continue;
       }
 
@@ -478,11 +545,11 @@ export function WorldMap({
           path: `M${sx.toFixed(1)} ${sy.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`,
           active,
         });
-        if (riding !== null) plane = curvePlane(sx, sy, mx, my, ex, ey, riding);
+        if (riding !== null) planes.push(curvePlane(sx, sy, mx, my, ex, ey, riding));
       }
     }
-    return { drawn, plane };
-  }, [trail, stops, focusIndex, mode, globe, flat, width, legProgress]);
+    return { drawn, planes };
+  }, [trail, stops, waves, focusIndex, stopIndex, mode, globe, flat, width, legProgress, showPlanes]);
 
   /*
    * 트렌드가 닿은 나라는 그 나라의 값만큼 진하게 칠합니다. 같은 색으로 모두 덮으면 어디가 더
@@ -503,7 +570,7 @@ export function WorldMap({
   const DIMMED = 0.42;
 
   const highlights = stops.map((stop, index) => {
-    const here = trail ? index === stopIndex : stop.country.code === selectedCode;
+    const here = trail ? waveOf[index] === stopIndex : stop.country.code === selectedCode;
     /*
      * 진하기는 1위를 1로 둔 견줌입니다. 바닥을 0.38 로 올려 둔 것은, 언급이 가장 적은 나라도
      * 칠하지 않은 흰 나라와는 한눈에 갈려야 하기 때문입니다. 적은 것과 없는 것은 다릅니다.
@@ -512,7 +579,7 @@ export function WorldMap({
     return {
       index,
       id: stop.country.atlasId,
-      passed: trail ? index <= focusIndex : true,
+      passed: trail ? waveOf[index] <= focusIndex : true,
       here,
       depth: !here && !trail && selectedCode ? depth * DIMMED : depth,
     };
@@ -664,7 +731,7 @@ export function WorldMap({
         * 비행기만 따로 한 겹 위에 올립니다. 핀은 지도 위에 얹는 HTML 단추라 지도를 그리는
         * 그림판보다 위에 있어서, 비행기를 그림판 안에 두면 지나가는 나라의 점 밑으로 들어갑니다.
         */}
-      {ready && legs.plane && (
+      {ready && legs.planes.length > 0 && (
         <svg className="worldmap-plane-layer" width={width} height={height} aria-hidden="true">
           {/*
             * 기존 비행기 형태는 유지하고, 별 배경과 지구본 위에서 튀지 않도록 하늘빛 계열로
@@ -681,12 +748,16 @@ export function WorldMap({
               <stop offset="100%" stopColor="#5fa8ef" />
             </linearGradient>
           </defs>
-          <g
-            className="worldmap-plane"
-            transform={`translate(${legs.plane.x.toFixed(1)} ${legs.plane.y.toFixed(1)}) rotate(${(legs.plane.angle + 90).toFixed(1)}) scale(${mode === 'flat' ? PLANE_SCALE_FLAT : PLANE_SCALE}) translate(-11.5 -12)`}
-          >
-            <path d={PLANE_PATH} />
-          </g>
+          {legs.planes.map((plane, index) => (
+            <g
+              // 같은 구간 차례로 매 프레임 다시 그려집니다. 자리 번호로 이어 붙여도 깜빡이지 않습니다.
+              key={index}
+              className="worldmap-plane"
+              transform={`translate(${plane.x.toFixed(1)} ${plane.y.toFixed(1)}) rotate(${(plane.angle + 90).toFixed(1)}) scale(${mode === 'flat' ? PLANE_SCALE_FLAT : PLANE_SCALE}) translate(-11.5 -12)`}
+            >
+              <path d={PLANE_PATH} />
+            </g>
+          ))}
         </svg>
       )}
 

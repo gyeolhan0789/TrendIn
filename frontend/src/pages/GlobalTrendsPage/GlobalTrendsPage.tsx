@@ -9,7 +9,7 @@ import type { MapMode, MapStop } from '../../features/globalTrend/components/Wor
 import { countryGeoOf } from '../../features/globalTrend/data/countryGeo';
 import { useCountryTrends } from '../../features/globalTrend/hooks/useCountryTrends';
 import { useRegionCountries } from '../../features/globalTrend/hooks/useRegionCountries';
-import { useSpreadTour } from '../../features/globalTrend/hooks/useSpreadTour';
+import { groupCenter, useSpreadTour } from '../../features/globalTrend/hooks/useSpreadTour';
 import { useTrendRegionJourney } from '../../features/globalTrend/hooks/useTrendRegionJourney';
 import { useTrendRegions } from '../../features/globalTrend/hooks/useTrendRegions';
 import { useMyDomains } from '../../features/onboarding/hooks/useMyDomains';
@@ -48,6 +48,8 @@ const TIP_MS = 4500;
  * 언급량이 적어 두 목록을 한 줄로 세우면 대체로 아래쪽에 모이므로, 위쪽 자리를 빼앗지 않습니다.
  */
 const NEW_SIZE = 20;
+/** 흐름보기에서 평면 지도가 나라에 다가가는 가장 큰 배율. 지구본(3.6)보다 덜 당깁니다. */
+const FLAT_FOLLOW_ZOOM = 2.4;
 
 type Tab = 'country' | 'trend';
 
@@ -272,8 +274,8 @@ interface TrendSummaryProps {
   regionsLoading: boolean;
   journey: TrendJourneyStop[];
   journeyRange?: { startDate: string; endDate: string };
-  /** 지도가 지금 비추는 나라. 목록에서 같은 줄을 도드라지게 합니다. */
-  focusedCode?: string;
+  /** 지도가 지금 비추는 나라들(흐름보기에서는 한 묶음). 목록에서 같은 줄을 도드라지게 합니다. */
+  focusedCodes: string[];
   /** 줄을 누르면 지도가 그 나라로 갑니다. 지도에 자리가 없는 나라면 `false` 를 돌려줍니다. */
   canPick: (code: string) => boolean;
   onPickCountry: (code: string) => void;
@@ -286,7 +288,7 @@ interface TrendSummaryProps {
  * 갈라 보려고 들어온 이 화면에서 혼자 축이 다릅니다. 시간 흐름은 트렌드 상세가 답할 몫입니다.
  */
 function TrendSummary({
-  trend, period, regions, regionsLoading, journey, journeyRange, focusedCode, canPick, onPickCountry,
+  trend, period, regions, regionsLoading, journey, journeyRange, focusedCodes, canPick, onPickCountry,
 }: TrendSummaryProps) {
   const top = Math.max(...regions.map((region) => region.mentionCount), 1);
   const firstStop = journey[0];
@@ -344,7 +346,7 @@ function TrendSummary({
               share={Math.round((region.mentionCount / top) * 100)}
               /* 지도의 핀을 누른 것과 같습니다. 목록과 지도가 따로 놀면 안 됩니다. */
               onPick={canPick(region.countryCode) ? () => onPickCountry(region.countryCode) : undefined}
-              selected={region.countryCode === focusedCode}
+              selected={focusedCodes.includes(region.countryCode)}
             />
           ))}
         </ol>
@@ -447,11 +449,12 @@ export function GlobalTrendsPage() {
 
   /*
    * 흐름보기가 열리는 조건입니다. 확산 경로는 트렌드 하나의 이야기라 국가별 탭에는 따라갈
-   * 대상이 없고, 30일이 아니면 경로를 낼 만큼 날짜가 쌓이지 않으며, 신규가 아닌 트렌드는
-   * 처음 잡힌 날이 구간 첫날에 몰려 길이 한 점으로 뭉갭니다.
+   * 대상이 없고, 30일이 아니면 경로를 낼 만큼 날짜가 쌓이지 않습니다.
+   *
+   * 예전에는 신규 트렌드에서만 열었습니다. 오래 불려 온 트렌드는 처음 잡힌 날이 구간 첫날에
+   * 몰려 길이 짧아지지만, 신규가 드물어 흐름보기에 닿을 길이 거의 없던 것이 더 컸습니다.
    */
-  const isNewTrend = trend?.trendTypes.includes('NEW') ?? false;
-  const canFlow = !isCountryTab && period === '30D' && isNewTrend;
+  const canFlow = !isCountryTab && period === '30D';
   const flowing = canFlow && flowWanted;
 
   const journeyQuery = useTrendRegionJourney(canFlow ? trendId : undefined);
@@ -484,10 +487,46 @@ export function GlobalTrendsPage() {
     });
   }, [flowing, isCountryTab, countries, regions, journey]);
 
-  const route = useMemo(() => stops.map((stop) => stop.country), [stops]);
+  /*
+   * 경로의 묶음. 흐름보기에서는 같은 날 처음 잡힌 나라들을 한 묶음으로 둡니다 — 따로 세우면
+   * 비행기가 같은 날짜의 나라들 사이를 오가며 없는 차례를 지어냅니다. 묶음 안의 나라들에
+   * 비행기가 한꺼번에 떠 있다가 다음 묶음으로 동시에 건넙니다. 나머지 화면은 나라 하나가 한 묶음입니다.
+   */
+  const waves = useMemo(() => {
+    if (!flowing) return stops.map((_, index) => [index]);
+    const grouped: number[][] = [];
+    stops.forEach((stop, index) => {
+      const last = grouped[grouped.length - 1];
+      if (last && stops[last[0]].since === stop.since) last.push(index);
+      else grouped.push([index]);
+    });
+    return grouped;
+  }, [flowing, stops]);
+  const waveOf = useMemo(() => {
+    const found: number[] = [];
+    waves.forEach((wave, waveIndex) => wave.forEach((index) => { found[index] = waveIndex; }));
+    return found;
+  }, [waves]);
+  /*
+   * 평면 지도는 덜 다가갑니다. 세계가 통째로 펼쳐져 있어 지구본만큼 당기면 이웃 나라가 화면
+   * 밖으로 나가, 어디서 어디로 가는 길인지가 끊깁니다.
+   */
+  const route = useMemo(
+    () => waves.map((wave) => groupCenter(
+      wave.map((index) => stops[index].country),
+      mapMode === 'flat' ? FLAT_FOLLOW_ZOOM : undefined,
+    )),
+    [waves, stops, mapMode],
+  );
   /* 따라가기는 흐름보기에서만 저절로 시작합니다. 나머지 화면에서는 지도가 가만히 있어야 읽힙니다. */
-  /* 평면 지도에서는 세계를 통째로 둔 채 비행기만 건넙니다. 지구본은 뒤쪽이 가려져 따라 돕니다. */
-  const tour = useSpreadTour(route, flowing ? `flow-${trendId}` : null, mapMode === 'globe');
+  /*
+   * 흐름보기에서는 평면 지도도 카메라가 묶음을 따라갑니다. 예전에는 세계를 통째로 둔 채 비행기만
+   * 건넜는데, 묶음마다 알맞은 가운데와 배율로 옮겨 주니 오히려 길이 잘 읽혔습니다. 흐름보기가
+   * 아닐 때 핀을 누르면 평면 지도는 그대로 있습니다(배율 유지 규칙).
+   */
+  const tour = useSpreadTour(
+    route, flowing ? `flow-${trendId}` : null, mapMode === 'globe' || flowing,
+  );
   const { goTo, flyTo, showWorld } = tour;
 
   // 고른 것이 밀려났으면 지금 보고 있는 것으로 상태를 맞춰 둡니다.
@@ -515,8 +554,8 @@ export function GlobalTrendsPage() {
     if (!code) return;
     setSelectedCountryCode(code);
     const index = stops.findIndex((stop) => stop.country.code === code);
-    if (index >= 0) flyTo(index);
-  }, [stops, flyTo]);
+    if (index >= 0) flyTo(waveOf[index], stops[index].country);
+  }, [stops, waveOf, flyTo]);
 
   /*
    * 트렌드별 탭 오른쪽 목록에서 나라를 누르면 지도가 그 나라로 갑니다. 2D 에서도 갑니다 — 목록은
@@ -528,8 +567,8 @@ export function GlobalTrendsPage() {
   );
   const goToCountry = useCallback((code: string) => {
     const index = stops.findIndex((stop) => stop.country.code === code);
-    if (index >= 0) flyTo(index);
-  }, [stops, flyTo]);
+    if (index >= 0) flyTo(waveOf[index], stops[index].country);
+  }, [stops, waveOf, flyTo]);
 
   const switchTab = useCallback((next: Tab) => {
     setTab(next);
@@ -770,13 +809,15 @@ export function GlobalTrendsPage() {
             stops={stops}
             trail={flowing}
             selectedCode={isCountryTab ? country?.countryCode : null}
+            waves={waves}
             focusIndex={tour.focusIndex}
             stopIndex={tour.stopIndex}
             legProgress={tour.legProgress}
+            showPlanes={tour.riding}
             onPickStop={(index) => {
               /* 국가별 탭에서는 지도를 눌러도 나라를 고른 것입니다. 목록과 지도가 따로 놀면 안 됩니다. */
               if (isCountryTab) pickCountry(stops[index]?.country.code);
-              else goTo(index);
+              else goTo(waveOf[index]);
             }}
             onSteer={tour.steer}
           />
@@ -831,7 +872,7 @@ export function GlobalTrendsPage() {
 
               {flowing && (
                 <div className="worldtrend-tourbtns">
-                  <button type="button" disabled={stops.length < 2} onClick={tour.playing ? tour.pause : tour.play}>
+                  <button type="button" disabled={waves.length < 2} onClick={tour.playing ? tour.pause : tour.play}>
                     {tour.playing ? '멈춤' : '경로 따라가기'}
                   </button>
                 </div>
@@ -859,8 +900,8 @@ export function GlobalTrendsPage() {
                   <li key={stop.country.code}>
                     <button
                       type="button"
-                      className={`worldtrend-flow-stop ${index <= tour.focusIndex ? 'is-passed' : ''} ${index === tour.stopIndex ? 'is-here' : ''}`}
-                      onClick={() => goTo(index)}
+                      className={`worldtrend-flow-stop ${waveOf[index] <= tour.focusIndex ? 'is-passed' : ''} ${waveOf[index] === tour.stopIndex ? 'is-here' : ''}`}
+                      onClick={() => goTo(waveOf[index])}
                     >
                       <CountryFlag code={stop.country.code} className="worldtrend-flow-flag" />
                       <span className="worldtrend-flow-name">{stop.country.name}</span>
@@ -891,7 +932,7 @@ export function GlobalTrendsPage() {
             regionsLoading={regionsQuery.isLoading}
             journey={journey}
             journeyRange={journeyQuery.data}
-            focusedCode={stops[tour.focusIndex]?.country.code}
+            focusedCodes={(waves[tour.focusIndex] ?? []).map((index) => stops[index].country.code)}
             canPick={canPickStop}
             onPickCountry={goToCountry}
           />
