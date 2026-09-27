@@ -16,25 +16,16 @@ export interface TrendDetailLocationState {
 
 /**
  * 트렌드 상세로 가는 링크를 만듭니다. `<Link {...openDetail(trendId)}>` 처럼 펼쳐 쓰고,
- * 코드로 옮길 때는 `const { to, state, replace } = openDetail(id)` 로 나눠 씁니다.
- *
- * **상세 위에서 다른 상세를 열면 뒤 화면을 물려받고 이력을 바꿔치기합니다.** 상세가 닫히는 도중에
- * 뒤 화면의 다른 트렌드를 누르면 지금 주소가 아직 상세라, 그대로 두면 뒤 화면이 '앞 상세'가 되고
- * 이력에 상세가 두 칸 쌓입니다. 그러면 닫기(뒤로 가기)가 앞 상세로 돌아가 닫히는 중인 패널이
- * 그대로 멈춰 서고, 새로고침해야 풀렸습니다.
+ * 코드로 옮길 때는 `const { to, state } = openDetail(id)` 로 나눠 씁니다.
  */
 export function useTrendDetailLink() {
   const location = useLocation();
 
   return useCallback(
-    (trendId: number, search = '') => {
-      const background = (location.state as TrendDetailLocationState | null)?.backgroundLocation;
-      return {
-        to: { pathname: `/trends/${trendId}`, search: trendDetailSearch(location.search, search) },
-        state: { backgroundLocation: background ?? location } satisfies TrendDetailLocationState,
-        replace: Boolean(background),
-      };
-    },
+    (trendId: number, search = '') => ({
+      to: { pathname: `/trends/${trendId}`, search: trendDetailSearch(location.search, search) },
+      state: { backgroundLocation: location } satisfies TrendDetailLocationState,
+    }),
     [location],
   );
 }

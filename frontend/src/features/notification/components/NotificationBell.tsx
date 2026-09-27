@@ -87,8 +87,8 @@ export function NotificationBell() {
     }
     if (!notification.isRead) markAsRead.mutate(notification.notificationId);
     setOpen(false);
-    const { to, state, replace } = openDetail(notification.trendId);
-    navigate(to, { state, replace });
+    const { to, state } = openDetail(notification.trendId);
+    navigate(to, { state });
   };
 
   return (

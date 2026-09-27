@@ -155,7 +155,14 @@ export function TrendDetailPage() {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     setIsClosing(true);
+    /*
+     * 닫히는 사이 주소가 바뀌었으면(다른 트렌드를 열었으면) 뒤로 가지 않습니다. 가면 방금 연
+     * 상세가 지워지고 앞 상세로 돌아가 닫히는 중인 패널이 멈춰 섭니다. 주소는 pushState 가
+     * 곧바로 바꾸므로, 화면이 다시 그려지기 전에 예약이 먼저 터져도 여기서 걸러집니다.
+     */
+    const closingHref = window.location.href;
     closeTimerRef.current = window.setTimeout(() => {
+      if (window.location.href !== closingHref) return;
       if (backgroundLocation) navigate(-1);
       else navigate(fallbackPath);
     }, 380);

@@ -418,7 +418,8 @@ h1 { margin: 0; line-height: 1.25; }
 .drawer-background { min-height: 100vh; min-height: 100dvh; }
 /* 뒤에 깔린 화면의 붙박이 머리글(.landing-header, z-index 50)보다 위에 있어야 패널이 가려지지 않습니다. */
 .modal-backdrop { display: flex; position: fixed; inset: 0; z-index: 60; justify-content: flex-end; background: #20222642; backdrop-filter: blur(6px); animation: fade-in .4s cubic-bezier(.22, .8, .22, 1) both; }
-.modal-backdrop.is-closing { pointer-events: none; animation: fade-out .34s cubic-bezier(.4, 0, 1, 1) both; }
+/* 닫히는 동안에도 클릭을 받아 둡니다. 흘려보내면 그 사이 뒤 화면의 다른 트렌드가 열려 닫기와 엉킵니다. */
+.modal-backdrop.is-closing { animation: fade-out .34s cubic-bezier(.4, 0, 1, 1) both; }
 .detail-drawer { width: min(100vw, max(720px, 50vw)); height: 100%; min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 38px 42px; border-left: 1px solid #e1e5eb; outline: none; background: #fff; box-shadow: -10px 0 80px #29292920; animation: drawer-in .46s cubic-bezier(.22, .8, .22, 1) both; }
 .detail-drawer.is-closing { animation: drawer-out .36s cubic-bezier(.4, 0, 1, 1) both; }
 .accent { color: var(--accent) !important; }
