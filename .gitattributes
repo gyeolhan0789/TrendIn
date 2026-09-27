@@ -8,3 +8,6 @@ scripts/*.sh text eol=lf
 load-test/**/*.sh text eol=lf
 load-test/**/*.sql text eol=lf
 load-test/**/*.js text eol=lf
+
+# DB 덤프도 LF 로 체크아웃한다. CRLF 가 섞이면 COPY 데이터 블록의 값이 어긋난다.
+exec/db/*.sql text eol=lf
