@@ -161,7 +161,7 @@ S15P21A102/
 │       └── components/       공용 레이아웃과 UI 조각
 ├── pipeline/                 Airflow DAG 과 Spark Job
 │   ├── dags/
-│   │   ├── fashion/          fashion_collect — 패션 매거진 7곳, 매시 정각
+│   │   ├── fashion/          fashion_collect — 패션 매체 41곳, 매시 정각
 │   │   └── pipeline/         spark_ingest → extract → concept → aggregate → analyze
 │   └── src/trendin/
 │       ├── common/collect/   수집 DAG 공용 틀
