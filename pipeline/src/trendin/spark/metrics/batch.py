@@ -117,6 +117,9 @@ class AggregateResult:
     # 유형을 하나라도 받은 `(키워드, 기간)` 수. 같은 키워드가 기간마다 따로 세어진다.
     trend_verdicts: int
     stats: tuple[Stat, ...]
+    # 이번 회차의 접기·거르기 규칙. 나라별 적재가 순위와 같은 기준을 쓰도록 넘겨준다
+    # (`io/metrics.country_fold_rows`). 키워드가 없어 일찍 끝난 회차에는 없다.
+    grouping: Grouping | None = None
 
 
 def load_series(sink: MetricSink, horizon: Window) -> dict[int, Series]:
@@ -663,6 +666,7 @@ def run(
         log.warning("--dry-run: 계산만 하고 쓰지 않는다")
         return AggregateResult(
             reference, len(series), len(buckets), len(staged_metrics), badged, tuple(stats),
+            grouping,
         )
 
     sink.write(
@@ -679,4 +683,5 @@ def run(
     )
     return AggregateResult(
         reference, len(series), len(buckets), len(staged_metrics), badged, tuple(stats),
+        grouping,
     )

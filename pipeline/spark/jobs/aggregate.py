@@ -45,9 +45,10 @@ from trendin.spark.common.config import Config, ConfigError
 from trendin.spark.common.logging import get_logger
 from trendin.spark.common.run_id import default_run_id
 from trendin.spark.io import stats as stats_io
-from trendin.spark.io.metrics import MetricSink
+from trendin.spark.io.metrics import MetricSink, country_fold_rows
 from trendin.spark.metrics import batch
 from trendin.spark.metrics import windows as window_rules
+from trendin.spark.metrics.concepts import Grouping
 from trendin.spark.metrics.relations import RelationThresholds
 from trendin.spark.metrics.thresholds import AggregateThresholds
 from trendin.spark.normalize.documents import KST
@@ -180,7 +181,9 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
     # 기대지 않지만, 승격이 막히면 둘 다 쓸 것이 없다는 사정이 같다.
     if not dry_run:
         _rebuild_relations(sink, config, reference_day=result.reference_day)
-        _rebuild_country_metrics(sink, thresholds, reference_day=result.reference_day)
+        _rebuild_country_metrics(
+            sink, thresholds, reference_day=result.reference_day, grouping=result.grouping
+        )
 
     if not dry_run:
         stats = stats_io.BatchStats(config, job=JOB)
@@ -189,7 +192,11 @@ def run(spark: SparkSession, config: Config, args: argparse.Namespace) -> None:
 
 
 def _rebuild_country_metrics(
-    sink: MetricSink, thresholds: AggregateThresholds, *, reference_day: date
+    sink: MetricSink,
+    thresholds: AggregateThresholds,
+    *,
+    reference_day: date,
+    grouping: Grouping | None = None,
 ) -> None:
     """원자료의 국가 칸을 국가 축 지표로 옮긴다 (`io/metrics.COUNTRY_SQL` 의 주석).
 
@@ -199,12 +206,20 @@ def _rebuild_country_metrics(
 
     **창이 시계열과 같다.** 국가 축만 다른 구간을 갈아 쓰면 같은 키워드의 전국 그래프와
     나라별 그래프가 서로 다른 시기를 말한다.
+
+    **접기·거르기도 순위와 같다** (`io/metrics.COUNTRY_SQL` 의 주석). 트렌드의 전체 언급량과
+    나라별 언급량의 합이 같은 표기들을 센 숫자여야 한다.
     """
     if not sink.country_table_ready():
         log.warning("keyword_country_daily_metrics 가 없다 — 국가별 언급량을 건너뛴다")
         return
     window = window_rules.history_window(reference_day, thresholds.recompute_window_days)
-    written = sink.rebuild_country_metrics(window_start=window.start, window_end=window.end)
+    fold = (
+        country_fold_rows(grouping.representative, grouping.silenced) if grouping else []
+    )
+    written = sink.rebuild_country_metrics(
+        window_start=window.start, window_end=window.end, fold=fold
+    )
     log.info(
         "국가별 일 언급량 %d행 — 재계산 [%s, %s)",
         written,
