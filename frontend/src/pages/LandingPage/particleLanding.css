@@ -214,3 +214,10 @@
   }
   .particle-landing.demo-page--v3 .trends-section { padding-top: clamp(24px, 3vh, 48px); }
 }
+
+/* 맨 위로 단추. 머리글(50)보다 아래, 트렌드 상세 패널(60)보다 아래에 둡니다. */
+.particle-landing .back-to-top { position: fixed; right: clamp(16px, 2.4vw, 36px); bottom: clamp(16px, 3vh, 36px); z-index: 40; display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #e1e5ef; border-radius: 50%; background: rgba(255, 255, 255, .96); color: #202538; box-shadow: 0 10px 30px rgba(32, 37, 56, .14); cursor: pointer; opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity .25s ease, transform .25s ease, background-color .15s ease; }
+.particle-landing .back-to-top.is-shown { opacity: 1; transform: none; pointer-events: auto; }
+.particle-landing .back-to-top:hover { background: #fff; color: #4f46e5; }
+.particle-landing .back-to-top:focus-visible { outline: 2px solid #4f46e5; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .particle-landing .back-to-top { transition: none; } }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession';
 import { SiteFooter } from '../../components/layout/SiteFooter';
+import { BackToTop } from './components/BackToTop';
 import { FeaturedContentsCarousel } from './components/FeaturedContentsCarousel';
 import { ParticleWave } from './components/ParticleWave';
 import { TodayTrends } from './components/TodayTrends';
@@ -131,6 +132,7 @@ export function LandingPage() {
         </section>}
       </main>
       <SiteFooter />
+      <BackToTop />
     </div>
   );
 }
