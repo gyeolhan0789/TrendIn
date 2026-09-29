@@ -194,6 +194,7 @@ function KeywordCard() {
           type="text"
           value={query}
           aria-label="키워드 검색"
+          autoComplete="off"
           placeholder="관심 키워드를 입력해 찾아보세요."
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}

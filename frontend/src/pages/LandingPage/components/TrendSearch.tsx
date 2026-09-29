@@ -40,6 +40,7 @@ export function TrendSearch() {
       <input
         id="trend-query"
         type="search"
+        autoComplete="off"
         value={input}
         onFocus={requireLogin}
         onChange={(event) => { if (!requireLogin()) setInput(event.target.value); }}

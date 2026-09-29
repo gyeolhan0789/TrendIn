@@ -50,6 +50,7 @@ export function KeywordSearchBar() {
           type="text"
           value={query}
           aria-label="키워드 검색"
+          autoComplete="off"
           placeholder="키워드를 추가해보세요"
           onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
