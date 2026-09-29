@@ -1,0 +1,119 @@
+/*
+ * 오프닝 전용 차림표입니다. 랜딩의 particleLanding.css 와 겹치는 이름을 하나도 쓰지 않아,
+ * 이 파일이 불려도 랜딩 화면은 그대로입니다.
+ */
+.opening-body { overflow: hidden; }
+
+.opening-stage {
+  --opening-light: 0%;
+  --opening-dark: 1;
+  --opening-caption: 0;
+  --mark-opacity: 0;
+  --mark-width: 30vw;
+  --mark-shift: 0vw;
+  --word-opacity: 0;
+  --word-width: 20vw;
+  --word-shift: 0vw;
+  --canvas-opacity: 1;
+  --opening-sweep-solid: -50%;
+  --opening-sweep-mid: -28%;
+  --opening-sweep-edge: -4%;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* 랜딩의 --scroll-light 과 같은 식으로, 어두운 바탕이 흰색까지 건너갑니다. */
+  background: color-mix(in srgb, #070b10, #fff var(--opening-light));
+  font-family: Inter, Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 랜딩 demo-page--v3 의 성운과 같은 그라데이션입니다. 밝아질수록 걷힙니다. */
+.opening-nebula {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% 46%, #152330 0%, #0b121a 35%, #070b10 72%);
+  opacity: var(--opening-dark);
+}
+
+/*
+ * 아래에서 차오르는 흰 빛. 파티클보다 아래에 깔아야, 밝아진 구간에서도 입자가 잉크처럼
+ * 위에 남습니다. 흰 면을 덮어 버리면 마지막에 화면이 그냥 백지가 됩니다.
+ */
+.opening-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /*
+   * 흰빛이 어두운 남색 위로 그냥 풀리면 가운데가 중성 회색으로 뜹니다. 번지는 구간에
+   * 연한 파랑을 한 번 거치게 해서, 밝아지는 동안에도 랜딩의 색 계열 안에 머무릅니다.
+   */
+  background: linear-gradient(to top,
+    #fff 0%,
+    #fff var(--opening-sweep-solid),
+    rgba(226, 234, 255, .58) var(--opening-sweep-mid),
+    rgba(203, 216, 250, 0) var(--opening-sweep-edge));
+}
+
+.opening-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  opacity: var(--canvas-opacity);
+}
+
+/*
+ * 프로젝터에서도 읽히도록 랜딩(clamp(23px, 3vw, 38px))보다 훨씬 크게 잡았습니다. 1920 폭에서
+ * 약 84px 입니다. 뒤로 그림자를 깔아, 지나가는 입자가 글자에 닿아도 획이 묻히지 않습니다.
+ */
+.opening-caption {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: min(1180px, calc(100% - 160px));
+  margin: 0;
+  color: #f4f8ff;
+  font-size: clamp(30px, 4.4vw, 88px);
+  font-weight: 500;
+  letter-spacing: -.045em;
+  line-height: 1.42;
+  text-align: center;
+  text-shadow: 0 0 60px rgba(7, 11, 16, .92), 0 2px 18px rgba(7, 11, 16, .8);
+  opacity: var(--opening-caption);
+  translate: -50% -50%;
+  transform: translateY(calc((1 - var(--opening-caption)) * 16px));
+}
+
+/*
+ * 마지막 로고 락업. 마크는 입자가 모여든 자리에 그대로 떠오르므로, 폭과 자리를 JS 가 셰이더와
+ * 같은 상수에서 계산해 --mark-* 로 내려 줍니다.
+ *
+ * 크기는 scale() 이 아니라 폭을 직접 바꿉니다. scale 은 가운데를 잡아 주는 translate(-50%) 를
+ * 같이 늘리지 않아 크기가 바뀌는 동안 중심이 흘러가는데, 폭을 바꾸면 그런 일이 없습니다.
+ */
+.opening-mark,
+.opening-word {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  height: auto;
+}
+
+.opening-mark {
+  width: var(--mark-width);
+  opacity: var(--mark-opacity);
+  /* 마크 그림은 상자 한가운데보다 조금 아래에 있어, 그만큼(3.5%) 올려 눈으로 가운데를 맞춥니다. */
+  transform: translate(-50%, -53.5%) translateX(var(--mark-shift));
+}
+
+.opening-word {
+  width: var(--word-width);
+  opacity: var(--word-opacity);
+  transform: translate(-50%, -50%) translateX(var(--word-shift));
+}

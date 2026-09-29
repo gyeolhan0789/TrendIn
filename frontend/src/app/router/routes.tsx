@@ -12,6 +12,7 @@ const MyPage = lazy(() => import('../../pages/MyPage/MyPage').then(({ MyPage }) 
 const NotificationSettingsPage = lazy(() => import('../../pages/NotificationSettingsPage/NotificationSettingsPage').then(({ NotificationSettingsPage }) => ({ default: NotificationSettingsPage })));
 const OAuthCallbackPage = lazy(() => import('../../pages/OAuthCallbackPage/OAuthCallbackPage').then(({ OAuthCallbackPage }) => ({ default: OAuthCallbackPage })));
 const OnboardingPage = lazy(() => import('../../pages/OnboardingPage/OnboardingPage').then(({ OnboardingPage }) => ({ default: OnboardingPage })));
+const OpeningPage = lazy(() => import('../../pages/OpeningPage/OpeningPage').then(({ OpeningPage }) => ({ default: OpeningPage })));
 const ProfileEditPage = lazy(() => import('../../pages/ProfileEditPage/ProfileEditPage').then(({ ProfileEditPage }) => ({ default: ProfileEditPage })));
 const RecentActivityPage = lazy(() => import('../../pages/RecentActivityPage/RecentActivityPage').then(({ RecentActivityPage }) => ({ default: RecentActivityPage })));
 const SavedTrendPage = lazy(() => import('../../pages/SavedTrendPage/SavedTrendPage').then(({ SavedTrendPage }) => ({ default: SavedTrendPage })));
@@ -23,6 +24,13 @@ const TrendDetailPage = lazy(() => import('../../pages/TrendDetailPage/TrendDeta
  * 토큰을 요구하므로, 로그인 전에는 화면이 알아서 자료 없는 모양으로 내려앉습니다.
  */
 export const landingRoutes = <Route path="/" element={<LandingPage />} />;
+
+/*
+ * 발표 자료 첫 장에 넣을 오프닝 영상을 녹화하는 화면입니다. 머리말·푸터·검색창이 한 조각도
+ * 끼면 안 되므로 공용 레이아웃 밖에 둡니다. 서비스 화면이 아니라 녹화용 무대라서 어디에도
+ * 링크를 걸지 않았고, 주소를 아는 사람만 엽니다.
+ */
+export const openingRoutes = <Route path="/opening" element={<OpeningPage />} />;
 
 /* 새 시안으로 다시 그렸고, 자료를 받으려면 로그인해야 하는 화면들. */
 export const siteRoutes = (

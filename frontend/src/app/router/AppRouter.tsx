@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from '../../components/layout/AppLayout';
 import { SiteLayout } from '../../components/layout/SiteLayout';
 import { RequireAuth } from './RequireAuth';
-import { appRoutes, authRoutes, landingRoutes, siteRoutes, stageRoutes } from './routes';
+import { appRoutes, authRoutes, landingRoutes, openingRoutes, siteRoutes, stageRoutes } from './routes';
 import type { TrendDetailLocationState } from '../../features/trend/trendDetailLink';
 
 export function AppRouter() {
@@ -32,6 +32,8 @@ function RoutedScreens() {
     <>
       <Routes location={backgroundLocation ?? location}>
         {authRoutes}
+        {/* 발표용 오프닝. 레이아웃을 걸치지 않아 캔버스와 카피 말고는 아무것도 뜨지 않습니다. */}
+        {openingRoutes}
         {/* 새 시안 화면들. 랜딩만 가드 밖이고 나머지는 토큰이 있어야 자료를 받습니다. */}
         <Route element={<SiteLayout />}>
           {landingRoutes}
