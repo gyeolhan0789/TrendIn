@@ -22,8 +22,8 @@
 .particle-landing .site-footer > span:first-child span { color: #0f62fe; }
 .particle-landing .hero { position: relative; min-height: max(720px, 100svh); background: radial-gradient(ellipse at 18% 56%, rgba(213, 222, 249, .24), transparent 52%), radial-gradient(ellipse at 82% 43%, rgba(217, 206, 247, .22), transparent 50%), #fff; }
 .particle-landing .particle-canvas { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-.particle-landing .wave-hit-area { position: absolute; z-index: 2; inset: 12% 10% 10%; cursor: grab; touch-action: pan-y; }
-.particle-landing .wave-hit-area.is-dragging { cursor: grabbing; }
+.particle-landing .wave-hit-area { position: absolute; z-index: 2; inset: 12% 10% 10%; cursor: pointer; touch-action: pan-y; }
+.particle-landing .wave-hit-area.is-dragging { cursor: pointer; }
 .particle-landing .trends-section { position: relative; min-height: max(840px, 112svh); padding: clamp(90px, 11vw, 150px) clamp(24px, 4vw, 64px) 125px; background: linear-gradient(180deg, rgba(255, 255, 255, .92), rgba(250, 251, 255, .94) 45%, #fff); }
 /*
  * 내용이 창을 따라 넓어집니다. 못박아 두면 넓은 모니터에서 가운데만 쓰고 양옆이 크게 비어,
