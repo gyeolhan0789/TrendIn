@@ -8,12 +8,16 @@ import { useEffect } from 'react';
  * CSS 로 늘릴 수단이 없고, 그 속도로는 별이 흩어지는 장면이 한 순간에 지나갑니다.
  * 그래서 굴림을 받아 스크롤을 직접 옮깁니다.
  *
- * particleLanding.css 의 같은 미디어 쿼리와 짝입니다. 거기서 칸 높이를 한 화면으로 맞추고
- * 여기서 그 칸 사이를 옮깁니다. 한쪽만 고치면 멎는 자리와 칸의 경계가 어긋납니다.
+ * 창이 넉넉하면 particleLanding.css 가 칸마다 한 화면 높이로 맞춰 한 번에 한 칸씩 넘어갑니다.
+ * 크게 확대해 창이 좁거나 낮아지면 칸이 한 화면보다 길어지는데, 그때는 그 칸 안에서도
+ * 한 화면씩 끊어 멎습니다. 그래서 배율과 상관없이 넘김이 켜져 있고 칸 아래쪽도 다 보입니다.
  */
 
-/** 칸 넘김을 켜는 창 크기. particleLanding.css 의 같은 값과 맞춰야 합니다. */
-export const GLIDE_AT = '(min-width: 901px) and (min-height: 700px)';
+/**
+ * 칸 넘김을 켜는 기기. 창 크기가 아니라 마우스 같은 정밀한 포인터를 봅니다. 손가락으로
+ * 밀어 보는 기기에서 멎는 자리로 끌어당기면 읽던 자리가 튀어 오히려 거슬립니다.
+ */
+export const GLIDE_AT = '(hover: hover) and (pointer: fine)';
 
 /** 붙박이 머리글이 덮는 높이. 칸의 머리가 그 아래에서 시작합니다. */
 const HEADER_HEIGHT = 64;
@@ -80,10 +84,23 @@ export function useSectionGlide() {
         if (!page) return [];
         const sections = page.querySelectorAll<HTMLElement>('.hero, .trends-section, .featured-section');
         const max = Math.max(0, Math.round(document.documentElement.scrollHeight - window.innerHeight));
-        const tops = [...sections].map((section) => {
-          const top = Math.round(section.getBoundingClientRect().top + window.scrollY - HEADER_HEIGHT);
-          return Math.max(0, Math.min(max, top));
+        const view = Math.max(1, window.innerHeight - HEADER_HEIGHT);
+        const clamp = (y: number) => Math.max(0, Math.min(max, Math.round(y)));
+        const tops: number[] = [];
+        sections.forEach((section) => {
+          const rect = section.getBoundingClientRect();
+          const top = rect.top + window.scrollY - HEADER_HEIGHT;
+          tops.push(clamp(top));
+          /*
+           * 한 화면보다 긴 칸은 한 화면씩 끊어 멎고, 마지막은 칸의 바닥이 화면 바닥에 닿는
+           * 자리입니다. 머리만 멎으면 넘친 아래쪽이 멎는 자리 사이에 끼어 보이지 않습니다.
+           */
+          const last = top + rect.height - view;
+          for (let y = top + view; y < last; y += view) tops.push(clamp(y));
+          if (last > top) tops.push(clamp(last));
         });
+        tops.sort((a, b) => a - b);
+        for (let i = tops.length - 1; i > 0; i -= 1) if (tops[i] - tops[i - 1] <= 8) tops.splice(i, 1);
         /*
          * 푸터는 한 칸을 채우지 않지만 멎는 자리는 하나 있어야 합니다. 없으면 마지막 칸이
          * 끝이 되어 푸터까지 내려갈 길이 없습니다.
@@ -192,7 +209,7 @@ export function useSectionGlide() {
       };
     };
 
-    /* 창 크기가 켜는 조건을 오갈 때만 붙이고 뗍니다. 좁은 창에서는 평소 스크롤 그대로입니다. */
+    /* 포인터가 켜는 조건을 오갈 때만 붙이고 뗍니다. 손가락 기기에서는 평소 스크롤 그대로입니다. */
     const sync = () => {
       if (media.matches && !release) release = attach();
       else if (!media.matches && release) { release(); release = null; }
