@@ -1,3 +1,6 @@
+/* 메인화면에서만 오른쪽 스크롤바를 숨깁니다. 스크롤은 그대로 됩니다. 비워 둔 스크롤바 자리도 없애 화면을 꽉 채웁니다. */
+html:has(.particle-landing) { scrollbar-width: none; scrollbar-gutter: auto; }
+html:has(.particle-landing)::-webkit-scrollbar { display: none; }
 .particle-landing { font-family: Inter, Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; color: #202538; background: #fff; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
 .particle-landing * { box-sizing: border-box; }
 .particle-landing.demo-page--v2 { background: #070b10; color: #f0f5ff; }
